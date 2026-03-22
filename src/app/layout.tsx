@@ -36,10 +36,10 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: `${basePath}/tx-icon.png`,
-        width: 512,
-        height: 512,
-        alt: "ALL in ONE TX",
+        url: `${basePath}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "ALL in ONE TX | Stake, PSE, Explore, Track",
       },
     ],
   },
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
     description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
-    images: [`${basePath}/tx-icon.png`],
+    images: [`${basePath}/og-image.png`],
   },
   robots: {
     index: true,
