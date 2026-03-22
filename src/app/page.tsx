@@ -489,7 +489,7 @@ function OverviewTab({
           <div>
             <div style={{ fontSize: "0.68rem", opacity: 0.45, marginBottom: 4 }}>Staked (of circulating)</div>
             <div style={{ fontSize: "2.4rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon)", lineHeight: 1.1 }}>
-              {loading ? "---" : `${stakingPct}%`}
+              {loading ? "..." : `${stakingPct}%`}
             </div>
             <div style={{ fontSize: "0.65rem", opacity: 0.4, marginTop: 4 }}>
               {formatNumber(bondedTokens)} TX bonded
@@ -808,7 +808,7 @@ function OverviewTab({
                 {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(1)}% 24h
               </div>
               <div className="card-value">
-                ${loading ? "---" : price.toFixed(4)}
+                ${loading ? "..." : price.toFixed(4)}
                 <span className="unit">USD</span>
               </div>
             </div>
@@ -823,7 +823,7 @@ function OverviewTab({
             <span className="card-title">Market Cap <Tooltip text={`Circulating supply: ${formatNumber(totalSupply)} TX`} /></span>
             <div>
               <div className="card-value">
-                {loading ? "---" : formatUSD(marketCap)}
+                {loading ? "..." : formatUSD(marketCap)}
               </div>
             </div>
           </div>
@@ -834,7 +834,7 @@ function OverviewTab({
             <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Base APR <Tooltip text="PSE rewards are added on top of base APR. PSE is the primary yield source." /></span>
             <div>
               <div className="card-value">
-                {apr > 0 ? `${apr.toFixed(2)}%` : "---"}
+                {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
               </div>
             </div>
           </div>
@@ -938,7 +938,7 @@ function OverviewTab({
             <div>
               <div style={{ fontSize: "0.72rem", fontWeight: 600 }}>{loading ? "Syncing..." : "Network Operational"}</div>
               <div style={{ fontSize: "0.6rem", opacity: 0.4 }}>
-                Block {networkStatus?.blockHeight ? networkStatus.blockHeight.toLocaleString() : "---"}
+                Block {networkStatus?.blockHeight ? networkStatus.blockHeight.toLocaleString() : "..."}
                 {activeValidators > 0 ? ` · ${activeValidators} validators` : ""}
                 {" · "}No issues detected · tx-mainnet
               </div>
@@ -1828,7 +1828,7 @@ function CalculatorTab({
               <div className="card-content">
                 <span className="card-title">Base APR <Tooltip text={apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
                 <div className="card-value" style={{ fontSize: "2rem" }}>
-                  {apr > 0 ? `${apr.toFixed(2)}%` : "---"}
+                  {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
                 </div>
               </div>
             </div>
@@ -2982,7 +2982,7 @@ function SilkNodesTab({ networkStatus, stakingData, setActiveTab, wallet, setSho
                   <div style={{ display: "flex", gap: 24 }}>
                     <div>
                       <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Block</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "---"}</div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
                     </div>
                     <div>
                       <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Size</span>
@@ -3217,14 +3217,6 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
   const truncAddr = (addr: string) => `${addr.slice(0, 10)}...${addr.slice(-6)}`;
   const liveFeed = generateLiveFeed(tokens);
 
-  // Security per asset
-  const securityPerAsset = tokens.length > 0 && bondedTokens > 0 && price > 0
-    ? (bondedTokens * price) / tokens.length
-    : 0;
-  const securityPerIssuer = stats.totalIssuers > 0 && bondedTokens > 0 && price > 0
-    ? (bondedTokens * price) / stats.totalIssuers
-    : 0;
-
   return (
     <div style={{ position: "relative", minHeight: loading ? 500 : undefined }}>
       {/* Blurred overlay while loading */}
@@ -3286,31 +3278,24 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
       </div>
 
       {/* Hero stat cards */}
-      <div className="responsive-grid-4" style={{ gap: 10, marginBottom: 32 }}>
+      <div className="responsive-grid-3" style={{ gap: 10, marginBottom: 32 }}>
         <div className="accent-card card-dark">
           <div className="card-content">
             <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Smart Tokens</span>
-            <div className="card-value">{loading ? "---" : stats.totalTokens}</div>
+            <div className="card-value">{loading ? "..." : stats.totalTokens}</div>
           </div>
         </div>
         <div className="accent-card" style={{ background: "linear-gradient(135deg, #0F1B07, #1a2e0f)" }}>
           <div className="card-content">
             <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>Compliance-Enabled</span>
-            <div className="card-value" style={{ color: "#B1FC03" }}>{loading ? "---" : rwaCount}</div>
+            <div className="card-value" style={{ color: "#B1FC03" }}>{loading ? "..." : rwaCount}</div>
           </div>
         </div>
         <div className="accent-card card-yellow">
           <div className="blob-light" />
           <div className="card-content">
             <span className="card-title">Unique Issuers</span>
-            <div className="card-value">{loading ? "---" : stats.totalIssuers}</div>
-          </div>
-        </div>
-        <div className="accent-card card-orange">
-          <div className="texture-dots" />
-          <div className="card-content">
-            <span className="card-title">Network Secured</span>
-            <div className="card-value">{bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"}</div>
+            <div className="card-value">{loading ? "..." : stats.totalIssuers}</div>
           </div>
         </div>
       </div>
@@ -3435,7 +3420,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                   fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
                   color: "#B1FC03",
                 }}>
-                  {loading ? "-" : count}
+                  {loading ? "..." : count}
                 </span>
                 <span style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.45)" }}>
                   token{count !== 1 ? "s" : ""} enabled
@@ -3572,32 +3557,6 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          SECTION 4: SECURITY LAYER (Validator Banner)
-          ═══════════════════════════════════════════════════════ */}
-      <div style={{
-        marginTop: 16,
-        background: "linear-gradient(135deg, #0F1B07, #1a2e0f)",
-        borderRadius: 16, padding: "16px 24px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.6)", fontWeight: 500, letterSpacing: "0.05em" }}>
-            SECURED BY TX VALIDATORS
-          </div>
-          <div style={{ fontSize: "1rem", fontWeight: 600, color: "#B1FC03", marginTop: 4 }}>
-            {bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"} securing the smart token ecosystem
-          </div>
-          <div style={{ fontSize: "0.7rem", color: "rgba(177,252,3,0.45)", marginTop: 6, display: "flex", gap: 20 }}>
-            <span>{securityPerAsset > 0 ? `${formatUSD(securityPerAsset)} secured per token` : "..."}</span>
-            <span>{securityPerIssuer > 0 ? `${formatUSD(securityPerIssuer)} secured per issuer` : "..."}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 24 }}>
-          <img src={`${BASE_PATH}/silk-nodes-logo.png`} alt="Silk Nodes" style={{ height: 32, opacity: 0.8, filter: "invert(1)" }} />
-          <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.4)", marginTop: 4 }}>Professional Validator</div>
-        </div>
-      </div>
     </div>
   );
 }
