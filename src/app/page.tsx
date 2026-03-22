@@ -2679,143 +2679,106 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
   const silkVotingPower = silkValidator && stakingData?.bondedTokens
     ? ((silkValidator.tokens / stakingData.bondedTokens) * 100).toFixed(2)
     : "...";
-  const silkDelegatorCount = silkValidator?.delegatorCount || 0;
-
-  // Commission advantage calculation (5% vs avg 10%)
   const apr = stakingData?.apr || 12;
-  const rewardWith5 = 10000 * (apr / 100) * (1 - 0.05);
-  const rewardWith10 = 10000 * (apr / 100) * (1 - 0.10);
-  const extraReward = Math.round(rewardWith5 - rewardWith10);
-
   const delegateCTA = () => wallet.connected ? setActiveTab("portfolio") : setShowWalletModal(true);
 
   return (
     <>
       {/* ═══════════════════════════════════════════════════════
-          HERO: Commission-led with immediate CTA
+          HERO: Compact, commission-led
           ═══════════════════════════════════════════════════════ */}
       <div style={{
         background: "var(--tx-dark-green)",
         borderRadius: "var(--radius-lg)",
-        padding: "32px 32px 28px",
+        padding: "24px 28px 20px",
         color: "#fff",
         position: "relative",
         overflow: "hidden",
-        marginBottom: 20,
+        marginBottom: 18,
       }}>
-        {/* Glow accents */}
         <div style={{
-          position: "absolute", top: -60, right: -60,
-          width: 250, height: 250,
-          background: "radial-gradient(circle, rgba(177,252,3,0.12) 0%, transparent 70%)",
-          borderRadius: "50%", pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: -40, left: -40,
+          position: "absolute", top: -40, right: -40,
           width: 180, height: 180,
-          background: "radial-gradient(circle, rgba(177,252,3,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(177,252,3,0.1) 0%, transparent 70%)",
           borderRadius: "50%", pointerEvents: "none",
         }} />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          {/* Top row: Logo + Name + Badge */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${BASE_PATH}/silk-nodes-logo.png`}
-              alt="Silk Nodes"
-              style={{ width: 52, height: 52, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
-            />
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Silk Nodes</h1>
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  background: "rgba(177,252,3,0.15)", border: "1px solid rgba(177,252,3,0.3)",
-                  borderRadius: "var(--radius-pill)", padding: "3px 10px",
-                  fontSize: "0.62rem", fontWeight: 600, color: "var(--tx-neon)",
-                }}>
-                  <span className="live-dot" /> ACTIVE
-                </span>
+          {/* Logo + Name + Commission inline */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`${BASE_PATH}/silk-nodes-logo.png`}
+                alt="Silk Nodes"
+                style={{ width: 44, height: 44, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <h1 style={{ fontSize: "1.35rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Silk Nodes</h1>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    background: "rgba(177,252,3,0.15)", border: "1px solid rgba(177,252,3,0.3)",
+                    borderRadius: "var(--radius-pill)", padding: "2px 8px",
+                    fontSize: "0.58rem", fontWeight: 600, color: "var(--tx-neon)",
+                  }}>
+                    <span className="live-dot" /> ACTIVE
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                  Built for the TX community. We grow with the network, not extract from it.
+                </p>
               </div>
-              <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                We built this dashboard for the TX community — and we&rsquo;re committed to supporting it long-term.
-              </p>
             </div>
-          </div>
 
-          {/* Commission HERO highlight */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap",
-            marginBottom: 20,
-          }}>
+            {/* Commission badge */}
             <div style={{
-              background: "rgba(177,252,3,0.12)", border: "2px solid rgba(177,252,3,0.4)",
-              borderRadius: 14, padding: "16px 24px", textAlign: "center",
-              minWidth: 140,
+              background: "rgba(177,252,3,0.12)", border: "1.5px solid rgba(177,252,3,0.35)",
+              borderRadius: 12, padding: "10px 22px", textAlign: "center",
             }}>
-              <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(177,252,3,0.6)", marginBottom: 4 }}>
-                COMMISSION
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "2.2rem", fontWeight: 700, color: "var(--tx-neon)", lineHeight: 1 }}>
-                5%
-              </div>
-              <div style={{ fontSize: "0.62rem", color: "rgba(177,252,3,0.5)", marginTop: 4 }}>
-                Community Support Rate
-              </div>
-            </div>
-
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.8)", lineHeight: 1.5, marginBottom: 10 }}>
-                We lowered our commission to the minimum to support early TX adopters. You earn more — we grow together.
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "rgba(177,252,3,0.7)", fontWeight: 600 }}>
-                Early delegators benefit the most from PSE rewards
-              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "2rem", fontWeight: 700, color: "var(--tx-neon)", lineHeight: 1 }}>5%</div>
+              <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.5)", marginTop: 3 }}>MIN. COMMISSION</div>
+              <div style={{ fontSize: "0.58rem", color: "rgba(177,252,3,0.4)", marginTop: 2 }}>Lower fees = higher net rewards</div>
             </div>
           </div>
 
-          {/* CTA buttons - TOP placement */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
+          {/* CTA */}
+          <div style={{ marginBottom: 14 }}>
             <button
               onClick={delegateCTA}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                border: "none", padding: "13px 28px", fontSize: "0.88rem", fontWeight: 700,
+                border: "none", padding: "12px 26px", fontSize: "0.86rem", fontWeight: 700,
                 background: "var(--tx-neon)", color: "var(--tx-dark-green)",
                 borderRadius: "var(--radius-pill)", cursor: "pointer",
-                boxShadow: "0 4px 16px rgba(177,252,3,0.3)",
-                transition: "transform 0.15s, box-shadow 0.15s",
+                boxShadow: "0 3px 14px rgba(177,252,3,0.35)",
+                transition: "transform 0.15s",
               }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(177,252,3,0.4)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(177,252,3,0.3)"; }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
             >
-              {wallet.connected ? "Delegate to Silk Nodes (5%)" : "Delegate to Silk Nodes (5%)"}
+              Delegate to Silk Nodes (5% Commission)
             </button>
-            <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", alignSelf: "center" }}>
-              Start earning staking + PSE rewards today
-            </div>
           </div>
 
           {/* Stats row */}
           <div style={{
-            display: "flex", gap: 0, borderTop: "1px solid rgba(177,252,3,0.15)",
-            paddingTop: 16,
+            display: "flex", gap: 0, borderTop: "1px solid rgba(177,252,3,0.12)",
+            paddingTop: 12,
           }}>
             {[
-              { label: "Uptime", value: "99.98%", accent: true },
-              { label: "Delegated", value: silkBonded > 0 ? `${formatNumber(silkBonded)} TX` : "...", accent: false },
-              { label: "Voting Power", value: `${silkVotingPower}%`, accent: false },
-              { label: "Network", value: "Coreum", accent: false },
+              { label: "Uptime", value: "99.98%" },
+              { label: "Delegated", value: silkBonded > 0 ? `${formatNumber(silkBonded)} TX` : "..." },
+              { label: "Slashing", value: "None" },
+              { label: "Restake", value: "Enabled" },
             ].map((stat, i) => (
               <div key={stat.label} style={{
                 textAlign: "center", flex: 1,
-                borderRight: i < 3 ? "1px solid rgba(177,252,3,0.1)" : "none",
+                borderRight: i < 3 ? "1px solid rgba(177,252,3,0.08)" : "none",
               }}>
-                <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", marginBottom: 4 }}>{stat.label}</div>
+                <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>{stat.label}</div>
                 <div style={{
-                  fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600,
-                  color: stat.accent ? "var(--tx-neon)" : "rgba(255,255,255,0.85)",
+                  fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600,
+                  color: "rgba(255,255,255,0.85)",
                 }}>{stat.value}</div>
               </div>
             ))}
@@ -2824,122 +2787,66 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          WHY SILK NODES - Decision summary
+          COMPARISON: Side by side (the core argument)
           ═══════════════════════════════════════════════════════ */}
-      <div className="section-head" style={{ marginBottom: 14 }}>
-        <h2 className="page-title" style={{ fontSize: "1.3rem" }}>Why Delegate to Silk Nodes?</h2>
-        <span className="section-sub">Four reasons you&rsquo;ll earn more, safer, and earlier with us</span>
-      </div>
-
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 20 }}>
-        {[
-          {
-            icon: "💰",
-            title: "Lower Commission = More Rewards",
-            desc: "5% minimum commission means you keep 95% of your staking rewards. Most validators charge 8-10%.",
-            highlight: `+${extraReward} TX/year more vs 10% validator`,
-            highlightColor: "var(--tx-neon)",
-          },
-          {
-            icon: "🛡️",
-            title: "99.98% Uptime = Reliable Rewards",
-            desc: "Enterprise bare-metal servers with dedicated infrastructure. No cloud outages, no missed blocks, no slashing risk.",
-            highlight: "Never missed a block",
-            highlightColor: "var(--accent-olive)",
-          },
-          {
-            icon: "🌱",
-            title: "Public Goods Provider",
-            desc: "We don't just validate — we build. This entire dashboard, free RPC/API endpoints, snapshots, and developer tools. We invest back into TX.",
-            highlight: "Ecosystem builder",
-            highlightColor: "var(--accent-olive)",
-          },
-          {
-            icon: "⚡",
-            title: "Early TX Supporter",
-            desc: "We've been supporting TX since early days. Long-term aligned, not here for quick profit. Your delegation supports real infrastructure.",
-            highlight: "Aligned long-term",
-            highlightColor: "var(--accent-olive)",
-          },
-        ].map((card) => (
-          <div key={card.title} className="panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: "1.4rem" }}>{card.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{card.title}</div>
-            <p className="text-xs text-medium" style={{ lineHeight: 1.6, flex: 1, margin: 0 }}>{card.desc}</p>
-            <span style={{
-              fontSize: "0.7rem", fontWeight: 600, color: card.highlightColor,
-              textTransform: "uppercase", letterSpacing: "0.04em",
-            }}>
-              <span style={{ marginRight: 4 }}>&#10003;</span>
-              {card.highlight}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════
-          COMPARISON: Silk Nodes vs Average Validator
-          ═══════════════════════════════════════════════════════ */}
-      <div className="panel" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
+      <div className="panel" style={{ padding: 0, overflow: "hidden", marginBottom: 18 }}>
         <div style={{
-          padding: "14px 20px",
+          padding: "12px 20px",
           borderBottom: "1px solid rgba(0,0,0,0.06)",
         }}>
-          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--tx-dark-green)" }}>
-            Silk Nodes vs Average Validator
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--tx-dark-green)" }}>
+            Why Silk Nodes?
           </span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 0 }}>
-          {/* Left: Average */}
           <div style={{
-            padding: "20px 24px",
+            padding: "16px 20px",
             borderRight: "1px solid rgba(0,0,0,0.06)",
             background: "rgba(0,0,0,0.02)",
           }}>
             <div style={{
-              fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.08em",
-              opacity: 0.4, marginBottom: 14,
+              fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.08em",
+              opacity: 0.4, marginBottom: 12,
             }}>AVERAGE VALIDATOR</div>
             {[
-              ["Commission", "8–10%"],
+              ["Commission", "8\u201310%"],
               ["Uptime", "Variable"],
               ["Infrastructure", "Shared / Cloud"],
               ["Ecosystem tools", "None"],
-              ["Restake support", "Sometimes"],
+              ["Missed blocks", "Possible"],
             ].map(([label, value], i) => (
               <div key={i} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
-                marginBottom: 10, fontSize: "0.78rem", opacity: 0.6, lineHeight: 1.4,
+                marginBottom: 8, fontSize: "0.75rem", opacity: 0.55, lineHeight: 1.4,
               }}>
                 <span>{label}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{value}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{value}</span>
               </div>
             ))}
           </div>
 
-          {/* Right: Silk Nodes */}
           <div style={{
-            padding: "20px 24px",
+            padding: "16px 20px",
             background: "rgba(177,252,3,0.04)",
             borderLeft: "2px solid rgba(177,252,3,0.2)",
           }}>
             <div style={{
-              fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.08em",
-              color: "#3a5a0a", marginBottom: 14,
+              fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.08em",
+              color: "#3a5a0a", marginBottom: 12,
             }}>SILK NODES</div>
             {[
               ["Commission", "5% (minimum)"],
               ["Uptime", "99.98%"],
               ["Infrastructure", "Bare-metal"],
               ["Ecosystem tools", "Dashboard + APIs"],
-              ["Restake support", "Enabled"],
+              ["Missed blocks", "Zero"],
             ].map(([label, value], i) => (
               <div key={i} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
-                marginBottom: 10, fontSize: "0.78rem", color: "var(--tx-dark-green)", lineHeight: 1.4,
+                marginBottom: 8, fontSize: "0.75rem", color: "var(--tx-dark-green)", lineHeight: 1.4,
               }}>
                 <span>{label}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: 600, color: "#3a5a0a" }}>{value}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", fontWeight: 600, color: "#3a5a0a" }}>{value}</span>
               </div>
             ))}
           </div>
@@ -2947,187 +2854,107 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          REWARD ADVANTAGE - Financial benefit
+          TRUST + ECOSYSTEM (merged, compact)
           ═══════════════════════════════════════════════════════ */}
-      <div style={{
-        background: "var(--tx-dark-green)",
-        borderRadius: "var(--radius-lg)", padding: "24px 28px",
-        color: "#fff", marginBottom: 20,
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(circle at 80% 50%, rgba(177,252,3,0.06) 0%, transparent 50%)",
-        }} />
-
-        <div style={{ position: "relative" }}>
-          <div style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", color: "rgba(177,252,3,0.5)", marginBottom: 10 }}>
-            YOUR ADVANTAGE WITH SILK NODES
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>10% Validator (10K TX)</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 500, color: "rgba(255,255,255,0.5)" }}>
-                {formatNumber(Math.round(rewardWith10))} TX/yr
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: "0.68rem", color: "var(--tx-neon)", marginBottom: 4 }}>Silk Nodes 5% (10K TX)</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-neon)" }}>
-                {formatNumber(Math.round(rewardWith5))} TX/yr
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: "0.68rem", color: "rgba(177,252,3,0.7)", marginBottom: 4 }}>You Keep Extra</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-neon)" }}>
-                +{extraReward} TX/yr
-              </div>
-            </div>
-          </div>
-
-          <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
-            Based on current {apr.toFixed(2)}% base APR · PSE rewards added on top · Auto-compound available
-          </div>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════
-          SOCIAL PROOF + PUBLIC GOOD
-          ═══════════════════════════════════════════════════════ */}
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 20 }}>
-        {/* Social Proof */}
-        <div className="panel" style={{ padding: "20px 22px", textAlign: "center" }}>
-          <div style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 12 }}>
-            COMMUNITY TRUST
-          </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 28 }}>
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.5rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>
-                {silkBonded > 0 ? formatNumber(silkBonded) : "..."}
-              </div>
-              <div style={{ fontSize: "0.65rem", color: "var(--text-light)", marginTop: 2 }}>TX Delegated</div>
-            </div>
-            <div style={{ width: 1, background: "rgba(0,0,0,0.08)", alignSelf: "stretch" }} />
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.5rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>
-                {silkVotingPower}%
-              </div>
-              <div style={{ fontSize: "0.65rem", color: "var(--text-light)", marginTop: 2 }}>Voting Power</div>
-            </div>
-          </div>
-          <div style={{ fontSize: "0.68rem", color: "var(--text-medium)", marginTop: 12, fontStyle: "italic" }}>
-            Growing community of TX delegators
-          </div>
-        </div>
-
-        {/* Public Good */}
-        <div className="panel" style={{ padding: "20px 22px" }}>
-          <div style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 12 }}>
-            SUPPORTING THE TX ECOSYSTEM
+      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 18 }}>
+        {/* What we build */}
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          <div style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 10 }}>
+            WHAT WE BUILD FOR TX
           </div>
           {[
-            { label: "TX Dashboard", desc: "This platform — free for the entire community" },
-            { label: "Free RPC / API", desc: "Public endpoints for developers and apps" },
-            { label: "Snapshots & Peers", desc: "Helping new nodes sync faster" },
-            { label: "Infrastructure", desc: "Bare-metal servers, no cloud dependency" },
-          ].map((item) => (
-            <div key={item.label} style={{
-              display: "flex", alignItems: "flex-start", gap: 8,
-              marginBottom: 8, fontSize: "0.78rem", lineHeight: 1.4,
+            "This dashboard (free, open source)",
+            "Public RPC, API, gRPC endpoints",
+            "Daily snapshots for node operators",
+            "Seed nodes and live peers",
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 6, fontSize: "0.76rem", lineHeight: 1.4,
             }}>
-              <span style={{ color: "var(--accent-olive)", flexShrink: 0, marginTop: 1, fontSize: "0.7rem" }}>&#10003;</span>
-              <div>
-                <span style={{ fontWeight: 600 }}>{item.label}</span>
-                <span style={{ color: "var(--text-medium)" }}> — {item.desc}</span>
-              </div>
+              <span style={{ color: "var(--accent-olive)", flexShrink: 0, fontSize: "0.65rem" }}>&#10003;</span>
+              <span style={{ color: "var(--text-medium)" }}>{item}</span>
             </div>
           ))}
-          <div style={{ fontSize: "0.68rem", color: "var(--accent-olive)", fontWeight: 600, marginTop: 8 }}>
-            We invest back into the ecosystem
+          <div style={{ fontSize: "0.65rem", color: "var(--accent-olive)", fontWeight: 600, marginTop: 10 }}>
+            Early TX supporter. Aligned for long-term growth.
+          </div>
+        </div>
+
+        {/* Community trust */}
+        <div className="panel" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 14 }}>
+            COMMUNITY TRUST
+          </div>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-dark)", lineHeight: 1.6, marginBottom: 12 }}>
+            Trusted by a growing community with <span style={{ fontWeight: 700 }}>{silkBonded > 0 ? formatNumber(silkBonded) : "..."} TX</span> delegated
+          </div>
+          <div style={{ display: "flex", gap: 20 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>{silkVotingPower}%</div>
+              <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Voting Power</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>0</div>
+              <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Slashing Events</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>0</div>
+              <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Missed Blocks</div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          AUTO-COMPOUND + YIELD
+          AUTO-COMPOUND (compact) + DEV TOOLS
           ═══════════════════════════════════════════════════════ */}
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 20, alignItems: "stretch" }}>
-        {/* Auto-Compound */}
-        <div className="panel" style={{ padding: "22px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div>
-              <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 2 }}>
-                Auto-Compound via Restake
-              </span>
-              <span style={{ fontSize: "0.78rem", color: "var(--text-medium)" }}>Maximize your staking yield</span>
+      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 18, alignItems: "stretch" }}>
+        {/* Auto-Compound compact */}
+        <div className="panel" style={{ padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>Auto-Compound</span>
+              <span style={{
+                background: "var(--accent-olive)", color: "#fff",
+                padding: "2px 8px", borderRadius: "var(--radius-pill)",
+                fontSize: "0.58rem", fontWeight: 600,
+              }}>ENABLED</span>
             </div>
-            <span style={{
-              background: "var(--accent-olive)", color: "#fff",
-              padding: "4px 12px", borderRadius: "var(--radius-pill)",
-              fontSize: "0.7rem", fontWeight: 600,
-            }}>ENABLED</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--accent-olive)", fontWeight: 600 }}>
+              {(apr * 0.95).toFixed(1)}% APR &rarr; 13.39% APY
+            </span>
           </div>
-
-          <div style={{
-            background: "var(--tx-dark-green)", borderRadius: "var(--radius-md)",
-            padding: "16px 18px", color: "#fff", marginBottom: 14,
-          }}>
-            <div style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)", marginBottom: 10 }}>
-              Annual Yield (10,000 TX staked at 5%)
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Manual Claim</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.3rem", fontWeight: 500, color: "rgba(255,255,255,0.7)" }}>
-                  {formatNumber(Math.round(rewardWith5))} TX
-                </div>
-                <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
-                  {(apr * 0.95).toFixed(2)}% effective APR
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "var(--tx-neon)", marginBottom: 4 }}>Daily Auto-Compound</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.3rem", fontWeight: 600, color: "var(--tx-neon)" }}>
-                  {formatNumber(Math.round(10000 * (Math.pow(1 + (apr * 0.95) / 100 / 365, 365) - 1)))} TX
-                </div>
-                <div style={{ fontSize: "0.68rem", color: "rgba(177,252,3,0.6)", marginTop: 2 }}>
-                  {((Math.pow(1 + (apr * 0.95) / 100 / 365, 365) - 1) * 100).toFixed(2)}% APY
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: 10, fontStyle: "italic" }}>
-              + PSE rewards on top (not shown here)
-            </div>
-          </div>
-
+          <p className="text-xs text-medium" style={{ lineHeight: 1.4, margin: "0 0 10px", fontSize: "0.72rem" }}>
+            Restake compounds your rewards daily. Set it once, earn more automatically.
+          </p>
           <button
             onClick={() => setShowRestakeModal(true)}
             className="btn-olive"
-            style={{ display: "block", textAlign: "center", width: "100%", padding: "12px 20px", fontSize: "0.88rem", border: "none", cursor: "pointer" }}
+            style={{ display: "block", textAlign: "center", width: "100%", padding: "8px 16px", fontSize: "0.78rem", border: "none", cursor: "pointer" }}
           >
-            Enable Auto-Compound on Restake
+            Enable on Restake
           </button>
         </div>
 
-        {/* Node Stats + Dev Tools */}
+        {/* Dev Tools + Node Stats */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="panel" style={{ padding: "18px 22px" }}>
+          <div className="panel" style={{ padding: "14px 18px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "rgba(255,255,255,0.3)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-              <div style={{ background: "var(--glass-bg)", padding: "12px 14px" }}>
+              <div style={{ background: "var(--glass-bg)", padding: "10px 12px" }}>
                 <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Block Height</span>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 500, marginTop: 4 }}>
-                  {networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "Syncing..."}
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.05rem", fontWeight: 500, marginTop: 3 }}>
+                  {networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}
                 </div>
               </div>
-              <div style={{ background: "var(--glass-bg)", padding: "12px 14px" }}>
+              <div style={{ background: "var(--glass-bg)", padding: "10px 12px" }}>
                 <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Node Version</span>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 500, marginTop: 4 }}>v4.1.1</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.05rem", fontWeight: 500, marginTop: 3 }}>v4.1.1</div>
               </div>
             </div>
           </div>
 
-          <div className="panel" style={{ padding: "20px 22px", flex: 1 }}>
+          <div className="panel" style={{ padding: "16px 18px", flex: 1 }}>
             <button
               onClick={() => setDevToolsOpen(!devToolsOpen)}
               style={{
@@ -3137,15 +2964,15 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
                   <path d="M7.5 2.5l1.5 3-3 1.5 1 2.5 2.5-1L11 12l3-2-1-3 2.5-1L14 3z" stroke="var(--accent-olive)" strokeWidth="1.3" fill="rgba(74,122,26,0.1)" strokeLinejoin="round" />
                   <circle cx="9" cy="9" r="2" stroke="var(--accent-olive)" strokeWidth="1.2" fill="none" />
                 </svg>
-                <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Developer Tools</span>
-                <span className="text-xs text-light">RPC · API · Snapshots · Peers</span>
+                <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>Developer Tools</span>
+                <span className="text-xs text-light">RPC · API · Snapshots</span>
               </div>
               <span style={{
-                fontSize: "0.8rem", color: "var(--text-light)",
+                fontSize: "0.75rem", color: "var(--text-light)",
                 transform: devToolsOpen ? "rotate(180deg)" : "rotate(0deg)",
                 transition: "transform 0.2s",
                 display: "inline-block",
@@ -3153,9 +2980,9 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
             </button>
 
             {devToolsOpen && (
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
-                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>
+                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
                     Endpoints
                   </span>
                   {[
@@ -3163,10 +2990,10 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                     { label: "API", url: SILK_SERVICES.api },
                     { label: "GRPC", url: SILK_SERVICES.grpc },
                   ].map((svc) => (
-                    <div key={svc.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.3)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--tx-neon)", flexShrink: 0, boxShadow: "0 0 6px rgba(177,252,3,0.4)" }} />
-                        <span className="font-semibold" style={{ minWidth: 42, fontSize: "0.82rem" }}>{svc.label}</span>
+                    <div key={svc.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.3)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--tx-neon)", flexShrink: 0, boxShadow: "0 0 4px rgba(177,252,3,0.4)" }} />
+                        <span className="font-semibold" style={{ minWidth: 38, fontSize: "0.78rem" }}>{svc.label}</span>
                         <span className="mono text-xs" style={{ color: "var(--text-medium)" }}>{svc.url}</span>
                       </div>
                       <CopyButton text={svc.url} />
@@ -3174,53 +3001,49 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                   ))}
                 </div>
 
-                <div style={{ background: "var(--accent-olive)", color: "#fff", borderRadius: "var(--radius-md)", padding: "14px 16px" }}>
-                  <div className="flex-between" style={{ marginBottom: 8 }}>
-                    <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 }}>Latest Snapshot</span>
+                <div style={{ background: "var(--accent-olive)", color: "#fff", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
+                  <div className="flex-between" style={{ marginBottom: 6 }}>
+                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 }}>Latest Snapshot</span>
                     <a
                       href={SILK_SERVICES.snapshot.downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ textDecoration: "none", fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.2)", padding: "4px 12px", borderRadius: "var(--radius-pill)" }}
+                      style={{ textDecoration: "none", fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: "var(--radius-pill)" }}
                     >
                       Download
                     </a>
                   </div>
-                  <div style={{ display: "flex", gap: 24 }}>
+                  <div style={{ display: "flex", gap: 20 }}>
                     <div>
-                      <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Block</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
+                      <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>Block</span>
+                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
                     </div>
                     <div>
-                      <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Size</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>~12.5 GB</div>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Date</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>Size</span>
+                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>~12.5 GB</div>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Seed Node</span>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Seed Node</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                     <span className="mono text-xs" style={{ wordBreak: "break-all", color: "var(--text-medium)", flex: 1 }}>{SILK_SERVICES.seed}</span>
                     <CopyButton text={SILK_SERVICES.seed} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex-between" style={{ marginBottom: 6 }}>
+                  <div className="flex-between" style={{ marginBottom: 4 }}>
                     <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       {SILK_SERVICES.peers.length} Live Peers
                     </span>
-                    <button className="filter-chip" style={{ fontSize: "0.72rem" }} onClick={() => navigator.clipboard.writeText(SILK_SERVICES.peers.join(","))}>
+                    <button className="filter-chip" style={{ fontSize: "0.68rem" }} onClick={() => navigator.clipboard.writeText(SILK_SERVICES.peers.join(","))}>
                       Copy All
                     </button>
                   </div>
                   {SILK_SERVICES.peers.map((peer, i) => (
-                    <div key={i} className="mono text-xs" style={{ padding: "5px 0", borderBottom: i < SILK_SERVICES.peers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none", wordBreak: "break-all", color: "var(--text-medium)" }}>
+                    <div key={i} className="mono text-xs" style={{ padding: "4px 0", borderBottom: i < SILK_SERVICES.peers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none", wordBreak: "break-all", color: "var(--text-medium)" }}>
                       {peer}
                     </div>
                   ))}
@@ -3231,57 +3054,16 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          BOTTOM CTA - Final conversion push
-          ═══════════════════════════════════════════════════════ */}
-      <div style={{
-        background: "linear-gradient(135deg, var(--tx-dark-green) 0%, #1a2e10 100%)",
-        borderRadius: "var(--radius-lg)", padding: "28px 28px",
-        color: "#fff", textAlign: "center",
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(circle at 50% 50%, rgba(177,252,3,0.08) 0%, transparent 60%)",
-        }} />
-        <div style={{ position: "relative" }}>
-          <div style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: 6 }}>
-            Ready to earn more with Silk Nodes?
-          </div>
-          <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.5, marginBottom: 16, maxWidth: 480, margin: "0 auto 16px" }}>
-            5% commission · 99.98% uptime · PSE + staking rewards · Auto-compound available
-          </p>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={delegateCTA}
-              style={{
-                display: "inline-block", border: "none",
-                padding: "13px 32px", fontSize: "0.88rem", fontWeight: 700,
-                background: "var(--tx-neon)", color: "var(--tx-dark-green)",
-                borderRadius: "var(--radius-pill)", cursor: "pointer",
-                boxShadow: "0 4px 16px rgba(177,252,3,0.3)",
-                transition: "transform 0.15s",
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-            >
-              Delegate to Silk Nodes (5%)
-            </button>
-            <a
-              href={SILK_SERVICES.explorer}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                textDecoration: "none", display: "inline-block",
-                padding: "13px 24px", fontSize: "0.82rem", fontWeight: 500,
-                background: "rgba(255,255,255,0.1)", color: "#fff",
-                borderRadius: "var(--radius-pill)", border: "1px solid rgba(255,255,255,0.2)",
-              }}
-            >
-              View on Explorer
-            </a>
-          </div>
-        </div>
+      {/* Explorer link */}
+      <div style={{ textAlign: "center", padding: "4px 0" }}>
+        <a
+          href={SILK_SERVICES.explorer}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: "0.75rem", color: "var(--text-medium)", textDecoration: "none" }}
+        >
+          View Silk Nodes on Mintscan Explorer &rarr;
+        </a>
       </div>
 
       {/* Restake Modal */}
