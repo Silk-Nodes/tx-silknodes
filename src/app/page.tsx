@@ -2729,7 +2729,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           {/* Hero stats */}
           <div className="responsive-flex-row">
             {[
-              { label: "Commission", value: "10%", accent: false },
+              { label: "Commission", value: "5%", accent: true },
               { label: "Uptime", value: "99.98%", accent: true },
               { label: "Voting Power", value: `${silkVotingPower}%`, accent: false },
               { label: "Delegated", value: `${formatNumber(silkBonded)} TX`, accent: false },
