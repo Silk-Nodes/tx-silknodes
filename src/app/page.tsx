@@ -1961,17 +1961,24 @@ function PortfolioTab({
     });
   }, [price]);
 
-  // Filter validators by search, pin Silk Nodes to top
+  // Filter validators by search, randomize order, pin Silk Nodes to top
   const filteredValidators = useMemo(() => {
     const filtered = validators.filter((v: any) =>
       v.moniker.toLowerCase().includes(validatorSearch.toLowerCase())
     );
+    // Shuffle randomly (Fisher-Yates)
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+    }
+    // Pin Silk Nodes to top
     const silkIndex = filtered.findIndex((v: any) => v.moniker === "Silk Nodes");
     if (silkIndex > 0) {
       const [silk] = filtered.splice(silkIndex, 1);
       filtered.unshift(silk);
     }
     return filtered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validators, validatorSearch]);
 
   // Find selected validator details
@@ -2214,21 +2221,6 @@ function PortfolioTab({
                     )}
                   </div>
                 </div>
-
-                {/* Selected validator info */}
-                {selectedValInfo && (
-                  <div style={{
-                    padding: "10px 14px", borderRadius: "var(--radius-sm)",
-                    background: "rgba(74,122,26,0.06)", border: "1px solid rgba(74,122,26,0.15)",
-                    marginBottom: 12, fontSize: "0.72rem",
-                  }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{selectedValInfo.moniker}</div>
-                    <div style={{ display: "flex", gap: 16, color: "var(--text-medium)" }}>
-                      <span>Commission: {selectedValInfo.commission}%</span>
-                      <span>Your APR: ~{(apr * (1 - selectedValInfo.commission / 100)).toFixed(2)}%</span>
-                    </div>
-                  </div>
-                )}
 
                 {/* PSE note */}
                 <div style={{ fontSize: "0.65rem", color: "var(--text-medium)", marginBottom: 14, lineHeight: 1.5 }}>
