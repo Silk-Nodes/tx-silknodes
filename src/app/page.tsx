@@ -56,7 +56,7 @@ const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
 ];
 
 export default function HomePage() {
-  const { tokenData, stakingData, networkStatus, loading } = useTokenData();
+  const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
   const {
     wallet, connect, disconnect, refresh, claimRewards,
     delegate, undelegate, redelegate,
@@ -388,7 +388,7 @@ export default function HomePage() {
         )}
 
         {activeTab === "silknodes" && (
-          <SilkNodesTab networkStatus={networkStatus} stakingData={stakingData} setActiveTab={setActiveTab} wallet={wallet} setShowWalletModal={setShowWalletModal} />
+          <SilkNodesTab networkStatus={networkStatus} stakingData={stakingData} validators={validators} setActiveTab={setActiveTab} wallet={wallet} setShowWalletModal={setShowWalletModal} />
         )}
 
         {activeTab === "portfolio" && wallet.connected && (
@@ -2670,11 +2670,15 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function SilkNodesTab({ networkStatus, stakingData, setActiveTab, wallet, setShowWalletModal }: any) {
+function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wallet, setShowWalletModal }: any) {
   const [devToolsOpen, setDevToolsOpen] = useState(false);
   const [showRestakeModal, setShowRestakeModal] = useState(false);
-  const silkBonded = stakingData?.bondedTokens ? Math.round(stakingData.bondedTokens * 0.03) : 22900;
-  const silkVotingPower = stakingData?.bondedTokens ? ((silkBonded / stakingData.bondedTokens) * 100).toFixed(2) : "3.00";
+  // Get real Silk Nodes validator data
+  const silkValidator = validators?.find((v: any) => v.moniker === "Silk Nodes");
+  const silkBonded = silkValidator ? Math.round(silkValidator.tokens) : 0;
+  const silkVotingPower = silkValidator && stakingData?.bondedTokens
+    ? ((silkValidator.tokens / stakingData.bondedTokens) * 100).toFixed(2)
+    : "...";
 
   return (
     <>

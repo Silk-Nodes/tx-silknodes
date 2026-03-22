@@ -249,9 +249,9 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
         }}>
           <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Base APR</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)", marginTop: 4 }}>
-            {validatorsWithIncome.length > 0 ? validatorsWithIncome[0].delegatorApr.toFixed(1) : "---"}%
+            {economics && economics.totalBonded > 0 ? ((economics.annualProvisions * (1 - economics.communityTax) / economics.totalBonded) * 100).toFixed(2) : "..."}%
           </div>
-          <Tooltip text="PSE rewards are added on top of base APR" position="bottom" />
+          <Tooltip text="Network base APR before validator commission. PSE rewards are added on top." position="bottom" />
         </div>
       </div>
 
