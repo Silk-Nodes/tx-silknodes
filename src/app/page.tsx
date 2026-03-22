@@ -2704,65 +2704,54 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
         }} />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          {/* Logo + Name + Commission inline */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Top row: Logo + Name (left) | Delegate button (right) */}
+          <div className="silk-hero-top" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`${BASE_PATH}/silk-nodes-logo.png`}
                 alt="Silk Nodes"
-                style={{ width: 44, height: 44, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
+                style={{ width: 40, height: 40, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
               />
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                  <h1 style={{ fontSize: "1.35rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Silk Nodes</h1>
+                  <h1 style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, whiteSpace: "nowrap" }}>Silk Nodes</h1>
                   <span style={{
                     display: "inline-flex", alignItems: "center", gap: 4,
                     background: "rgba(177,252,3,0.15)", border: "1px solid rgba(177,252,3,0.3)",
                     borderRadius: "var(--radius-pill)", padding: "2px 8px",
-                    fontSize: "0.58rem", fontWeight: 600, color: "var(--tx-neon)",
+                    fontSize: "0.55rem", fontWeight: 600, color: "var(--tx-neon)", whiteSpace: "nowrap",
                   }}>
                     <span className="live-dot" /> ACTIVE
                   </span>
                 </div>
-                <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", margin: 0 }}>
-                  Built for the TX community. We grow with the network, not extract from it.
+                <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", margin: 0 }}>
+                  Built for the TX community
                 </p>
               </div>
             </div>
 
-            {/* Commission badge */}
-            <div style={{
-              background: "rgba(177,252,3,0.12)", border: "1.5px solid rgba(177,252,3,0.35)",
-              borderRadius: 12, padding: "10px 22px", textAlign: "center",
-            }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "2rem", fontWeight: 700, color: "var(--tx-neon)", lineHeight: 1 }}>5%</div>
-              <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.5)", marginTop: 3 }}>MIN. COMMISSION</div>
-              <div style={{ fontSize: "0.58rem", color: "rgba(177,252,3,0.4)", marginTop: 2 }}>Lower fees = higher net rewards</div>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div style={{ marginBottom: 14 }}>
+            {/* Delegate CTA button */}
             <button
               onClick={delegateCTA}
+              className="silk-delegate-btn"
               style={{
-                border: "none", padding: "12px 26px", fontSize: "0.86rem", fontWeight: 700,
+                border: "none", padding: "10px 20px", fontSize: "0.78rem", fontWeight: 700,
                 background: "var(--tx-neon)", color: "var(--tx-dark-green)",
                 borderRadius: "var(--radius-pill)", cursor: "pointer",
                 boxShadow: "0 3px 14px rgba(177,252,3,0.35)",
-                transition: "transform 0.15s",
+                transition: "transform 0.15s", flexShrink: 0, whiteSpace: "nowrap",
               }}
               onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
             >
-              Delegate to Silk Nodes (5% Commission)
+              Delegate to Silk Nodes
             </button>
           </div>
 
           {/* Stats row */}
-          <div style={{
-            display: "flex", gap: 0, borderTop: "1px solid rgba(177,252,3,0.12)",
+          <div className="silk-stats-row" style={{
+            display: "flex", flexWrap: "wrap", gap: 0, borderTop: "1px solid rgba(177,252,3,0.12)",
             paddingTop: 12,
           }}>
             {[
@@ -2770,14 +2759,15 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               { label: "Delegated", value: silkBonded > 0 ? `${formatNumber(silkBonded)} TX` : "..." },
               { label: "Slashing", value: "None" },
               { label: "Restake", value: "Enabled" },
-            ].map((stat, i) => (
-              <div key={stat.label} style={{
-                textAlign: "center", flex: 1,
-                borderRight: i < 3 ? "1px solid rgba(177,252,3,0.08)" : "none",
+              { label: "Commission", value: "5%" },
+            ].map((stat) => (
+              <div key={stat.label} className="silk-stat-item" style={{
+                textAlign: "center", flex: "1 1 auto", minWidth: 0,
+                padding: "0 4px",
               }}>
-                <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>{stat.label}</div>
+                <div style={{ fontSize: "0.5rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>{stat.label}</div>
                 <div style={{
-                  fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600,
+                  fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 600,
                   color: "rgba(255,255,255,0.85)",
                 }}>{stat.value}</div>
               </div>
