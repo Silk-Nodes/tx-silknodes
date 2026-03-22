@@ -133,7 +133,7 @@ export default function StakingPage({
           <div className="metric-top">
             <span className="label">Base APR</span>
           </div>
-          <span className="value-large mono">{apr > 0 ? `${apr.toFixed(2)}%` : "---"}</span>
+          <span className="value-large mono">{apr > 0 ? `${apr.toFixed(2)}%` : "..."}</span>
           <span className="label" style={{ fontSize: 6, color: "var(--accent-dark)", marginTop: -2 }}>+ PSE rewards</span>
         </div>
         <div className="metric-cell">
@@ -304,7 +304,7 @@ export default function StakingPage({
                 ["COMMISSION", "10.00%"],
                 ["UNBONDING", "7 days"],
                 ["MIN COMM.", "5.00%"],
-                ["BASE APR", apr > 0 ? `${apr.toFixed(2)}%` : "---"],
+                ["BASE APR", apr > 0 ? `${apr.toFixed(2)}%` : "..."],
               ].map(([label, value], i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px dotted #eee" }}>
                   <span className="label" style={{ fontSize: 7 }}>{label}</span>

@@ -53,7 +53,7 @@ export default function ValidatorsPage({
             ACTIVE VALIDATOR SET
           </span>
           <span className="value-large mono">
-            {loading ? "---" : validators.length} Validators
+            {loading ? "..." : validators.length} Validators
           </span>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -61,7 +61,7 @@ export default function ValidatorsPage({
             TOTAL BONDED
           </span>
           <span className="value-large mono">
-            {loading ? "---" : formatNumber(totalBonded)} TX
+            {loading ? "..." : formatNumber(totalBonded)} TX
           </span>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function ValidatorsPage({
                       <span className="mono" style={{ fontSize: 11 }}>
                         {txPrice > 0 && val.estimatedMonthlyIncomeUSD !== undefined
                           ? formatUSD(val.estimatedMonthlyIncomeUSD)
-                          : "---"}
+                          : "..."}
                       </span>
                     </td>
                     <td>
