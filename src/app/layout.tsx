@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 
+const basePath = "/tx-silknodes";
+
 export const metadata: Metadata = {
-  title: "ALL in ONE TX | Silk Nodes",
+  title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
   description:
-    "ALL in ONE TX dashboard by Silk Nodes. Stake TX tokens, check your Proof of Support Emission (PSE) score, explore validators, manage delegations, and track tokenized assets (RWA) on the Coreum blockchain. Real-time on-chain data, PSE calculator, auto-compound via Restake, and wallet integration with Keplr and Leap.",
+    "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
   keywords: [
     "TX", "TX token", "TX staking", "TX blockchain", "Coreum", "Coreum staking",
     "PSE", "Proof of Support Emission", "PSE calculator", "PSE rewards", "PSE score",
@@ -21,31 +23,31 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/tx-icon.png",
-    shortcut: "/tx-icon.png",
-    apple: "/tx-icon.png",
+    icon: `${basePath}/tx-icon.png`,
+    shortcut: `${basePath}/tx-icon.png`,
+    apple: `${basePath}/tx-icon.png`,
   },
   openGraph: {
-    title: "ALL in ONE TX | Silk Nodes",
-    description: "Stake TX, check your PSE score, explore validators, manage delegations, and track tokenized assets. Built by Silk Nodes on the Coreum blockchain.",
+    title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+    description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
     url: "https://tx.silknodes.io",
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
     images: [
       {
-        url: "/tx-icon.png",
+        url: `${basePath}/tx-icon.png`,
         width: 512,
         height: 512,
-        alt: "TX Token",
+        alt: "ALL in ONE TX",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ALL in ONE TX | Silk Nodes",
-    description: "Stake TX, check your PSE score, explore validators, and manage delegations on Coreum.",
-    images: ["/tx-icon.png"],
+    title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+    description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
+    images: [`${basePath}/tx-icon.png`],
   },
   robots: {
     index: true,
@@ -68,6 +70,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href={`${basePath}/tx-icon.png`} type="image/png" />
+        <link rel="apple-touch-icon" href={`${basePath}/tx-icon.png`} />
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-CJ5WHL9PC3"
@@ -91,7 +95,7 @@ export default function RootLayout({
               "@type": "WebApplication",
               name: "ALL in ONE TX",
               url: "https://tx.silknodes.io",
-              description: "Stake TX tokens, check PSE rewards, explore validators, and manage delegations on the Coreum blockchain. Built by Silk Nodes validator.",
+              description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
               applicationCategory: "FinanceApplication",
               operatingSystem: "Web",
               offers: {
