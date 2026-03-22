@@ -3118,7 +3118,7 @@ function classifyToken(t: SmartToken): TokenClass {
 }
 
 const CLASS_CONFIG: Record<TokenClass, { label: string; color: string; bg: string; border: string }> = {
-  rwa: { label: "RWA-Capable", color: "#2a5a0a", bg: "rgba(177,252,3,0.18)", border: "rgba(177,252,3,0.4)" },
+  rwa: { label: "Compliance-Enabled", color: "#2a5a0a", bg: "rgba(177,252,3,0.18)", border: "rgba(177,252,3,0.4)" },
   utility: { label: "Utility", color: "#5a6a2a", bg: "rgba(235,244,80,0.15)", border: "rgba(235,244,80,0.35)" },
   meme: { label: "Meme/Test", color: "#8a6a4a", bg: "rgba(255,176,120,0.12)", border: "rgba(255,176,120,0.3)" },
 };
@@ -3135,7 +3135,7 @@ function generateLiveFeed(tokens: SmartToken[]) {
     const timeStr = minutesAgo < 60 ? `${minutesAgo}m ago` : `${Math.floor(minutesAgo / 60)}h ago`;
     if (cls === "rwa") {
       events.push({
-        type: "RWA",
+        type: "COMPLIANT",
         text: `${t.symbol},compliance-ready asset (${t.features.filter(f => COMPLIANCE_FEATURES.includes(f)).map(f => RWA_FEATURE_LABELS[f]).join(", ")})`,
         time: timeStr, color: "#B1FC03",
       });
@@ -3167,6 +3167,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
   const [sortKey, setSortKey] = useState<SortKey>("class");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [showFullRegistry, setShowFullRegistry] = useState(false);
 
   // Classification counts
   const classified = tokens.map((t) => ({ ...t, tokenClass: classifyToken(t) }));
@@ -3262,7 +3263,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
 
       <div className="section-head">
         <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          Tokenized Asset Explorer
+          Smart Token Explorer
           <span style={{
             fontSize: "0.5em", padding: "3px 10px", borderRadius: 20,
             background: loading ? "rgba(0,0,0,0.1)" : "rgba(177,252,3,0.2)",
@@ -3271,7 +3272,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             {loading ? "SYNCING..." : "LIVE ON-CHAIN"}
           </span>
         </h1>
-        <span className="section-sub">Smart Token activity on TX, protocol-native compliance, not smart contracts</span>
+        <span className="section-sub">TX supports tokenized real-world assets through protocol-native compliance. Current on-chain activity is primarily experimental — real institutional adoption is building.</span>
       </div>
 
       {/* ── Financial Metrics Row (5 cols) ── */}
@@ -3287,7 +3288,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
           background: "linear-gradient(135deg, #0F1B07, #1a2e0f)",
         }}>
           <div className="card-content">
-            <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>RWA-Ready <Tooltip text="Compliance-enabled tokens with real world asset backing" /></span>
+            <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>Compliance-Enabled <Tooltip text="Tokens with compliance features enabled (KYC, Freeze, Clawback) — does not guarantee real-world backing" /></span>
             <div className="card-value" style={{ color: "#B1FC03" }}>
               {loading ? "---" : rwaCount}
             </div>
@@ -3336,7 +3337,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             <div style={{ display: "flex", gap: 12, fontSize: "0.65rem" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: "#B1FC03", display: "inline-block" }} />
-                RWA-Capable {rwaCount}
+                Compliance-Enabled {rwaCount}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: "#EBF450", display: "inline-block" }} />
@@ -3387,7 +3388,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                       <span style={{
                         fontSize: "0.55rem", padding: "1px 5px", borderRadius: 3,
                         background: `${event.color}22`,
-                        color: event.type === "RWA" ? "#2a5a0a" : event.type === "UTILITY" ? "#5a6a2a" : "#7a5a3a",
+                        color: event.type === "COMPLIANT" ? "#2a5a0a" : event.type === "UTILITY" ? "#5a6a2a" : "#7a5a3a",
                         fontWeight: 600, fontFamily: "var(--font-mono)",
                       }}>{event.type}</span>
                       <span style={{ fontSize: "0.55rem", opacity: 0.35, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>{event.time}</span>
@@ -3496,7 +3497,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                 const frozenCount = tokens.filter(t => t.globally_frozen).length;
                 const ibcCount = stats.featureCounts["ibc"] || 0;
                 return [
-                  { text: `${utilPct}% of tokens are utility-based, ${rwaPct}% are compliance-enabled (RWA-capable)`, strong: true },
+                  { text: `${utilPct}% of tokens are utility-based, ${rwaPct}% are compliance-enabled`, strong: true },
                   { text: `Top issuer has created ${topIssuer?.[1] || 0} tokens (${topIssuer?.[0]?.slice(0, 12) || "..."}...)`, strong: false },
                   { text: `${ibcCount} tokens are IBC-enabled for cross-chain transfers`, strong: false },
                   { text: frozenCount > 0 ? `${frozenCount} token${frozenCount > 1 ? "s" : ""} currently globally frozen` : `No tokens are currently frozen,all assets are actively transferable`, strong: false },
@@ -3522,7 +3523,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
 
         <div className="panel col-5" style={{ padding: "14px 18px" }}>
           <span className="card-title" style={{ fontSize: "0.7rem", display: "block", marginBottom: 10 }}>
-            Top Compliant Tokens
+            Most Advanced Smart Tokens
           </span>
           {!loading && stats.topByFeatures.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3595,7 +3596,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
           <div className="filter-chips">
             {([
               { key: "all" as FilterType, label: `All (${stats.totalTokens})` },
-              { key: "rwa" as FilterType, label: `RWA-Capable (${rwaCount})` },
+              { key: "rwa" as FilterType, label: `Compliance-Enabled (${rwaCount})` },
               { key: "utility" as FilterType, label: `Utility (${utilityCount})` },
               { key: "meme" as FilterType, label: `Meme/Test (${memeCount})` },
             ]).map((f) => (
@@ -3653,7 +3654,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                     </td>
                   </tr>
                 ) : (
-                  sorted.slice(0, 50).map((token) => {
+                  (showFullRegistry ? sorted : sorted.slice(0, 10)).map((token) => {
                     const cls = token.tokenClass;
                     const cc = CLASS_CONFIG[cls];
                     const complianceCount = COMPLIANCE_FEATURES.filter((f) => token.features.includes(f)).length;
@@ -3760,9 +3761,15 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                 )}
               </tbody>
             </table>
-            {sorted.length > 50 && (
-              <div style={{ textAlign: "center", padding: 10, opacity: 0.5, fontSize: "0.75rem" }}>
-                Showing 50 of {sorted.length} tokens
+            {sorted.length > 10 && (
+              <div style={{ textAlign: "center", padding: 12 }}>
+                <button
+                  onClick={() => setShowFullRegistry(!showFullRegistry)}
+                  className="btn-olive"
+                  style={{ padding: "6px 20px", fontSize: "0.75rem" }}
+                >
+                  {showFullRegistry ? "Collapse registry" : `View full registry (${sorted.length} tokens)`}
+                </button>
               </div>
             )}
           </div>
@@ -3781,10 +3788,10 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             SECURED BY TX VALIDATORS
           </div>
           <div style={{ fontSize: "1rem", fontWeight: 600, color: "#B1FC03", marginTop: 4 }}>
-            {bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"} securing {stats.totalTokens} tokenized assets
+            {bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"} securing the smart token ecosystem
           </div>
           <div style={{ fontSize: "0.7rem", color: "rgba(177,252,3,0.45)", marginTop: 6, display: "flex", gap: 20 }}>
-            <span>{securityPerAsset > 0 ? `${formatUSD(securityPerAsset)} secured per asset` : "..."}</span>
+            <span>{securityPerAsset > 0 ? `${formatUSD(securityPerAsset)} secured per token` : "..."}</span>
             <span>{securityPerIssuer > 0 ? `${formatUSD(securityPerIssuer)} secured per issuer` : "..."}</span>
           </div>
         </div>
