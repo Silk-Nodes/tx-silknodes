@@ -92,10 +92,11 @@ body {
    TOP NAV — Glassmorphic pill bar
    ═══════════════════════════════════════════ */
 
+/* Desktop: single row — Brand | Tabs | Live + Wallet */
 .top-nav {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -106,6 +107,7 @@ body {
   flex-shrink: 0;
   z-index: 100;
 }
+
 
 .brand {
   display: flex;
@@ -138,9 +140,9 @@ body {
 .nav-tab {
   text-decoration: none;
   color: var(--text-medium);
-  padding: 10px 20px;
+  padding: 8px 14px;
   border-radius: var(--radius-pill);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 500;
   border: none;
   background: transparent;
@@ -1132,22 +1134,36 @@ input[type="range"]::-webkit-slider-thumb {
 
   .top-nav {
     flex-wrap: wrap;
-    border-radius: 20px;
-    gap: 6px;
-    justify-content: center;
+    border-radius: 16px;
     padding: 8px 12px;
+    gap: 6px;
+  }
+  .brand {
+    font-size: 0.88rem;
+    order: 1;
+  }
+  .nav-right {
+    order: 2;
+    margin-left: auto;
   }
   .nav-tabs {
+    order: 3;
     width: 100%;
-    justify-content: center;
-    overflow-x: auto;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 4px;
   }
-  .nav-tab { padding: 8px 14px; font-size: 0.78rem; }
-  .nav-right { width: 100%; justify-content: center; }
-  .brand { font-size: 0.88rem; }
+  .nav-tab { padding: 8px 14px; font-size: 0.78rem; text-align: center; }
   .wallet-pill { font-size: 0.78rem; padding: 8px 14px; }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .section-sub {
+    font-size: 0.75rem !important;
+  }
 
   .card-value { font-size: 1.8rem; }
   .card-title { font-size: 0.85rem; }
@@ -1171,10 +1187,21 @@ input[type="range"]::-webkit-slider-thumb {
 
 @media (max-width: 480px) {
   .app-shell { padding: 6px 8px; gap: 8px; }
-  .top-nav { border-radius: 16px; padding: 6px 8px; }
-  .nav-tabs { justify-content: flex-start; }
-  .nav-tab { padding: 6px 10px; font-size: 0.72rem; }
+  .top-nav { padding: 6px 8px; gap: 4px; border-radius: 14px; }
+  .nav-tabs { grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .nav-tab { padding: 6px 8px; font-size: 0.72rem; }
+  .brand { font-size: 0.8rem; }
+  .brand-icon { width: 28px; height: 28px; }
+  .wallet-pill { font-size: 0.7rem; padding: 6px 12px; }
   .page-title { font-size: 1.3rem; }
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .section-sub {
+    font-size: 0.7rem !important;
+  }
   .section-title { font-size: 1.1rem; }
   .card-value { font-size: 1.5rem; }
   .panel { padding: 14px; }
@@ -1190,6 +1217,8 @@ input[type="range"]::-webkit-slider-thumb {
 
   .site-footer { flex-direction: column; gap: 8px; text-align: center; }
   .footer-sep { display: none; }
+  .footer-brand-logo { font-size: 0.75rem; }
+  .footer-brand-logo .brand-icon { width: 18px; height: 18px; }
 }
 
 /* ─── Footer ─── */
@@ -1197,33 +1226,51 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
-  border-top: 1px solid rgba(177, 252, 3, 0.12);
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
-  margin-top: auto;
+  padding: 18px 32px;
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 1px solid rgba(177, 252, 3, 0.25);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 40px;
 }
 .footer-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
-.footer-brand {
-  color: rgba(255, 255, 255, 0.55);
+.footer-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+.footer-brand-logo .brand-icon {
+  width: 22px;
+  height: 22px;
+}
+.footer-brand-logo .brand-icon img {
+  width: 100%;
+  height: 100%;
 }
 .footer-sep {
-  opacity: 0.3;
+  color: rgba(255, 255, 255, 0.3);
+}
+.footer-built {
+  color: rgba(255, 255, 255, 0.6);
 }
 .footer-built a {
   color: var(--tx-neon);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
 }
 .footer-built a:hover {
   text-decoration: underline;
 }
 .footer-public-good {
-  color: rgba(177, 252, 3, 0.5);
+  color: rgba(177, 252, 3, 0.75);
   font-style: italic;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
 }

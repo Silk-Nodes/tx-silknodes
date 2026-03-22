@@ -50,8 +50,8 @@ const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "portfolio", label: "Portfolio", walletOnly: true },
   { id: "pse", label: "PSE" },
   { id: "calculator", label: "Calculator" },
-  { id: "validators", label: "Validators" },
   { id: "rwa", label: "RWA" },
+  { id: "validators", label: "Validators" },
   { id: "silknodes", label: "Silk Nodes" },
 ];
 
@@ -414,7 +414,9 @@ export default function HomePage() {
       {/* ════════ FOOTER ════════ */}
       <footer className="site-footer">
         <div className="footer-left">
-          <span className="footer-brand">TX Community Hub</span>
+          <div className="footer-brand-logo">
+            All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX" /></div>
+          </div>
           <span className="footer-sep">|</span>
           <span className="footer-built">Built by <a href="https://silknodes.io" target="_blank" rel="noopener noreferrer">Silk Nodes</a></span>
         </div>
@@ -2125,7 +2127,7 @@ function PortfolioTab({
       </div>
 
       {/* ── Staking Actions ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="responsive-grid-2" style={{ gap: 16, alignItems: "start" }}>
         {/* Left: Action Panel */}
         <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
           {/* Action tabs */}
@@ -2794,7 +2796,7 @@ function SilkNodesTab({ networkStatus, stakingData, setActiveTab, wallet, setSho
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "stretch" }}>
+      <div className="responsive-grid-2" style={{ gap: 16, alignItems: "stretch" }}>
         {/* ── Left: Auto-Compound + Staking CTA ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Auto-Compound Enhanced */}
