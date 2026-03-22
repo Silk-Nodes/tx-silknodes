@@ -169,6 +169,10 @@ body {
   gap: 8px;
 }
 
+.nav-spacer {
+  display: none;
+}
+
 .wallet-pill {
   padding: 10px 20px;
   border-radius: var(--radius-pill);
@@ -1115,8 +1119,8 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 @media (max-width: 768px) {
-  html, body { overflow: auto; overflow-x: hidden; }
-  body { height: auto; min-height: 100vh; }
+  html, body { overflow-x: clip; overflow-y: auto; }
+  body { height: auto; min-height: 100vh; overflow-x: clip; overflow-y: auto; }
 
   .app-shell {
     padding: 8px 12px;
@@ -1134,9 +1138,19 @@ input[type="range"]::-webkit-slider-thumb {
 
   .top-nav {
     flex-wrap: wrap;
-    border-radius: 16px;
+    border-radius: 0 0 16px 16px;
     padding: 8px 12px;
     gap: 6px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border-top: none;
+  }
+  .nav-spacer {
+    display: block;
+    height: 120px;
   }
   .brand {
     font-size: 0.88rem;

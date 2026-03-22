@@ -187,6 +187,7 @@ export default function HomePage() {
           </button>
         </div>
       </nav>
+      <div className="nav-spacer" />
 
       {/* ════════ WALLET SELECTION MODAL ════════ */}
       {showWalletModal && !wallet.connected && (
