@@ -489,7 +489,7 @@ function OverviewTab({
           <div>
             <div style={{ fontSize: "0.68rem", opacity: 0.45, marginBottom: 4 }}>Staked (of circulating)</div>
             <div style={{ fontSize: "2.4rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon)", lineHeight: 1.1 }}>
-              {loading ? "---" : `${stakingPct}%`}
+              {loading ? "..." : `${stakingPct}%`}
             </div>
             <div style={{ fontSize: "0.65rem", opacity: 0.4, marginTop: 4 }}>
               {formatNumber(bondedTokens)} TX bonded
@@ -808,7 +808,7 @@ function OverviewTab({
                 {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(1)}% 24h
               </div>
               <div className="card-value">
-                ${loading ? "---" : price.toFixed(4)}
+                ${loading ? "..." : price.toFixed(4)}
                 <span className="unit">USD</span>
               </div>
             </div>
@@ -823,7 +823,7 @@ function OverviewTab({
             <span className="card-title">Market Cap <Tooltip text={`Circulating supply: ${formatNumber(totalSupply)} TX`} /></span>
             <div>
               <div className="card-value">
-                {loading ? "---" : formatUSD(marketCap)}
+                {loading ? "..." : formatUSD(marketCap)}
               </div>
             </div>
           </div>
@@ -834,7 +834,7 @@ function OverviewTab({
             <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Base APR <Tooltip text="PSE rewards are added on top of base APR. PSE is the primary yield source." /></span>
             <div>
               <div className="card-value">
-                {apr > 0 ? `${apr.toFixed(2)}%` : "---"}
+                {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
               </div>
             </div>
           </div>
@@ -938,7 +938,7 @@ function OverviewTab({
             <div>
               <div style={{ fontSize: "0.72rem", fontWeight: 600 }}>{loading ? "Syncing..." : "Network Operational"}</div>
               <div style={{ fontSize: "0.6rem", opacity: 0.4 }}>
-                Block {networkStatus?.blockHeight ? networkStatus.blockHeight.toLocaleString() : "---"}
+                Block {networkStatus?.blockHeight ? networkStatus.blockHeight.toLocaleString() : "..."}
                 {activeValidators > 0 ? ` · ${activeValidators} validators` : ""}
                 {" · "}No issues detected · tx-mainnet
               </div>
@@ -1828,7 +1828,7 @@ function CalculatorTab({
               <div className="card-content">
                 <span className="card-title">Base APR <Tooltip text={apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
                 <div className="card-value" style={{ fontSize: "2rem" }}>
-                  {apr > 0 ? `${apr.toFixed(2)}%` : "---"}
+                  {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
                 </div>
               </div>
             </div>
@@ -2982,7 +2982,7 @@ function SilkNodesTab({ networkStatus, stakingData, setActiveTab, wallet, setSho
                   <div style={{ display: "flex", gap: 24 }}>
                     <div>
                       <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Block</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "---"}</div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "1rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
                     </div>
                     <div>
                       <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>Size</span>
@@ -3217,14 +3217,6 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
   const truncAddr = (addr: string) => `${addr.slice(0, 10)}...${addr.slice(-6)}`;
   const liveFeed = generateLiveFeed(tokens);
 
-  // Security per asset
-  const securityPerAsset = tokens.length > 0 && bondedTokens > 0 && price > 0
-    ? (bondedTokens * price) / tokens.length
-    : 0;
-  const securityPerIssuer = stats.totalIssuers > 0 && bondedTokens > 0 && price > 0
-    ? (bondedTokens * price) / stats.totalIssuers
-    : 0;
-
   return (
     <div style={{ position: "relative", minHeight: loading ? 500 : undefined }}>
       {/* Blurred overlay while loading */}
@@ -3261,545 +3253,310 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
         </>
       )}
 
-      <div className="section-head">
-        <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          Smart Token Explorer
-          <span style={{
-            fontSize: "0.5em", padding: "3px 10px", borderRadius: 20,
-            background: loading ? "rgba(0,0,0,0.1)" : "rgba(177,252,3,0.2)",
-            color: loading ? "inherit" : "#3a5a0a", fontWeight: 500,
-          }}>
-            {loading ? "SYNCING..." : "LIVE ON-CHAIN"}
-          </span>
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 1: HERO
+          ═══════════════════════════════════════════════════════ */}
+      <div style={{ textAlign: "center", padding: "32px 0 24px" }}>
+        <span style={{
+          display: "inline-block", fontSize: "0.6rem", fontWeight: 600,
+          padding: "4px 14px", borderRadius: 20,
+          background: "rgba(177,252,3,0.15)", color: "#3a5a0a",
+          letterSpacing: "0.1em", marginBottom: 16,
+          border: "1px solid rgba(177,252,3,0.3)",
+        }}>
+          INFRASTRUCTURE LIVE
+        </span>
+        <h1 className="page-title" style={{ fontSize: "2rem", lineHeight: 1.15, marginBottom: 14 }}>
+          The Operating System for<br />Real-World Assets
         </h1>
-        <span className="section-sub">TX supports tokenized real-world assets through protocol-native compliance. Current on-chain activity is primarily experimental — real institutional adoption is building.</span>
+        <p style={{
+          maxWidth: 640, margin: "0 auto", fontSize: "0.85rem",
+          lineHeight: 1.6, opacity: 0.6, color: "var(--tx-dark-green)",
+        }}>
+          TX enables compliant, programmable financial assets at the protocol level — not through smart contracts. The infrastructure is live. Real-world adoption is building.
+        </p>
       </div>
 
-      {/* ── Financial Metrics Row (5 cols) ── */}
-      <div className="responsive-grid-5" style={{ gap: 10, marginBottom: 16 }}>
+      {/* Hero stat cards */}
+      <div className="responsive-grid-3" style={{ gap: 10, marginBottom: 32 }}>
         <div className="accent-card card-dark">
           <div className="card-content">
-            <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Total Tokens <Tooltip text="On-chain Smart Tokens issued on Coreum" /></span>
-            <div className="card-value">{loading ? "---" : stats.totalTokens}</div>
+            <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Smart Tokens</span>
+            <div className="card-value">{loading ? "..." : stats.totalTokens}</div>
           </div>
         </div>
-
-        <div className="accent-card" style={{
-          background: "linear-gradient(135deg, #0F1B07, #1a2e0f)",
-        }}>
+        <div className="accent-card" style={{ background: "linear-gradient(135deg, #0F1B07, #1a2e0f)" }}>
           <div className="card-content">
-            <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>Compliance-Enabled <Tooltip text="Tokens with compliance features enabled (KYC, Freeze, Clawback) — does not guarantee real-world backing" /></span>
-            <div className="card-value" style={{ color: "#B1FC03" }}>
-              {loading ? "---" : rwaCount}
-            </div>
+            <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>Compliance-Enabled</span>
+            <div className="card-value" style={{ color: "#B1FC03" }}>{loading ? "..." : rwaCount}</div>
           </div>
         </div>
-
         <div className="accent-card card-yellow">
           <div className="blob-light" />
           <div className="card-content">
-            <span className="card-title">Unique Issuers <Tooltip text="Active token issuers on TX mainnet" /></span>
-            <div className="card-value">{loading ? "---" : stats.totalIssuers}</div>
-          </div>
-        </div>
-
-        <div className="accent-card card-orange">
-          <div className="texture-dots" />
-          <div className="card-content">
-            <span className="card-title">Network Secured <Tooltip text="Total bonded value securing the network" /></span>
-            <div className="card-value">{bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"}</div>
-          </div>
-        </div>
-
-        <div className="accent-card">
-          <div className="card-content">
-            <span className="card-title">Security / Asset</span>
-            <div className="card-value">
-              {securityPerAsset > 0 ? formatUSD(securityPerAsset) : "---"}
-            </div>
-            <div className="card-sub">
-              {securityPerIssuer > 0 ? `${formatUSD(securityPerIssuer)} / issuer` : "..."}
-            </div>
+            <span className="card-title">Unique Issuers</span>
+            <div className="card-value">{loading ? "..." : stats.totalIssuers}</div>
           </div>
         </div>
       </div>
 
-      {/* ── Classification Breakdown ── */}
-      {!loading && tokens.length > 0 && (
-        <div className="panel mb-3" style={{ padding: "12px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.6 }}>Classification</span>
-            <div style={{ flex: 1, display: "flex", height: 8, borderRadius: 4, overflow: "hidden", gap: 2 }}>
-              <div style={{ width: `${(rwaCount / tokens.length) * 100}%`, background: "#B1FC03", borderRadius: 4 }} />
-              <div style={{ width: `${(utilityCount / tokens.length) * 100}%`, background: "#EBF450", borderRadius: 4 }} />
-              <div style={{ width: `${(memeCount / tokens.length) * 100}%`, background: "#FFB078", borderRadius: 4 }} />
-            </div>
-            <div style={{ display: "flex", gap: 12, fontSize: "0.65rem" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#B1FC03", display: "inline-block" }} />
-                Compliance-Enabled {rwaCount}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#EBF450", display: "inline-block" }} />
-                Utility {utilityCount}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#FFB078", display: "inline-block" }} />
-                Meme/Test {memeCount}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 2: WHAT MAKES TX DIFFERENT
+          ═══════════════════════════════════════════════════════ */}
+      <div className="section-head" style={{ marginBottom: 16 }}>
+        <h2 className="page-title" style={{ fontSize: "1.4rem" }}>Protocol-Native Compliance</h2>
+        <span className="section-sub">
+          Unlike Ethereum where compliance requires custom smart contracts, TX bakes it directly into the token standard. Every token can be configured with institutional-grade features from day one.
+        </span>
+      </div>
 
-      {/* ── Live Feed + Compliance Features ── */}
-      <div className="grid-12 mb-3">
-        {/* Live Activity Feed */}
-        <div className="panel col-5" style={{ position: "relative" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              Activity Feed
+      <div className="responsive-grid-3" style={{ gap: 12, marginBottom: 32 }}>
+        {[
+          {
+            key: "whitelisting", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
+            ),
+            title: "KYC / Whitelist",
+            desc: "Restrict token holders to verified addresses. Required for regulated securities and compliant asset transfers.",
+            tag: "IDENTITY",
+          },
+          {
+            key: "freezing", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            ),
+            title: "Asset Freeze",
+            desc: "Halt transfers globally or per-account. Essential for regulatory holds, disputes, and court orders.",
+            tag: "CONTROL",
+          },
+          {
+            key: "clawback", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+            ),
+            title: "Clawback",
+            desc: "Recover tokens for regulatory compliance. Enables issuers to meet legal obligations and correct errors.",
+            tag: "RECOVERY",
+          },
+          {
+            key: "burning", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/>
+              </svg>
+            ),
+            title: "Burn",
+            desc: "Permanently remove tokens from supply. Supports redemption workflows and supply management.",
+            tag: "SUPPLY",
+          },
+          {
+            key: "minting", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            ),
+            title: "Mint",
+            desc: "Issue additional supply on demand. Enables flexible issuance models and corporate actions.",
+            tag: "SUPPLY",
+          },
+          {
+            key: "ibc", icon: (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            ),
+            title: "IBC Transfer",
+            desc: "Cross-chain interoperability via IBC protocol. Assets can move across 60+ connected blockchains.",
+            tag: "BRIDGE",
+          },
+        ].map((item) => {
+          const count = stats.featureCounts[item.key] || 0;
+          return (
+            <div key={item.key} style={{
+              background: "var(--tx-dark-green)",
+              borderRadius: 14, padding: "20px 18px",
+              border: "1px solid rgba(177,252,3,0.12)",
+              position: "relative", overflow: "hidden",
+              transition: "border-color 0.2s",
+            }}>
+              {/* Tag pill top-right */}
               <span style={{
-                width: 6, height: 6, borderRadius: "50%", background: "#B1FC03",
-                animation: "pulse 2s ease-in-out infinite", display: "inline-block",
-              }} />
-            </span>
-            <span style={{ fontSize: "0.6rem", opacity: 0.4, fontFamily: "var(--font-mono)" }}>ON-CHAIN</span>
-          </div>
-          {loading ? (
-            <div style={{ padding: 30, textAlign: "center", opacity: 0.4, fontSize: "0.8rem" }}>
-              Fetching on-chain activity...
-            </div>
-          ) : liveFeed.length === 0 ? (
-            <div style={{ padding: 30, textAlign: "center", opacity: 0.4, fontSize: "0.8rem" }}>
-              No recent activity
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {liveFeed.map((event, i) => (
-                <div key={i} style={{
-                  display: "flex", alignItems: "flex-start", gap: 8,
-                  padding: "6px 8px", borderRadius: 8,
-                  background: "rgba(0,0,0,0.03)",
-                  borderLeft: `3px solid ${event.color}`,
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <span style={{
-                        fontSize: "0.55rem", padding: "1px 5px", borderRadius: 3,
-                        background: `${event.color}22`,
-                        color: event.type === "COMPLIANT" ? "#2a5a0a" : event.type === "UTILITY" ? "#5a6a2a" : "#7a5a3a",
-                        fontWeight: 600, fontFamily: "var(--font-mono)",
-                      }}>{event.type}</span>
-                      <span style={{ fontSize: "0.55rem", opacity: 0.35, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>{event.time}</span>
-                    </div>
-                    <div style={{ fontSize: "0.7rem", marginTop: 3, opacity: 0.75, lineHeight: 1.3 }}>{event.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                position: "absolute", top: 14, right: 14,
+                fontSize: "0.5rem", fontWeight: 600, fontFamily: "var(--font-mono)",
+                padding: "2px 8px", borderRadius: 4,
+                background: "rgba(177,252,3,0.12)", color: "rgba(177,252,3,0.6)",
+                letterSpacing: "0.06em",
+              }}>{item.tag}</span>
 
-        {/* Interactive Compliance Features */}
-        <div className="panel col-7">
-          {/* Core differentiator banner */}
-          <div style={{
-            background: "linear-gradient(135deg, #0F1B07, #1a2e0f)",
-            borderRadius: 10, padding: "10px 14px", marginBottom: 12,
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-          }}>
-            <div>
-              <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.5)", fontWeight: 500, letterSpacing: "0.05em" }}>TX CORE DIFFERENTIATOR</div>
-              <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#B1FC03", marginTop: 2 }}>
-                Compliance is built into the protocol, not smart contracts
+              {/* Icon */}
+              <div style={{ marginBottom: 12 }}>{item.icon}</div>
+
+              {/* Title */}
+              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#EDE9E0", marginBottom: 6 }}>
+                {item.title}
+              </div>
+
+              {/* Description */}
+              <div style={{ fontSize: "0.75rem", color: "rgba(237,233,224,0.55)", lineHeight: 1.5, marginBottom: 12 }}>
+                {item.desc}
+              </div>
+
+              {/* Token count */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                paddingTop: 10, borderTop: "1px solid rgba(177,252,3,0.1)",
+              }}>
+                <span style={{
+                  fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
+                  color: "#B1FC03",
+                }}>
+                  {loading ? "..." : count}
+                </span>
+                <span style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.45)" }}>
+                  token{count !== 1 ? "s" : ""} enabled
+                </span>
               </div>
             </div>
-            <span style={{
-              fontSize: "0.5rem", padding: "3px 8px", borderRadius: 6,
-              background: "rgba(177,252,3,0.15)", color: "#B1FC03", fontWeight: 600, whiteSpace: "nowrap",
-            }}>PROTOCOL-NATIVE</span>
-          </div>
-
-          {/* Feature Grid with counts */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-            {[
-              { key: "whitelisting", label: "KYC/Whitelist", desc: "Restrict holders to verified addresses only", tag: "IDENTITY" },
-              { key: "freezing", label: "Asset Freeze", desc: "Halt transfers globally or per-account", tag: "CONTROL" },
-              { key: "clawback", label: "Clawback", desc: "Recover tokens for regulatory compliance", tag: "RECOVER" },
-              { key: "burning", label: "Burn", desc: "Permanently remove tokens from supply", tag: "SUPPLY" },
-              { key: "minting", label: "Mint", desc: "Issue additional supply on demand", tag: "SUPPLY" },
-              { key: "ibc", label: "IBC Transfer", desc: "Cross-chain interoperability via IBC", tag: "BRIDGE" },
-            ].map((item) => {
-              const count = stats.featureCounts[item.key] || 0;
-              const isCompliance = COMPLIANCE_FEATURES.includes(item.key);
-              const isExpanded = expandedFeature === item.key;
-              return (
-                <div
-                  key={item.key}
-                  onClick={() => setExpandedFeature(isExpanded ? null : item.key)}
-                  style={{
-                    background: isCompliance ? "rgba(177,252,3,0.08)" : "rgba(0,0,0,0.03)",
-                    borderRadius: 10, padding: "10px 12px", cursor: "pointer",
-                    border: isExpanded
-                      ? "1px solid rgba(177,252,3,0.5)"
-                      : isCompliance
-                      ? "1px solid rgba(177,252,3,0.2)"
-                      : "1px solid rgba(0,0,0,0.05)",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{
-                      fontSize: "0.5rem", fontFamily: "var(--font-mono)", fontWeight: 600,
-                      opacity: 0.35, letterSpacing: "0.05em",
-                    }}>{item.tag}</span>
-                    <span style={{
-                      fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
-                      color: isCompliance ? "#4a6a1a" : "inherit",
-                    }}>
-                      {loading ? "-" : count}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 600, fontSize: "0.7rem", marginTop: 4 }}>{item.label}</div>
-                  {isExpanded && (
-                    <div style={{ fontSize: "0.65rem", opacity: 0.55, marginTop: 4, lineHeight: 1.3 }}>
-                      {item.desc}
-                      {count > 0 && (
-                        <div style={{ marginTop: 4, fontFamily: "var(--font-mono)", color: "#4a6a1a", fontWeight: 600 }}>
-                          {count} token{count !== 1 ? "s" : ""} active
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* ── Network Insight + Top Compliant ── */}
-      <div className="grid-12 mb-3">
-        <div className="panel col-7" style={{ padding: "14px 18px" }}>
-          <span className="card-title" style={{ fontSize: "0.7rem", display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            Network Insight
-            <span style={{ fontSize: "0.5rem", padding: "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.06)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>AUTO-GENERATED</span>
-          </span>
-          {!loading && tokens.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {(() => {
-                const topIssuer = Object.entries(
-                  tokens.reduce((acc, t) => { acc[t.issuer] = (acc[t.issuer] || 0) + 1; return acc; }, {} as Record<string, number>)
-                ).sort((a, b) => b[1] - a[1])[0];
-                const rwaPct = tokens.length > 0 ? ((rwaCount / tokens.length) * 100).toFixed(1) : "0";
-                const utilPct = tokens.length > 0 ? ((utilityCount / tokens.length) * 100).toFixed(1) : "0";
-                const frozenCount = tokens.filter(t => t.globally_frozen).length;
-                const ibcCount = stats.featureCounts["ibc"] || 0;
-                return [
-                  { text: `${utilPct}% of tokens are utility-based, ${rwaPct}% are compliance-enabled`, strong: true },
-                  { text: `Top issuer has created ${topIssuer?.[1] || 0} tokens (${topIssuer?.[0]?.slice(0, 12) || "..."}...)`, strong: false },
-                  { text: `${ibcCount} tokens are IBC-enabled for cross-chain transfers`, strong: false },
-                  { text: frozenCount > 0 ? `${frozenCount} token${frozenCount > 1 ? "s" : ""} currently globally frozen` : `No tokens are currently frozen,all assets are actively transferable`, strong: false },
-                  { text: `${stats.totalIssuers} unique issuers across ${tokens.length} tokens (avg ${(tokens.length / stats.totalIssuers).toFixed(1)} tokens/issuer)`, strong: false },
-                ].map((insight, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "flex-start", gap: 8,
-                    padding: "5px 8px", borderRadius: 6,
-                    background: insight.strong ? "rgba(177,252,3,0.06)" : "transparent",
-                  }}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: insight.strong ? "#B1FC03" : "rgba(0,0,0,0.15)", marginTop: 5, flexShrink: 0 }} />
-                    <span style={{ fontSize: "0.7rem", opacity: insight.strong ? 0.8 : 0.55, lineHeight: 1.35, fontWeight: insight.strong ? 500 : 400 }}>
-                      {insight.text}
-                    </span>
-                  </div>
-                ));
-              })()}
-            </div>
-          ) : (
-            <div style={{ opacity: 0.3, fontSize: "0.75rem" }}>Loading insights...</div>
-          )}
-        </div>
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 3: HOW IT WORKS
+          ═══════════════════════════════════════════════════════ */}
+      <div className="section-head" style={{ marginBottom: 16 }}>
+        <h2 className="page-title" style={{ fontSize: "1.4rem" }}>From Issuance to Compliance in Minutes</h2>
+      </div>
 
-        <div className="panel col-5" style={{ padding: "14px 18px" }}>
-          <span className="card-title" style={{ fontSize: "0.7rem", display: "block", marginBottom: 10 }}>
-            Most Advanced Smart Tokens
-          </span>
-          {!loading && stats.topByFeatures.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {stats.topByFeatures.filter(t => COMPLIANCE_FEATURES.some(f => t.features.includes(f))).slice(0, 5).map((t, i) => {
-                const compFeats = t.features.filter(f => COMPLIANCE_FEATURES.includes(f));
-                return (
-                  <div key={i} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "5px 8px", borderRadius: 6, background: "rgba(177,252,3,0.04)",
-                    border: "1px solid rgba(177,252,3,0.1)",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{t.symbol}</span>
-                      <span style={{ fontSize: "0.6rem", opacity: 0.4 }}>{t.features.length} features</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 3 }}>
-                      {compFeats.map(f => (
-                        <span key={f} style={{
-                          fontSize: "0.5rem", padding: "1px 4px", borderRadius: 3,
-                          background: "rgba(177,252,3,0.2)", color: "#2a5a0a", fontWeight: 600,
-                        }}>{RWA_FEATURE_LABELS[f]}</span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-              {stats.topByFeatures.filter(t => COMPLIANCE_FEATURES.some(f => t.features.includes(f))).length === 0 && (
-                <div style={{ fontSize: "0.7rem", opacity: 0.35, textAlign: "center", padding: 10 }}>No compliant tokens yet</div>
-              )}
-            </div>
-          ) : (
-            <div style={{ opacity: 0.3, fontSize: "0.75rem" }}>Loading...</div>
-          )}
-
-          {/* Pricing note */}
-          <div style={{
-            marginTop: 10, padding: "6px 8px", borderRadius: 6,
-            background: "rgba(0,0,0,0.03)", border: "1px dashed rgba(0,0,0,0.08)",
-            fontSize: "0.6rem", opacity: 0.4, lineHeight: 1.3,
+      {/* 4-step horizontal flow */}
+      <div className="responsive-grid-4" style={{ gap: 0, marginBottom: 24, position: "relative" }}>
+        {[
+          { step: "01", title: "Define Asset", desc: "Create a smart token with custom supply, precision, and metadata" },
+          { step: "02", title: "Configure Rules", desc: "Enable compliance features: KYC, freeze, clawback, transfer restrictions" },
+          { step: "03", title: "Issue & Distribute", desc: "Mint tokens and distribute to verified holders via whitelist" },
+          { step: "04", title: "Trade Compliantly", desc: "Assets trade on DEX with built-in compliance rules enforced at protocol level" },
+        ].map((s, i) => (
+          <div key={i} style={{
+            display: "flex", flexDirection: "column", alignItems: "center",
+            textAlign: "center", padding: "0 12px",
+            position: "relative",
           }}>
-            Token pricing requires DEX/oracle integration,value metrics coming soon
+            {/* Arrow connector (not on last item) */}
+            {i < 3 && (
+              <div style={{
+                position: "absolute", top: 22, right: -6, width: 12, height: 2,
+                background: "var(--tx-neon)", opacity: 0.4, zIndex: 1,
+              }}>
+                <div style={{
+                  position: "absolute", right: -4, top: -3,
+                  width: 0, height: 0,
+                  borderTop: "4px solid transparent",
+                  borderBottom: "4px solid transparent",
+                  borderLeft: "6px solid var(--tx-neon)",
+                  opacity: 0.6,
+                }} />
+              </div>
+            )}
+
+            {/* Step number circle */}
+            <div style={{
+              width: 44, height: 44, borderRadius: "50%",
+              background: "var(--tx-dark-green)",
+              border: "2px solid rgba(177,252,3,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono)",
+              color: "#B1FC03", marginBottom: 12,
+            }}>
+              {s.step}
+            </div>
+
+            <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "var(--tx-dark-green)" }}>
+              {s.title}
+            </div>
+            <div style={{ fontSize: "0.72rem", opacity: 0.55, lineHeight: 1.45 }}>
+              {s.desc}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* ── Token Registry Table ── */}
-      <div className="panel">
-        <div className="flex-between mb-2">
-          <span className="card-title">Smart Token Registry</span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: "0.65rem", opacity: 0.4, fontFamily: "var(--font-mono)" }}>
-              {loading ? "..." : `${sorted.length} of ${tokens.length} tokens`}
-            </span>
-            <button onClick={refresh} className="btn-olive" style={{ padding: "4px 12px", fontSize: "0.75rem" }}>
-              Refresh
-            </button>
-          </div>
+      {/* Comparison panel: TX vs Traditional */}
+      <div className="panel" style={{ padding: 0, overflow: "hidden", marginBottom: 32 }}>
+        <div style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid rgba(0,0,0,0.06)",
+        }}>
+          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--tx-dark-green)" }}>
+            TX vs Traditional Tokenization
+          </span>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 0 }}>
+          {/* Left: Other Chains */}
+          <div style={{
+            padding: "20px 24px",
+            borderRight: "1px solid rgba(0,0,0,0.06)",
+            background: "rgba(0,0,0,0.02)",
+          }}>
+            <div style={{
+              fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.08em",
+              opacity: 0.4, marginBottom: 14,
+            }}>OTHER CHAINS</div>
+            {[
+              "Custom smart contracts for each token",
+              "Expensive security audits required",
+              "High deployment and maintenance cost",
+              "Fragile \u2014 bugs can mean lost funds",
+              "Every token behaves differently",
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "flex-start", gap: 8,
+                marginBottom: 10, fontSize: "0.78rem", opacity: 0.6, lineHeight: 1.4,
+              }}>
+                <span style={{ color: "#b44a3e", flexShrink: 0, marginTop: 1, fontSize: "0.7rem" }}>{"\u2717"}</span>
+                {item}
+              </div>
+            ))}
+          </div>
 
-        {/* Search & Filter */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Search by symbol, name, or issuer..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input"
-            style={{ flex: 1, fontSize: "0.8rem", padding: "6px 12px", minWidth: 200 }}
-          />
-          <div className="filter-chips">
-            {([
-              { key: "all" as FilterType, label: `All (${stats.totalTokens})` },
-              { key: "rwa" as FilterType, label: `Compliance-Enabled (${rwaCount})` },
-              { key: "utility" as FilterType, label: `Utility (${utilityCount})` },
-              { key: "meme" as FilterType, label: `Meme/Test (${memeCount})` },
-            ]).map((f) => (
-              <button
-                key={f.key}
-                className={`chip ${filter === f.key ? "active" : ""}`}
-                onClick={() => setFilter(f.key)}
-              >
-                {f.label}
-              </button>
+          {/* Right: TX Protocol */}
+          <div style={{
+            padding: "20px 24px",
+            background: "rgba(177,252,3,0.04)",
+            borderLeft: "2px solid rgba(177,252,3,0.2)",
+          }}>
+            <div style={{
+              fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.08em",
+              color: "#3a5a0a", marginBottom: 14,
+            }}>TX PROTOCOL</div>
+            {[
+              "Native token standard \u2014 no contracts needed",
+              "Built-in compliance at the protocol level",
+              "Cost-effective issuance for any organization",
+              "Battle-tested consensus with validator security",
+              "Consistent, predictable token behavior",
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "flex-start", gap: 8,
+                marginBottom: 10, fontSize: "0.78rem", color: "var(--tx-dark-green)", lineHeight: 1.4,
+              }}>
+                <span style={{ color: "#3a5a0a", flexShrink: 0, marginTop: 1, fontSize: "0.7rem" }}>{"\u2713"}</span>
+                {item}
+              </div>
             ))}
           </div>
         </div>
-
-        {loading ? (
-          <div style={{ padding: 40, textAlign: "center", opacity: 0.5 }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>Scanning TX chain for Smart Tokens...</div>
-            <div style={{ fontSize: "0.7rem", opacity: 0.6, marginTop: 8 }}>Fetching token details and compliance data</div>
-          </div>
-        ) : error ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <div style={{ color: "#b44a3e", fontSize: "0.85rem" }}>{error}</div>
-            <button onClick={refresh} className="btn-olive" style={{ marginTop: 12, padding: "6px 16px", fontSize: "0.75rem" }}>
-              Retry
-            </button>
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", cursor: "pointer" }} onClick={() => toggleSort("class")}>
-                    Type{sortIcon("class")}
-                  </th>
-                  <th style={{ textAlign: "left", cursor: "pointer" }} onClick={() => toggleSort("symbol")}>
-                    Asset{sortIcon("symbol")}
-                  </th>
-                  <th style={{ textAlign: "left" }}>Description</th>
-                  <th style={{ textAlign: "right", cursor: "pointer" }} onClick={() => toggleSort("supply")}>
-                    Supply{sortIcon("supply")}
-                  </th>
-                  <th style={{ textAlign: "center" }}>Compliance</th>
-                  <th style={{ textAlign: "center", cursor: "pointer" }} onClick={() => toggleSort("features")}>
-                    Features{sortIcon("features")}
-                  </th>
-                  <th style={{ textAlign: "left" }}>Issuer</th>
-                  <th style={{ textAlign: "center" }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: 20, opacity: 0.5 }}>
-                      No tokens match your search
-                    </td>
-                  </tr>
-                ) : (
-                  (showFullRegistry ? sorted : sorted.slice(0, 10)).map((token) => {
-                    const cls = token.tokenClass;
-                    const cc = CLASS_CONFIG[cls];
-                    const complianceCount = COMPLIANCE_FEATURES.filter((f) => token.features.includes(f)).length;
-                    return (
-                      <tr key={token.denom}>
-                        <td>
-                          <span style={{
-                            fontSize: "0.6rem", padding: "2px 7px", borderRadius: 4,
-                            background: cc.bg, color: cc.color, fontWeight: 600,
-                            border: `1px solid ${cc.border}`,
-                          }}>
-                            {cc.label}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{
-                              width: 26, height: 26, borderRadius: 6,
-                              background: cls === "rwa"
-                                ? "linear-gradient(135deg, rgba(177,252,3,0.2), rgba(177,252,3,0.08))"
-                                : cls === "utility" ? "rgba(235,244,80,0.12)" : "rgba(0,0,0,0.05)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: "0.5rem", fontWeight: 700, fontFamily: "var(--font-mono)",
-                              color: cls === "rwa" ? "#3a5a0a" : "rgba(0,0,0,0.35)",
-                            }}>
-                              {token.symbol.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-                                {token.symbol}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: "0.7rem", opacity: 0.6, maxWidth: 160, display: "inline-block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {token.description || "..."}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-                          {formatNumber(token.supply)}
-                        </td>
-                        <td style={{ textAlign: "center" }}>
-                          {complianceCount > 0 ? (
-                            <div style={{ display: "flex", gap: 3, justifyContent: "center" }}>
-                              {token.features.includes("whitelisting") && (
-                                <span title="KYC/Whitelist enabled" style={{
-                                  fontSize: "0.55rem", padding: "1px 5px", borderRadius: 3,
-                                  background: "rgba(177,252,3,0.2)", color: "#2a5a0a", fontWeight: 600,
-                                  border: "1px solid rgba(177,252,3,0.35)",
-                                }}>KYC</span>
-                              )}
-                              {token.features.includes("freezing") && (
-                                <span title="Freeze enabled" style={{
-                                  fontSize: "0.55rem", padding: "1px 5px", borderRadius: 3,
-                                  background: "rgba(177,252,3,0.2)", color: "#2a5a0a", fontWeight: 600,
-                                  border: "1px solid rgba(177,252,3,0.35)",
-                                }}>Freeze</span>
-                              )}
-                              {token.features.includes("clawback") && (
-                                <span title="Clawback enabled" style={{
-                                  fontSize: "0.55rem", padding: "1px 5px", borderRadius: 3,
-                                  background: "rgba(177,252,3,0.2)", color: "#2a5a0a", fontWeight: 600,
-                                  border: "1px solid rgba(177,252,3,0.35)",
-                                }}>Clawback</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: "0.55rem", opacity: 0.2 }}>\u2014</span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: "center" }}>
-                          <span style={{
-                            fontSize: "0.65rem", fontFamily: "var(--font-mono)",
-                            padding: "2px 6px", borderRadius: 4,
-                            background: token.features.length >= 3 ? "rgba(177,252,3,0.1)" : "rgba(0,0,0,0.04)",
-                          }}>
-                            {token.features.length}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", opacity: 0.5 }}>
-                            {truncAddr(token.issuer)}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "center" }}>
-                          {token.globally_frozen ? (
-                            <span className="status-pill" style={{ background: "rgba(180,74,62,0.15)", color: "#b44a3e", fontSize: "0.6rem" }}>
-                              Frozen
-                            </span>
-                          ) : cls === "rwa" ? (
-                            <span className="status-pill success" style={{ fontSize: "0.6rem" }}>
-                              Compliant
-                            </span>
-                          ) : (
-                            <span className="status-pill" style={{ fontSize: "0.6rem" }}>
-                              Active
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-            {sorted.length > 10 && (
-              <div style={{ textAlign: "center", padding: 12 }}>
-                <button
-                  onClick={() => setShowFullRegistry(!showFullRegistry)}
-                  className="btn-olive"
-                  style={{ padding: "6px 20px", fontSize: "0.75rem" }}
-                >
-                  {showFullRegistry ? "Collapse registry" : `View full registry (${sorted.length} tokens)`}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* ── Validator Security Banner ── */}
-      <div style={{
-        marginTop: 16,
-        background: "linear-gradient(135deg, #0F1B07, #1a2e0f)",
-        borderRadius: 16, padding: "16px 24px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.6)", fontWeight: 500, letterSpacing: "0.05em" }}>
-            SECURED BY TX VALIDATORS
-          </div>
-          <div style={{ fontSize: "1rem", fontWeight: 600, color: "#B1FC03", marginTop: 4 }}>
-            {bondedTokens > 0 ? formatUSD(bondedTokens * price) : "---"} securing the smart token ecosystem
-          </div>
-          <div style={{ fontSize: "0.7rem", color: "rgba(177,252,3,0.45)", marginTop: 6, display: "flex", gap: 20 }}>
-            <span>{securityPerAsset > 0 ? `${formatUSD(securityPerAsset)} secured per token` : "..."}</span>
-            <span>{securityPerIssuer > 0 ? `${formatUSD(securityPerIssuer)} secured per issuer` : "..."}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 24 }}>
-          <img src={`${BASE_PATH}/silk-nodes-logo.png`} alt="Silk Nodes" style={{ height: 32, opacity: 0.8, filter: "invert(1)" }} />
-          <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.4)", marginTop: 4 }}>Professional Validator</div>
-        </div>
-      </div>
     </div>
   );
 }
