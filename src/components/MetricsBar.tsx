@@ -35,30 +35,30 @@ export default function MetricsBar({
   const metrics = [
     {
       label: "TX Price",
-      value: loading ? "---" : `$${price.toFixed(4)}`,
+      value: loading ? "..." : `$${price.toFixed(4)}`,
       change: priceChange24h,
     },
     {
       label: "Market Cap",
-      value: loading ? "---" : formatUSD(displayMarketCap),
+      value: loading ? "..." : formatUSD(displayMarketCap),
     },
     {
       label: "Staking Ratio",
-      value: loading ? "---" : `${stakingRatio.toFixed(1)}%`,
+      value: loading ? "..." : `${stakingRatio.toFixed(1)}%`,
     },
     {
       label: "Base APR",
-      value: loading ? "---" : `${apr.toFixed(2)}%`,
+      value: loading ? "..." : `${apr.toFixed(2)}%`,
       note: "PSE is primary yield",
       noteColor: "var(--accent-dark)",
     },
     {
       label: "Total Supply",
-      value: loading ? "---" : formatNumber(totalSupply),
+      value: loading ? "..." : formatNumber(totalSupply),
     },
     {
       label: "Inflation",
-      value: loading ? "---" : `${inflation.toFixed(3)}%`,
+      value: loading ? "..." : `${inflation.toFixed(3)}%`,
     },
   ];
 

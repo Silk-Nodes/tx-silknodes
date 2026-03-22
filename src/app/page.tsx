@@ -384,7 +384,7 @@ export default function HomePage() {
         )}
 
         {activeTab === "rwa" && (
-          <RWATab bondedTokens={bondedTokens} price={price} />
+          <RWATab bondedTokens={bondedTokens} price={price} setActiveTab={setActiveTab} />
         )}
 
         {activeTab === "silknodes" && (
@@ -1612,7 +1612,7 @@ function CalculatorTab({
               ))}
             </div>
             <div style={{ fontSize: "0.6rem", opacity: 0.35, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-              {formatNumber(bondedTokens)} TX bonded ({stakingData?.stakingRatio?.toFixed(0) ?? "--"}%)
+              {formatNumber(bondedTokens)} TX bonded ({stakingData?.stakingRatio?.toFixed(0) ?? "..."}%)
               <Tooltip text={`Typical stake: 5K to 50K TX. ${stakedAmount > 0 && bondedTokens > 0 ? (isAboveAvg ? "Your stake is above average." : "Below average, increasing stake improves PSE share.") : ""}`} position="bottom" />
             </div>
             <input
@@ -1633,7 +1633,7 @@ function CalculatorTab({
                 </div>
               </div>
               <div>
-                <label className="input-label">Target TX Price <Tooltip text={`Current price: $${tokenData?.price?.toFixed(4) ?? "--"}`} position="bottom" /></label>
+                <label className="input-label">Target TX Price <Tooltip text={`Current price: $${tokenData?.price?.toFixed(4) ?? "..."}`} position="bottom" /></label>
                 <div className="input-group">
                   <span className="field-addon">$</span>
                   <input type="text" value={targetPrice} onChange={(e: any) => setTargetPrice(e.target.value)} />
@@ -3164,7 +3164,7 @@ type SortKey = "symbol" | "supply" | "features" | "class";
 type SortDir = "asc" | "desc";
 type FilterType = "all" | "rwa" | "utility" | "meme";
 
-function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }) {
+function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; price: number; setActiveTab: (tab: TabId) => void }) {
   const { tokens, stats, loading, error, refresh } = useRWATokens();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
@@ -3282,17 +3282,23 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
       </div>
 
       {/* Hero stat cards */}
-      <div className="responsive-grid-3" style={{ gap: 10, marginBottom: 32 }}>
+      <div className="responsive-grid-3" style={{ gap: 10, marginBottom: 12 }}>
         <div className="accent-card card-dark">
           <div className="card-content">
-            <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Smart Tokens</span>
+            <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Smart Tokens Issued</span>
             <div className="card-value">{loading ? "..." : stats.totalTokens}</div>
+            <div style={{ fontSize: "0.62rem", color: "rgba(237,233,224,0.4)", marginTop: 4, lineHeight: 1.4 }}>
+              Growing token count shows active developer adoption
+            </div>
           </div>
         </div>
         <div className="accent-card" style={{ background: "linear-gradient(135deg, #0F1B07, #1a2e0f)" }}>
           <div className="card-content">
             <span className="card-title" style={{ color: "rgba(177,252,3,0.7)" }}>Compliance-Enabled</span>
             <div className="card-value" style={{ color: "#B1FC03" }}>{loading ? "..." : rwaCount}</div>
+            <div style={{ fontSize: "0.62rem", color: "rgba(177,252,3,0.35)", marginTop: 4, lineHeight: 1.4 }}>
+              Tokens using whitelisting, freezing, or clawback features
+            </div>
           </div>
         </div>
         <div className="accent-card card-yellow">
@@ -3300,8 +3306,23 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
           <div className="card-content">
             <span className="card-title">Unique Issuers</span>
             <div className="card-value">{loading ? "..." : stats.totalIssuers}</div>
+            <div style={{ fontSize: "0.62rem", opacity: 0.4, marginTop: 4, lineHeight: 1.4 }}>
+              High issuer count indicates active experimentation
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Honesty disclaimer */}
+      <div style={{
+        textAlign: "center", marginBottom: 32, padding: "0 20px",
+      }}>
+        <p style={{
+          fontSize: "0.68rem", color: "var(--tx-dark-green)", opacity: 0.4,
+          lineHeight: 1.5, fontStyle: "italic", maxWidth: 500, margin: "0 auto",
+        }}>
+          Note: Most current tokens are developer-issued or experimental. The infrastructure is production-ready — real-world asset tokenization is in its early adoption phase.
+        </p>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
@@ -3325,6 +3346,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "KYC / Whitelist",
             desc: "Restrict token holders to verified addresses. Required for regulated securities and compliant asset transfers.",
+            plain: "Control exactly who can hold your token",
             tag: "IDENTITY",
           },
           {
@@ -3336,6 +3358,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "Asset Freeze",
             desc: "Halt transfers globally or per-account. Essential for regulatory holds, disputes, and court orders.",
+            plain: "Pause any token instantly if something goes wrong",
             tag: "CONTROL",
           },
           {
@@ -3347,6 +3370,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "Clawback",
             desc: "Recover tokens for regulatory compliance. Enables issuers to meet legal obligations and correct errors.",
+            plain: "Reverse transactions when legally required",
             tag: "RECOVERY",
           },
           {
@@ -3357,6 +3381,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "Burn",
             desc: "Permanently remove tokens from supply. Supports redemption workflows and supply management.",
+            plain: "Reduce supply when assets are redeemed",
             tag: "SUPPLY",
           },
           {
@@ -3369,6 +3394,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "Mint",
             desc: "Issue additional supply on demand. Enables flexible issuance models and corporate actions.",
+            plain: "Create new tokens as your asset grows",
             tag: "SUPPLY",
           },
           {
@@ -3381,6 +3407,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ),
             title: "IBC Transfer",
             desc: "Cross-chain interoperability via IBC protocol. Assets can move across 60+ connected blockchains.",
+            plain: "Send tokens to other blockchains seamlessly",
             tag: "BRIDGE",
           },
         ].map((item) => {
@@ -3410,8 +3437,16 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
                 {item.title}
               </div>
 
+              {/* Plain language summary */}
+              <div style={{
+                fontSize: "0.7rem", fontWeight: 600, color: "rgba(177,252,3,0.7)",
+                marginBottom: 8, lineHeight: 1.4,
+              }}>
+                {item.plain}
+              </div>
+
               {/* Description */}
-              <div style={{ fontSize: "0.75rem", color: "rgba(237,233,224,0.55)", lineHeight: 1.5, marginBottom: 12 }}>
+              <div style={{ fontSize: "0.72rem", color: "rgba(237,233,224,0.45)", lineHeight: 1.5, marginBottom: 12 }}>
                 {item.desc}
               </div>
 
@@ -3559,6 +3594,206 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 4: WHAT THIS ENABLES (Future Vision)
+          ═══════════════════════════════════════════════════════ */}
+      <div className="section-head" style={{ marginBottom: 16 }}>
+        <h2 className="page-title" style={{ fontSize: "1.4rem" }}>What This Enables</h2>
+        <span className="section-sub">
+          TX&rsquo;s protocol-native compliance isn&rsquo;t just for today&rsquo;s experimental tokens — it&rsquo;s the foundation for the next wave of real-world finance on-chain.
+        </span>
+      </div>
+
+      <div className="responsive-grid-3" style={{ gap: 12, marginBottom: 32 }}>
+        {[
+          {
+            icon: (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            ),
+            title: "Tokenized Stocks & Equities",
+            desc: "Fractional ownership of publicly-traded companies with built-in shareholder verification and transfer restrictions.",
+          },
+          {
+            icon: (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            ),
+            title: "Real Estate Fractions",
+            desc: "Property ownership divided into tradeable tokens — with KYC verification and regulatory compliance built in from day one.",
+          },
+          {
+            icon: (
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#B1FC03" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            ),
+            title: "Government & Corporate Bonds",
+            desc: "Fixed-income instruments on-chain with automated coupon payments, maturity enforcement, and accredited investor gating.",
+          },
+        ].map((item, i) => (
+          <div key={i} style={{
+            background: "linear-gradient(135deg, rgba(15,27,7,0.95), rgba(26,46,15,0.95))",
+            borderRadius: 14, padding: "24px 20px",
+            border: "1px solid rgba(177,252,3,0.15)",
+            position: "relative", overflow: "hidden",
+          }}>
+            {/* Subtle glow */}
+            <div style={{
+              position: "absolute", top: -20, right: -20,
+              width: 80, height: 80, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(177,252,3,0.08) 0%, transparent 70%)",
+            }} />
+
+            <div style={{ marginBottom: 14, position: "relative" }}>{item.icon}</div>
+            <div style={{
+              fontSize: "0.9rem", fontWeight: 700, color: "#EDE9E0",
+              marginBottom: 8, position: "relative",
+            }}>
+              {item.title}
+            </div>
+            <div style={{
+              fontSize: "0.75rem", color: "rgba(237,233,224,0.5)",
+              lineHeight: 1.55, position: "relative",
+            }}>
+              {item.desc}
+            </div>
+
+            {/* Coming soon tag */}
+            <div style={{
+              marginTop: 14, display: "inline-block",
+              fontSize: "0.55rem", fontWeight: 600, fontFamily: "var(--font-mono)",
+              padding: "3px 10px", borderRadius: 4,
+              background: "rgba(177,252,3,0.1)", color: "rgba(177,252,3,0.5)",
+              letterSpacing: "0.08em",
+            }}>
+              FUTURE USE CASE
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 5: SECURED BY STAKING
+          ═══════════════════════════════════════════════════════ */}
+      <div style={{
+        background: "var(--tx-dark-green)",
+        borderRadius: 14, padding: "28px 24px",
+        border: "1px solid rgba(177,252,3,0.12)",
+        marginBottom: 32, textAlign: "center",
+        position: "relative", overflow: "hidden",
+      }}>
+        {/* Subtle background pattern */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(circle at 20% 50%, rgba(177,252,3,0.05) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(177,252,3,0.03) 0%, transparent 50%)",
+        }} />
+
+        <div style={{ position: "relative" }}>
+          <div style={{
+            fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em",
+            color: "rgba(177,252,3,0.5)", marginBottom: 12,
+          }}>
+            CONNECTED TO THE TX ECOSYSTEM
+          </div>
+
+          <h3 style={{
+            fontSize: "1.15rem", fontWeight: 700, color: "#EDE9E0",
+            marginBottom: 10, lineHeight: 1.3,
+          }}>
+            Every Smart Token is Secured by TX Validators
+          </h3>
+
+          <p style={{
+            fontSize: "0.78rem", color: "rgba(237,233,224,0.5)",
+            lineHeight: 1.6, maxWidth: 520, margin: "0 auto 20px",
+          }}>
+            The same validator set that powers your staking rewards and PSE distributions also secures every smart token on the network. When you stake TX, you&rsquo;re not just earning — you&rsquo;re helping secure the infrastructure for real-world assets.
+          </p>
+
+          <div style={{
+            display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap",
+          }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B1FC03" }}>
+                {bondedTokens > 0 ? formatNumber(bondedTokens) : "..."}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "rgba(177,252,3,0.45)", marginTop: 2 }}>TX Staked</div>
+            </div>
+            <div style={{ width: 1, background: "rgba(177,252,3,0.15)", alignSelf: "stretch" }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B1FC03" }}>
+                {loading ? "..." : stats.totalTokens}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "rgba(177,252,3,0.45)", marginTop: 2 }}>Tokens Secured</div>
+            </div>
+            <div style={{ width: 1, background: "rgba(177,252,3,0.15)", alignSelf: "stretch" }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B1FC03" }}>
+                {price > 0 ? formatUSD(bondedTokens * price) : "..."}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "rgba(177,252,3,0.45)", marginTop: 2 }}>Value Securing Network</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 6: CTAs
+          ═══════════════════════════════════════════════════════ */}
+      <div style={{
+        display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap",
+        marginBottom: 32, padding: "0 20px",
+      }}>
+        <button
+          onClick={() => setActiveTab("overview")}
+          style={{
+            padding: "12px 28px", borderRadius: 10,
+            background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+            fontWeight: 700, fontSize: "0.82rem", border: "none",
+            cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s",
+            boxShadow: "0 2px 12px rgba(177,252,3,0.3)",
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          Explore Staking →
+        </button>
+        <button
+          onClick={() => setActiveTab("validators")}
+          style={{
+            padding: "12px 28px", borderRadius: 10,
+            background: "transparent", color: "var(--tx-dark-green)",
+            fontWeight: 700, fontSize: "0.82rem",
+            border: "2px solid rgba(15,27,7,0.2)",
+            cursor: "pointer", transition: "border-color 0.15s",
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--tx-neon)"; }}
+          onMouseOut={(e) => { e.currentTarget.style.borderColor = "rgba(15,27,7,0.2)"; }}
+        >
+          View Validators
+        </button>
+        <button
+          onClick={() => setActiveTab("pse")}
+          style={{
+            padding: "12px 28px", borderRadius: 10,
+            background: "transparent", color: "var(--tx-dark-green)",
+            fontWeight: 700, fontSize: "0.82rem",
+            border: "2px solid rgba(15,27,7,0.2)",
+            cursor: "pointer", transition: "border-color 0.15s",
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--tx-neon)"; }}
+          onMouseOut={(e) => { e.currentTarget.style.borderColor = "rgba(15,27,7,0.2)"; }}
+        >
+          PSE Rewards
+        </button>
       </div>
 
     </div>
