@@ -3288,7 +3288,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
             <span className="card-title" style={{ color: "rgba(237,233,224,0.7)" }}>Smart Tokens Issued</span>
             <div className="card-value">{loading ? "..." : stats.totalTokens}</div>
             <div style={{ fontSize: "0.62rem", color: "rgba(237,233,224,0.4)", marginTop: 4, lineHeight: 1.4 }}>
-              Growing token count shows active developer adoption
+              Active experimentation with TX's smart token standard
             </div>
           </div>
         </div>
@@ -3335,7 +3335,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
         </span>
       </div>
 
-      <div className="responsive-grid-3" style={{ gap: 12, marginBottom: 32 }}>
+      <div className="responsive-grid-3" style={{ gap: 16, marginBottom: 36 }}>
         {[
           {
             key: "whitelisting", icon: (
@@ -3415,7 +3415,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           return (
             <div key={item.key} style={{
               background: "var(--tx-dark-green)",
-              borderRadius: 14, padding: "20px 18px",
+              borderRadius: 14, padding: "22px 20px",
               border: "1px solid rgba(177,252,3,0.12)",
               position: "relative", overflow: "hidden",
               transition: "border-color 0.2s",
@@ -3452,18 +3452,24 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
 
               {/* Token count */}
               <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                paddingTop: 10, borderTop: "1px solid rgba(177,252,3,0.1)",
+                paddingTop: 12, borderTop: "1px solid rgba(177,252,3,0.1)",
               }}>
-                <span style={{
-                  fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
-                  color: "#B1FC03",
-                }}>
-                  {loading ? "..." : count}
-                </span>
-                <span style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.45)" }}>
-                  token{count !== 1 ? "s" : ""} enabled
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{
+                    fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
+                    color: "#B1FC03",
+                  }}>
+                    {loading ? "..." : count}
+                  </span>
+                  <span style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.45)" }}>
+                    token{count !== 1 ? "s" : ""} enabled
+                  </span>
+                </div>
+                {!loading && count > 0 && (
+                  <div style={{ fontSize: "0.58rem", color: "rgba(177,252,3,0.3)", marginTop: 4 }}>
+                    Early adoption of compliance features
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -3473,7 +3479,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
       {/* ═══════════════════════════════════════════════════════
           SECTION 3: HOW IT WORKS
           ═══════════════════════════════════════════════════════ */}
-      <div className="section-head" style={{ marginBottom: 16 }}>
+      <div className="section-head" style={{ marginBottom: 18 }}>
         <h2 className="page-title" style={{ fontSize: "1.4rem" }}>From Issuance to Compliance in Minutes</h2>
       </div>
 
@@ -3674,7 +3680,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
               background: "rgba(177,252,3,0.1)", color: "rgba(177,252,3,0.5)",
               letterSpacing: "0.08em",
             }}>
-              FUTURE USE CASE
+              EMERGING USE CASE
             </div>
           </div>
         ))}
@@ -3737,9 +3743,9 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
             <div style={{ width: 1, background: "rgba(177,252,3,0.15)", alignSelf: "stretch" }} />
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "#B1FC03" }}>
-                {price > 0 ? formatUSD(bondedTokens * price) : "..."}
+                {loading ? "..." : rwaCount}
               </div>
-              <div style={{ fontSize: "0.6rem", color: "rgba(177,252,3,0.45)", marginTop: 2 }}>Value Securing Network</div>
+              <div style={{ fontSize: "0.6rem", color: "rgba(177,252,3,0.45)", marginTop: 2 }}>Compliance-Ready</div>
             </div>
           </div>
         </div>
