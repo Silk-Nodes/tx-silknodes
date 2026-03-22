@@ -27,7 +27,7 @@ interface ChainEconomics {
 type SortField = "moniker" | "tokens" | "commission" | "monthlyIncome" | "delegatorApr";
 type SortDir = "asc" | "desc";
 
-const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
+const LCD = "https://rest-coreum.ecostake.com";
 const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
 export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal }: { wallet?: any; setActiveTab?: (tab: string) => void; setShowWalletModal?: (show: boolean) => void }) {
@@ -300,9 +300,9 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
               </div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Voting Power</div>
+              <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Total Delegated</div>
               <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>
-                {fmt(silkNode.tokens)}
+                {fmt(silkNode.tokens)} TX
               </div>
             </div>
             <button

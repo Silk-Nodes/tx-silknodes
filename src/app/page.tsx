@@ -979,7 +979,7 @@ function PSETab({
             query: `{ action_pse_score(address: "${address}") { address height score } }`,
           }),
         }),
-        fetch(`https://full-node.mainnet-1.coreum.dev:1317/cosmos/staking/v1beta1/delegations/${address}`),
+        fetch(`https://rest-coreum.ecostake.com/cosmos/staking/v1beta1/delegations/${address}`),
       ]);
       const scoreData = await scoreRes.json();
       const delegData = await delegRes.json().catch(() => null);

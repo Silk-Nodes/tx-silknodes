@@ -22,8 +22,8 @@ export const SILK_NODES_MONIKER = "Silk Nodes";
 export const SILK_NODES_COMMISSION = 10; // 10%
 
 // Endpoints (Coreum LCD supports CORS directly, no proxy needed)
-export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://full-node.mainnet-1.coreum.dev:26657";
-export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
+export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://rpc-coreum.ecostake.com";
+export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://rest-coreum.ecostake.com";
 export const DIRECT_RPC = SILK_RPC;
 export const DIRECT_LCD = SILK_LCD;
 
