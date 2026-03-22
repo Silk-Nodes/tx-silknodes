@@ -1961,10 +1961,18 @@ function PortfolioTab({
     });
   }, [price]);
 
-  // Filter validators by search
-  const filteredValidators = validators.filter((v: any) =>
-    v.moniker.toLowerCase().includes(validatorSearch.toLowerCase())
-  );
+  // Filter validators by search, pin Silk Nodes to top
+  const filteredValidators = useMemo(() => {
+    const filtered = validators.filter((v: any) =>
+      v.moniker.toLowerCase().includes(validatorSearch.toLowerCase())
+    );
+    const silkIndex = filtered.findIndex((v: any) => v.moniker === "Silk Nodes");
+    if (silkIndex > 0) {
+      const [silk] = filtered.splice(silkIndex, 1);
+      filtered.unshift(silk);
+    }
+    return filtered;
+  }, [validators, validatorSearch]);
 
   // Find selected validator details
   const selectedValInfo = validators.find((v: any) => v.operatorAddress === selectedValidator);
