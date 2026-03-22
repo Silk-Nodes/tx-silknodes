@@ -1112,7 +1112,7 @@ input[type="range"]::-webkit-slider-thumb {
 @media (max-width: 1024px) {
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
-  .grid-12 > * { grid-column: span 12 !important; }
+  .grid-12 > * { grid-column: span 12 !important; min-width: 0; }
   .page-title { font-size: 2rem; }
   .app-shell { padding: 12px 16px; }
   .responsive-grid-5 { grid-template-columns: repeat(3, 1fr); }
@@ -1127,8 +1127,11 @@ input[type="range"]::-webkit-slider-thumb {
   .grid-3 { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
   .grid-12 { grid-template-columns: 1fr; }
-  .grid-12 > * { grid-column: span 1 !important; }
+  .grid-12 > * { grid-column: span 1 !important; min-width: 0; }
   .col-4, .col-5, .col-6, .col-7, .col-8, .col-12 { grid-column: span 1 !important; }
+
+  /* Prevent content from overflowing on mobile */
+  .panel, .accent-card, .compare-box, .outcome-card { overflow: hidden; max-width: 100%; }
 
   .top-nav {
     flex-wrap: wrap;
@@ -1187,8 +1190,19 @@ input[type="range"]::-webkit-slider-thumb {
   .responsive-grid-2 { grid-template-columns: 1fr; }
   .responsive-flex-row { gap: 16px; }
 
-  .data-table { font-size: 0.75rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .data-table th, .data-table td { padding: 8px 6px; }
+  .data-table { font-size: 0.65rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .data-table thead, .data-table tbody { display: table; width: 100%; min-width: 480px; }
+  .data-table th, .data-table td { padding: 6px 5px; white-space: nowrap; }
+
+  /* Calculator compare box */
+  .compare-box { padding: 12px 14px; }
+  .compare-value { font-size: 0.9rem; word-break: break-all; }
+  .compare-label { font-size: 0.68rem; }
+  .compare-row { gap: 8px; }
+  .compare-cost { font-size: 0.68rem !important; }
+
+  /* Prevent any overflow on tab content */
+  .tab-content > div { overflow-x: hidden; }
 
   .tooltip-bubble { max-width: min(260px, 80vw); }
 }
@@ -1222,6 +1236,12 @@ input[type="range"]::-webkit-slider-thumb {
   .responsive-flex-row { flex-direction: column; gap: 12px; align-items: stretch; }
 
   .tooltip-bubble { max-width: min(240px, 75vw); }
+
+  /* Calculator mobile */
+  .compare-value { font-size: 0.8rem; }
+  .data-table { font-size: 0.6rem; }
+  .data-table th, .data-table td { padding: 5px 4px; }
+  .outcome-value { font-size: 1.6rem !important; }
 
   .site-footer { flex-direction: column; gap: 8px; text-align: center; }
   .footer-sep { display: none; }

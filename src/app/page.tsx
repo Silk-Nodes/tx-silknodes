@@ -1594,7 +1594,7 @@ function CalculatorTab({
               )}
             </div>
             {/* Presets */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
               {[1000, 5000, 10000, 50000, 100000].map((amt) => (
                 <button
                   key={amt}
@@ -1794,19 +1794,19 @@ function CalculatorTab({
               <div style={{ fontSize: "0.65rem", opacity: 0.45, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Your PSE Position
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{
-                      width: 8, height: 8, borderRadius: "50%",
+                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
                       background: positionTier.dot,
                       boxShadow: `0 0 6px ${positionTier.dot}40`,
                     }} />
-                    <span style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: positionTier.color }}>
+                    <span style={{ fontSize: "clamp(0.9rem, 3vw, 1.3rem)", fontWeight: 700, fontFamily: "var(--font-mono)", color: positionTier.color }}>
                       {positionTier.label}
                     </span>
                   </div>
-                  <div style={{ fontSize: "0.6rem", opacity: 0.4, marginTop: 4, paddingLeft: 16 }}>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.4, marginTop: 4, paddingLeft: 16, wordBreak: "break-word" }}>
                     {userSharePct.toFixed(4)}% of bonded pool · {isAboveAvg ? "above average stake" : "increase stake to improve PSE share"}
                   </div>
                 </div>
@@ -1846,19 +1846,19 @@ function CalculatorTab({
           {waitComparison && (
             <div style={{ marginTop: 12 }}>
               <div className="compare-box">
-                <div className="compare-row">
-                  <div>
+                <div className="compare-row" style={{ flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 0 }}>
                     <div className="compare-label">Lock in before competition increases</div>
-                    <div className="compare-value">{waitComparison.nowBag.toLocaleString()} TX</div>
+                    <div className="compare-value">{formatNumber(waitComparison.nowBag)} TX</div>
                   </div>
                   <span className="text-xs text-light">vs</span>
-                  <div style={{ textAlign: "right" }}>
+                  <div style={{ textAlign: "right", minWidth: 0 }}>
                     <div className="compare-label">Wait 3 Months</div>
-                    <div className="compare-value" style={{ opacity: 0.5 }}>{waitComparison.waitBag.toLocaleString()} TX</div>
+                    <div className="compare-value" style={{ opacity: 0.5 }}>{formatNumber(waitComparison.waitBag)} TX</div>
                   </div>
                 </div>
                 <div className="compare-cost">
-                  Waiting costs ~{waitComparison.diff.toLocaleString()} TX ({waitComparison.diffPct}% less)
+                  Waiting costs ~{formatNumber(waitComparison.diff)} TX ({waitComparison.diffPct}% less)
                 </div>
               </div>
 
@@ -1900,7 +1900,7 @@ function CalculatorTab({
           <div style={{
             marginTop: 16, padding: "14px 16px", borderRadius: 12, flex: 1,
             background: "var(--tx-dark-green)", color: "rgba(255,255,255,0.85)",
-            fontSize: "0.72rem", lineHeight: 1.55,
+            fontSize: "0.72rem", lineHeight: 1.55, overflow: "hidden",
           }}>
             <div style={{ fontWeight: 700, fontSize: "0.78rem", marginBottom: 4, color: "var(--tx-neon)" }}>
               Why PSE matters
@@ -1908,7 +1908,7 @@ function CalculatorTab({
             <div style={{
               padding: "6px 10px", borderRadius: 8, marginBottom: 10,
               background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
-              fontSize: "0.68rem", color: "var(--tx-neon-light)",
+              fontSize: "0.68rem", color: "var(--tx-neon-light)", wordBreak: "break-word",
             }}>
               Finite emission: 100B TX over 84 months. Early participation captures disproportionate rewards because the bonded pool is smallest now.
             </div>
@@ -1928,7 +1928,7 @@ function CalculatorTab({
             </div>
           </div>
 
-          <div className="mt-3 text-xs text-light" style={{ padding: "0 4px", lineHeight: 1.6 }}>
+          <div className="mt-3 text-xs text-light" style={{ padding: "0 4px", lineHeight: 1.6, wordBreak: "break-word" }}>
             This is a &quot;what if&quot; simulator,not your actual PSE rewards.
             To see your real on-chain PSE score, go to the{" "}
             <button
