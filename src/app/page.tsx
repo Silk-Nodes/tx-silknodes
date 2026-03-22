@@ -410,6 +410,18 @@ export default function HomePage() {
         )}
 
       </div>
+
+      {/* ════════ FOOTER ════════ */}
+      <footer className="site-footer">
+        <div className="footer-left">
+          <span className="footer-brand">TX Community Hub</span>
+          <span className="footer-sep">|</span>
+          <span className="footer-built">Built by <a href="https://silknodes.io" target="_blank" rel="noopener noreferrer">Silk Nodes</a></span>
+        </div>
+        <div className="footer-right">
+          <span className="footer-public-good">A Public Good for the TX Community</span>
+        </div>
+      </footer>
     </div>
   );
 }
