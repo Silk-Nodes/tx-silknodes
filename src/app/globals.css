@@ -1302,3 +1302,30 @@ input[type="range"]::-webkit-slider-thumb {
   font-style: italic;
   font-size: 0.78rem;
 }
+
+/* ── Silk Nodes hero ── */
+.silk-stat-item {
+  border-right: 1px solid rgba(177, 252, 3, 0.08);
+}
+.silk-stat-item:last-child {
+  border-right: none;
+}
+
+@media (max-width: 520px) {
+  .silk-hero-top {
+    flex-wrap: wrap;
+  }
+  .silk-delegate-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px 20px !important;
+  }
+  .silk-stats-row {
+    gap: 8px 0 !important;
+  }
+  .silk-stat-item {
+    flex: 0 0 33.33% !important;
+    border-right: none !important;
+    margin-bottom: 6px;
+  }
+}
