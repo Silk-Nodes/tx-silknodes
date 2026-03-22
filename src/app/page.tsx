@@ -1,5 +1,7 @@
 "use client";
 
+const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
 import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
@@ -157,7 +159,7 @@ export default function HomePage() {
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand">
-          All in ONE <div className="brand-icon"><img src="/tx-icon.svg" alt="TX" /></div>
+          All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX" /></div>
         </div>
 
         <div className="nav-tabs">
@@ -218,7 +220,7 @@ export default function HomePage() {
                   opacity: availableWallets.keplr ? 1 : 0.4, transition: "all 0.15s",
                 }}
               >
-                <img src="/keplr-logo.svg" alt="Keplr" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                <img src={`${BASE_PATH}/keplr-logo.svg`} alt="Keplr" style={{ width: 40, height: 40, borderRadius: 10 }} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Keplr</div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
@@ -243,7 +245,7 @@ export default function HomePage() {
                   opacity: availableWallets.leap ? 1 : 0.4, transition: "all 0.15s",
                 }}
               >
-                <img src="/leap-logo.png" alt="Leap" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                <img src={`${BASE_PATH}/leap-logo.png`} alt="Leap" style={{ width: 40, height: 40, borderRadius: 10 }} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Leap</div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
@@ -2683,7 +2685,7 @@ function SilkNodesTab({ networkStatus, stakingData, setActiveTab, wallet, setSho
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/silk-nodes-logo.png"
+              src={`${BASE_PATH}/silk-nodes-logo.png`}
               alt="Silk Nodes"
               style={{ width: 56, height: 56, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
             />
@@ -3772,7 +3774,7 @@ function RWATab({ bondedTokens, price }: { bondedTokens: number; price: number }
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 24 }}>
-          <img src="/silk-nodes-logo.png" alt="Silk Nodes" style={{ height: 32, opacity: 0.8, filter: "invert(1)" }} />
+          <img src={`${BASE_PATH}/silk-nodes-logo.png`} alt="Silk Nodes" style={{ height: 32, opacity: 0.8, filter: "invert(1)" }} />
           <div style={{ fontSize: "0.55rem", color: "rgba(177,252,3,0.4)", marginTop: 4 }}>Professional Validator</div>
         </div>
       </div>

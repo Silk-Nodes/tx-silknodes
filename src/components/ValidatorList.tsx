@@ -1,5 +1,7 @@
 "use client";
 
+const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+
 import { useState, useEffect, useMemo } from "react";
 import Tooltip from "@/components/Tooltip";
 
@@ -263,7 +265,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <img
-              src="/silk-nodes-logo.png"
+              src={`${BASE_PATH}/silk-nodes-logo.png`}
               alt="Silk Nodes"
               style={{
                 width: 42, height: 42, borderRadius: 10,
