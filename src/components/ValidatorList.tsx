@@ -25,7 +25,7 @@ interface ChainEconomics {
 type SortField = "moniker" | "tokens" | "commission" | "monthlyIncome" | "delegatorApr";
 type SortDir = "asc" | "desc";
 
-const LCD = typeof window !== "undefined" ? "/api/lcd" : "";
+const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
 export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal }: { wallet?: any; setActiveTab?: (tab: string) => void; setShowWalletModal?: (show: boolean) => void }) {

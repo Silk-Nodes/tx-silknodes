@@ -21,14 +21,11 @@ export const SILK_NODES_VALIDATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xx
 export const SILK_NODES_MONIKER = "Silk Nodes";
 export const SILK_NODES_COMMISSION = 10; // 10%
 
-// Endpoints — use Next.js rewrite proxy in browser to avoid CORS
-const isBrowser = typeof window !== "undefined";
-export const SILK_RPC = isBrowser ? "/api/rpc" : (process.env.NEXT_PUBLIC_SILK_RPC || "https://full-node.mainnet-1.coreum.dev:26657");
-export const SILK_LCD = isBrowser ? "/api/lcd" : (process.env.NEXT_PUBLIC_SILK_LCD || "https://full-node.mainnet-1.coreum.dev:1317");
-
-// Direct endpoints for Keplr (Keplr handles CORS itself)
-export const DIRECT_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://full-node.mainnet-1.coreum.dev:26657";
-export const DIRECT_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
+// Endpoints (Coreum LCD supports CORS directly, no proxy needed)
+export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://full-node.mainnet-1.coreum.dev:26657";
+export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
+export const DIRECT_RPC = SILK_RPC;
+export const DIRECT_LCD = SILK_LCD;
 
 export const COREUM_CHAIN_INFO = {
   chainId: CHAIN_ID,
