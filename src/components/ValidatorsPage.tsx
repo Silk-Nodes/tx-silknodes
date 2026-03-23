@@ -56,7 +56,7 @@ export default function ValidatorsPage({
             borderRadius: 12,
           }} />
           <div style={{
-            position: "absolute", top: "50%", left: "50%",
+            position: "fixed", top: "50%", left: "50%",
             transform: "translate(-50%, -50%)", zIndex: 11,
             textAlign: "center",
           }}>
