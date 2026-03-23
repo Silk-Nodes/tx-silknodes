@@ -95,6 +95,9 @@ export default function RootLayout({
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
+            gtag('consent', 'default', {
+              analytics_storage: localStorage.getItem('tx-cookie-consent') === 'declined' ? 'denied' : 'granted',
+            });
             gtag('js', new Date());
             gtag('config', 'G-CJ5WHL9PC3');
           `}
