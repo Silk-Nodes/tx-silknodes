@@ -23,7 +23,7 @@ Silk Nodes is a professional blockchain validator with:
 - Daily snapshots for node operators
 
 ## Links
-- Dashboard: https://silk-nodes.github.io/tx-silknodes/
+- Dashboard: https://tx.silknodes.io/tx-silknodes/
 - Silk Nodes: https://silknodes.io
 - X (Twitter): https://x.com/silk_nodes
 - GitHub: https://github.com/Silk-Nodes/tx-silknodes
