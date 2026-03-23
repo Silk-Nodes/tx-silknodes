@@ -78,7 +78,7 @@ export interface WalletState {
   rewards: number;
   delegations: Delegation[];
   unbondingDelegations: UnbondingDelegation[];
-  walletType: "keplr" | "leap" | "";
+  walletType: "keplr" | "leap" | "cosmostation" | "";
 }
 
 export interface Delegation {

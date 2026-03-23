@@ -380,6 +380,31 @@ export default function HomePage() {
                   </a>
                 )}
               </button>
+              <button
+                onClick={() => { setShowWalletModal(false); connect("cosmostation"); trackEvent("wallet_connect", { wallet_type: "cosmostation" }); }}
+                disabled={walletLoading}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
+                  borderRadius: "var(--radius-md)", border: "1px solid var(--glass-border)",
+                  background: "var(--glass-bg)", cursor: "pointer", width: "100%",
+                  opacity: availableWallets.cosmostation ? 1 : 0.4, transition: "all 0.15s",
+                }}
+              >
+                <img src={`${BASE_PATH}/cosmostation-logo.png`} alt="Cosmostation wallet logo" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Cosmostation</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
+                    {availableWallets.cosmostation ? "Detected" : "Not installed"}
+                  </div>
+                </div>
+                {!availableWallets.cosmostation && (
+                  <a href="https://www.cosmostation.io/products/cosmostation_extension" target="_blank" rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--accent-olive)", textDecoration: "none", fontWeight: 600 }}>
+                    Install
+                  </a>
+                )}
+              </button>
             </div>
             <button
               onClick={() => setShowWalletModal(false)}

@@ -48,7 +48,7 @@ export function useWallet() {
     }
   }, [txResult]);
 
-  const connect = useCallback(async (walletType: "keplr" | "leap" = "keplr") => {
+  const connect = useCallback(async (walletType: "keplr" | "leap" | "cosmostation" = "keplr") => {
     setLoading(true);
     setError(null);
     try {
@@ -152,10 +152,10 @@ export function useWallet() {
 
     try {
       const wasConnected = localStorage.getItem("tx-wallet-connected");
-      const savedType = localStorage.getItem("tx-wallet-type") as "keplr" | "leap" | null;
+      const savedType = localStorage.getItem("tx-wallet-type") as "keplr" | "leap" | "cosmostation" | null;
       if (wasConnected === "true" && savedType) {
         const wallets = getAvailableWallets();
-        if ((savedType === "keplr" && wallets.keplr) || (savedType === "leap" && wallets.leap)) {
+        if ((savedType === "keplr" && wallets.keplr) || (savedType === "leap" && wallets.leap) || (savedType === "cosmostation" && wallets.cosmostation)) {
           connect(savedType);
         }
       }
@@ -173,12 +173,13 @@ export function useWallet() {
     };
 
     window.addEventListener("keplr_keystorechange", handleAccountChange);
-    // Leap uses the same event name
     window.addEventListener("leap_keystorechange", handleAccountChange);
+    window.addEventListener("cosmostation_keystorechange", handleAccountChange);
 
     return () => {
       window.removeEventListener("keplr_keystorechange", handleAccountChange);
       window.removeEventListener("leap_keystorechange", handleAccountChange);
+      window.removeEventListener("cosmostation_keystorechange", handleAccountChange);
     };
   }, [wallet.connected, wallet.walletType, connect]);
 
@@ -197,6 +198,6 @@ export function useWallet() {
     undelegate,
     clearError: () => setError(null),
     clearTxResult: () => setTxResult(null),
-    availableWallets: typeof window !== "undefined" ? getAvailableWallets() : { keplr: false, leap: false },
+    availableWallets: typeof window !== "undefined" ? getAvailableWallets() : { keplr: false, leap: false, cosmostation: false },
   };
 }

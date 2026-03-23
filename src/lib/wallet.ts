@@ -59,32 +59,40 @@ function resolveMoniker(valAddr: string): string {
 }
 
 // ── Detect available wallets ──
-export function getAvailableWallets(): { keplr: boolean; leap: boolean } {
-  if (typeof window === "undefined") return { keplr: false, leap: false };
+export function getAvailableWallets(): { keplr: boolean; leap: boolean; cosmostation: boolean } {
+  if (typeof window === "undefined") return { keplr: false, leap: false, cosmostation: false };
   return {
     keplr: !!(window as any).keplr,
     leap: !!(window as any).leap,
+    cosmostation: !!(window as any).cosmostation,
   };
 }
 
-// ── Get wallet provider (Keplr or Leap) ──
-function getWalletProvider(type: "keplr" | "leap") {
+// ── Get wallet provider (Keplr, Leap, or Cosmostation) ──
+function getWalletProvider(type: "keplr" | "leap" | "cosmostation") {
   if (typeof window === "undefined") return null;
   if (type === "leap") return (window as any).leap;
+  if (type === "cosmostation") {
+    // Cosmostation exposes a Keplr-compatible provider
+    const cosmostation = (window as any).cosmostation;
+    if (cosmostation?.providers?.keplr) return cosmostation.providers.keplr;
+    // Fallback: some versions expose it directly
+    return cosmostation;
+  }
   return (window as any).keplr;
 }
 
 /**
  * Connect wallet (Keplr or Leap) and return wallet state
  */
-export async function connectWallet(walletType: "keplr" | "leap" = "keplr"): Promise<WalletState> {
+export async function connectWallet(walletType: "keplr" | "leap" | "cosmostation" = "keplr"): Promise<WalletState> {
   if (typeof window === "undefined") {
     throw new Error("Window not available");
   }
 
   const provider = getWalletProvider(walletType);
   if (!provider) {
-    const name = walletType === "leap" ? "Leap" : "Keplr";
+    const name = walletType === "cosmostation" ? "Cosmostation" : walletType === "leap" ? "Leap" : "Keplr";
     throw new Error(
       `${name} wallet not found. Please install the ${name} browser extension.`
     );
@@ -240,7 +248,7 @@ async function fetchUnbondingDelegations(address: string): Promise<UnbondingDele
 export async function delegateTokens(
   validatorAddress: string,
   amount: number,
-  walletType: "keplr" | "leap" = "keplr"
+  walletType: "keplr" | "leap" | "cosmostation" = "keplr"
 ): Promise<string> {
   const provider = getWalletProvider(walletType);
   if (!provider) throw new Error(`${walletType} not available`);
@@ -278,7 +286,7 @@ export async function delegateTokens(
 export async function undelegateTokens(
   validatorAddress: string,
   amount: number,
-  walletType: "keplr" | "leap" = "keplr"
+  walletType: "keplr" | "leap" | "cosmostation" = "keplr"
 ): Promise<string> {
   const provider = getWalletProvider(walletType);
   if (!provider) throw new Error(`${walletType} not available`);
@@ -320,7 +328,7 @@ export async function undelegateTokens(
  */
 export async function claimAllRewards(
   delegations: Delegation[],
-  walletType: "keplr" | "leap" = "keplr"
+  walletType: "keplr" | "leap" | "cosmostation" = "keplr"
 ): Promise<string> {
   const provider = getWalletProvider(walletType);
   if (!provider) throw new Error(`${walletType} not available`);
@@ -377,7 +385,7 @@ export async function redelegateTokens(
   srcValidatorAddress: string,
   dstValidatorAddress: string,
   amount: number,
-  walletType: "keplr" | "leap" = "keplr"
+  walletType: "keplr" | "leap" | "cosmostation" = "keplr"
 ): Promise<string> {
   const provider = getWalletProvider(walletType);
   if (!provider) throw new Error(`${walletType} not available`);
