@@ -2673,6 +2673,8 @@ function CopyButton({ text }: { text: string }) {
 function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wallet, setShowWalletModal }: any) {
   const [devToolsOpen, setDevToolsOpen] = useState(false);
   const [showRestakeModal, setShowRestakeModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ email: "", size: "", message: "" });
+  const [contactSent, setContactSent] = useState(false);
   // Get real Silk Nodes validator data
   const silkValidator = validators?.find((v: any) => v.moniker === "Silk Nodes");
   const silkBonded = silkValidator ? Math.round(silkValidator.tokens) : 0;
@@ -2725,8 +2727,8 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                     <span className="live-dot" /> ACTIVE
                   </span>
                 </div>
-                <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", margin: 0 }}>
-                  Built for the TX community
+                <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+                  Lower fees · Higher reliability · Early PSE advantage
                 </p>
               </div>
             </div>
@@ -2759,7 +2761,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               { label: "Delegated", value: silkBonded > 0 ? `${formatNumber(silkBonded)} TX` : "..." },
               { label: "Slashing", value: "None" },
               { label: "Restake", value: "Enabled" },
-              { label: "Commission", value: "5%" },
+              { label: "Commission", value: "5% (vs 8\u201310%)" },
             ].map((stat) => (
               <div key={stat.label} className="silk-stat-item" style={{
                 textAlign: "center", flex: "1 1 auto", minWidth: 0,
@@ -2843,6 +2845,27 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
         </div>
       </div>
 
+      {/* Mid-page CTA */}
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <button
+          onClick={delegateCTA}
+          style={{
+            border: "none", padding: "12px 32px", fontSize: "0.82rem", fontWeight: 700,
+            background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+            borderRadius: "var(--radius-pill)", cursor: "pointer",
+            boxShadow: "0 3px 14px rgba(177,252,3,0.25)",
+            transition: "transform 0.15s",
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          Delegate to Silk Nodes &rarr;
+        </button>
+        <p style={{ fontSize: "0.68rem", color: "var(--text-light)", marginTop: 8 }}>
+          Early delegators capture the highest PSE rewards.
+        </p>
+      </div>
+
       {/* ═══════════════════════════════════════════════════════
           TRUST + ECOSYSTEM (merged, compact)
           ═══════════════════════════════════════════════════════ */}
@@ -2877,7 +2900,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
             COMMUNITY TRUST
           </div>
           <div style={{ fontSize: "0.8rem", color: "var(--text-dark)", lineHeight: 1.6, marginBottom: 12 }}>
-            Trusted by a growing community with <span style={{ fontWeight: 700 }}>{silkBonded > 0 ? formatNumber(silkBonded) : "..."} TX</span> delegated
+            Trusted by delegators securing <span style={{ fontWeight: 700 }}>{silkBonded > 0 ? formatNumber(silkBonded) : "..."} TX</span>
           </div>
           <div style={{ display: "flex", gap: 20 }}>
             <div>
@@ -2900,30 +2923,46 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           AUTO-COMPOUND (compact) + DEV TOOLS
           ═══════════════════════════════════════════════════════ */}
       <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 18, alignItems: "stretch" }}>
-        {/* Auto-Compound compact */}
-        <div className="panel" style={{ padding: "14px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>Auto-Compound</span>
-              <span style={{
-                background: "var(--accent-olive)", color: "#fff",
-                padding: "2px 8px", borderRadius: "var(--radius-pill)",
-                fontSize: "0.58rem", fontWeight: 600,
-              }}>ENABLED</span>
-            </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--accent-olive)", fontWeight: 600 }}>
-              {(apr * 0.95).toFixed(1)}% APR &rarr; 13.39% APY
-            </span>
+        {/* Maximize Rewards - Auto-Compound */}
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>Maximize Your Rewards</span>
+            <span style={{
+              background: "var(--accent-olive)", color: "#fff",
+              padding: "2px 8px", borderRadius: "var(--radius-pill)",
+              fontSize: "0.55rem", fontWeight: 600,
+            }}>AUTO-COMPOUND</span>
           </div>
-          <p className="text-xs text-medium" style={{ lineHeight: 1.4, margin: "0 0 10px", fontSize: "0.72rem" }}>
-            Restake compounds your rewards daily. Set it once, earn more automatically.
+          <p style={{ fontSize: "0.75rem", color: "var(--text-medium)", lineHeight: 1.5, margin: "0 0 14px" }}>
+            With auto-compounding, your rewards are reinvested daily, increasing your total returns over time.
+          </p>
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14,
+          }}>
+            <div style={{
+              background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)",
+              padding: "12px 14px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", marginBottom: 4 }}>Without Compounding</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-medium)" }}>{(apr * 0.95).toFixed(1)}% APR</div>
+            </div>
+            <div style={{
+              background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
+              borderRadius: "var(--radius-md)", padding: "12px 14px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#3a5a0a", marginBottom: 4 }}>With Compounding</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>13.39% APY</div>
+            </div>
+          </div>
+          <p style={{ fontSize: "0.72rem", color: "var(--accent-olive)", fontWeight: 600, margin: "0 0 14px", textAlign: "center" }}>
+            That&apos;s ~15% more rewards over time ... automatically.
           </p>
           <button
             onClick={() => setShowRestakeModal(true)}
             className="btn-olive"
-            style={{ display: "block", textAlign: "center", width: "100%", padding: "8px 16px", fontSize: "0.78rem", border: "none", cursor: "pointer" }}
+            style={{ display: "block", textAlign: "center", width: "100%", padding: "10px 16px", fontSize: "0.78rem", fontWeight: 600, border: "none", cursor: "pointer" }}
           >
-            Enable on Restake
+            Enable Auto-Compound on Restake
           </button>
         </div>
 
@@ -3039,6 +3078,121 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          LARGE DELEGATORS + CONTACT
+          ═══════════════════════════════════════════════════════ */}
+      <div className="panel" style={{ padding: "24px 24px 20px", marginBottom: 18, background: "linear-gradient(135deg, rgba(15,27,7,0.03) 0%, rgba(177,252,3,0.04) 100%)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>For Institutional &amp; Large Delegators</span>
+        </div>
+        <p style={{ fontSize: "0.76rem", color: "var(--text-medium)", lineHeight: 1.5, margin: "0 0 16px" }}>
+          Delegating a significant amount? We offer custom commission rates, dedicated support, infrastructure transparency, and a direct communication channel.
+        </p>
+
+        <div className="responsive-grid-2" style={{ gap: 14 }}>
+          {/* X DM option */}
+          <a
+            href="https://x.com/messages/compose?recipient_id=silk_nodes"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px 18px", borderRadius: "var(--radius-md)",
+              background: "var(--tx-dark-green)", color: "#fff",
+              textDecoration: "none", fontSize: "0.78rem", fontWeight: 600,
+              transition: "transform 0.15s",
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            DM us on X (@silk_nodes)
+          </a>
+
+          {/* Inline contact form */}
+          <div>
+            {contactSent ? (
+              <div style={{
+                padding: "16px", textAlign: "center", borderRadius: "var(--radius-md)",
+                background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
+              }}>
+                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--tx-dark-green)" }}>
+                  Message sent! We&apos;ll get back to you soon.
+                </span>
+              </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  // Using Web3Forms free tier
+                  fetch("https://api.web3forms.com/submit", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      access_key: "YOUR_WEB3FORMS_KEY",
+                      subject: `Silk Nodes - Large Delegation Inquiry (${contactForm.size})`,
+                      email: contactForm.email,
+                      delegation_size: contactForm.size,
+                      message: contactForm.message,
+                    }),
+                  }).then(() => setContactSent(true)).catch(() => setContactSent(true));
+                }}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                <input
+                  type="email"
+                  required
+                  placeholder="Your email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none",
+                  }}
+                />
+                <select
+                  required
+                  value={contactForm.size}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, size: e.target.value }))}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none", color: contactForm.size ? "var(--text-dark)" : "var(--text-light)",
+                  }}
+                >
+                  <option value="" disabled>Estimated delegation size</option>
+                  <option value="10K-50K">10K ... 50K TX</option>
+                  <option value="50K-100K">50K ... 100K TX</option>
+                  <option value="100K+">100K+ TX</option>
+                </select>
+                <textarea
+                  placeholder="Message (optional)"
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
+                  rows={2}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none", resize: "vertical", fontFamily: "inherit",
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="btn-olive"
+                  style={{
+                    padding: "10px 16px", fontSize: "0.78rem", fontWeight: 600,
+                    border: "none", cursor: "pointer", width: "100%",
+                  }}
+                >
+                  Get in Touch
+                </button>
+              </form>
             )}
           </div>
         </div>
