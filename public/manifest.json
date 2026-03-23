@@ -1,0 +1,25 @@
+{
+  "name": "ALL in ONE TX",
+  "short_name": "ALL in ONE TX",
+  "description": "Stake TX, Check PSE score, Calculate rewards, Explore validators, Track tokenized assets. Built by Silk Nodes.",
+  "start_url": "/tx-silknodes/",
+  "scope": "/tx-silknodes/",
+  "display": "standalone",
+  "background_color": "#0F1B07",
+  "theme_color": "#B1FC03",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "/tx-silknodes/tx-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/tx-silknodes/tx-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
