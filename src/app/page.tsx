@@ -2673,7 +2673,7 @@ function CopyButton({ text }: { text: string }) {
 function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wallet, setShowWalletModal }: any) {
   const [devToolsOpen, setDevToolsOpen] = useState(false);
   const [showRestakeModal, setShowRestakeModal] = useState(false);
-  const [contactForm, setContactForm] = useState({ email: "", size: "", message: "" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", size: "", message: "" });
   const [contactSent, setContactSent] = useState(false);
   // Get real Silk Nodes validator data
   const silkValidator = validators?.find((v: any) => v.moniker === "Silk Nodes");
@@ -3129,13 +3129,13 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  // Using Web3Forms free tier
                   fetch("https://api.web3forms.com/submit", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      access_key: "YOUR_WEB3FORMS_KEY",
-                      subject: `Silk Nodes - Large Delegation Inquiry (${contactForm.size})`,
+                      access_key: "620e62bc-35f9-464e-a37e-883a18d9dc61",
+                      subject: "Silk Nodes - Delegation Inquiry",
+                      name: contactForm.name,
                       email: contactForm.email,
                       delegation_size: contactForm.size,
                       message: contactForm.message,
@@ -3144,6 +3144,18 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                 }}
                 style={{ display: "flex", flexDirection: "column", gap: 8 }}
               >
+                <input
+                  type="text"
+                  required
+                  placeholder="Your name"
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none",
+                  }}
+                />
                 <input
                   type="email"
                   required
@@ -3156,26 +3168,12 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                     outline: "none",
                   }}
                 />
-                <select
-                  required
-                  value={contactForm.size}
-                  onChange={(e) => setContactForm(prev => ({ ...prev, size: e.target.value }))}
-                  style={{
-                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
-                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
-                    outline: "none", color: contactForm.size ? "var(--text-dark)" : "var(--text-light)",
-                  }}
-                >
-                  <option value="" disabled>Estimated delegation size</option>
-                  <option value="10K-50K">10K ... 50K TX</option>
-                  <option value="50K-100K">50K ... 100K TX</option>
-                  <option value="100K+">100K+ TX</option>
-                </select>
                 <textarea
-                  placeholder="Message (optional)"
+                  required
+                  placeholder="Message"
                   value={contactForm.message}
                   onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
-                  rows={2}
+                  rows={3}
                   style={{
                     padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
                     border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
