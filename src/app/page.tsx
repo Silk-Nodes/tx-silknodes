@@ -3280,6 +3280,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               style={{ flex: 1, width: "100%", border: "none" }}
               title="REStake Auto-Compound"
               allow="clipboard-write"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
             />
           </div>
         </div>
