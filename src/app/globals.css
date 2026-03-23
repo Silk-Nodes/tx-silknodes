@@ -3,6 +3,11 @@
    Inspired by Variant Endless Designs
    ═══════════════════════════════════════════ */
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 :root {
   --bg-base: #F6FFEF;
   --bg-gradient: radial-gradient(circle at top left, #F6FFEF 0%, #DFEFD3 50%, #EDE9E0 100%);
