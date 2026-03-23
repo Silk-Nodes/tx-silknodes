@@ -45,7 +45,40 @@ export default function ValidatorsPage({
   const totalBonded = validators.reduce((s, v) => s + v.tokens, 0);
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, position: "relative", minHeight: loading ? 500 : undefined }}>
+      {/* Blurred overlay while loading */}
+      {loading && (
+        <>
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 10, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            background: "rgba(237,233,224,0.4)",
+            borderRadius: 12,
+          }} />
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)", zIndex: 11,
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: 40, height: 40, border: "3px solid rgba(177,252,3,0.2)",
+              borderTop: "3px solid var(--tx-neon)", borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 14px",
+            }} />
+            <div style={{
+              fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)",
+              letterSpacing: "0.08em",
+            }}>
+              Fetching live data...
+            </div>
+            <div style={{ fontSize: "0.68rem", opacity: 0.45, marginTop: 6 }}>
+              Loading validators from TX mainnet
+            </div>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </>
+      )}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
