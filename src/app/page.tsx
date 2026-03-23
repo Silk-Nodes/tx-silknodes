@@ -2920,10 +2920,9 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          AUTO-COMPOUND (compact) + DEV TOOLS
+          MAXIMIZE YOUR REWARDS (Auto-Compound)
           ═══════════════════════════════════════════════════════ */}
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 18, alignItems: "stretch" }}>
-        {/* Maximize Rewards - Auto-Compound */}
+      <div style={{ marginBottom: 18 }}>
         <div className="panel" style={{ padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>Maximize Your Rewards</span>
