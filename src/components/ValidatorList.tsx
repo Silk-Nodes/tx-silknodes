@@ -266,7 +266,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <img
               src={`${BASE_PATH}/silk-nodes-logo.png`}
-              alt="Silk Nodes"
+              alt="Silk Nodes validator logo"
               style={{
                 width: 42, height: 42, borderRadius: 10,
                 objectFit: "contain", filter: "invert(1)",
