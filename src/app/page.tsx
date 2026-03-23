@@ -2673,6 +2673,8 @@ function CopyButton({ text }: { text: string }) {
 function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wallet, setShowWalletModal }: any) {
   const [devToolsOpen, setDevToolsOpen] = useState(false);
   const [showRestakeModal, setShowRestakeModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: "", email: "", size: "", message: "" });
+  const [contactSent, setContactSent] = useState(false);
   // Get real Silk Nodes validator data
   const silkValidator = validators?.find((v: any) => v.moniker === "Silk Nodes");
   const silkBonded = silkValidator ? Math.round(silkValidator.tokens) : 0;
@@ -2725,8 +2727,8 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                     <span className="live-dot" /> ACTIVE
                   </span>
                 </div>
-                <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", margin: 0 }}>
-                  Built for the TX community
+                <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+                  Lower fees · Higher reliability · Early PSE advantage
                 </p>
               </div>
             </div>
@@ -2759,7 +2761,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               { label: "Delegated", value: silkBonded > 0 ? `${formatNumber(silkBonded)} TX` : "..." },
               { label: "Slashing", value: "None" },
               { label: "Restake", value: "Enabled" },
-              { label: "Commission", value: "5%" },
+              { label: "Commission", value: "5% (vs 8\u201310%)" },
             ].map((stat) => (
               <div key={stat.label} className="silk-stat-item" style={{
                 textAlign: "center", flex: "1 1 auto", minWidth: 0,
@@ -2843,6 +2845,27 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
         </div>
       </div>
 
+      {/* Mid-page CTA */}
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <button
+          onClick={delegateCTA}
+          style={{
+            border: "none", padding: "12px 32px", fontSize: "0.82rem", fontWeight: 700,
+            background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+            borderRadius: "var(--radius-pill)", cursor: "pointer",
+            boxShadow: "0 3px 14px rgba(177,252,3,0.25)",
+            transition: "transform 0.15s",
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          Delegate to Silk Nodes &rarr;
+        </button>
+        <p style={{ fontSize: "0.68rem", color: "var(--text-light)", marginTop: 8 }}>
+          Early delegators capture the highest PSE rewards.
+        </p>
+      </div>
+
       {/* ═══════════════════════════════════════════════════════
           TRUST + ECOSYSTEM (merged, compact)
           ═══════════════════════════════════════════════════════ */}
@@ -2877,7 +2900,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
             COMMUNITY TRUST
           </div>
           <div style={{ fontSize: "0.8rem", color: "var(--text-dark)", lineHeight: 1.6, marginBottom: 12 }}>
-            Trusted by a growing community with <span style={{ fontWeight: 700 }}>{silkBonded > 0 ? formatNumber(silkBonded) : "..."} TX</span> delegated
+            Trusted by delegators securing <span style={{ fontWeight: 700 }}>{silkBonded > 0 ? formatNumber(silkBonded) : "..."} TX</span>
           </div>
           <div style={{ display: "flex", gap: 20 }}>
             <div>
@@ -2897,151 +2920,299 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          AUTO-COMPOUND (compact) + DEV TOOLS
+          MAXIMIZE YOUR REWARDS (Auto-Compound)
           ═══════════════════════════════════════════════════════ */}
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 18, alignItems: "stretch" }}>
-        {/* Auto-Compound compact */}
-        <div className="panel" style={{ padding: "14px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>Auto-Compound</span>
-              <span style={{
-                background: "var(--accent-olive)", color: "#fff",
-                padding: "2px 8px", borderRadius: "var(--radius-pill)",
-                fontSize: "0.58rem", fontWeight: 600,
-              }}>ENABLED</span>
-            </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--accent-olive)", fontWeight: 600 }}>
-              {(apr * 0.95).toFixed(1)}% APR &rarr; 13.39% APY
-            </span>
+      <div style={{ marginBottom: 18 }}>
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>Maximize Your Rewards</span>
+            <span style={{
+              background: "var(--accent-olive)", color: "#fff",
+              padding: "2px 8px", borderRadius: "var(--radius-pill)",
+              fontSize: "0.55rem", fontWeight: 600,
+            }}>AUTO-COMPOUND</span>
           </div>
-          <p className="text-xs text-medium" style={{ lineHeight: 1.4, margin: "0 0 10px", fontSize: "0.72rem" }}>
-            Restake compounds your rewards daily. Set it once, earn more automatically.
+          <p style={{ fontSize: "0.75rem", color: "var(--text-medium)", lineHeight: 1.5, margin: "0 0 14px" }}>
+            With auto-compounding, your rewards are reinvested daily, increasing your total returns over time.
+          </p>
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14,
+          }}>
+            <div style={{
+              background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)",
+              padding: "12px 14px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", marginBottom: 4 }}>Without Compounding</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-medium)" }}>{(apr * 0.95).toFixed(1)}% APR</div>
+            </div>
+            <div style={{
+              background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
+              borderRadius: "var(--radius-md)", padding: "12px 14px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#3a5a0a", marginBottom: 4 }}>With Compounding</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>13.39% APY</div>
+            </div>
+          </div>
+          <p style={{ fontSize: "0.72rem", color: "var(--accent-olive)", fontWeight: 600, margin: "0 0 14px", textAlign: "center" }}>
+            That&apos;s ~15% more rewards over time ... automatically.
           </p>
           <button
             onClick={() => setShowRestakeModal(true)}
             className="btn-olive"
-            style={{ display: "block", textAlign: "center", width: "100%", padding: "8px 16px", fontSize: "0.78rem", border: "none", cursor: "pointer" }}
+            style={{ display: "block", textAlign: "center", width: "100%", padding: "10px 16px", fontSize: "0.78rem", fontWeight: 600, border: "none", cursor: "pointer" }}
           >
-            Enable on Restake
+            Enable Auto-Compound on Restake
           </button>
         </div>
 
-        {/* Dev Tools + Node Stats */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="panel" style={{ padding: "14px 18px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "rgba(255,255,255,0.3)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-              <div style={{ background: "var(--glass-bg)", padding: "10px 12px" }}>
-                <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Block Height</span>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.05rem", fontWeight: 500, marginTop: 3 }}>
-                  {networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}
-                </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          LARGE DELEGATORS + CONTACT
+          ═══════════════════════════════════════════════════════ */}
+      <div className="panel" style={{ padding: "24px 24px 20px", marginBottom: 18, background: "linear-gradient(135deg, rgba(15,27,7,0.03) 0%, rgba(177,252,3,0.04) 100%)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>For Institutional &amp; Large Delegators</span>
+        </div>
+        <p style={{ fontSize: "0.76rem", color: "var(--text-medium)", lineHeight: 1.5, margin: "0 0 16px" }}>
+          Delegating a significant amount? We offer custom commission rates, dedicated support, infrastructure transparency, and a direct communication channel.
+        </p>
+
+        <div className="responsive-grid-2" style={{ gap: 14 }}>
+          {/* X DM option */}
+          <a
+            href="https://x.com/messages/compose?recipient_id=silk_nodes"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px 18px", borderRadius: "var(--radius-md)",
+              background: "var(--tx-dark-green)", color: "#fff",
+              textDecoration: "none", fontSize: "0.78rem", fontWeight: 600,
+              transition: "transform 0.15s",
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            DM us on X (@silk_nodes)
+          </a>
+
+          {/* Inline contact form */}
+          <div>
+            {contactSent ? (
+              <div style={{
+                padding: "16px", textAlign: "center", borderRadius: "var(--radius-md)",
+                background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
+              }}>
+                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--tx-dark-green)" }}>
+                  Message sent! We&apos;ll get back to you soon.
+                </span>
               </div>
-              <div style={{ background: "var(--glass-bg)", padding: "10px 12px" }}>
-                <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Node Version</span>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.05rem", fontWeight: 500, marginTop: 3 }}>v4.1.1</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel" style={{ padding: "16px 18px", flex: 1 }}>
-            <button
-              onClick={() => setDevToolsOpen(!devToolsOpen)}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                width: "100%", background: "none", border: "none", cursor: "pointer",
-                padding: 0, color: "var(--text-dark)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
-                  <path d="M7.5 2.5l1.5 3-3 1.5 1 2.5 2.5-1L11 12l3-2-1-3 2.5-1L14 3z" stroke="var(--accent-olive)" strokeWidth="1.3" fill="rgba(74,122,26,0.1)" strokeLinejoin="round" />
-                  <circle cx="9" cy="9" r="2" stroke="var(--accent-olive)" strokeWidth="1.2" fill="none" />
-                </svg>
-                <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>Developer Tools</span>
-                <span className="text-xs text-light">RPC · API · Snapshots</span>
-              </div>
-              <span style={{
-                fontSize: "0.75rem", color: "var(--text-light)",
-                transform: devToolsOpen ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.2s",
-                display: "inline-block",
-              }}>&#9660;</span>
-            </button>
-
-            {devToolsOpen && (
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-                <div>
-                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
-                    Endpoints
-                  </span>
-                  {[
-                    { label: "RPC", url: SILK_SERVICES.rpc },
-                    { label: "API", url: SILK_SERVICES.api },
-                    { label: "GRPC", url: SILK_SERVICES.grpc },
-                  ].map((svc) => (
-                    <div key={svc.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.3)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--tx-neon)", flexShrink: 0, boxShadow: "0 0 4px rgba(177,252,3,0.4)" }} />
-                        <span className="font-semibold" style={{ minWidth: 38, fontSize: "0.78rem" }}>{svc.label}</span>
-                        <span className="mono text-xs" style={{ color: "var(--text-medium)" }}>{svc.url}</span>
-                      </div>
-                      <CopyButton text={svc.url} />
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ background: "var(--accent-olive)", color: "#fff", borderRadius: "var(--radius-md)", padding: "12px 14px" }}>
-                  <div className="flex-between" style={{ marginBottom: 6 }}>
-                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 }}>Latest Snapshot</span>
-                    <a
-                      href={SILK_SERVICES.snapshot.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "none", fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: "var(--radius-pill)" }}
-                    >
-                      Download
-                    </a>
-                  </div>
-                  <div style={{ display: "flex", gap: 20 }}>
-                    <div>
-                      <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>Block</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>Size</span>
-                      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>~12.5 GB</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Seed Node</span>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                    <span className="mono text-xs" style={{ wordBreak: "break-all", color: "var(--text-medium)", flex: 1 }}>{SILK_SERVICES.seed}</span>
-                    <CopyButton text={SILK_SERVICES.seed} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex-between" style={{ marginBottom: 4 }}>
-                    <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {SILK_SERVICES.peers.length} Live Peers
-                    </span>
-                    <button className="filter-chip" style={{ fontSize: "0.68rem" }} onClick={() => navigator.clipboard.writeText(SILK_SERVICES.peers.join(","))}>
-                      Copy All
-                    </button>
-                  </div>
-                  {SILK_SERVICES.peers.map((peer, i) => (
-                    <div key={i} className="mono text-xs" style={{ padding: "4px 0", borderBottom: i < SILK_SERVICES.peers.length - 1 ? "1px solid rgba(255,255,255,0.2)" : "none", wordBreak: "break-all", color: "var(--text-medium)" }}>
-                      {peer}
-                    </div>
-                  ))}
-                </div>
-              </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  fetch("https://api.web3forms.com/submit", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      access_key: "620e62bc-35f9-464e-a37e-883a18d9dc61",
+                      subject: "Silk Nodes - Delegation Inquiry",
+                      name: contactForm.name,
+                      email: contactForm.email,
+                      delegation_size: contactForm.size,
+                      message: contactForm.message,
+                    }),
+                  }).then(() => setContactSent(true)).catch(() => setContactSent(true));
+                }}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                <input
+                  type="text"
+                  required
+                  placeholder="Your name"
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none",
+                  }}
+                />
+                <input
+                  type="email"
+                  required
+                  placeholder="Your email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none",
+                  }}
+                />
+                <textarea
+                  required
+                  placeholder="Message"
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
+                  rows={3}
+                  style={{
+                    padding: "8px 12px", fontSize: "0.75rem", borderRadius: "var(--radius-md)",
+                    border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.8)",
+                    outline: "none", resize: "vertical", fontFamily: "inherit",
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="btn-olive"
+                  style={{
+                    padding: "10px 16px", fontSize: "0.78rem", fontWeight: 600,
+                    border: "none", cursor: "pointer", width: "100%",
+                  }}
+                >
+                  Get in Touch
+                </button>
+              </form>
             )}
           </div>
         </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          DEVELOPER TOOLS (full-width, bottom)
+          ═══════════════════════════════════════════════════════ */}
+      <div className="panel" style={{ padding: "16px 20px", marginBottom: 18 }}>
+        <button
+          onClick={() => setDevToolsOpen(!devToolsOpen)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", background: "none", border: "none", cursor: "pointer",
+            padding: 0, color: "var(--text-dark)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
+              <path d="M7.5 2.5l1.5 3-3 1.5 1 2.5 2.5-1L11 12l3-2-1-3 2.5-1L14 3z" stroke="var(--accent-olive)" strokeWidth="1.3" fill="rgba(74,122,26,0.1)" strokeLinejoin="round" />
+              <circle cx="9" cy="9" r="2" stroke="var(--accent-olive)" strokeWidth="1.2" fill="none" />
+            </svg>
+            <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>Developer Tools</span>
+            <span className="text-xs text-light">RPC · API · Snapshots · Peers</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {!devToolsOpen && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="mono text-xs" style={{ color: "var(--text-light)" }}>
+                  Block {networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."} · v4.1.1
+                </span>
+              </div>
+            )}
+            <span style={{
+              fontSize: "0.75rem", color: "var(--text-light)",
+              transform: devToolsOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+              display: "inline-block",
+            }}>&#9660;</span>
+          </div>
+        </button>
+
+        {devToolsOpen && (
+          <div style={{ marginTop: 14 }}>
+            {/* Node info bar */}
+            <div style={{
+              display: "flex", gap: 16, padding: "10px 14px", marginBottom: 14,
+              background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)",
+              flexWrap: "wrap",
+            }}>
+              {[
+                { label: "Block Height", value: networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..." },
+                { label: "Node Version", value: "v4.1.1" },
+                { label: "Network", value: "tx-mainnet" },
+              ].map((item) => (
+                <div key={item.label} style={{ minWidth: 100 }}>
+                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.55rem" }}>{item.label}</span>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", fontWeight: 600, marginTop: 2 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Endpoints + Snapshot side by side */}
+            <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 14 }}>
+              {/* Endpoints */}
+              <div>
+                <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6, fontSize: "0.55rem" }}>
+                  Endpoints
+                </span>
+                {[
+                  { label: "RPC", url: SILK_SERVICES.rpc },
+                  { label: "API", url: SILK_SERVICES.api },
+                  { label: "GRPC", url: SILK_SERVICES.grpc },
+                ].map((svc) => (
+                  <div key={svc.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--tx-neon)", flexShrink: 0, boxShadow: "0 0 4px rgba(177,252,3,0.4)" }} />
+                      <span style={{ fontWeight: 600, minWidth: 34, fontSize: "0.75rem" }}>{svc.label}</span>
+                      <span className="mono text-xs" style={{ color: "var(--text-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{svc.url}</span>
+                    </div>
+                    <CopyButton text={svc.url} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Snapshot */}
+              <div style={{ background: "var(--accent-olive)", color: "#fff", borderRadius: "var(--radius-md)", padding: "14px 16px" }}>
+                <div className="flex-between" style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 }}>Latest Snapshot</span>
+                  <a
+                    href={SILK_SERVICES.snapshot.downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: "var(--radius-pill)" }}
+                  >
+                    Download
+                  </a>
+                </div>
+                <div style={{ display: "flex", gap: 24 }}>
+                  <div>
+                    <span style={{ fontSize: "0.55rem", opacity: 0.7 }}>Block</span>
+                    <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>{networkStatus?.blockHeight ? formatNumber(networkStatus.blockHeight) : "..."}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.55rem", opacity: 0.7 }}>Size</span>
+                    <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "0.9rem", marginTop: 2 }}>~12.5 GB</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Seed + Peers (compact) */}
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: 12 }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.55rem" }}>Seed Node</span>
+                  <CopyButton text={SILK_SERVICES.seed} />
+                </div>
+                <span className="mono text-xs" style={{ wordBreak: "break-all", color: "var(--text-medium)", lineHeight: 1.4 }}>{SILK_SERVICES.seed}</span>
+              </div>
+              <div>
+                <div className="flex-between" style={{ marginBottom: 4 }}>
+                  <span className="text-xs text-light" style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.55rem" }}>
+                    {SILK_SERVICES.peers.length} Live Peers
+                  </span>
+                  <button className="filter-chip" style={{ fontSize: "0.65rem" }} onClick={() => navigator.clipboard.writeText(SILK_SERVICES.peers.join(","))}>
+                    Copy All
+                  </button>
+                </div>
+                {SILK_SERVICES.peers.map((peer, i) => (
+                  <div key={i} className="mono text-xs" style={{ padding: "3px 0", borderBottom: i < SILK_SERVICES.peers.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", wordBreak: "break-all", color: "var(--text-medium)", lineHeight: 1.3 }}>
+                    {peer}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Explorer link */}
