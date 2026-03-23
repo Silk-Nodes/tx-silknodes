@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "RWA", "tokenized assets", "smart tokens", "real world assets",
     "crypto staking", "blockchain staking", "Cosmos SDK", "IBC",
   ],
-  metadataBase: new URL("https://silk-nodes.github.io"),
+  metadataBase: new URL("https://tx.silknodes.io"),
   alternates: {
     canonical: "/tx-silknodes/",
   },
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
     description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
-    url: "https://silk-nodes.github.io/tx-silknodes/",
+    url: "https://tx.silknodes.io/tx-silknodes/",
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
@@ -153,7 +153,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Silk Nodes",
               url: "https://silknodes.io",
-              logo: "https://silk-nodes.github.io/tx-silknodes/silk-nodes-logo.png",
+              logo: "https://tx.silknodes.io/tx-silknodes/silk-nodes-logo.png",
               description: "Professional blockchain validator and infrastructure provider. Active on Coreum (TX) with 5% commission, 99.98% uptime, and zero slashing events.",
               sameAs: [
                 "https://x.com/silk_nodes",
