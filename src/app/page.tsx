@@ -647,7 +647,7 @@ function OverviewTab({
             {[
               { label: "Available", value: `${formatNumber(Math.round(wallet.balance))} TX`, sub: price > 0 ? formatUSD(wallet.balance * price) : "", color: "var(--text-dark)" },
               { label: "Staked", value: `${formatNumber(Math.round(wallet.stakedAmount))} TX`, sub: price > 0 ? formatUSD(wallet.stakedAmount * price) : "", color: "var(--accent-olive)" },
-              { label: "Pending Rewards", value: `${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards.toFixed(2)} TX`, sub: price > 0 ? formatUSD(wallet.rewards * price) : "", color: "var(--tx-neon)" },
+              { label: "Pending Rewards", value: `${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX`, sub: price > 0 ? formatUSD(wallet.rewards * price) : "", color: "var(--tx-neon)" },
               { label: "Total Value", value: price > 0 ? formatUSD((wallet.balance + wallet.stakedAmount + wallet.rewards) * price) : `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX`, sub: price > 0 ? `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX` : "", color: "var(--text-dark)" },
             ].map((item) => (
               <div key={item.label} style={{ background: "#fff", padding: "14px 16px" }}>
@@ -2088,7 +2088,7 @@ function PortfolioTab({
         {[
           { label: "Available", value: `${formatNumber(Math.round(wallet.balance))} TX`, sub: price > 0 ? formatUSD(wallet.balance * price) : "", color: "var(--text-dark)" },
           { label: "Staked", value: `${formatNumber(Math.round(wallet.stakedAmount))} TX`, sub: price > 0 ? formatUSD(wallet.stakedAmount * price) : "", color: "var(--accent-olive)" },
-          { label: "Pending Rewards", value: `${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards.toFixed(2)} TX`, sub: price > 0 ? formatUSD(wallet.rewards * price) : "", color: "var(--tx-dark-green)" },
+          { label: "Pending Rewards", value: `${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX`, sub: price > 0 ? formatUSD(wallet.rewards * price) : "", color: "var(--tx-dark-green)" },
           { label: "Total Value", value: price > 0 ? formatUSD((wallet.balance + wallet.stakedAmount + wallet.rewards) * price) : `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX`, sub: price > 0 ? `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX` : "", color: "var(--text-dark)" },
         ].map((item) => (
           <div key={item.label} style={{ background: "var(--glass-bg)", padding: "16px 18px" }}>
@@ -2138,7 +2138,7 @@ function PortfolioTab({
             Claimable Rewards
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.3rem", fontWeight: 600, color: "var(--accent-olive)", marginBottom: 10 }}>
-            {wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards.toFixed(2)} TX
+            {wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX
             {price > 0 && <span style={{ fontSize: "0.68rem", color: "var(--text-light)", marginLeft: 8 }}>{formatUSD(wallet.rewards * price)}</span>}
           </div>
           <button
