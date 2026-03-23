@@ -187,6 +187,32 @@ export default function HomePage() {
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
   const [addrCopied, setAddrCopied] = useState(false);
+  const [showBrandPopover, setShowBrandPopover] = useState(false);
+  const [brandClickedOnce, setBrandClickedOnce] = useState(false);
+  const brandPopoverRef = useRef<HTMLDivElement>(null);
+
+  const handleBrandClick = () => {
+    if (!brandClickedOnce) {
+      setShowBrandPopover(true);
+      setBrandClickedOnce(true);
+      trackEvent("brand_click", { first_time: true });
+    } else {
+      setActiveTab("overview");
+      trackEvent("brand_click", { first_time: false });
+    }
+  };
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!showBrandPopover) return;
+    const handler = (e: MouseEvent) => {
+      if (brandPopoverRef.current && !brandPopoverRef.current.contains(e.target as Node)) {
+        setShowBrandPopover(false);
+      }
+    };
+    setTimeout(() => document.addEventListener("click", handler), 0);
+    return () => document.removeEventListener("click", handler);
+  }, [showBrandPopover]);
   const copyAddress = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(wallet.address);
@@ -198,8 +224,43 @@ export default function HomePage() {
     <div className="app-shell">
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
-        <div className="brand">
+        <div className="brand" onClick={handleBrandClick} style={{ cursor: "pointer", position: "relative" }}>
           All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
+          {showBrandPopover && (
+            <div
+              ref={brandPopoverRef}
+              style={{
+                position: "absolute", top: "calc(100% + 12px)", left: 0,
+                background: "#fff", borderRadius: "var(--radius-lg)",
+                padding: "20px 22px", width: "min(380px, calc(100vw - 40px))",
+                boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
+                zIndex: 9999, animation: "fadeIn 0.2s ease",
+              }}
+            >
+              <div style={{
+                position: "absolute", top: -6, left: 24,
+                width: 12, height: 12, background: "#fff",
+                transform: "rotate(45deg)",
+                boxShadow: "-1px -1px 0 rgba(0,0,0,0.05)",
+              }} />
+              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--tx-dark-green)", marginBottom: 8 }}>
+                This tool is free and open source
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-medium)", lineHeight: 1.5, marginBottom: 14 }}>
+                Built by <strong>Silk Nodes</strong> for the TX community.<br />Support us by delegating ... it keeps this project alive.
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowBrandPopover(false); setActiveTab("silknodes"); trackEvent("brand_popover_delegate"); }}
+                className="btn-olive"
+                style={{ width: "100%", padding: "10px 16px", fontSize: "0.8rem", fontWeight: 600 }}
+              >
+                Delegate to Silk Nodes &rarr;
+              </button>
+              <div style={{ fontSize: "0.62rem", color: "var(--text-light)", textAlign: "center", marginTop: 8 }}>
+                5% commission &middot; 99.98% uptime &middot; zero slashing
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="nav-tabs">
