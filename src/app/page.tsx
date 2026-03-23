@@ -3,6 +3,14 @@
 const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
 
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
+
+// ─── Analytics helper ───
+declare global { interface Window { gtag?: (...args: any[]) => void; } }
+function trackEvent(action: string, params?: Record<string, any>) {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", action, params);
+  }
+}
 import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
 import {
@@ -65,6 +73,31 @@ export default function HomePage() {
   } = useWallet();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [cookieConsent, setCookieConsent] = useState<"accepted" | "declined" | null>(null);
+
+  // ─── Cookie consent ───
+  useEffect(() => {
+    const stored = localStorage.getItem("tx-cookie-consent");
+    if (stored === "accepted" || stored === "declined") setCookieConsent(stored);
+  }, []);
+
+  const handleCookieConsent = (choice: "accepted" | "declined") => {
+    setCookieConsent(choice);
+    localStorage.setItem("tx-cookie-consent", choice);
+    trackEvent("cookie_consent", { choice });
+    if (choice === "declined") {
+      // Remove GA cookies
+      document.cookie.split(";").forEach((c) => {
+        const name = c.trim().split("=")[0];
+        if (name.startsWith("_ga")) document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      });
+    }
+  };
+
+  // ─── Track successful transactions ───
+  useEffect(() => {
+    if (txResult) trackEvent("tx_success", { tx_type: txResult.type, tx_hash: txResult.hash });
+  }, [txResult]);
 
   // ─── PSE Countdown State ───
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -174,7 +207,7 @@ export default function HomePage() {
             <button
               key={tab.id}
               className={`nav-tab ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); trackEvent("tab_switch", { tab_name: tab.id }); }}
             >
               {tab.label}
             </button>
@@ -237,7 +270,7 @@ export default function HomePage() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
-                onClick={() => { setShowWalletModal(false); connect("keplr"); }}
+                onClick={() => { setShowWalletModal(false); connect("keplr"); trackEvent("wallet_connect", { wallet_type: "keplr" }); }}
                 disabled={walletLoading}
                 style={{
                   display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
@@ -262,7 +295,7 @@ export default function HomePage() {
                 )}
               </button>
               <button
-                onClick={() => { setShowWalletModal(false); connect("leap"); }}
+                onClick={() => { setShowWalletModal(false); connect("leap"); trackEvent("wallet_connect", { wallet_type: "leap" }); }}
                 disabled={walletLoading}
                 style={{
                   display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
@@ -450,6 +483,44 @@ export default function HomePage() {
           <span className="footer-public-good">A Public Good for the TX Community</span>
         </div>
       </footer>
+
+      {/* ════════ COOKIE CONSENT BANNER ════════ */}
+      {cookieConsent === null && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
+          background: "var(--tx-dark-green)", borderTop: "1px solid rgba(177,252,3,0.2)",
+          padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 16, flexWrap: "wrap",
+        }}>
+          <span style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.78rem", maxWidth: 500 }}>
+            We use cookies for analytics to improve your experience. No personal data is sold or shared.
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => handleCookieConsent("accepted")}
+              style={{
+                background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                border: "none", borderRadius: "var(--radius-pill)",
+                padding: "7px 18px", fontSize: "0.75rem", fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Accept
+            </button>
+            <button
+              onClick={() => handleCookieConsent("declined")}
+              style={{
+                background: "transparent", color: "rgba(255,255,255,0.6)",
+                border: "1px solid rgba(255,255,255,0.2)", borderRadius: "var(--radius-pill)",
+                padding: "7px 18px", fontSize: "0.75rem", fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2707,7 +2778,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
     ? ((silkValidator.tokens / stakingData.bondedTokens) * 100).toFixed(2)
     : "...";
   const apr = stakingData?.apr || 12;
-  const delegateCTA = () => wallet.connected ? setActiveTab("portfolio") : setShowWalletModal(true);
+  const delegateCTA = () => { trackEvent("delegate_click", { source: "silk_nodes" }); wallet.connected ? setActiveTab("portfolio") : setShowWalletModal(true); };
 
   return (
     <>
@@ -2982,7 +3053,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
             That&apos;s ~15% more rewards over time ... automatically.
           </p>
           <button
-            onClick={() => setShowRestakeModal(true)}
+            onClick={() => { setShowRestakeModal(true); trackEvent("restake_click"); }}
             className="btn-olive"
             style={{ display: "block", textAlign: "center", width: "100%", padding: "10px 16px", fontSize: "0.78rem", fontWeight: 600, border: "none", cursor: "pointer" }}
           >
@@ -3052,7 +3123,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                       message: contactForm.message,
                       botcheck: "",
                     }),
-                  }).then(() => setContactSent(true)).catch(() => setContactSent(true));
+                  }).then(() => { setContactSent(true); trackEvent("contact_form_submit"); }).catch(() => setContactSent(true));
                 }}
                 style={{ display: "flex", flexDirection: "column", gap: 8 }}
               >
