@@ -3,6 +3,13 @@ Allow: /
 
 Sitemap: https://silk-nodes.github.io/tx-silknodes/sitemap.xml
 
+# Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
 # AI Crawlers
 User-agent: GPTBot
 Allow: /

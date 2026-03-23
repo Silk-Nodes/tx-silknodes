@@ -199,7 +199,7 @@ export default function HomePage() {
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand">
-          All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX" /></div>
+          All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
         </div>
 
         <div className="nav-tabs">
@@ -279,7 +279,7 @@ export default function HomePage() {
                   opacity: availableWallets.keplr ? 1 : 0.4, transition: "all 0.15s",
                 }}
               >
-                <img src={`${BASE_PATH}/keplr-logo.svg`} alt="Keplr" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                <img src={`${BASE_PATH}/keplr-logo.svg`} alt="Keplr wallet logo" style={{ width: 40, height: 40, borderRadius: 10 }} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Keplr</div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
@@ -304,7 +304,7 @@ export default function HomePage() {
                   opacity: availableWallets.leap ? 1 : 0.4, transition: "all 0.15s",
                 }}
               >
-                <img src={`${BASE_PATH}/leap-logo.png`} alt="Leap" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                <img src={`${BASE_PATH}/leap-logo.png`} alt="Leap wallet logo" style={{ width: 40, height: 40, borderRadius: 10 }} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Leap</div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
@@ -474,7 +474,7 @@ export default function HomePage() {
       <footer className="site-footer">
         <div className="footer-left">
           <div className="footer-brand-logo">
-            All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX" /></div>
+            All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
           </div>
           <span className="footer-sep">|</span>
           <span className="footer-built">Built by <a href="https://silknodes.io" target="_blank" rel="noopener noreferrer">Silk Nodes</a></span>
@@ -2808,7 +2808,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`${BASE_PATH}/silk-nodes-logo.png`}
-                alt="Silk Nodes"
+                alt="Silk Nodes validator logo"
                 style={{ width: 40, height: 40, objectFit: "contain", filter: "invert(1)", flexShrink: 0 }}
               />
               <div style={{ minWidth: 0 }}>
