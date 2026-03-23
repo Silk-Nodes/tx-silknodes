@@ -153,6 +153,13 @@ export default function HomePage() {
     : 0;
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
+  const [addrCopied, setAddrCopied] = useState(false);
+  const copyAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(wallet.address);
+    setAddrCopied(true);
+    setTimeout(() => setAddrCopied(false), 1500);
+  };
 
   return (
     <div className="app-shell">
@@ -179,12 +186,30 @@ export default function HomePage() {
             <span className="live-dot" />
             {loading ? "Syncing" : "Live"}
           </span>
-          <button
-            className={`wallet-pill ${wallet.connected ? "connected" : ""}`}
-            onClick={wallet.connected ? disconnect : () => setShowWalletModal(true)}
-          >
-            {walletLoading ? "Connecting..." : wallet.connected ? truncAddr(wallet.address) : "Connect Wallet"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              className={`wallet-pill ${wallet.connected ? "connected" : ""}`}
+              onClick={wallet.connected ? disconnect : () => setShowWalletModal(true)}
+            >
+              {walletLoading ? "Connecting..." : wallet.connected ? truncAddr(wallet.address) : "Connect Wallet"}
+            </button>
+            {wallet.connected && (
+              <button
+                onClick={copyAddress}
+                title="Copy address"
+                style={{
+                  background: addrCopied ? "var(--tx-neon)" : "rgba(177,252,3,0.1)",
+                  border: "1px solid rgba(177,252,3,0.3)",
+                  borderRadius: 6, padding: "6px 8px", cursor: "pointer",
+                  fontSize: "0.7rem", color: addrCopied ? "var(--tx-dark-green)" : "var(--text-medium)",
+                  fontWeight: 600, transition: "all 0.2s",
+                  display: "flex", alignItems: "center", gap: 3,
+                }}
+              >
+                {addrCopied ? "✓" : "📋"}
+              </button>
+            )}
+          </div>
         </div>
       </nav>
       <div className="nav-spacer" />
@@ -657,10 +682,10 @@ function OverviewTab({
                         </div>
                         {price > 0 && <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>{formatUSD(del.amount * price)}</div>}
                       </div>
-                      {del.rewards > 0.01 && (
+                      {del.rewards > 0 && (
                         <div style={{ textAlign: "right", minWidth: 80 }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--accent-olive)" }}>
-                            +{del.rewards > 1 ? formatNumber(Math.round(del.rewards)) : del.rewards.toFixed(2)} TX
+                            +{del.rewards > 1 ? formatNumber(Math.round(del.rewards)) : del.rewards < 0.01 ? del.rewards.toFixed(6) : del.rewards.toFixed(2)} TX
                           </div>
                           <div style={{ fontSize: "0.58rem", color: "var(--text-light)" }}>rewards</div>
                         </div>
@@ -739,14 +764,14 @@ function OverviewTab({
 
           {/* Action buttons */}
           <div style={{ display: "flex", gap: 10 }}>
-            {wallet.rewards > 0.01 && (
+            {wallet.rewards > 0 && (
               <button
                 onClick={claimRewards}
                 disabled={txPending}
                 className="btn-olive"
                 style={{ padding: "10px 20px", fontSize: "0.8rem", opacity: txPending ? 0.5 : 1 }}
               >
-                {txPending ? "Processing..." : `Claim ${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards.toFixed(2)} TX Rewards`}
+                {txPending ? "Processing..." : `Claim ${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX Rewards`}
               </button>
             )}
             <button
