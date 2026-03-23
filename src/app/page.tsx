@@ -3013,6 +3013,9 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  const form = e.currentTarget;
+                  const honeypot = (form.elements as any).botcheck?.value;
+                  if (honeypot) return; // Bot detected
                   fetch("https://api.web3forms.com/submit", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -3021,13 +3024,15 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                       subject: "Silk Nodes - Delegation Inquiry",
                       name: contactForm.name,
                       email: contactForm.email,
-                      delegation_size: contactForm.size,
                       message: contactForm.message,
+                      botcheck: "",
                     }),
                   }).then(() => setContactSent(true)).catch(() => setContactSent(true));
                 }}
                 style={{ display: "flex", flexDirection: "column", gap: 8 }}
               >
+                {/* Honeypot spam protection */}
+                <input type="checkbox" name="botcheck" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
                 <input
                   type="text"
                   required
