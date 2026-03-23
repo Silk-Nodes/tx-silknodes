@@ -295,18 +295,10 @@ export async function undelegateTokens(
 
   const amountInMicro = Math.floor(amount * Math.pow(10, COIN_DECIMALS));
 
-  const msg = {
-    typeUrl: "/cosmos.staking.v1beta1.MsgBeginUndelegate",
-    value: {
-      delegatorAddress: address,
-      validatorAddress,
-      amount: { denom: DENOM, amount: String(amountInMicro) },
-    },
-  };
-
-  const result = await client.signAndBroadcast(
+  const result = await client.undelegateTokens(
     address,
-    [msg],
+    validatorAddress,
+    { denom: DENOM, amount: String(amountInMicro) },
     {
       amount: [{ denom: DENOM, amount: "25000" }],
       gas: "300000",
