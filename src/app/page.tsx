@@ -3263,17 +3263,31 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                   REStake · Auto-Compound Setup
                 </span>
               </div>
-              <button
-                onClick={() => setShowRestakeModal(false)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  width: 32, height: 32, borderRadius: 8, display: "flex",
-                  alignItems: "center", justifyContent: "center",
-                  color: "#666", fontSize: "1.2rem",
-                }}
-              >
-                ✕
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <a
+                  href="https://restake.app/coreum/corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk/stake"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "6px 14px", borderRadius: 8, fontSize: "0.78rem", fontWeight: 600,
+                    background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                    textDecoration: "none", display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  Open ↗
+                </a>
+                <button
+                  onClick={() => setShowRestakeModal(false)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    width: 32, height: 32, borderRadius: 8, display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                    color: "#666", fontSize: "1.2rem",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <iframe
               src="https://restake.app/coreum/corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk/stake"
