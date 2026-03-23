@@ -2,8 +2,9 @@
 
 const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Tooltip from "@/components/Tooltip";
+import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
 
 interface ValidatorEntry {
   operatorAddress: string;
@@ -27,7 +28,7 @@ interface ChainEconomics {
 type SortField = "moniker" | "tokens" | "commission" | "monthlyIncome" | "delegatorApr";
 type SortDir = "asc" | "desc";
 
-const LCD = "https://rest-coreum.ecostake.com";
+const LCD = SILK_LCD;
 const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
 export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal }: { wallet?: any; setActiveTab?: (tab: string) => void; setShowWalletModal?: (show: boolean) => void }) {
@@ -52,7 +53,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
           const keyParam = paginationKey
             ? `&pagination.key=${encodeURIComponent(paginationKey)}`
             : "";
-          const resp = await fetch(
+          const resp = await fetchWithTimeout(
             `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100${keyParam}`
           );
           const result = await resp.json();
@@ -73,23 +74,23 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
 
         setValidators(allVals);
 
-        const [provRes, distRes, poolRes, priceRes] = await Promise.all([
-          fetch(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
-          fetch(`${LCD}/cosmos/distribution/v1beta1/params`),
-          fetch(`${LCD}/cosmos/staking/v1beta1/pool`),
-          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tx&vs_currencies=usd"),
+        const [provRes, distRes, poolRes, priceRes] = await Promise.allSettled([
+          fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
+          fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
+          fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
+          fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=tx&vs_currencies=usd"),
         ]);
 
-        const prov = await provRes.json();
-        const dist = await distRes.json();
-        const pool = await poolRes.json();
-        const price = await priceRes.json();
+        const prov = provRes.status === "fulfilled" ? await provRes.value.json() : {};
+        const dist = distRes.status === "fulfilled" ? await distRes.value.json() : {};
+        const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
+        const price = priceRes.status === "fulfilled" ? await priceRes.value.json() : {};
 
         const annualProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
         const communityTax = parseFloat(dist.params?.community_tax || "0.05");
         const totalBonded = parseInt(pool.pool?.bonded_tokens || "0") / 1e6;
 
-        const inflRes = await fetch(`${LCD}/cosmos/mint/v1beta1/inflation`);
+        const inflRes = await fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/inflation`);
         const infl = await inflRes.json();
 
         setEconomics({

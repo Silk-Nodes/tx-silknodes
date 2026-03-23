@@ -1,5 +1,5 @@
 import type { TokenData, StakingData, ValidatorInfo, NetworkStatus } from "./types";
-import { SILK_LCD, SILK_RPC, COIN_DECIMALS } from "./chain-config";
+import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-config";
 import { calculateStakingAPR, getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES } from "./pse-calculator";
 
 const COINGECKO_API = "https://api.coingecko.com/api/v3";
@@ -30,13 +30,13 @@ function calculateCirculatingSupply(totalOnChainSupply: number): number {
 export async function fetchTokenData(): Promise<TokenData> {
   try {
     // Fetch price + market data from CoinGecko (ID: "tx") + total supply from on-chain
-    const [cgRes, supplyRes] = await Promise.all([
-      fetch(`${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`),
-      fetch(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
+    const [cgRes, supplyRes] = await Promise.allSettled([
+      fetchWithTimeout(`${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
     ]);
 
-    const cgData = cgRes.ok ? await cgRes.json() : null;
-    const supplyData = supplyRes.ok ? await supplyRes.json() : null;
+    const cgData = cgRes.status === "fulfilled" ? await cgRes.value.json() : null;
+    const supplyData = supplyRes.status === "fulfilled" ? await supplyRes.value.json() : null;
 
     const price = cgData?.market_data?.current_price?.usd ?? 0;
     const priceChange24h = cgData?.market_data?.price_change_percentage_24h ?? 0;
@@ -83,10 +83,9 @@ async function fetchExcludedPSEStake(): Promise<number> {
       const results = await Promise.all(
         batch.map(async (addr) => {
           try {
-            const res = await fetch(
+            const res = await fetchWithTimeout(
               `${SILK_LCD}/cosmos/staking/v1beta1/delegations/${addr}?pagination.limit=200`
             );
-            if (!res.ok) return 0;
             const data = await res.json();
             const delegations = data.delegation_responses || [];
             return delegations.reduce(
@@ -111,21 +110,21 @@ async function fetchExcludedPSEStake(): Promise<number> {
 // === Staking Data (TX LCD) ===
 export async function fetchStakingData(): Promise<StakingData> {
   try {
-    const [poolRes, inflationRes, provisionsRes, distRes, valCountRes, supplyRes] = await Promise.all([
-      fetch(`${SILK_LCD}/cosmos/staking/v1beta1/pool`),
-      fetch(`${SILK_LCD}/cosmos/mint/v1beta1/inflation`),
-      fetch(`${SILK_LCD}/cosmos/mint/v1beta1/annual_provisions`),
-      fetch(`${SILK_LCD}/cosmos/distribution/v1beta1/params`),
-      fetch(`${SILK_LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.count_total=true&pagination.limit=1`),
-      fetch(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
+    const [poolRes, inflationRes, provisionsRes, distRes, valCountRes, supplyRes] = await Promise.allSettled([
+      fetchWithTimeout(`${SILK_LCD}/cosmos/staking/v1beta1/pool`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/mint/v1beta1/inflation`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/mint/v1beta1/annual_provisions`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/distribution/v1beta1/params`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.count_total=true&pagination.limit=1`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
     ]);
 
-    const pool = await poolRes.json();
-    const inflation = await inflationRes.json();
-    const provisions = await provisionsRes.json();
-    const dist = await distRes.json();
-    const valCount = await valCountRes.json();
-    const supplyData = await supplyRes.json();
+    const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
+    const inflation = inflationRes.status === "fulfilled" ? await inflationRes.value.json() : {};
+    const provisions = provisionsRes.status === "fulfilled" ? await provisionsRes.value.json() : {};
+    const dist = distRes.status === "fulfilled" ? await distRes.value.json() : {};
+    const valCount = valCountRes.status === "fulfilled" ? await valCountRes.value.json() : {};
+    const supplyData = supplyRes.status === "fulfilled" ? await supplyRes.value.json() : {};
 
     const bondedTokens = toDisplay(pool.pool?.bonded_tokens || "0");
     const notBondedTokens = toDisplay(pool.pool?.not_bonded_tokens || "0");
@@ -143,8 +142,6 @@ export async function fetchStakingData(): Promise<StakingData> {
     const stakingRatio = circulatingSupply > 0 ? (bondedTokens / circulatingSupply) * 100 : 0;
 
     // APR: Cosmos SDK applies inflation to TOTAL supply, distributes to bonded stakers
-    // APR = annualProvisions × (1 - communityTax) / bondedTokens
-    // This matches Mintscan's 12.08% calculation
     const apr = bondedTokens > 0
       ? (annualProvisions * (1 - communityTax) / bondedTokens) * 100
       : 0;
@@ -189,20 +186,20 @@ export async function fetchAllValidators(txPrice: number = 0): Promise<Validator
       const fetchUrl: string = nextKey
         ? `${SILK_LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100&pagination.key=${encodeURIComponent(nextKey)}`
         : `${SILK_LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100`;
-      const fetchRes: Response = await fetch(fetchUrl);
+      const fetchRes: Response = await fetchWithTimeout(fetchUrl);
       const fetchData: any = await fetchRes.json();
       allValidators = allValidators.concat(fetchData.validators || []);
       nextKey = fetchData.pagination?.next_key || null;
     } while (nextKey);
 
-    // Fetch annual provisions for income calculation
-    const provisionsRes = await fetch(`${SILK_LCD}/cosmos/mint/v1beta1/annual_provisions`);
+    // Fetch annual provisions and community tax in parallel
+    const [provisionsRes, distRes] = await Promise.all([
+      fetchWithTimeout(`${SILK_LCD}/cosmos/mint/v1beta1/annual_provisions`),
+      fetchWithTimeout(`${SILK_LCD}/cosmos/distribution/v1beta1/params`),
+    ]);
     const provisionsData = await provisionsRes.json();
-    const annualProvisions = toDisplay(provisionsData.annual_provisions || "0");
-
-    // Fetch community tax
-    const distRes = await fetch(`${SILK_LCD}/cosmos/distribution/v1beta1/params`);
     const distData = await distRes.json();
+    const annualProvisions = toDisplay(provisionsData.annual_provisions || "0");
     const communityTax = parseFloat(distData.params?.community_tax || "0.05");
 
     // Total bonded for percentage calculation
@@ -220,8 +217,6 @@ export async function fetchAllValidators(txPrice: number = 0): Promise<Validator
         const commission = parseFloat(val.commission?.commission_rates?.rate || "0") * 100;
         const tokensPct = totalBonded > 0 ? (parseInt(val.tokens || "0") / totalBonded) * 100 : 0;
 
-        // Validator monthly income from commission on staking rewards
-        // Validator gets: (their share of total bonded) × annualRewards × commission rate / 12
         const validatorShare = totalBonded > 0 ? parseInt(val.tokens || "0") / totalBonded : 0;
         const annualValidatorIncome = validatorShare * annualRewardsToValidators * (commission / 100);
         const monthlyIncomeTX = annualValidatorIncome / 12;
@@ -249,7 +244,7 @@ export async function fetchAllValidators(txPrice: number = 0): Promise<Validator
 // === Network Status ===
 export async function fetchNetworkStatus(): Promise<NetworkStatus> {
   try {
-    const res = await fetch(`${SILK_RPC}/status`);
+    const res = await fetchWithTimeout(`${SILK_RPC}/status`);
     const data = await res.json();
 
     return {

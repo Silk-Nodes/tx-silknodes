@@ -24,8 +24,40 @@ export const SILK_NODES_COMMISSION = 10; // 10%
 // Endpoints (Coreum LCD supports CORS directly, no proxy needed)
 export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://rpc-coreum.ecostake.com";
 export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://rest-coreum.ecostake.com";
+export const FALLBACK_LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 export const DIRECT_RPC = SILK_RPC;
 export const DIRECT_LCD = SILK_LCD;
+
+// Fetch with timeout (10s default) + automatic fallback to backup LCD
+const FETCH_TIMEOUT = 10_000;
+
+export async function fetchWithTimeout(url: string, options?: RequestInit, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res;
+  } catch (err) {
+    // Try fallback LCD if the URL uses primary LCD
+    if (url.startsWith(SILK_LCD)) {
+      const fallbackUrl = url.replace(SILK_LCD, FALLBACK_LCD);
+      const controller2 = new AbortController();
+      const timer2 = setTimeout(() => controller2.abort(), timeoutMs);
+      try {
+        const res2 = await fetch(fallbackUrl, { ...options, signal: controller2.signal });
+        clearTimeout(timer2);
+        if (!res2.ok) throw new Error(`Fallback HTTP ${res2.status}`);
+        return res2;
+      } catch {
+        clearTimeout(timer2);
+      }
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export const COREUM_CHAIN_INFO = {
   chainId: CHAIN_ID,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo } from "@/lib/types";
 import { fetchTokenData, fetchStakingData, fetchNetworkStatus, fetchAllValidators } from "@/lib/api";
 
@@ -25,16 +25,22 @@ export function useTokenData(): UseTokenDataReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const mountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
     try {
       setError(null);
 
-      const [tokenRes, stakingRes, networkRes] = await Promise.allSettled([
+      // Fetch ALL data in parallel (not sequentially)
+      const [tokenRes, stakingRes, networkRes, validatorRes] = await Promise.allSettled([
         fetchTokenData(),
         fetchStakingData(),
         fetchNetworkStatus(),
+        fetchAllValidators(),
       ]);
+
+      // Only update state if component is still mounted
+      if (!mountedRef.current) return;
 
       const newTokenData = tokenRes.status === "fulfilled" ? tokenRes.value : null;
       const newStakingData = stakingRes.status === "fulfilled" ? stakingRes.value : null;
@@ -42,24 +48,24 @@ export function useTokenData(): UseTokenDataReturn {
       if (newTokenData) setTokenData(newTokenData);
       if (newStakingData) setStakingData(newStakingData);
       if (networkRes.status === "fulfilled") setNetworkStatus(networkRes.value);
-
-      // Fetch validators with price for income calculation
-      const price = newTokenData?.price || 0;
-      const validatorRes = await fetchAllValidators(price);
-      setValidators(validatorRes);
+      if (validatorRes.status === "fulfilled") setValidators(validatorRes.value);
 
       setLastUpdated(new Date());
     } catch (err: any) {
-      setError(err.message || "Failed to fetch data");
+      if (mountedRef.current) setError(err.message || "Failed to fetch data");
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchData();
     const interval = setInterval(fetchData, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   return {

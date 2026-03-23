@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { SILK_LCD } from "@/lib/chain-config";
+import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
 
 export interface SmartToken {
   denom: string;
@@ -39,6 +39,9 @@ export interface RWAData {
 // Features that indicate RWA compliance
 const RWA_FEATURES = ["whitelisting", "freezing", "clawback", "burning", "minting"];
 
+// Max tokens to process (prevents unbounded fetching)
+const MAX_TOKENS = 500;
+
 function parseSupply(amount: string, precision: number): number {
   return parseInt(amount) / Math.pow(10, precision);
 }
@@ -48,6 +51,7 @@ export function useRWATokens(): RWAData & { refresh: () => void } {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchedRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const fetchTokens = useCallback(async () => {
     try {
@@ -61,50 +65,58 @@ export function useRWATokens(): RWAData & { refresh: () => void } {
       do {
         const paginationParam = nextKey ? `&pagination.key=${encodeURIComponent(nextKey)}` : "";
         const url: string = `${SILK_LCD}/cosmos/bank/v1beta1/supply?pagination.limit=500${paginationParam}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Supply fetch failed: ${res.status}`);
+        const res = await fetchWithTimeout(url);
         const data = await res.json();
         allDenoms.push(...(data.supply || []));
         nextKey = data.pagination?.next_key || null;
       } while (nextKey);
 
+      if (!mountedRef.current) return;
+
       // Step 2: Filter for Smart Token denoms (pattern: subunit-core1...)
-      const smartDenoms = allDenoms.filter(
-        (d) => d.denom.match(/^[a-zA-Z0-9]+-core1[a-z0-9]+$/) && d.denom !== "ucore"
-      );
+      const smartDenoms = allDenoms
+        .filter((d) => d.denom.match(/^[a-zA-Z0-9]+-core1[a-z0-9]+$/) && d.denom !== "ucore")
+        .slice(0, MAX_TOKENS); // Cap at MAX_TOKENS
 
       // Step 3: Fetch token details for each (batch with concurrency limit)
       const BATCH_SIZE = 15;
       const smartTokens: SmartToken[] = [];
 
       for (let i = 0; i < smartDenoms.length; i += BATCH_SIZE) {
+        if (!mountedRef.current) return; // Abort if unmounted
+
         const batch = smartDenoms.slice(i, i + BATCH_SIZE);
         const results = await Promise.allSettled(
           batch.map(async (d) => {
-            const res = await fetch(`${SILK_LCD}/coreum/asset/ft/v1/tokens/${d.denom}`);
-            if (!res.ok) return null;
-            const data = await res.json();
-            const token = data.token;
-            return {
-              denom: token.denom,
-              issuer: token.issuer,
-              symbol: token.symbol || token.subunit?.toUpperCase() || "???",
-              subunit: token.subunit,
-              precision: token.precision || 0,
-              description: token.description || "",
-              globally_frozen: token.globally_frozen || false,
-              features: token.features || [],
-              burn_rate: token.burn_rate || "0",
-              send_commission_rate: token.send_commission_rate || "0",
-              supply: parseSupply(d.amount, token.precision || 0),
-              admin: token.admin || token.issuer,
-            } as SmartToken;
+            try {
+              const res = await fetchWithTimeout(`${SILK_LCD}/coreum/asset/ft/v1/tokens/${d.denom}`);
+              const data = await res.json();
+              const token = data.token;
+              return {
+                denom: token.denom,
+                issuer: token.issuer,
+                symbol: token.symbol || token.subunit?.toUpperCase() || "???",
+                subunit: token.subunit,
+                precision: token.precision || 0,
+                description: token.description || "",
+                globally_frozen: token.globally_frozen || false,
+                features: token.features || [],
+                burn_rate: token.burn_rate || "0",
+                send_commission_rate: token.send_commission_rate || "0",
+                supply: parseSupply(d.amount, token.precision || 0),
+                admin: token.admin || token.issuer,
+              } as SmartToken;
+            } catch {
+              return null;
+            }
           })
         );
         for (const r of results) {
           if (r.status === "fulfilled" && r.value) smartTokens.push(r.value);
         }
       }
+
+      if (!mountedRef.current) return;
 
       // Sort by number of RWA features (most compliant first)
       smartTokens.sort((a, b) => {
@@ -115,17 +127,19 @@ export function useRWATokens(): RWAData & { refresh: () => void } {
 
       setTokens(smartTokens);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch tokens");
+      if (mountedRef.current) setError(err instanceof Error ? err.message : "Failed to fetch tokens");
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     if (!fetchedRef.current) {
       fetchedRef.current = true;
       fetchTokens();
     }
+    return () => { mountedRef.current = false; };
   }, [fetchTokens]);
 
   // Compute stats
