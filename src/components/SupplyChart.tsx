@@ -22,16 +22,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: "var(--ink-main)",
-      color: "var(--bg-paper)",
-      padding: "8px 12px",
+      background: "rgba(15, 27, 7, 0.92)",
+      color: "#f4f1eb",
+      padding: "10px 14px",
       fontSize: "0.75rem",
       fontFamily: "var(--font-mono)",
-      border: "1px solid var(--ink-light)",
+      border: "1px solid rgba(177, 252, 3, 0.3)",
+      borderRadius: 8,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
     }}>
-      <div style={{ color: "rgba(244,241,235,0.6)", marginBottom: 4 }}>Month {label}</div>
+      <div style={{ color: "rgba(177, 252, 3, 0.7)", marginBottom: 4, fontWeight: 600 }}>Month {label}</div>
       {payload.map((p: any) => (
-        <div key={p.dataKey} style={{ color: p.dataKey === "staked" ? "#d3efcd" : "rgba(244,241,235,0.8)", marginBottom: 2 }}>
+        <div key={p.dataKey} style={{ color: p.dataKey === "staked" ? "#B1FC03" : "rgba(244,241,235,0.7)", marginBottom: 2 }}>
           {p.name}: {formatSupply(p.value)}
         </div>
       ))}
