@@ -868,10 +868,21 @@ input[type="range"]::-webkit-slider-thumb {
    VALIDATOR TABLE — for ValidatorList component
    ═══════════════════════════════════════════ */
 
+.validator-table-wrap {
+  overflow: visible !important;
+}
+
 .validator-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.85rem;
+}
+
+.validator-table thead {
+  position: sticky;
+  top: 56px;
+  z-index: 5;
 }
 
 .validator-table th {
@@ -886,6 +897,8 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  background: #ede9e0;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
 }
 
 .validator-table td {
@@ -1199,6 +1212,11 @@ input[type="range"]::-webkit-slider-thumb {
   .data-table thead, .data-table tbody { display: table; width: 100%; min-width: 480px; }
   .data-table th, .data-table td { padding: 6px 5px; white-space: nowrap; }
 
+  .validator-table thead { top: 124px; }
+  .validator-table { font-size: 0.75rem; }
+  .validator-table th { padding: 8px 8px; font-size: 0.65rem; }
+  .validator-table td { padding: 8px 8px; }
+
   /* Calculator compare box */
   .compare-box { padding: 12px 14px; }
   .compare-value { font-size: 0.9rem; word-break: break-all; }
@@ -1206,8 +1224,9 @@ input[type="range"]::-webkit-slider-thumb {
   .compare-row { gap: 8px; }
   .compare-cost { font-size: 0.68rem !important; }
 
-  /* Prevent any overflow on tab content */
+  /* Prevent any overflow on tab content — but not on validators tab (sticky header needs overflow visible) */
   .tab-content > div { overflow-x: hidden; }
+  .tab-content > div:has(.validator-table-wrap) { overflow: visible; }
 
   .tooltip-bubble { max-width: min(260px, 80vw); }
 }
@@ -1246,6 +1265,10 @@ input[type="range"]::-webkit-slider-thumb {
   .compare-value { font-size: 0.8rem; }
   .data-table { font-size: 0.6rem; }
   .data-table th, .data-table td { padding: 5px 4px; }
+
+  .validator-table { font-size: 0.7rem; }
+  .validator-table th { padding: 6px 6px; font-size: 0.6rem; }
+  .validator-table td { padding: 6px 6px; }
   .outcome-value { font-size: 1.6rem !important; }
 
   .site-footer { flex-direction: column; gap: 8px; text-align: center; }
