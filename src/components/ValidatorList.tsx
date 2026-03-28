@@ -38,9 +38,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [commissionFilter, setCommissionFilter] = useState<string>("all");
-  const PER_PAGE = 15;
 
   useEffect(() => {
     async function fetchAll() {
@@ -159,9 +157,6 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
       return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
     });
   }, [validatorsWithIncome, sortField, sortDir, search, commissionFilter]);
-
-  const totalPages = Math.ceil(sortedValidators.length / PER_PAGE);
-  const paginatedValidators = sortedValidators.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -333,7 +328,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
           <input
             type="text"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Validator name..."
           />
           <span className="field-addon">{sortedValidators.length}/{validators.length}</span>
@@ -348,7 +343,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
             <button
               key={f.key}
               className={`filter-chip ${commissionFilter === f.key ? "active" : ""}`}
-              onClick={() => { setCommissionFilter(f.key); setPage(1); }}
+              onClick={() => setCommissionFilter(f.key)}
             >
               {f.label}
             </button>
@@ -357,7 +352,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className="validator-table-wrap">
         <table className="validator-table">
           <thead>
             <tr>
@@ -370,8 +365,8 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
             </tr>
           </thead>
           <tbody>
-            {paginatedValidators.map((v, i) => {
-              const globalIndex = (page - 1) * PER_PAGE + i;
+            {sortedValidators.map((v, i) => {
+              const globalIndex = i;
               const isSilk = v.operatorAddress === SILK_OPERATOR;
               const powerBarWidth = maxTokens > 0 ? (v.tokens / maxTokens) * 100 : 0;
               return (
@@ -455,19 +450,6 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
           </tbody>
         </table>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <span className="pagination-info">Page {page}/{totalPages} ({sortedValidators.length} validators)</span>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button className="page-btn" disabled={page <= 1} onClick={() => setPage(1)}>First</button>
-            <button className="page-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>← Prev</button>
-            <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next →</button>
-            <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>Last</button>
-          </div>
-        </div>
-      )}
 
       {/* Bottom note */}
       <div style={{ marginTop: 12, fontSize: "0.6rem", opacity: 0.3, textAlign: "center" }}>
