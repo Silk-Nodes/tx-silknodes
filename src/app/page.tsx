@@ -1182,7 +1182,11 @@ function PSETab({
       const delegData = await delegRes.json().catch(() => null);
 
       if (scoreData.errors) {
-        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: scoreData.errors[0].message, height: null });
+        const rawError = scoreData.errors[0].message || "";
+        const friendlyError = rawError.includes("Unimplemented") || rawError.includes("404")
+          ? "PSE score service is temporarily unavailable. The Coreum team may be updating the endpoint. Please try again later."
+          : rawError;
+        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: friendlyError, height: null });
         return;
       }
       const scoreRaw = scoreData.data.action_pse_score.score;
@@ -1326,11 +1330,18 @@ function PSETab({
 
       {pseLookup.error && (
         <div style={{
-          marginBottom: 12, padding: "10px 14px", borderRadius: 8,
-          background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.2)",
-          fontSize: "0.72rem", color: "#ff6b6b",
+          marginBottom: 12, padding: "16px 18px", borderRadius: 10,
+          background: pseLookup.error.includes("temporarily") ? "rgba(255,180,0,0.08)" : "rgba(255,80,80,0.1)",
+          border: pseLookup.error.includes("temporarily") ? "1px solid rgba(255,180,0,0.2)" : "1px solid rgba(255,80,80,0.2)",
         }}>
-          {pseLookup.error}
+          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: pseLookup.error.includes("temporarily") ? "#e6a800" : "#ff6b6b", marginBottom: 6 }}>
+            {pseLookup.error.includes("temporarily") ? "⚠️ PSE Score Temporarily Unavailable" : "⚠️ Error"}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-dark)", lineHeight: 1.5, opacity: 0.8 }}>
+            {pseLookup.error.includes("temporarily")
+              ? "The TX team is currently maintaining the on-chain score endpoint. We've reached out and are waiting for a fix. Your PSE rewards are safe and continue to accrue normally on-chain."
+              : pseLookup.error}
+          </div>
         </div>
       )}
 
