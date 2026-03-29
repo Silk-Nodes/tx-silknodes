@@ -1289,8 +1289,8 @@ function PSETab({
           <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--tx-neon)" }}>
             Check Your PSE Score
           </span>
-          <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.5)" }}>
-            Real on-chain data
+          <span style={{ fontSize: "0.62rem", color: "rgba(177,252,3,0.5)" }}>
+            Powered by Silk Nodes API
           </span>
           {!wallet.connected && (
             <button
@@ -1471,49 +1471,6 @@ function PSETab({
             </div>
           </div>
         )}
-
-      {/* PSE Pool Breakdown — Live from Silk Nodes API */}
-      <div style={{
-        marginBottom: 16, padding: "14px 18px", borderRadius: 10,
-        background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-dark)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            PSE Allocation Pool (Live)
-          </span>
-          <span style={{ fontSize: "0.55rem", color: "var(--accent-olive)", opacity: 0.7 }}>
-            Powered by Silk Nodes API
-          </span>
-        </div>
-        <div className="responsive-grid-3" style={{ gap: 8 }}>
-          {[
-            { label: "Community (Delegators)", value: `${(pseParams.communityBalance / 1_000_000_000).toFixed(1)}B TX`, pct: "40%", color: "var(--tx-neon)" },
-            { label: "Foundation", value: "30B TX", pct: "30%", color: "var(--accent-olive)" },
-            { label: "Alliance", value: "20B TX", pct: "20%", color: "var(--text-medium)" },
-          ].map((item) => (
-            <div key={item.label} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,0.5)", border: "1px solid rgba(0,0,0,0.03)" }}>
-              <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginBottom: 3 }}>{item.label}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: item.color }}>{item.value}</span>
-                <span style={{ fontSize: "0.6rem", opacity: 0.4 }}>{item.pct}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          {[
-            { label: "Investors", value: "5B TX", pct: "5%" },
-            { label: "Partnerships", value: "3B TX", pct: "3%" },
-            { label: "Team", value: "2B TX", pct: "2%" },
-          ].map((item) => (
-            <div key={item.label} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, background: "rgba(255,255,255,0.3)", textAlign: "center" }}>
-              <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginBottom: 2 }}>{item.label}</div>
-              <span style={{ fontSize: "0.72rem", fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>{item.value}</span>
-              <span style={{ fontSize: "0.5rem", opacity: 0.35, marginLeft: 4 }}>{item.pct}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="grid-12">
         {/* Left: Countdown + Stats */}
