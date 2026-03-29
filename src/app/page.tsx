@@ -1183,8 +1183,9 @@ function PSETab({
 
       if (scoreData.errors) {
         const rawError = scoreData.errors[0].message || "";
-        const friendlyError = rawError.includes("Unimplemented") || rawError.includes("404")
-          ? "PSE score service is temporarily unavailable. The Coreum team may be updating the endpoint. Please try again later."
+        const isEndpointDown = rawError.includes("Unimplemented") || rawError.includes("404") || rawError.includes("Unavailable") || rawError.includes("timeout") || rawError.includes("connection error") || rawError.includes("rpc error");
+        const friendlyError = isEndpointDown
+          ? "PSE score service is temporarily unavailable."
           : rawError;
         setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: friendlyError, height: null });
         return;
