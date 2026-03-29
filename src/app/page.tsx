@@ -11,6 +11,7 @@ function trackEvent(action: string, params?: Record<string, any>) {
     window.gtag("event", action, params);
   }
 }
+import { fetchWithTimeout } from "@/lib/chain-config";
 import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
 import {
@@ -1169,29 +1170,19 @@ function PSETab({
     setPseLookup({ loading: true, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
     try {
       const [scoreRes, delegRes] = await Promise.all([
-        fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `{ action_pse_score(address: "${address}") { address height score } }`,
-          }),
-        }),
-        fetch(`https://rest-coreum.ecostake.com/cosmos/staking/v1beta1/delegations/${address}`),
+        fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${address}`),
+        fetchWithTimeout(`https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}`),
       ]);
       const scoreData = await scoreRes.json();
       const delegData = await delegRes.json().catch(() => null);
 
-      if (scoreData.errors) {
-        const rawError = scoreData.errors[0].message || "";
-        const isEndpointDown = rawError.includes("Unimplemented") || rawError.includes("404") || rawError.includes("Unavailable") || rawError.includes("timeout") || rawError.includes("connection error") || rawError.includes("rpc error");
-        const friendlyError = isEndpointDown
-          ? "PSE score service is temporarily unavailable."
-          : rawError;
-        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: friendlyError, height: null });
+      if (scoreData.code || scoreData.error) {
+        const rawError = scoreData.message || scoreData.error || "Failed to fetch PSE score";
+        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: rawError, height: null });
         return;
       }
-      const scoreRaw = scoreData.data.action_pse_score.score;
-      const height = scoreData.data.action_pse_score.height;
+      const scoreRaw = scoreData.score;
+      const height = null;
 
       // Calculate staked from delegations
       let totalStaked = 0;

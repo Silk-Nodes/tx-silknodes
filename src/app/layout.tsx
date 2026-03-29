@@ -79,7 +79,7 @@ export default function RootLayout({
         {/* <meta name="msvalidate.01" content="YOUR_BING_CODE" /> */}
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-src https://restake.app; connect-src 'self' https://api.coingecko.com https://rest-coreum.ecostake.com https://rpc-coreum.ecostake.com wss://rpc-coreum.ecostake.com https://full-node.mainnet-1.coreum.dev:1317 https://hasura.mainnet-1.coreum.dev https://api.web3forms.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.clarity.ms; object-src 'none'; base-uri 'self';"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-src https://restake.app; connect-src 'self' https://api.coingecko.com https://api.silknodes.io https://rest-coreum.ecostake.com https://rpc-coreum.ecostake.com wss://rpc-coreum.ecostake.com https://full-node.mainnet-1.coreum.dev:1317 https://hasura.mainnet-1.coreum.dev https://api.web3forms.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.clarity.ms; object-src 'none'; base-uri 'self';"
         />
         <link rel="icon" href={`${basePath}/tx-icon.png`} type="image/png" />
         <link rel="apple-touch-icon" href={`${basePath}/tx-icon.png`} />
