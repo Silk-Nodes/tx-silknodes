@@ -20,6 +20,7 @@ import {
   estimatePSERewardFullPeriod,
   PSE_CONFIG,
   PSE_ALLOCATION,
+  PSE_EXCLUDED_ADDRESSES,
 } from "@/lib/pse-calculator";
 import type { CalculatorInputs } from "@/lib/types";
 import ValidatorList from "@/components/ValidatorList";
@@ -1161,10 +1162,35 @@ function PSETab({
     }
   }, [wallet.connected, wallet.address]);
 
+  // Fetch PSE params (excluded addresses) and clearing balances from Silk Nodes API
+  const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({ excludedAddresses: PSE_EXCLUDED_ADDRESSES, communityBalance: 40_000_000_000 });
+  useEffect(() => {
+    async function fetchPSEParams() {
+      try {
+        const [paramsRes, balancesRes] = await Promise.all([
+          fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/params"),
+          fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/clearing_account_balances"),
+        ]);
+        const paramsData = await paramsRes.json();
+        const balancesData = await balancesRes.json();
+        const excluded = paramsData?.params?.excluded_addresses || PSE_EXCLUDED_ADDRESSES;
+        const communityEntry = (balancesData?.balances || []).find((b: any) => b.clearing_account === "pse_community");
+        const communityBalance = communityEntry ? Number(BigInt(communityEntry.balance) / BigInt(1_000_000)) : 40_000_000_000;
+        setPseParams({ excludedAddresses: excluded, communityBalance });
+      } catch { /* use defaults */ }
+    }
+    fetchPSEParams();
+  }, []);
+
   const fetchPSEScore = useCallback(async (addr?: string) => {
     const address = (addr || pseAddress).trim();
     if (!address || !address.startsWith("core1") || address.length < 39) {
       setPseLookup(prev => ({ ...prev, error: "Enter a valid core1... address" }));
+      return;
+    }
+    // Check if address is excluded from PSE
+    if (pseParams.excludedAddresses.includes(address)) {
+      setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: "excluded", height: null });
       return;
     }
     setPseLookup({ loading: true, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
@@ -1178,7 +1204,8 @@ function PSETab({
 
       if (scoreData.code || scoreData.error) {
         const rawError = scoreData.message || scoreData.error || "Failed to fetch PSE score";
-        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: rawError, height: null });
+        const isEndpointDown = rawError.includes("rpc error") || rawError.includes("timeout") || rawError.includes("Unavailable");
+        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: isEndpointDown ? "PSE score service is temporarily unavailable." : rawError, height: null });
         return;
       }
       const scoreRaw = scoreData.score;
@@ -1198,7 +1225,9 @@ function PSETab({
       const totalBondedUcore = bondedTokens * 1_000_000;
       const networkScore = totalBondedUcore * elapsed;
       const share = Number(BigInt(scoreRaw)) / networkScore;
-      const monthlyTX = 476_190_476 * share;
+      // Use live community balance / 84 months for monthly estimate
+      const monthlyFromPool = pseParams.communityBalance / 84;
+      const monthlyTX = monthlyFromPool * share;
       const annualTX = monthlyTX * 12;
 
       setPseLookup({
@@ -1214,7 +1243,7 @@ function PSETab({
     } catch (err: any) {
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: err.message || "Failed to fetch", height: null });
     }
-  }, [pseAddress, bondedTokens]);
+  }, [pseAddress, bondedTokens, pseParams]);
 
   // Auto-fetch when wallet connects
   useEffect(() => {
@@ -1323,14 +1352,26 @@ function PSETab({
       {pseLookup.error && (
         <div style={{
           marginBottom: 12, padding: "16px 18px", borderRadius: 10,
-          background: pseLookup.error.includes("temporarily") ? "rgba(255,180,0,0.08)" : "rgba(255,80,80,0.1)",
-          border: pseLookup.error.includes("temporarily") ? "1px solid rgba(255,180,0,0.2)" : "1px solid rgba(255,80,80,0.2)",
+          background: pseLookup.error === "excluded" ? "rgba(100,100,255,0.08)"
+            : pseLookup.error.includes("temporarily") ? "rgba(255,180,0,0.08)"
+            : "rgba(255,80,80,0.1)",
+          border: pseLookup.error === "excluded" ? "1px solid rgba(100,100,255,0.2)"
+            : pseLookup.error.includes("temporarily") ? "1px solid rgba(255,180,0,0.2)"
+            : "1px solid rgba(255,80,80,0.2)",
         }}>
-          <div style={{ fontSize: "0.85rem", fontWeight: 600, color: pseLookup.error.includes("temporarily") ? "#e6a800" : "#ff6b6b", marginBottom: 6 }}>
-            {pseLookup.error.includes("temporarily") ? "⚠️ PSE Score Temporarily Unavailable" : "⚠️ Error"}
+          <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6,
+            color: pseLookup.error === "excluded" ? "#6666cc"
+              : pseLookup.error.includes("temporarily") ? "#e6a800"
+              : "#ff6b6b",
+          }}>
+            {pseLookup.error === "excluded" ? "ℹ️ Excluded Address"
+              : pseLookup.error.includes("temporarily") ? "⚠️ PSE Score Temporarily Unavailable"
+              : "⚠️ Error"}
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-dark)", lineHeight: 1.5, opacity: 0.8 }}>
-            {pseLookup.error.includes("temporarily")
+            {pseLookup.error === "excluded"
+              ? "This address is excluded from community PSE rewards. Excluded addresses include foundation wallets, team accounts, smart contracts, and module accounts."
+              : pseLookup.error.includes("temporarily")
               ? "The TX team is currently maintaining the on-chain score endpoint. We've reached out and are waiting for a fix. Your PSE rewards are safe and continue to accrue normally on-chain."
               : pseLookup.error}
           </div>
@@ -1430,6 +1471,49 @@ function PSETab({
             </div>
           </div>
         )}
+
+      {/* PSE Pool Breakdown — Live from Silk Nodes API */}
+      <div style={{
+        marginBottom: 16, padding: "14px 18px", borderRadius: 10,
+        background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-dark)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            PSE Allocation Pool (Live)
+          </span>
+          <span style={{ fontSize: "0.55rem", color: "var(--accent-olive)", opacity: 0.7 }}>
+            Powered by Silk Nodes API
+          </span>
+        </div>
+        <div className="responsive-grid-3" style={{ gap: 8 }}>
+          {[
+            { label: "Community (Delegators)", value: `${(pseParams.communityBalance / 1_000_000_000).toFixed(1)}B TX`, pct: "40%", color: "var(--tx-neon)" },
+            { label: "Foundation", value: "30B TX", pct: "30%", color: "var(--accent-olive)" },
+            { label: "Alliance", value: "20B TX", pct: "20%", color: "var(--text-medium)" },
+          ].map((item) => (
+            <div key={item.label} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,0.5)", border: "1px solid rgba(0,0,0,0.03)" }}>
+              <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginBottom: 3 }}>{item.label}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: item.color }}>{item.value}</span>
+                <span style={{ fontSize: "0.6rem", opacity: 0.4 }}>{item.pct}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          {[
+            { label: "Investors", value: "5B TX", pct: "5%" },
+            { label: "Partnerships", value: "3B TX", pct: "3%" },
+            { label: "Team", value: "2B TX", pct: "2%" },
+          ].map((item) => (
+            <div key={item.label} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, background: "rgba(255,255,255,0.3)", textAlign: "center" }}>
+              <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginBottom: 2 }}>{item.label}</div>
+              <span style={{ fontSize: "0.72rem", fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>{item.value}</span>
+              <span style={{ fontSize: "0.5rem", opacity: 0.35, marginLeft: 4 }}>{item.pct}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="grid-12">
         {/* Left: Countdown + Stats */}
