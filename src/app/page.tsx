@@ -132,6 +132,7 @@ export default function HomePage() {
 
   // ─── Calculator State ───
   const [stakeInput, setStakeInput] = useState("");
+  const [targetPrice, setTargetPrice] = useState("");
   const stakedAmount = parseFloat(stakeInput.replace(/,/g, "")) || 0;
 
   // ─── Derived ───
@@ -468,6 +469,8 @@ export default function HomePage() {
           <CalculatorTab
             stakeInput={stakeInput}
             setStakeInput={setStakeInput}
+            targetPrice={targetPrice}
+            setTargetPrice={setTargetPrice}
             stakedAmount={stakedAmount}
             apr={apr}
             nextPSEReward={nextPSEReward}
@@ -1634,6 +1637,7 @@ function PSETab({
 
 function CalculatorTab({
   stakeInput, setStakeInput,
+  targetPrice, setTargetPrice,
   stakedAmount, apr, nextPSEReward, wallet,
   tokenData, stakingData, setActiveTab, pseInfo,
 }: any) {
@@ -1641,6 +1645,7 @@ function CalculatorTab({
   const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
   const pseEligibleBonded = stakingData?.pseEligibleBonded ?? bondedTokens;
   const price = tokenData?.price ?? 0;
+  const tp = parseFloat(targetPrice) || 0;
 
   // Single month honest estimate
   const monthlyPSE = pseEligibleBonded > 0 && stakedAmount > 0
@@ -1814,6 +1819,51 @@ function CalculatorTab({
               onChange={(e: any) => setStakeInput(e.target.value)}
             />
 
+            {/* Target Price Input */}
+            <div style={{ marginTop: 12 }}>
+              <label className="input-label">Target TX Price <Tooltip text={`Current price: $${price > 0 ? price.toFixed(4) : "..."}`} position="bottom" /></label>
+              <div className="input-group mb-2">
+                <span className="field-addon">$</span>
+                <input
+                  type="text"
+                  value={targetPrice}
+                  onChange={(e: any) => setTargetPrice(e.target.value)}
+                  placeholder={price > 0 ? price.toFixed(4) : "0.05"}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[0.05, 0.10, 0.25, 0.50, 1.00].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setTargetPrice(p.toString())}
+                    style={{
+                      padding: "3px 8px", borderRadius: 16, fontSize: "0.65rem", fontFamily: "var(--font-mono)",
+                      border: tp === p ? "1px solid var(--tx-neon)" : "1px solid rgba(0,0,0,0.08)",
+                      background: tp === p ? "var(--tx-dark-green)" : "rgba(255,255,255,0.3)",
+                      color: tp === p ? "var(--tx-neon)" : "var(--text-medium)",
+                      cursor: "pointer", fontWeight: 500, transition: "all 0.15s",
+                    }}
+                  >
+                    ${p.toFixed(2)}
+                  </button>
+                ))}
+                {price > 0 && (
+                  <button
+                    onClick={() => setTargetPrice(price.toFixed(4))}
+                    style={{
+                      padding: "3px 8px", borderRadius: 16, fontSize: "0.65rem",
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      background: "rgba(255,255,255,0.3)",
+                      color: "var(--text-medium)",
+                      cursor: "pointer", fontWeight: 500,
+                    }}
+                  >
+                    Current (${price.toFixed(4)})
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Results */}
             {stakedAmount > 0 && (
               <>
@@ -1848,6 +1898,81 @@ function CalculatorTab({
                     check your <strong>real on-chain score</strong> in the PSE tab.
                   </div>
                 </div>
+
+                {/* Your Bag After 1 Month */}
+                {(() => {
+                  const totalBagAfterMonth = stakedAmount + monthlyBaseReward + monthlyPSE;
+                  const usePrice = tp > 0 ? tp : price;
+                  return (
+                    <div style={{
+                      marginTop: 12, padding: "14px 16px", borderRadius: 12,
+                      background: "var(--tx-dark-green)", color: "#fff",
+                    }}>
+                      <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.5, marginBottom: 8 }}>
+                        Your Bag After 1 Month (Upper Bound)
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <span style={{ fontSize: "1.6rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>
+                            {formatNumber(Math.round(totalBagAfterMonth))}
+                          </span>
+                          <span style={{ fontSize: "0.8rem", color: "var(--tx-neon)", opacity: 0.6, marginLeft: 4 }}>TX</span>
+                        </div>
+                        {usePrice > 0 && (
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>
+                              {formatUSD(totalBagAfterMonth * usePrice)}
+                            </div>
+                            <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>
+                              at ${usePrice.toFixed(tp >= 1 ? 2 : 4)} per TX
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Breakdown row */}
+                      <div style={{
+                        marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(177,252,3,0.1)",
+                        display: "flex", gap: 16, fontSize: "0.6rem",
+                      }}>
+                        <div>
+                          <span style={{ opacity: 0.4 }}>Initial stake: </span>
+                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>{formatNumber(stakedAmount)}</span>
+                        </div>
+                        <div>
+                          <span style={{ opacity: 0.4 }}>+ Base: </span>
+                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>{formatNumber(Math.round(monthlyBaseReward))}</span>
+                        </div>
+                        <div>
+                          <span style={{ opacity: 0.4 }}>+ PSE: </span>
+                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>~{formatNumber(Math.round(monthlyPSE))}</span>
+                        </div>
+                      </div>
+
+                      {/* Price comparison: current vs target */}
+                      {tp > 0 && price > 0 && tp !== price && (
+                        <div style={{
+                          marginTop: 8, display: "flex", gap: 12, fontSize: "0.58rem",
+                        }}>
+                          <div style={{
+                            padding: "4px 10px", borderRadius: 6,
+                            background: "rgba(255,255,255,0.06)",
+                          }}>
+                            <span style={{ opacity: 0.4 }}>At current (${price.toFixed(4)}): </span>
+                            <span style={{ fontFamily: "var(--font-mono)" }}>{formatUSD(totalBagAfterMonth * price)}</span>
+                          </div>
+                          <div style={{
+                            padding: "4px 10px", borderRadius: 6,
+                            background: "rgba(177,252,3,0.1)", border: "1px solid rgba(177,252,3,0.15)",
+                          }}>
+                            <span style={{ opacity: 0.5, color: "var(--tx-neon-light)" }}>At target (${tp.toFixed(tp >= 1 ? 2 : 4)}): </span>
+                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--tx-neon)" }}>{formatUSD(totalBagAfterMonth * tp)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Breakdown Cards */}
                 <div className="responsive-grid-3" style={{ gap: 10, marginTop: 12 }}>
