@@ -1579,7 +1579,7 @@ function PSETab({
                 background: "rgba(255,180,0,0.1)", border: "1px solid rgba(255,180,0,0.2)",
               }}>
                 <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#ffd54f", marginBottom: 4 }}>
-                  🔄 Scores Reset Every Month
+                  Scores Reset Every Month
                 </div>
                 <div style={{ fontSize: "0.55rem", opacity: 0.7, lineHeight: 1.5 }}>
                   All PSE scores reset to zero after each distribution (6th of every month).
@@ -1620,7 +1620,7 @@ function PSETab({
           onClick={() => setActiveTab("calculator")}
           style={{ flex: 1, padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer" }}
         >
-          📊 PSE Calculator & Guide: Understand How Your Rewards Work
+          PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
     </>
@@ -1669,7 +1669,7 @@ function CalculatorTab({
   return (
     <>
       <div className="section-head">
-        <h1 className="page-title">📊 PSE Calculator & Guide</h1>
+        <h1 className="page-title">PSE Calculator & Guide</h1>
         <span className="section-sub">Understand how PSE works and estimate your next distribution</span>
       </div>
 
@@ -1679,7 +1679,7 @@ function CalculatorTab({
         background: "var(--tx-dark-green)", color: "#fff",
       }}>
         <div style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: 14, color: "var(--tx-neon)" }}>
-          📖 How PSE Works (from the TX Whitepaper)
+          How PSE Works (from the TX Whitepaper)
         </div>
 
         {/* The Formula */}
@@ -1714,18 +1714,24 @@ function CalculatorTab({
           fontSize: "0.62rem", textAlign: "center", marginBottom: 14,
         }}>
           {[
-            { emoji: "🪙", label: "Stake TX", sub: "Delegate to a validator" },
-            { emoji: "📈", label: "Build Score", sub: "Score grows every second" },
-            { emoji: "🔄", label: "Distribution Day", sub: "6th of each month" },
-            { emoji: "🎯", label: "Get Rewards", sub: "Based on your share" },
-            { emoji: "🔁", label: "Scores Reset", sub: "New cycle begins" },
+            { label: "Stake TX", sub: "Delegate to a validator" },
+            { label: "Build Score", sub: "Score grows every second" },
+            { label: "Distribution Day", sub: "6th of each month" },
+            { label: "Get Rewards", sub: "Based on your share" },
+            { label: "Scores Reset", sub: "New cycle begins" },
           ].map((step, i) => (
             <div key={i} style={{
               padding: "10px 6px", borderRadius: 8,
               background: i === 4 ? "rgba(255,180,0,0.1)" : "rgba(177,252,3,0.05)",
               border: i === 4 ? "1px solid rgba(255,180,0,0.2)" : "1px solid rgba(177,252,3,0.08)",
             }}>
-              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{step.emoji}</div>
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%", margin: "0 auto 4px",
+                background: i === 4 ? "rgba(255,180,0,0.15)" : "rgba(177,252,3,0.15)",
+                border: i === 4 ? "1px solid rgba(255,180,0,0.3)" : "1px solid rgba(177,252,3,0.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "0.6rem", fontWeight: 700, color: i === 4 ? "#ffd54f" : "var(--tx-neon)",
+              }}>{i + 1}</div>
               <div style={{ fontWeight: 600, color: i === 4 ? "#ffd54f" : "var(--tx-neon-light)", fontSize: "0.62rem" }}>{step.label}</div>
               <div style={{ opacity: 0.45, fontSize: "0.52rem", marginTop: 2 }}>{step.sub}</div>
             </div>
@@ -1738,7 +1744,7 @@ function CalculatorTab({
           background: "rgba(255,180,0,0.08)", border: "1px solid rgba(255,180,0,0.2)",
         }}>
           <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#ffd54f", marginBottom: 6 }}>
-            ⚠️ Scores Reset After Every Distribution
+            Scores Reset After Every Distribution
           </div>
           <div style={{ fontSize: "0.65rem", lineHeight: 1.6, opacity: 0.85 }}>
             On the 6th of each month, all PSE scores reset to zero and a new cycle begins.
@@ -1754,7 +1760,7 @@ function CalculatorTab({
         <div className="col-7" style={{ display: "flex", flexDirection: "column" }}>
           <div className="panel" style={{ flex: 1 }}>
             <div style={{ fontSize: "0.78rem", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              🧮 PSE Estimator
+              PSE Estimator
               <span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--text-light)" }}>
                 Single month upper bound estimate
               </span>
@@ -1836,7 +1842,7 @@ function CalculatorTab({
                     background: "rgba(255,180,0,0.06)", border: "1px solid rgba(255,180,0,0.12)",
                     fontSize: "0.6rem", lineHeight: 1.5, color: "var(--text-medium)",
                   }}>
-                    ⚠️ This is the <strong>upper bound</strong> assuming you stake for the entire 30 day cycle
+                    This is the <strong>upper bound</strong> assuming you stake for the entire 30 day cycle
                     and all other stakers have equal duration. Real rewards are typically lower because
                     the total network score (all stakers combined) is unknown. For your actual position,
                     check your <strong>real on-chain score</strong> in the PSE tab.
@@ -1879,7 +1885,7 @@ function CalculatorTab({
                   marginTop: 12, padding: "14px 16px", borderRadius: 10,
                   background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.06)",
                 }}>
-                  <div style={{ fontSize: "0.68rem", fontWeight: 600, marginBottom: 10 }}>📐 The Math (Your Estimate)</div>
+                  <div style={{ fontSize: "0.68rem", fontWeight: 600, marginBottom: 10 }}>The Math (Your Estimate)</div>
                   <div style={{ fontSize: "0.62rem", lineHeight: 1.8, fontFamily: "var(--font-mono)", color: "var(--text-medium)" }}>
                     <div>Your stake: <strong>{formatNumber(stakedAmount)} TX</strong></div>
                     <div>Full cycle duration: <strong>30 days = 2,592,000 seconds</strong></div>
@@ -1904,7 +1910,7 @@ function CalculatorTab({
                   background: "rgba(100,100,255,0.04)", border: "1px solid rgba(100,100,255,0.1)",
                 }}>
                   <div style={{ fontSize: "0.65rem", fontWeight: 600, marginBottom: 6, color: "#6666cc" }}>
-                    💡 Why is this an upper bound?
+                    Why is this an upper bound?
                   </div>
                   <div style={{ fontSize: "0.6rem", lineHeight: 1.6, color: "var(--text-medium)" }}>
                     This estimate assumes all stakers have <strong>equal staking duration</strong> (full 30 days),
@@ -1926,7 +1932,7 @@ function CalculatorTab({
                 background: "rgba(0,0,0,0.02)", border: "1px dashed rgba(0,0,0,0.1)",
                 textAlign: "center",
               }}>
-                <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🧮</div>
+                <div style={{ fontSize: "1.5rem", marginBottom: 8, opacity: 0.3 }}>~</div>
                 <div style={{ fontSize: "0.78rem", color: "var(--text-medium)", fontWeight: 500 }}>
                   Enter a stake amount above to see your estimated PSE distribution
                 </div>
@@ -1997,21 +2003,24 @@ function CalculatorTab({
 
           {/* PSE Key Facts */}
           <div className="panel" style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>📋 PSE Key Facts</div>
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>PSE Key Facts</div>
             <div style={{ fontSize: "0.62rem", lineHeight: 2, color: "var(--text-medium)" }}>
               {[
-                { icon: "💰", text: "100 billion TX distributed over 84 months (7 years)" },
-                { icon: "👥", text: "40% goes to community stakers (~476M TX/month)" },
-                { icon: "🔄", text: "All scores reset after each monthly distribution" },
-                { icon: "⏱️", text: "Score = Your Stake × Duration in seconds" },
-                { icon: "📦", text: "Rewards auto-compound as new delegations" },
-                { icon: "✅", text: "Must have active delegation at distribution time" },
-                { icon: "📅", text: "Distribution happens on the 6th of every month" },
-                { icon: "🔓", text: "7 day unbonding period for undelegation" },
+                "100 billion TX distributed over 84 months (7 years)",
+                "40% goes to community stakers (~476M TX/month)",
+                "All scores reset after each monthly distribution",
+                "Score = Your Stake × Duration in seconds",
+                "Rewards auto-compound as new delegations",
+                "Must have active delegation at distribution time",
+                "Distribution happens on the 6th of every month",
+                "7 day unbonding period for undelegation",
               ].map((fact, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{ flexShrink: 0 }}>{fact.icon}</span>
-                  <span>{fact.text}</span>
+                  <span style={{
+                    width: 4, height: 4, borderRadius: "50%", flexShrink: 0, marginTop: 6,
+                    background: "var(--accent-olive)",
+                  }} />
+                  <span>{fact}</span>
                 </div>
               ))}
             </div>
@@ -2048,7 +2057,7 @@ function CalculatorTab({
             onClick={() => setActiveTab("pse")}
             style={{ width: "100%", padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer", marginBottom: 12 }}
           >
-            🔍 Check Your Real On-Chain PSE Score
+            Check Your Real On-Chain PSE Score
           </button>
 
           {/* Disclaimer */}
@@ -2057,7 +2066,7 @@ function CalculatorTab({
             background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)",
             fontSize: "0.58rem", lineHeight: 1.6, color: "var(--text-light)",
           }}>
-            <strong style={{ color: "var(--text-medium)" }}>⚠️ Disclaimer:</strong> This calculator provides
+            <strong style={{ color: "var(--text-medium)" }}>Disclaimer:</strong> This calculator provides
             theoretical upper bound estimates based on simplified assumptions. It is NOT a prediction of actual
             rewards. Only the on-chain PSE module determines real distributions. The total network score
             (sum of all stakers&apos; scores) is unknown to this calculator and significantly affects results.
