@@ -1152,12 +1152,14 @@ function PSETab({
     }
     setPseLookup({ loading: true, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
     try {
-      const [scoreRes, delegRes] = await Promise.all([
+      const [scoreRes, delegRes, networkScoreRes] = await Promise.all([
         fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${address}`),
         fetchWithTimeout(`https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}`),
+        fetch(`/tx-silknodes/pse-network-score.json`).catch(() => null),
       ]);
       const scoreData = await scoreRes.json();
       const delegData = await delegRes.json().catch(() => null);
+      const networkScoreData = await networkScoreRes?.json().catch(() => null);
 
       if (scoreData.code || scoreData.error) {
         const rawError = scoreData.message || scoreData.error || "Failed to fetch PSE score";
@@ -1176,11 +1178,21 @@ function PSETab({
         }
       }
 
-      const tgeTimestamp = 1772755200; // 2026-03-06T00:00:00Z
-      const now = Date.now() / 1000;
-      const elapsed = now - tgeTimestamp;
-      const totalBondedUcore = bondedTokens * 1_000_000;
-      const networkScore = totalBondedUcore * elapsed;
+      // Use cached real network total score (updated every 6h via GitHub Actions)
+      // Falls back to estimation if cache is unavailable
+      let networkScore: number;
+      if (networkScoreData?.networkTotalScore) {
+        // Use the real summed score from all eligible delegators
+        networkScore = Number(BigInt(networkScoreData.networkTotalScore));
+      } else {
+        // Fallback: estimate from bonded tokens (less accurate)
+        const tgeTimestamp = 1772755200; // 2026-03-06T00:00:00Z
+        const now = Date.now() / 1000;
+        const elapsed = now - tgeTimestamp;
+        const totalBondedUcore = bondedTokens * 1_000_000;
+        networkScore = totalBondedUcore * elapsed;
+      }
+
       const share = Number(BigInt(scoreRaw)) / networkScore;
       // Use live community balance / 84 months for monthly estimate
       const monthlyFromPool = pseParams.communityBalance / 84;
