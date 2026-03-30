@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { calculatePSEProjection } from "@/lib/pse-calculator";
+import { PSE_CONFIG, getPSEDistributionInfo } from "@/lib/pse-calculator";
 
 interface SupplyChartProps {
   currentSupply?: number;
@@ -41,25 +41,39 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+// Total monthly PSE emission (all pools combined)
+const TOTAL_MONTHLY_PSE = 1_190_476_190; // 100B / 84
+
 export default function SupplyChart({ currentSupply, currentStakingRatio, currentInflation }: SupplyChartProps) {
   const chartData = useMemo(() => {
-    const projections = calculatePSEProjection({
-      stakedAmount: 10000,
-      targetStakingRatio: 67,
-      targetPrice: 1,
-      currentSupply: currentSupply || 1_927_475_509,
-      currentStakingRatio: currentStakingRatio || 40,
-      currentPrice: 0.05,
-      currentInflation: currentInflation || 0.00093,
-    });
+    const pseInfo = getPSEDistributionInfo();
+    const distributionsDone = Math.max(0, pseInfo.distributionNumber - 1);
+    const pseMonthsRemaining = Math.max(0, 84 - distributionsDone);
 
-    return projections
-      .filter((_, i) => i % 6 === 0 || i === projections.length - 1)
-      .map((p) => ({
-        month: p.month,
-        supply: p.approxSupply,
-        staked: Math.round(p.approxSupply * (p.stakingRatio / 100)),
-      }));
+    let supply = currentSupply || 1_927_475_509;
+    const startRatio = (currentStakingRatio || 40) / 100;
+    const targetRatio = 0.67;
+    const inflation = currentInflation || 0.000972;
+
+    const data: { month: number; supply: number; staked: number }[] = [];
+
+    for (let m = 0; m <= pseMonthsRemaining; m++) {
+      const progress = pseMonthsRemaining > 0 ? m / pseMonthsRemaining : 0;
+      const ratio = startRatio + (targetRatio - startRatio) * progress;
+      data.push({
+        month: m,
+        supply: Math.round(supply),
+        staked: Math.round(supply * ratio),
+      });
+      // Each month: PSE tokens enter circulation + inflation
+      if (m < pseMonthsRemaining) {
+        supply += TOTAL_MONTHLY_PSE;
+        supply += (inflation * supply) / 12;
+      }
+    }
+
+    // Sample every 6 months for chart readability
+    return data.filter((_, i) => i % 6 === 0 || i === data.length - 1);
   }, [currentSupply, currentStakingRatio, currentInflation]);
 
   return (

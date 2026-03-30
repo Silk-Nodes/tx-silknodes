@@ -44,30 +44,6 @@ export interface PSEConfig {
   inflationRate: number; // current on-chain inflation (~0.093%)
 }
 
-export interface PSEProjection {
-  month: number;
-  emission: number;
-  approxSupply: number;
-  bagSize: number;
-  stakingRatio: number;
-  apr: number;
-  stakingRewards: number;
-  pseReward: number;
-  txPrice: number;
-  bagValueUsd: number;
-  monthlyPseRewardUsd: number;
-}
-
-// === Calculator Inputs ===
-export interface CalculatorInputs {
-  stakedAmount: number;
-  targetStakingRatio: number; // target at month 84 (%)
-  targetPrice: number; // target at month 84 (USD)
-  currentSupply: number;
-  currentStakingRatio: number;
-  currentPrice: number;
-  currentInflation?: number; // raw decimal
-}
 
 // === Wallet ===
 export interface WalletState {
