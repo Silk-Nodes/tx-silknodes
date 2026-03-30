@@ -1,4 +1,4 @@
-import type { PSEConfig, PSEProjection, CalculatorInputs } from "./types";
+import type { PSEConfig } from "./types";
 
 /**
  * PSE (Proof of Support Emission) Calculator
@@ -86,13 +86,6 @@ export const PSE_CONFIG: PSEConfig = {
   inflationRate: 0.000972, // ~0.097% current on-chain inflation (adjusting toward 3.5% target per Prop #30)
 };
 
-// Circulating supply at TGE (excludes 100B PSE pre-mint in module account)
-// On-chain total supply is ~101.93B, but ~100B is PSE module balance
-const TGE_SUPPLY = 1_927_475_509;
-
-// Total PSE pre-minted in module account
-const TOTAL_PSE_PREMINT = 100_000_000_000; // 100B TX
-
 // Total monthly PSE emission (before allocation split)
 const TOTAL_MONTHLY_PSE = 1_190_476_190; // 100B / 84
 
@@ -107,52 +100,24 @@ export const PSE_ALLOCATION = {
 };
 
 /**
- * Estimate PSE reward for a single staker for next distribution.
+ * Estimate THEORETICAL MAXIMUM PSE reward for a full distribution period.
  *
- * IMPORTANT: This is an ESTIMATE because we cannot know the exact
- * total score (Σ(S × T)) of all stakers. We approximate by assuming
- * the user's share is proportional to their stake vs total bonded tokens,
- * weighted by their staking duration vs average duration.
+ * IMPORTANT: This returns the best case scenario where the user stakes for
+ * the ENTIRE distribution cycle (all 30 days). Since PSE uses score = stake × duration,
+ * someone who stakes mid-cycle will receive proportionally less.
  *
- * For exact PSE rewards, the on-chain PSE module must be queried.
+ * This estimate also assumes all existing stakers maintain constant stake amounts
+ * and that no new stakers join. In practice, real rewards vary based on:
+ *   1. When in the cycle the user started staking
+ *   2. Changes in total bonded tokens during the cycle
+ *   3. Other stakers' duration-weighted scores
  *
- * @param stakedAmount - User's staked amount in TX
- * @param totalBondedTokens - Total bonded tokens on chain in TX
- * @param stakingDurationDays - How many days the user has been staking this period
- * @param avgDurationDays - Average staking duration across all stakers (default: full month)
- */
-export function estimateNextPSEReward(
-  stakedAmount: number,
-  totalBondedTokens: number,
-  stakingDurationDays: number = 30,
-  avgDurationDays: number = 30
-): number {
-  if (totalBondedTokens <= 0 || stakedAmount <= 0) return 0;
-
-  // User's score = stake × duration (in seconds)
-  const userScore = stakedAmount * (stakingDurationDays * 24 * 3600);
-
-  // Estimate total score = totalBonded × avgDuration (in seconds)
-  const estimatedTotalScore = totalBondedTokens * (avgDurationDays * 24 * 3600);
-
-  if (estimatedTotalScore <= 0) return 0;
-
-  // PSE reward = (userScore / totalScore) × communityDistribution
-  const communityDistribution = PSE_CONFIG.monthlyEmission; // ~476.19M TX
-  return (userScore / estimatedTotalScore) * communityDistribution;
-}
-
-/**
- * Estimate PSE reward assuming user stakes for full distribution period.
- *
- * Improved accuracy: subtracts excluded addresses' stake from denominator.
- * PSE-excluded addresses (foundation, modules, etc.) do NOT receive community PSE,
- * so the effective pool of competing stakers is smaller → rewards per staker are higher.
+ * Subtracts excluded addresses' stake from denominator since PSE-excluded
+ * addresses (foundation, modules, etc.) do NOT receive community PSE.
  *
  * Result = (stakedAmount / pseEligibleBonded) × 476,190,476 TX
  *
- * NOTE: This is still an estimate. Real PSE uses duration-weighted scores.
- * For exact calculation, use tx-pse.today which iterates all ~10K delegators.
+ * For real PSE data, use the on-chain score lookup or tx-pse.today.
  *
  * @param stakedAmount - User's staked TX
  * @param totalBondedTokens - Total bonded tokens on chain
@@ -168,166 +133,6 @@ export function estimatePSERewardFullPeriod(
   return (stakedAmount / eligibleBonded) * PSE_CONFIG.monthlyEmission;
 }
 
-/**
- * Calculate the on-chain staking APR from current inflation and staking ratio.
- * APR = (inflationRate × (1 - communityTax)) / stakingRatio
- *
- * Note: This is SEPARATE from PSE rewards. This is standard Cosmos SDK
- * inflation-based staking reward.
- */
-export function calculateStakingAPR(
-  inflationRate: number,
-  stakingRatio: number, // as decimal, e.g., 0.40
-  communityTax: number = 0.05
-): number {
-  if (stakingRatio <= 0) return 0;
-  return (inflationRate * (1 - communityTax)) / stakingRatio;
-}
-
-/**
- * Generate 84-month PSE projection.
- *
- * DISCLAIMER: This projection uses simplified assumptions:
- * - Assumes user stakes for full period each month (duration = 30 days)
- * - Assumes total bonded tokens grow linearly with PSE distributions
- * - PSE rewards auto-compound (delivered as new delegations per whitepaper)
- * - Native staking inflation rewards also compound
- * - Price and staking ratio interpolated linearly to target
- *
- * Real results will vary based on actual network conditions.
- */
-export function calculatePSEProjection(inputs: CalculatorInputs): PSEProjection[] {
-  const projections: PSEProjection[] = [];
-
-  let userBag = inputs.stakedAmount;
-  // inputs.currentSupply is CIRCULATING supply (excl PSE module)
-  let circulatingSupply = inputs.currentSupply || TGE_SUPPLY;
-
-  // Total on-chain supply = circulating + undistributed PSE in module
-  // PSE distributions already done before projection starts
-  const pseInfo = getPSEDistributionInfo();
-  const distributionsDone = Math.max(0, pseInfo.distributionNumber - 1);
-  const pseRemainingAtStart = TOTAL_PSE_PREMINT - (distributionsDone * TOTAL_MONTHLY_PSE);
-  let totalOnChain = circulatingSupply + Math.max(0, pseRemainingAtStart);
-
-  const currentInflation = inputs.currentInflation || PSE_CONFIG.inflationRate;
-
-  // PSE remaining months from now (some distributions already happened)
-  const pseMonthsRemaining = Math.max(0, 84 - distributionsDone);
-  // Project for the remaining PSE months (not a fixed 84 from now)
-  const projectionMonths = Math.max(pseMonthsRemaining, 12); // at least 12 months
-
-  for (let month = 1; month <= projectionMonths; month++) {
-    // Interpolate staking ratio and price linearly over projection period
-    const progress = month / projectionMonths;
-    const stakingRatioPct =
-      inputs.currentStakingRatio +
-      (inputs.targetStakingRatio - inputs.currentStakingRatio) * progress;
-    const stakingRatio = stakingRatioPct / 100;
-    const txPrice =
-      inputs.currentPrice +
-      (inputs.targetPrice - inputs.currentPrice) * progress;
-
-    // Inflation adjusts toward goal_bonded=67% (Cosmos SDK mechanism)
-    // Note: bonded/totalOnChain ratio drives SDK inflation adjustment
-    const bondedRatioOnChain = (circulatingSupply * stakingRatio) / totalOnChain;
-    const goalBonded = 0.67;
-    let effectiveInflation = currentInflation;
-    if (bondedRatioOnChain < goalBonded) {
-      // Below goal → inflation increases (up to max 2%)
-      effectiveInflation = Math.min(0.02, currentInflation + 0.005 * (month / 12));
-    } else {
-      effectiveInflation = Math.max(0, currentInflation - 0.001 * (month / 12));
-    }
-
-    // APR: Cosmos SDK applies inflation to TOTAL on-chain supply, distributes to bonded
-    // annualProvisions = effectiveInflation × totalOnChain
-    // APR = annualProvisions × (1-tax) / bondedTokens
-    const totalBonded = circulatingSupply * stakingRatio;
-    const annualProvisions = effectiveInflation * totalOnChain;
-    const stakingAPR = totalBonded > 0
-      ? (annualProvisions * (1 - 0.05)) / totalBonded
-      : 0;
-    const monthlyStakingReward = userBag * (stakingAPR / 12);
-
-    // PSE reward only if distributions still active
-    const hasPSE = month <= pseMonthsRemaining;
-    const pseReward = hasPSE
-      ? estimatePSERewardFullPeriod(userBag, totalBonded)
-      : 0;
-
-    // End of month: PSE distributed (moves from module to stakers)
-    if (hasPSE) {
-      circulatingSupply += TOTAL_MONTHLY_PSE;
-    }
-    // Inflation minting adds to totalOnChain
-    totalOnChain += (effectiveInflation * totalOnChain) / 12;
-
-    // Compound: PSE rewards are auto-staked per whitepaper
-    userBag += monthlyStakingReward + pseReward;
-
-    projections.push({
-      month,
-      emission: PSE_CONFIG.monthlyEmission,
-      approxSupply: Math.round(circulatingSupply),
-      bagSize: Math.round(userBag),
-      stakingRatio: Math.round(stakingRatioPct),
-      apr: parseFloat((stakingAPR * 100).toFixed(2)),
-      stakingRewards: parseFloat(monthlyStakingReward.toFixed(2)),
-      pseReward: Math.round(pseReward),
-      txPrice: parseFloat(txPrice.toFixed(4)),
-      bagValueUsd: Math.round(userBag * txPrice),
-      monthlyPseRewardUsd: Math.round(pseReward * txPrice),
-    });
-  }
-
-  return projections;
-}
-
-/**
- * Calculate summary projections for display
- */
-export function getProjectionSummary(inputs: CalculatorInputs) {
-  const projections = calculatePSEProjection(inputs);
-
-  const month1 = projections[0];
-  const month12 = projections[11];
-  const lastMonth = projections[projections.length - 1];
-
-  // How many months remaining in PSE cycle
-  const pseInfo = getPSEDistributionInfo();
-  const distributionsDone = Math.max(0, pseInfo.distributionNumber - 1);
-  const pseMonthsRemaining = Math.max(0, 84 - distributionsDone);
-
-  return {
-    oneMonth: {
-      baseYield: Math.round(month1?.stakingRewards || 0),
-      pseBonus: Math.round(month1?.pseReward || 0),
-      totalBag: Math.round(month1?.bagSize || inputs.stakedAmount),
-    },
-    oneYear: {
-      baseYield: Math.round(
-        projections.slice(0, 12).reduce((s, p) => s + p.stakingRewards, 0)
-      ),
-      pseBonus: Math.round(
-        projections.slice(0, 12).reduce((s, p) => s + p.pseReward, 0)
-      ),
-      totalBag: Math.round(month12?.bagSize || inputs.stakedAmount),
-    },
-    fullCycle: {
-      baseYield: Math.round(
-        projections.reduce((s, p) => s + p.stakingRewards, 0)
-      ),
-      pseBonus: Math.round(
-        projections.reduce((s, p) => s + p.pseReward, 0)
-      ),
-      totalBag: Math.round(lastMonth?.bagSize || inputs.stakedAmount),
-    },
-    projections,
-    pseMonthsRemaining,
-    totalProjectionMonths: projections.length,
-  };
-}
 
 /**
  * Get PSE distribution info

@@ -16,13 +16,11 @@ import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
 import {
   getPSEDistributionInfo,
-  getProjectionSummary,
   estimatePSERewardFullPeriod,
   PSE_CONFIG,
   PSE_ALLOCATION,
   PSE_EXCLUDED_ADDRESSES,
 } from "@/lib/pse-calculator";
-import type { CalculatorInputs } from "@/lib/types";
 import ValidatorList from "@/components/ValidatorList";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
@@ -43,12 +41,6 @@ function formatUSD(num: number): string {
   if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
   if (num >= 1e3) return `$${(num / 1e3).toFixed(1)}K`;
   return `$${num.toLocaleString()}`;
-}
-
-function formatTX(num: number): string {
-  if (num >= 1e6) return `~${(num / 1e6).toFixed(2)}M TX`;
-  if (num >= 1e3) return `~${(num / 1e3).toFixed(1)}K TX`;
-  return `~${Math.round(num).toLocaleString()} TX`;
 }
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
@@ -140,39 +132,7 @@ export default function HomePage() {
 
   // ─── Calculator State ───
   const [stakeInput, setStakeInput] = useState("");
-  const [targetRatio, setTargetRatio] = useState("67");
-  const [targetPrice, setTargetPrice] = useState("1");
   const stakedAmount = parseFloat(stakeInput.replace(/,/g, "")) || 0;
-
-  const summary = useMemo(() => {
-    const inputs: CalculatorInputs = {
-      stakedAmount,
-      targetStakingRatio: parseFloat(targetRatio) || 67,
-      targetPrice: parseFloat(targetPrice) || (tokenData?.price || 0.05),
-      currentSupply: tokenData?.circulatingSupply || 1_927_475_509,
-      currentStakingRatio: stakingData?.stakingRatio || 40,
-      currentPrice: tokenData?.price || 0.0142,
-      currentInflation: stakingData?.inflationRaw || 0.000972,
-    };
-    return getProjectionSummary(inputs);
-  }, [stakedAmount, targetRatio, targetPrice, tokenData, stakingData]);
-
-  const waitComparison = useMemo(() => {
-    if (stakedAmount <= 0) return null;
-    const nowBag = summary.fullCycle.totalBag;
-    const lost = summary.projections.slice(0, 3).reduce((s, p) => s + p.pseReward + p.stakingRewards, 0);
-    const waitBag = nowBag - lost;
-    return {
-      nowBag,
-      waitBag: Math.round(waitBag),
-      diff: Math.round(nowBag - waitBag),
-      diffPct: (((nowBag - waitBag) / waitBag) * 100).toFixed(1),
-    };
-  }, [summary, stakedAmount]);
-
-  const growthPct = stakedAmount > 0
-    ? (((summary.fullCycle.totalBag - stakedAmount) / stakedAmount) * 100).toFixed(0)
-    : "0";
 
   // ─── Derived ───
   const price = tokenData?.price ?? 0;
@@ -508,20 +468,14 @@ export default function HomePage() {
           <CalculatorTab
             stakeInput={stakeInput}
             setStakeInput={setStakeInput}
-            targetRatio={targetRatio}
-            setTargetRatio={setTargetRatio}
-            targetPrice={targetPrice}
-            setTargetPrice={setTargetPrice}
             stakedAmount={stakedAmount}
-            summary={summary}
-            waitComparison={waitComparison}
-            growthPct={growthPct}
             apr={apr}
             nextPSEReward={nextPSEReward}
             wallet={wallet}
             tokenData={tokenData}
             stakingData={stakingData}
             setActiveTab={setActiveTab}
+            pseInfo={pseInfo}
           />
         )}
 
@@ -888,7 +842,7 @@ function OverviewTab({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
-                    Estimated Next PSE Reward
+                    Max Est. Next PSE Reward
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 600, color: "var(--tx-neon)" }}>
                     ~{formatNumber(Math.round(estimatePSERewardFullPeriod(wallet.stakedAmount, bondedTokens, excludedPSEStake)))} TX
@@ -916,7 +870,7 @@ function OverviewTab({
                 fontSize: "0.6rem", color: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", gap: 4,
               }}>
                 Estimated PSE reward
-                <Tooltip text="Estimate assumes full-month staking. Real PSE uses duration-weighted scores. Check the PSE tab for your on-chain score." />
+                <Tooltip text="Theoretical maximum assuming full 30 day staking in the cycle. Real rewards are typically lower. Check the PSE tab for your actual on-chain score." />
               </div>
             </div>
           )}
@@ -951,7 +905,7 @@ function OverviewTab({
                 cursor: "pointer", color: "var(--text-medium)", fontWeight: 500,
               }}
             >
-              Project My Rewards
+              PSE Calculator
             </button>
           </div>
         </div>
@@ -1078,7 +1032,7 @@ function OverviewTab({
                 className="btn-olive"
                 style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10 }}
               >
-                Estimate my staking outcome
+                PSE Calculator & Guide
               </button>
               <button
                 onClick={() => setActiveTab("pse")}
@@ -1438,7 +1392,7 @@ function PSETab({
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <span>
-                Score at block {pseLookup.height || "latest"}. Estimates assume current bonded pool stays constant.
+                Score at block {pseLookup.height || "latest"}. This is your real on-chain PSE data, more accurate than calculator estimates.
               </span>
               <button
                 onClick={() => fetchPSEScore()}
@@ -1616,7 +1570,21 @@ function PSETab({
                 fontSize: "0.58rem", fontFamily: "var(--font-mono)", textAlign: "center",
                 color: "var(--tx-neon-light)", opacity: 0.8,
               }}>
-                Your reward = (your score / total network score) × monthly pool
+                Your reward = (your score / total network score) &times; monthly pool
+              </div>
+
+              {/* Score Reset Warning */}
+              <div style={{
+                marginTop: 12, padding: "10px 12px", borderRadius: 8,
+                background: "rgba(255,180,0,0.1)", border: "1px solid rgba(255,180,0,0.2)",
+              }}>
+                <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#ffd54f", marginBottom: 4 }}>
+                  🔄 Scores Reset Every Month
+                </div>
+                <div style={{ fontSize: "0.55rem", opacity: 0.7, lineHeight: 1.5 }}>
+                  All PSE scores reset to zero after each distribution (6th of every month).
+                  Your reward depends only on your staking during that cycle. Stay staked for the full cycle to maximize your score.
+                </div>
               </div>
             </div>
 
@@ -1652,7 +1620,7 @@ function PSETab({
           onClick={() => setActiveTab("calculator")}
           style={{ flex: 1, padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer" }}
         >
-          What if I stake X amount? Try the Calculator
+          📊 PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
     </>
@@ -1663,154 +1631,143 @@ function PSETab({
    TAB: CALCULATOR
    ═══════════════════════════════════════════════════════ */
 
-function GrowthChart({ projections, stakedAmount }: { projections: any[]; stakedAmount: number }) {
-  if (!projections || projections.length === 0 || stakedAmount <= 0) return null;
-
-  // Build cumulative data points for every 6 months
-  const points: { month: number; base: number; pse: number; total: number }[] = [];
-  let cumBase = 0;
-  let cumPSE = 0;
-  points.push({ month: 0, base: stakedAmount, pse: 0, total: stakedAmount });
-  for (let i = 0; i < projections.length; i++) {
-    cumBase += projections[i].stakingRewards;
-    cumPSE += projections[i].pseReward;
-    if ((i + 1) % 6 === 0 || i === projections.length - 1) {
-      points.push({
-        month: i + 1,
-        base: stakedAmount + cumBase,
-        pse: cumPSE,
-        total: stakedAmount + cumBase + cumPSE,
-      });
-    }
-  }
-
-  const maxVal = Math.max(...points.map((p) => p.total));
-  const chartW = 100;
-  const chartH = 100;
-
-  const maxMonth = projections.length;
-  const toX = (month: number) => (month / maxMonth) * chartW;
-  const toY = (val: number) => chartH - (val / maxVal) * chartH * 0.9 - chartH * 0.05;
-
-  const totalPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.month).toFixed(1)},${toY(p.total).toFixed(1)}`).join(" ");
-  const basePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.month).toFixed(1)},${toY(p.base).toFixed(1)}`).join(" ");
-  const totalArea = totalPath + ` L${chartW},${chartH} L0,${chartH} Z`;
-  const baseArea = basePath + ` L${chartW},${chartH} L0,${chartH} Z`;
-
-  return (
-    <div style={{ position: "relative", width: "100%", height: 180 }}>
-      <svg viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
-        {/* PSE area (total - base = green) */}
-        <path d={totalArea} fill="rgba(177,252,3,0.15)" />
-        {/* Base area */}
-        <path d={baseArea} fill="rgba(15,27,7,0.08)" />
-        {/* Total line,dominant */}
-        <path d={totalPath} fill="none" stroke="#B1FC03" strokeWidth="1.2" />
-        {/* Base line,very muted, communicates "base ≈ irrelevant" */}
-        <path d={basePath} fill="none" stroke="#0F1B07" strokeWidth="0.3" opacity="0.2" strokeDasharray="1.5,2" />
-      </svg>
-      {/* Labels,dynamic based on projection length */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", justifyContent: "space-between", fontSize: "0.55rem", opacity: 0.35, fontFamily: "var(--font-mono)" }}>
-        <span>Now</span>
-        {Array.from({ length: 6 }, (_, i) => {
-          const m = Math.round((maxMonth / 7) * (i + 1));
-          return <span key={i}>{m}m</span>;
-        })}
-        <span>{maxMonth}m</span>
-      </div>
-      {/* Legend,prominent, on chart */}
-      <div style={{ position: "absolute", top: 6, right: 8, display: "flex", gap: 12, fontSize: "0.6rem", fontWeight: 500 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 14, height: 3, background: "#B1FC03", display: "inline-block", borderRadius: 2 }} />
-          <span style={{ color: "var(--accent-olive)" }}>Total (Base + PSE)</span>
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 14, height: 2, background: "#0F1B07", display: "inline-block", borderRadius: 1, opacity: 0.5 }} />
-          <span style={{ opacity: 0.45 }}>Base yield only</span>
-        </span>
-      </div>
-      {/* Green = PSE gap label */}
-      <div style={{
-        position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)",
-        fontSize: "0.55rem", opacity: 0.3, color: "var(--accent-olive)", fontWeight: 600,
-        pointerEvents: "none",
-      }}>
-        PSE REWARDS
-      </div>
-    </div>
-  );
-}
 
 function CalculatorTab({
-  stakeInput, setStakeInput, targetRatio, setTargetRatio,
-  targetPrice, setTargetPrice, stakedAmount, summary,
-  waitComparison, growthPct, apr, nextPSEReward, wallet,
-  tokenData, stakingData, setActiveTab,
+  stakeInput, setStakeInput,
+  stakedAmount, apr, nextPSEReward, wallet,
+  tokenData, stakingData, setActiveTab, pseInfo,
 }: any) {
-  // Insight calculations
-  const totalGains = summary.fullCycle.baseYield + summary.fullCycle.pseBonus;
-  const psePct = totalGains > 0 ? ((summary.fullCycle.pseBonus / totalGains) * 100).toFixed(0) : "0";
-  const growthMultiple = stakedAmount > 0 ? (summary.fullCycle.totalBag / stakedAmount).toFixed(1) : "1.0";
-  const tp = parseFloat(targetPrice || "0");
   const bondedTokens = stakingData?.bondedTokens ?? 0;
+  const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
+  const pseEligibleBonded = stakingData?.pseEligibleBonded ?? bondedTokens;
+  const price = tokenData?.price ?? 0;
 
-  // Dynamic months remaining
-  const pseMonthsLeft = summary.pseMonthsRemaining ?? 72;
-  const totalProjMonths = summary.totalProjectionMonths ?? pseMonthsLeft;
-
-  // Value range at different prices
-  const finalBag = summary.fullCycle.totalBag;
-  const valueLow = finalBag * (tp * 0.5);
-  const valueMid = finalBag * tp;
-  const valueHigh = finalBag * (tp * 2);
-
-  // Optimization: what +10% more stake would do
-  const extraStake = stakedAmount * 0.1;
-  const extraBagGrowth = totalGains > 0 && stakedAmount > 0
-    ? Math.round((extraStake / stakedAmount) * totalGains)
+  // Single month honest estimate
+  const monthlyPSE = pseEligibleBonded > 0 && stakedAmount > 0
+    ? estimatePSERewardFullPeriod(stakedAmount, bondedTokens, excludedPSEStake)
+    : 0;
+  const userSharePct = pseEligibleBonded > 0 && stakedAmount > 0
+    ? (stakedAmount / pseEligibleBonded * 100)
     : 0;
 
-  // PSE position estimate,tier based on pool share + cycle timing
-  const userSharePct = bondedTokens > 0 && stakedAmount > 0
-    ? (stakedAmount / bondedTokens * 100)
+  // Base staking reward (monthly)
+  const monthlyBaseReward = stakedAmount > 0 && apr > 0
+    ? stakedAmount * (apr / 100) / 12
     : 0;
-  // Average stake per delegator (rough: bonded / ~active delegators estimate)
-  const avgStake = bondedTokens > 0 ? bondedTokens / 2000 : 10000; // ~2K active stakers estimate
-  const isAboveAvg = stakedAmount > avgStake;
-  // Tiered positioning,emotional + competitive
-  const positionTier = userSharePct >= 1
-    ? { label: "Strong Position", color: "var(--tx-neon)", dot: "#B1FC03" }
-    : userSharePct >= 0.01
-    ? { label: "Early Advantage", color: "var(--tx-neon-light)", dot: "#E6FF91" }
-    : userSharePct >= 0.001
-    ? { label: "Building Position", color: "#c4a96a", dot: "#c4a96a" }
-    : { label: "Entry Phase", color: "rgba(255,255,255,0.6)", dot: "#888" };
 
-  // Month 1 PSE for trust note
-  const month1PSE = summary.oneMonth?.pseBonus ?? 0;
+  // Score rate: how fast user's score grows per second (in TX units)
+  const scorePerSecond = stakedAmount > 0 ? stakedAmount : 0;
 
-  // Sensitivity: +3 month delay cost as %
-  const delayCostPct = waitComparison ? waitComparison.diffPct : "0";
+  // Days until next distribution
+  const now = new Date();
+  const daysUntil = Math.max(0, Math.ceil((pseInfo.nextDistribution.getTime() - now.getTime()) / 86400000));
+
+  // Score accumulated if staking from now until next distribution
+  const secondsUntil = Math.max(0, (pseInfo.nextDistribution.getTime() - now.getTime()) / 1000);
+  const projectedScore = stakedAmount * secondsUntil;
 
   return (
     <>
       <div className="section-head">
-        <h1 className="page-title">PSE Calculator</h1>
-        <span className="section-sub">What if I delegate X amount of TX? Simulate your {pseMonthsLeft}-month PSE outcome</span>
+        <h1 className="page-title">📊 PSE Calculator & Guide</h1>
+        <span className="section-sub">Understand how PSE works and estimate your next distribution</span>
+      </div>
+
+      {/* ── Section 1: How PSE Works (Educational) ── */}
+      <div style={{
+        padding: "20px 22px", borderRadius: 14, marginBottom: 16,
+        background: "var(--tx-dark-green)", color: "#fff",
+      }}>
+        <div style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: 14, color: "var(--tx-neon)" }}>
+          📖 How PSE Works (from the TX Whitepaper)
+        </div>
+
+        {/* The Formula */}
+        <div style={{
+          padding: "14px 16px", borderRadius: 10, marginBottom: 14,
+          background: "rgba(177,252,3,0.06)", border: "1px solid rgba(177,252,3,0.15)",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "0.6rem", opacity: 0.5, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            The PSE Distribution Formula
+          </div>
+          <div style={{
+            fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
+            color: "var(--tx-neon)", lineHeight: 1.6,
+          }}>
+            Your Reward = (Your Score / Total Scores) &times; Pool
+          </div>
+          <div style={{
+            fontSize: "0.72rem", fontFamily: "var(--font-mono)", marginTop: 8,
+            color: "rgba(177,252,3,0.7)",
+          }}>
+            Score = Staked Amount (uTX) &times; Duration (seconds)
+          </div>
+          <div style={{ fontSize: "0.58rem", opacity: 0.4, marginTop: 6 }}>
+            Where 1 TX = 1,000,000 uTX &middot; Pool = ~476,190,476 TX per month (40% community share)
+          </div>
+        </div>
+
+        {/* Visual Steps */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6,
+          fontSize: "0.62rem", textAlign: "center", marginBottom: 14,
+        }}>
+          {[
+            { emoji: "🪙", label: "Stake TX", sub: "Delegate to a validator" },
+            { emoji: "📈", label: "Build Score", sub: "Score grows every second" },
+            { emoji: "🔄", label: "Distribution Day", sub: "6th of each month" },
+            { emoji: "🎯", label: "Get Rewards", sub: "Based on your share" },
+            { emoji: "🔁", label: "Scores Reset", sub: "New cycle begins" },
+          ].map((step, i) => (
+            <div key={i} style={{
+              padding: "10px 6px", borderRadius: 8,
+              background: i === 4 ? "rgba(255,180,0,0.1)" : "rgba(177,252,3,0.05)",
+              border: i === 4 ? "1px solid rgba(255,180,0,0.2)" : "1px solid rgba(177,252,3,0.08)",
+            }}>
+              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{step.emoji}</div>
+              <div style={{ fontWeight: 600, color: i === 4 ? "#ffd54f" : "var(--tx-neon-light)", fontSize: "0.62rem" }}>{step.label}</div>
+              <div style={{ opacity: 0.45, fontSize: "0.52rem", marginTop: 2 }}>{step.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Critical: Score Reset */}
+        <div style={{
+          padding: "12px 16px", borderRadius: 10,
+          background: "rgba(255,180,0,0.08)", border: "1px solid rgba(255,180,0,0.2)",
+        }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#ffd54f", marginBottom: 6 }}>
+            ⚠️ Scores Reset After Every Distribution
+          </div>
+          <div style={{ fontSize: "0.65rem", lineHeight: 1.6, opacity: 0.85 }}>
+            On the 6th of each month, all PSE scores reset to zero and a new cycle begins.
+            This means your reward each month depends only on your staking activity during that specific cycle,
+            not your historical staking. Staying staked for the full 30 day cycle maximizes your score.
+            If you unstake mid-cycle, you lose the remaining days of score accumulation.
+          </div>
+        </div>
       </div>
 
       <div className="grid-12">
-        {/* Left: Inputs + Chart + Table */}
+        {/* Left: Estimator */}
         <div className="col-7" style={{ display: "flex", flexDirection: "column" }}>
           <div className="panel" style={{ flex: 1 }}>
-            {/* Stake Amount */}
+            <div style={{ fontSize: "0.78rem", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              🧮 PSE Estimator
+              <span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--text-light)" }}>
+                Single month upper bound estimate
+              </span>
+            </div>
+
+            {/* Stake Amount Input */}
             <label className="input-label">How much TX would you like to delegate?</label>
             <div className="input-group mb-2">
               <input
                 type="text"
                 value={stakeInput}
                 onChange={(e: any) => setStakeInput(e.target.value)}
-                placeholder="Enter amount,e.g. 10000, 50000, 100000"
+                placeholder="Enter amount, e.g. 10000, 50000, 100000"
               />
               <span className="field-addon">TX</span>
               {wallet.connected && wallet.stakedAmount > 0 && (
@@ -1819,6 +1776,7 @@ function CalculatorTab({
                 </button>
               )}
             </div>
+
             {/* Presets */}
             <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
               {[1000, 5000, 10000, 50000, 100000].map((amt) => (
@@ -1838,8 +1796,8 @@ function CalculatorTab({
               ))}
             </div>
             <div style={{ fontSize: "0.6rem", opacity: 0.35, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-              {formatNumber(bondedTokens)} TX bonded ({stakingData?.stakingRatio?.toFixed(0) ?? "..."}%)
-              <Tooltip text={`Typical stake: 5K to 50K TX. ${stakedAmount > 0 && bondedTokens > 0 ? (isAboveAvg ? "Your stake is above average." : "Below average, increasing stake improves PSE share.") : ""}`} position="bottom" />
+              {formatNumber(bondedTokens)} TX bonded on network ({stakingData?.stakingRatio?.toFixed(0) ?? "..."}%)
+              {excludedPSEStake > 0 && <span> &middot; {formatNumber(excludedPSEStake)} TX excluded from PSE</span>}
             </div>
             <input
               type="range"
@@ -1850,320 +1808,266 @@ function CalculatorTab({
               onChange={(e: any) => setStakeInput(e.target.value)}
             />
 
-            <div className="grid-2 mt-3 mb-3">
-              <div>
-                <label className="input-label">Target Staking Ratio <Tooltip text="Network goal is 67% staking ratio" position="bottom" /></label>
-                <div className="input-group">
-                  <input type="text" value={targetRatio} onChange={(e: any) => setTargetRatio(e.target.value)} />
-                  <span className="field-addon">%</span>
-                </div>
-              </div>
-              <div>
-                <label className="input-label">Target TX Price <Tooltip text={`Current price: $${tokenData?.price?.toFixed(4) ?? "..."}`} position="bottom" /></label>
-                <div className="input-group">
-                  <span className="field-addon">$</span>
-                  <input type="text" value={targetPrice} onChange={(e: any) => setTargetPrice(e.target.value)} />
-                </div>
-              </div>
-            </div>
+            {/* Results */}
+            {stakedAmount > 0 && (
+              <>
+                {/* Main Result Card */}
+                <div style={{
+                  marginTop: 16, padding: "16px 18px", borderRadius: 12,
+                  background: "rgba(177,252,3,0.06)", border: "1px solid rgba(177,252,3,0.12)",
+                }}>
+                  <div style={{ fontSize: "0.58rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Estimated Next PSE Distribution (Upper Bound)
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--accent-olive)" }}>
+                      ~{formatNumber(Math.round(monthlyPSE))}
+                    </span>
+                    <span style={{ fontSize: "1rem", color: "var(--accent-olive)", opacity: 0.6 }}>TX</span>
+                    {price > 0 && (
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-light)" }}>
+                        (~{formatUSD(monthlyPSE * price)})
+                      </span>
+                    )}
+                  </div>
 
-            {/* Growth Chart */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>Growth Projection</span>
-                <span style={{ fontSize: "0.6rem", opacity: 0.4, fontFamily: "var(--font-mono)" }}>
-                  {formatNumber(stakedAmount)} TX → {formatNumber(finalBag)} TX
-                </span>
-              </div>
-              <div style={{
-                background: "rgba(0,0,0,0.02)", borderRadius: 12, padding: "12px 12px 20px",
-                border: "1px solid rgba(0,0,0,0.04)",
-              }}>
-                <GrowthChart projections={summary.projections} stakedAmount={stakedAmount} />
-              </div>
-            </div>
+                  <div style={{
+                    marginTop: 12, padding: "8px 12px", borderRadius: 8,
+                    background: "rgba(255,180,0,0.06)", border: "1px solid rgba(255,180,0,0.12)",
+                    fontSize: "0.6rem", lineHeight: 1.5, color: "var(--text-medium)",
+                  }}>
+                    ⚠️ This is the <strong>upper bound</strong> assuming you stake for the entire 30 day cycle
+                    and all other stakers have equal duration. Real rewards are typically lower because
+                    the total network score (all stakers combined) is unknown. For your actual position,
+                    check your <strong>real on-chain score</strong> in the PSE tab.
+                  </div>
+                </div>
 
-            {/* Trust context,right above table where confusion happens */}
-            {month1PSE > 100 && (
-              <div style={{
-                marginBottom: 8, padding: "7px 10px", borderRadius: 8,
-                background: "rgba(177,252,3,0.04)", border: "1px solid rgba(177,252,3,0.08)",
-                fontSize: "0.62rem", lineHeight: 1.4, color: "var(--text-medium)",
-              }}>
-                Early cycles distribute disproportionately high rewards,fewer stakers compete for the same monthly pool.
-                Rewards naturally decline as the network grows. These are estimates assuming linear growth.
-              </div>
+                {/* Breakdown Cards */}
+                <div className="responsive-grid-3" style={{ gap: 10, marginTop: 12 }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Your Pool Share</div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)" }}>
+                      {userSharePct < 0.001 ? "<0.001" : userSharePct.toFixed(4)}%
+                    </div>
+                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
+                      of PSE eligible bonded
+                    </div>
+                  </div>
+                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Base Staking Reward</div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>
+                      ~{formatNumber(Math.round(monthlyBaseReward))} TX
+                    </div>
+                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
+                      {apr > 0 ? `${apr.toFixed(2)}% APR` : "..."} per month
+                    </div>
+                  </div>
+                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Score Growth Rate</div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>
+                      {formatNumber(scorePerSecond)}
+                    </div>
+                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
+                      TX&middot;seconds added per second
+                    </div>
+                  </div>
+                </div>
+
+                {/* The Math Breakdown */}
+                <div style={{
+                  marginTop: 12, padding: "14px 16px", borderRadius: 10,
+                  background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.06)",
+                }}>
+                  <div style={{ fontSize: "0.68rem", fontWeight: 600, marginBottom: 10 }}>📐 The Math (Your Estimate)</div>
+                  <div style={{ fontSize: "0.62rem", lineHeight: 1.8, fontFamily: "var(--font-mono)", color: "var(--text-medium)" }}>
+                    <div>Your stake: <strong>{formatNumber(stakedAmount)} TX</strong></div>
+                    <div>Full cycle duration: <strong>30 days = 2,592,000 seconds</strong></div>
+                    <div>Your max score: <strong>{formatNumber(stakedAmount)} &times; 2,592,000 = {formatNumber(Math.round(stakedAmount * 2592000))}</strong></div>
+                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed rgba(0,0,0,0.08)" }}>
+                      PSE eligible bonded: <strong>{formatNumber(Math.round(pseEligibleBonded))} TX</strong>
+                    </div>
+                    <div>Est. total network score: <strong>{formatNumber(Math.round(pseEligibleBonded))} &times; 2,592,000</strong> (if all stakers stake full cycle)</div>
+                    <div>Your share: <strong>{formatNumber(stakedAmount)} / {formatNumber(Math.round(pseEligibleBonded))} = {userSharePct.toFixed(6)}%</strong></div>
+                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed rgba(0,0,0,0.08)" }}>
+                      Monthly community pool: <strong>~476,190,476 TX</strong>
+                    </div>
+                    <div style={{ color: "var(--accent-olive)", fontWeight: 700 }}>
+                      Your estimated reward: <strong>{userSharePct.toFixed(6)}% &times; 476,190,476 = ~{formatNumber(Math.round(monthlyPSE))} TX</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Why This Is An Upper Bound */}
+                <div style={{
+                  marginTop: 12, padding: "12px 14px", borderRadius: 10,
+                  background: "rgba(100,100,255,0.04)", border: "1px solid rgba(100,100,255,0.1)",
+                }}>
+                  <div style={{ fontSize: "0.65rem", fontWeight: 600, marginBottom: 6, color: "#6666cc" }}>
+                    💡 Why is this an upper bound?
+                  </div>
+                  <div style={{ fontSize: "0.6rem", lineHeight: 1.6, color: "var(--text-medium)" }}>
+                    This estimate assumes all stakers have <strong>equal staking duration</strong> (full 30 days),
+                    which makes duration cancel out and simplifies to a pure stake ratio. In reality:
+                  </div>
+                  <ul style={{ fontSize: "0.6rem", lineHeight: 1.8, color: "var(--text-medium)", paddingLeft: 16, margin: "6px 0 0" }}>
+                    <li>Different stakers have different durations (some joined mid cycle)</li>
+                    <li>Large stakers who stake for the full cycle accumulate disproportionately higher scores</li>
+                    <li>The actual total score (sum of all stakers&apos; scores) is only known on chain</li>
+                    <li>Your real reward depends on your score relative to everyone else&apos;s</li>
+                  </ul>
+                </div>
+              </>
             )}
 
-            {/* Projection Table */}
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Timeline</th>
-                  <th>Base Yield</th>
-                  <th>PSE Bonus</th>
-                  <th>Total Bag</th>
-                  <th>Growth</th>
-                  <th>PSE Share</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ textAlign: "left" }}>1 Month</td>
-                  <td className="mono">{formatTX(summary.oneMonth.baseYield)}</td>
-                  <td className="mono" style={{ color: "var(--tx-neon-dark, #4a7a1a)" }}>+{formatTX(summary.oneMonth.pseBonus)} <span style={{ fontSize: "0.5rem", opacity: 0.5, fontWeight: 400 }}>(peak phase)</span></td>
-                  <td className="mono">{summary.oneMonth.totalBag.toLocaleString()}</td>
-                  <td className="mono" style={{ color: "var(--accent-olive)", fontSize: "0.7rem" }}>
-                    +{stakedAmount > 0 ? ((summary.oneMonth.totalBag / stakedAmount - 1) * 100).toFixed(1) : "0.0"}%
-                  </td>
-                  <td className="mono" style={{ fontSize: "0.65rem", opacity: 0.5 }}>
-                    {(summary.oneMonth.baseYield + summary.oneMonth.pseBonus) > 0
-                      ? ((summary.oneMonth.pseBonus / (summary.oneMonth.baseYield + summary.oneMonth.pseBonus)) * 100).toFixed(0)
-                      : "0"}%
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ textAlign: "left" }}>12 Months</td>
-                  <td className="mono">{formatTX(summary.oneYear.baseYield)}</td>
-                  <td className="mono" style={{ color: "var(--tx-neon-dark, #4a7a1a)" }}>+{formatTX(summary.oneYear.pseBonus)}</td>
-                  <td className="mono">{summary.oneYear.totalBag.toLocaleString()}</td>
-                  <td className="mono" style={{ color: "var(--accent-olive)", fontSize: "0.7rem" }}>
-                    +{stakedAmount > 0 ? ((summary.oneYear.totalBag / stakedAmount - 1) * 100).toFixed(1) : "0.0"}%
-                  </td>
-                  <td className="mono" style={{ fontSize: "0.65rem", opacity: 0.5 }}>
-                    {(summary.oneYear.baseYield + summary.oneYear.pseBonus) > 0
-                      ? ((summary.oneYear.pseBonus / (summary.oneYear.baseYield + summary.oneYear.pseBonus)) * 100).toFixed(0)
-                      : "0"}%
-                  </td>
-                </tr>
-                <tr style={{
-                  fontWeight: 700,
-                  background: "rgba(177,252,3,0.08)",
-                  borderLeft: "2px solid var(--tx-neon)",
-                }}>
-                  <td style={{ textAlign: "left" }}>{totalProjMonths} Months</td>
-                  <td className="mono">{formatTX(summary.fullCycle.baseYield)}</td>
-                  <td className="mono" style={{ color: "var(--tx-neon-dark, #4a7a1a)" }}>+{formatTX(summary.fullCycle.pseBonus)}</td>
-                  <td className="mono">{summary.fullCycle.totalBag.toLocaleString()}</td>
-                  <td className="mono" style={{ color: "var(--accent-olive)", fontWeight: 700, fontSize: "0.75rem" }}>
-                    +{stakedAmount > 0 ? ((summary.fullCycle.totalBag / stakedAmount - 1) * 100).toFixed(1) : "0.0"}%
-                  </td>
-                  <td className="mono" style={{ fontSize: "0.7rem", color: "var(--accent-olive)" }}>
-                    {psePct}%
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* (trust context moved above table for better proximity to numbers) */}
+            {!stakedAmount && (
+              <div style={{
+                marginTop: 16, padding: "20px", borderRadius: 12,
+                background: "rgba(0,0,0,0.02)", border: "1px dashed rgba(0,0,0,0.1)",
+                textAlign: "center",
+              }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🧮</div>
+                <div style={{ fontSize: "0.78rem", color: "var(--text-medium)", fontWeight: 500 }}>
+                  Enter a stake amount above to see your estimated PSE distribution
+                </div>
+                <div style={{ fontSize: "0.62rem", color: "var(--text-light)", marginTop: 4 }}>
+                  Or connect your wallet to use your current staked amount
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right: Outcome + Insights */}
+        {/* Right: Key Facts + CTA */}
         <div className="col-5" style={{ display: "flex", flexDirection: "column" }}>
-          {/* Outcome Card */}
-          <div className="outcome-card mb-3">
-            <span style={{ fontSize: "0.82rem", opacity: 0.6 }}>Your Bag After {totalProjMonths} Months</span>
-            <div className="flex-between mt-2">
-              <div className="outcome-value">{summary.fullCycle.totalBag.toLocaleString()}</div>
-              <div className="outcome-pct">+{growthPct}%</div>
+          {/* Distribution Info Card */}
+          <div style={{
+            padding: "14px 16px", borderRadius: 12, marginBottom: 12,
+            background: "var(--tx-dark-green)", color: "#fff",
+          }}>
+            <div style={{ fontSize: "0.65rem", opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>
+              Current Distribution Cycle
             </div>
-
-            {/* Insight line + comparison anchor */}
+            <div className="responsive-grid-2" style={{ gap: 8 }}>
+              <div>
+                <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Cycle</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
+                  #{pseInfo.distributionNumber} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>of 84</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Days Until Distribution</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
+                  {daysUntil} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>days</span>
+                </div>
+              </div>
+            </div>
             {stakedAmount > 0 && (
               <div style={{
-                marginTop: 12, padding: "8px 10px", borderRadius: 8,
-                background: "rgba(177,252,3,0.1)", border: "1px solid rgba(177,252,3,0.2)",
-                fontSize: "0.7rem", lineHeight: 1.5, color: "rgba(250,255,228,0.9)",
+                marginTop: 10, padding: "8px 10px", borderRadius: 8,
+                background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
+                fontSize: "0.6rem", color: "var(--tx-neon-light)",
               }}>
-                Your stake grows <strong>{growthMultiple}x</strong>,<strong>{psePct}%</strong> of gains come from PSE rewards.
-                {parseFloat(growthMultiple) > 3 && (
-                  <span style={{ display: "block", marginTop: 4, fontSize: "0.62rem", opacity: 0.7 }}>
-                    This projected growth exceeds typical staking returns,driven by early-cycle PSE advantage.
-                  </span>
-                )}
+                If you start staking now, you&apos;ll accumulate ~{daysUntil} days of score before the next distribution on the 6th.
               </div>
             )}
-
-            {/* Value Range */}
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(237,233,224,0.12)" }}>
-              <span style={{ fontSize: "0.65rem", opacity: 0.45, display: "block", marginBottom: 6 }}>Potential Value Range</span>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center" }}>
-                <div>
-                  <div style={{ fontSize: "0.55rem", opacity: 0.35 }}>at ${(tp * 0.5).toFixed(2)}</div>
-                  <div className="mono" style={{ fontSize: "0.9rem", fontWeight: 600, marginTop: 1 }}>
-                    {formatUSD(valueLow)}
-                  </div>
-                </div>
-                <div style={{ background: "rgba(177,252,3,0.1)", borderRadius: 6, padding: "4px 0" }}>
-                  <div style={{ fontSize: "0.55rem", opacity: 0.5, color: "#B1FC03" }}>at ${tp.toFixed(2)}</div>
-                  <div className="mono" style={{ fontSize: "1rem", fontWeight: 700, marginTop: 1, color: "#B1FC03" }}>
-                    {formatUSD(valueMid)}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.55rem", opacity: 0.35 }}>at ${(tp * 2).toFixed(2)}</div>
-                  <div className="mono" style={{ fontSize: "0.9rem", fontWeight: 600, marginTop: 1 }}>
-                    {formatUSD(valueHigh)}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Your PSE Position,tiered */}
-          {stakedAmount > 0 && bondedTokens > 0 && (
-            <div style={{
-              marginBottom: 12, padding: "12px 14px", borderRadius: 12,
-              background: "var(--tx-dark-green)", color: "#fff",
-            }}>
-              <div style={{ fontSize: "0.65rem", opacity: 0.45, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Your PSE Position
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{
-                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      background: positionTier.dot,
-                      boxShadow: `0 0 6px ${positionTier.dot}40`,
-                    }} />
-                    <span style={{ fontSize: "clamp(0.9rem, 3vw, 1.3rem)", fontWeight: 700, fontFamily: "var(--font-mono)", color: positionTier.color }}>
-                      {positionTier.label}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: "0.6rem", opacity: 0.4, marginTop: 4, paddingLeft: 16, wordBreak: "break-word" }}>
-                    {userSharePct.toFixed(4)}% of bonded pool · {isAboveAvg ? "above average stake" : "increase stake to improve PSE share"}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.65rem", opacity: 0.5 }}>Cycle 1 of 84</div>
-                  <div style={{ fontSize: "0.7rem", color: "var(--tx-neon-light)", fontWeight: 600 }}>Early Phase</div>
-                </div>
-              </div>
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                <Tooltip text="This advantage decreases with every new staker entering the network." position="bottom" />
-              </div>
-            </div>
-          )}
-
-          {/* APR + PSE cards */}
-          <div className="grid-2">
-            <div className="accent-card card-orange" style={{ minHeight: 130 }}>
+          {/* APR + PSE Summary */}
+          <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div className="accent-card card-orange" style={{ minHeight: 110 }}>
               <div className="blob-dark" style={{ width: 120, height: 120 }} />
               <div className="card-content">
                 <span className="card-title">Base APR <Tooltip text={apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
-                <div className="card-value" style={{ fontSize: "2rem" }}>
+                <div className="card-value" style={{ fontSize: "1.8rem" }}>
                   {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
                 </div>
               </div>
             </div>
-            <div className="accent-card card-olive" style={{ minHeight: 130 }}>
+            <div className="accent-card card-olive" style={{ minHeight: 110 }}>
               <div className="card-content">
-                <span className="card-title" style={{ opacity: 0.8, fontSize: "0.62rem" }}>Initial Monthly PSE (est.) <Tooltip text={`For ${formatNumber(wallet.connected ? wallet.stakedAmount : stakedAmount)} TX. Front-loaded, highest in early cycles.`} /></span>
-                <div className="card-value" style={{ fontSize: "1.6rem" }}>
-                  {formatTX(nextPSEReward)}
+                <span className="card-title" style={{ opacity: 0.8, fontSize: "0.62rem" }}>Monthly Pool</span>
+                <div className="card-value" style={{ fontSize: "1.5rem" }}>
+                  ~476M <span style={{ fontSize: "0.7rem" }}>TX</span>
                 </div>
+                <div style={{ fontSize: "0.5rem", opacity: 0.5 }}>community stakers share</div>
               </div>
             </div>
           </div>
 
-          {/* Start Now vs Wait + Sensitivity + Optimization */}
-          {waitComparison && (
-            <div style={{ marginTop: 12 }}>
-              <div className="compare-box">
-                <div className="compare-row" style={{ flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="compare-label">Lock in before competition increases</div>
-                    <div className="compare-value">{formatNumber(waitComparison.nowBag)} TX</div>
-                  </div>
-                  <span className="text-xs text-light">vs</span>
-                  <div style={{ textAlign: "right", minWidth: 0 }}>
-                    <div className="compare-label">Wait 3 Months</div>
-                    <div className="compare-value" style={{ opacity: 0.5 }}>{formatNumber(waitComparison.waitBag)} TX</div>
-                  </div>
+          {/* PSE Key Facts */}
+          <div className="panel" style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>📋 PSE Key Facts</div>
+            <div style={{ fontSize: "0.62rem", lineHeight: 2, color: "var(--text-medium)" }}>
+              {[
+                { icon: "💰", text: "100 billion TX distributed over 84 months (7 years)" },
+                { icon: "👥", text: "40% goes to community stakers (~476M TX/month)" },
+                { icon: "🔄", text: "All scores reset after each monthly distribution" },
+                { icon: "⏱️", text: "Score = Your Stake × Duration in seconds" },
+                { icon: "📦", text: "Rewards auto-compound as new delegations" },
+                { icon: "✅", text: "Must have active delegation at distribution time" },
+                { icon: "📅", text: "Distribution happens on the 6th of every month" },
+                { icon: "🔓", text: "7 day unbonding period for undelegation" },
+              ].map((fact, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ flexShrink: 0 }}>{fact.icon}</span>
+                  <span>{fact.text}</span>
                 </div>
-                <div className="compare-cost">
-                  Waiting costs ~{formatNumber(waitComparison.diff)} TX ({waitComparison.diffPct}% less)
-                </div>
-              </div>
-
-              {/* Sensitivity Feedback */}
-              <div className="responsive-grid-2" style={{
-                marginTop: 8, gap: 6,
-              }}>
-                <div style={{
-                  padding: "6px 10px", borderRadius: 8,
-                  background: "rgba(177,252,3,0.04)", border: "1px solid rgba(177,252,3,0.1)",
-                  fontSize: "0.62rem", lineHeight: 1.35,
-                }}>
-                  <span style={{ fontWeight: 600, color: "var(--accent-olive)" }}>+10% stake</span>
-                  <span style={{ opacity: 0.6 }}> → +{extraBagGrowth > 0 ? formatNumber(extraBagGrowth) : "0"} TX more</span>
-                </div>
-                <div style={{
-                  padding: "6px 10px", borderRadius: 8,
-                  background: "rgba(180,74,62,0.04)", border: "1px solid rgba(180,74,62,0.1)",
-                  fontSize: "0.62rem", lineHeight: 1.35,
-                }}>
-                  <span style={{ fontWeight: 600, color: "#b44a3e" }}>+3 month delay</span>
-                  <span style={{ opacity: 0.6 }}> → -{delayCostPct}% outcome</span>
-                </div>
-              </div>
-
-              {/* Optimization Hint */}
-              {extraBagGrowth > 0 && parseFloat(waitComparison.diffPct) > 5 && (
-                <div style={{
-                  marginTop: 6, padding: "6px 10px", borderRadius: 8,
-                  fontSize: "0.62rem", lineHeight: 1.4, opacity: 0.6,
-                }}>
-                  Entering earlier has higher impact than increasing stake size.
-                </div>
-              )}
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* PSE Explainer,Finite Emission Highlight */}
+          {/* Allocation */}
+          <div className="panel" style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>PSE Allocation Breakdown</div>
+            <div className="allocation-grid">
+              {Object.entries(PSE_ALLOCATION).map(([key, value]) => (
+                <div key={key} className={`allocation-item${key === "community" ? " community-highlight" : ""}`}
+                  style={key === "community" ? {
+                    background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.15)",
+                    borderRadius: 6, padding: "4px 8px",
+                  } : undefined}
+                >
+                  <span className="label">
+                    {key.replace(/([A-Z])/g, " $1")}
+                    {key === "community" && <span style={{ fontSize: "0.55rem", color: "var(--tx-neon-dark, var(--accent-olive))", marginLeft: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>← YOU</span>}
+                  </span>
+                  <span className={`value ${key === "community" ? "highlight" : ""}`}
+                    style={key === "community" ? { fontWeight: 700, color: "var(--accent-olive)" } : undefined}
+                  >
+                    {((value as number) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA: Check real score */}
+          <button
+            className="btn-olive"
+            onClick={() => setActiveTab("pse")}
+            style={{ width: "100%", padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer", marginBottom: 12 }}
+          >
+            🔍 Check Your Real On-Chain PSE Score
+          </button>
+
+          {/* Disclaimer */}
           <div style={{
-            marginTop: 16, padding: "14px 16px", borderRadius: 12, flex: 1,
-            background: "var(--tx-dark-green)", color: "rgba(255,255,255,0.85)",
-            fontSize: "0.72rem", lineHeight: 1.55, overflow: "hidden",
+            padding: "12px 14px", borderRadius: 10,
+            background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)",
+            fontSize: "0.58rem", lineHeight: 1.6, color: "var(--text-light)",
           }}>
-            <div style={{ fontWeight: 700, fontSize: "0.78rem", marginBottom: 4, color: "var(--tx-neon)" }}>
-              Why PSE matters
+            <strong style={{ color: "var(--text-medium)" }}>⚠️ Disclaimer:</strong> This calculator provides
+            theoretical upper bound estimates based on simplified assumptions. It is NOT a prediction of actual
+            rewards. Only the on-chain PSE module determines real distributions. The total network score
+            (sum of all stakers&apos; scores) is unknown to this calculator and significantly affects results.
+            For your real PSE position, use the score lookup in the PSE tab. This is not financial advice.
+            <div style={{ marginTop: 6 }}>
+              Source:{" "}
+              <a href="https://tx.org" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-olive)", textDecoration: "none" }}>
+                TX Whitepaper v1.10 (MiCA)
+              </a>
             </div>
-            <div style={{
-              padding: "6px 10px", borderRadius: 8, marginBottom: 10,
-              background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
-              fontSize: "0.68rem", color: "var(--tx-neon-light)", wordBreak: "break-word",
-            }}>
-              Finite emission: 100B TX over 84 months. Early participation captures disproportionate rewards because the bonded pool is smallest now.
-            </div>
-            <div className="responsive-grid-3" style={{ gap: 10 }}>
-              <div>
-                <div style={{ fontWeight: 600, color: "var(--tx-neon-light)", marginBottom: 2, fontSize: "0.65rem" }}>Stake Size</div>
-                <div style={{ opacity: 0.6, fontSize: "0.62rem" }}>Your share of the bonded pool determines PSE allocation</div>
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, color: "var(--tx-neon-light)", marginBottom: 2, fontSize: "0.65rem" }}>Early Entry</div>
-                <div style={{ opacity: 0.6, fontSize: "0.62rem" }}>Score = Stake x Duration. Compounding grows your advantage each cycle</div>
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, color: "var(--tx-neon-light)", marginBottom: 2, fontSize: "0.65rem" }}>Competition</div>
-                <div style={{ opacity: 0.6, fontSize: "0.62rem" }}>Fewer stakers early = bigger share. Your reward decreases as network grows</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 text-xs text-light" style={{ padding: "0 4px", lineHeight: 1.6, wordBreak: "break-word" }}>
-            This is a &quot;what if&quot; simulator,not your actual PSE rewards.
-            To see your real on-chain PSE score, go to the{" "}
-            <button
-              onClick={() => setActiveTab("pse")}
-              style={{ background: "none", border: "none", color: "var(--accent-olive)", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: "inherit" }}
-            >
-              PSE tab
-            </button>
-            {" "}and fetch your address. Not financial advice.
           </div>
         </div>
       </div>
@@ -2308,7 +2212,7 @@ function PortfolioTab({
           padding: "16px 18px", color: "#fff",
         }}>
           <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>
-            Est. Next PSE Reward (Distribution #{pseInfo.distributionNumber})
+            Max Est. Next PSE (Distribution #{pseInfo.distributionNumber})
           </div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
             <div>
@@ -2326,10 +2230,10 @@ function PortfolioTab({
             </div>
           </div>
           <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.25)", marginTop: 6 }}>
-            Estimate only.{" "}
+            Theoretical max assuming full cycle staking. Real rewards depend on your staking duration.{" "}
             <a href="https://tx-pse.today" target="_blank" rel="noopener noreferrer" style={{ color: "var(--tx-neon)", textDecoration: "none" }}>
               tx-pse.today
-            </a>{" "}for exact calculation.
+            </a>{" "}for exact calculation, or check the PSE tab for your on-chain score.
           </div>
         </div>
 

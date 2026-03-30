@@ -1,6 +1,6 @@
 import type { TokenData, StakingData, ValidatorInfo, NetworkStatus } from "./types";
 import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-config";
-import { calculateStakingAPR, getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES } from "./pse-calculator";
+import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES } from "./pse-calculator";
 
 const COINGECKO_API = "https://api.coingecko.com/api/v3";
 const COINGECKO_ID = "tx"; // Changed from "coreum" after SOLO+Coreum merge (March 6, 2026)
