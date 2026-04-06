@@ -16,6 +16,7 @@ import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
 import {
   getPSEDistributionInfo,
+  fetchPSESchedule,
   estimatePSERewardFullPeriod,
   PSE_CONFIG,
   PSE_ALLOCATION,
@@ -93,11 +94,17 @@ export default function HomePage() {
     if (txResult) trackEvent("tx_success", { tx_type: txResult.type, tx_hash: txResult.hash });
   }, [txResult]);
 
-  // ─── PSE Countdown State ───
+  // ─── PSE Countdown State (uses real on-chain distribution schedule) ───
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [distributed, setDistributed] = useState(0);
   const startTime = useRef(Date.now());
-  const pseInfo = useMemo(() => getPSEDistributionInfo(), []);
+  const [onChainSchedule, setOnChainSchedule] = useState<number[] | null>(null);
+  useEffect(() => {
+    fetchPSESchedule().then((schedule) => {
+      if (schedule.length > 0) setOnChainSchedule(schedule);
+    });
+  }, []);
+  const pseInfo = useMemo(() => getPSEDistributionInfo(onChainSchedule ?? undefined), [onChainSchedule]);
   const targetMs = pseInfo.nextDistribution.getTime();
 
   const cycleProgress = useMemo(() => {
