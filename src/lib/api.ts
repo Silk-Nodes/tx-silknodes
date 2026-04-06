@@ -26,13 +26,16 @@ function calculateCirculatingSupply(totalOnChainSupply: number): number {
   return totalOnChainSupply - pseRemaining;
 }
 
-// === Token Price & Market Data (CoinGecko + on-chain supply) ===
+// Official TX chain data API for circulating supply
+const TX_CHAIN_API = "https://api.mainnet-1.tx.org/api/chain-data/v1";
+
+// === Token Price & Market Data (CoinGecko + official TX API + on-chain supply) ===
 export async function fetchTokenData(): Promise<TokenData> {
   try {
-    // Fetch price + market data from CoinGecko (ID: "tx") + total supply from on-chain
-    const [cgRes, supplyRes] = await Promise.allSettled([
+    const [cgRes, supplyRes, txCircRes] = await Promise.allSettled([
       fetchWithTimeout(`${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`),
       fetchWithTimeout(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
+      fetchWithTimeout(`${TX_CHAIN_API}/circulating-supply`),
     ]);
 
     const cgData = cgRes.status === "fulfilled" ? await cgRes.value.json() : null;
@@ -47,11 +50,16 @@ export async function fetchTokenData(): Promise<TokenData> {
       ? toDisplay(supplyData.amount.amount)
       : (cgData?.market_data?.total_supply ?? 0);
 
-    // Use CoinGecko circulating supply if available (matches what users see on CG)
+    // Circulating supply priority: 1) Official TX API, 2) CoinGecko, 3) calculated
+    const txCirculating = txCircRes.status === "fulfilled"
+      ? parseFloat(await txCircRes.value.text())
+      : 0;
     const cgCirculating = cgData?.market_data?.circulating_supply ?? 0;
-    const circulatingSupply = cgCirculating > 0
-      ? cgCirculating
-      : calculateCirculatingSupply(totalOnChain);
+    const circulatingSupply = txCirculating > 0
+      ? txCirculating
+      : cgCirculating > 0
+        ? cgCirculating
+        : calculateCirculatingSupply(totalOnChain);
 
     // Use CoinGecko market cap directly to match what users see
     const cgMarketCap = cgData?.market_data?.market_cap?.usd ?? 0;
