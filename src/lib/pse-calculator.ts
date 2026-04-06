@@ -488,9 +488,12 @@ export function getPSEDistributionInfo(onChainSchedule?: number[]) {
     if (nextTs) {
       const nextIdx = onChainSchedule.indexOf(nextTs);
       nextDistribution = new Date(nextTs * 1000);
-      // nextIdx = 0 means no distributions happened yet → Cycle 1
-      // nextIdx = 1 means 1 distribution done → Cycle 2
-      completedCycles = nextIdx;
+      // The schedule may not include past distributions (they get removed after execution).
+      // Total distributions = 84. If schedule has N entries and next is at index nextIdx,
+      // then completed = 84 - N + nextIdx (past distributions not in schedule + past ones still in schedule).
+      // Example: schedule has 83 entries (Apr 6 done, removed), nextIdx=0 → completed = 84-83+0 = 1
+      const pastDistributionsRemoved = 84 - onChainSchedule.length;
+      completedCycles = pastDistributionsRemoved + nextIdx;
       currentCycle = completedCycles + 1;
     } else {
       // All distributions are in the past — PSE program complete
