@@ -151,9 +151,36 @@ export default function HomePage() {
   const bondedTokens = stakingData?.bondedTokens ?? 0;
   const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
   const pseEligibleBonded = stakingData?.pseEligibleBonded ?? bondedTokens;
-  const nextPSEReward = pseEligibleBonded > 0
-    ? estimatePSERewardFullPeriod(wallet.connected ? wallet.stakedAmount : stakedAmount, bondedTokens, excludedPSEStake)
-    : 0;
+
+  // Real network total PSE score (fetched from cached JSON, updated every 6h)
+  const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`${BASE_PATH}/pse-network-score.json`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.networkTotalScore) setNetworkTotalScore(data.networkTotalScore); })
+      .catch(() => {});
+  }, []);
+
+  // Estimate PSE reward using real network score when available
+  const estimatePSEWithNetworkScore = useCallback((userStake: number) => {
+    if (userStake <= 0) return 0;
+    if (networkTotalScore && bondedTokens > 0) {
+      // Use real network score: user's full-cycle score / network total score * monthly pool
+      // User's full-cycle score = stake(ucore) * cycle_duration(seconds)
+      // Network score already includes all stakers' stake(ucore) * duration(seconds)
+      const userStakeUcore = BigInt(Math.round(userStake)) * BigInt(1_000_000);
+      const cycleDuration = BigInt(30 * 24 * 3600); // 30 days in seconds
+      const userFullCycleScore = userStakeUcore * cycleDuration;
+      const totalScore = BigInt(networkTotalScore);
+      const PRECISION = BigInt(1_000_000_000_000);
+      const share = Number((userFullCycleScore * PRECISION) / totalScore) / Number(PRECISION);
+      return share * PSE_CONFIG.monthlyEmission;
+    }
+    // Fallback to simple ratio estimate
+    return estimatePSERewardFullPeriod(userStake, bondedTokens, excludedPSEStake);
+  }, [networkTotalScore, bondedTokens, excludedPSEStake]);
+
+  const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
   const [addrCopied, setAddrCopied] = useState(false);
@@ -453,6 +480,7 @@ export default function HomePage() {
             setShowWalletModal={setShowWalletModal}
             excludedPSEStake={excludedPSEStake}
             pseEligibleBonded={pseEligibleBonded}
+            estimatePSE={estimatePSEWithNetworkScore}
           />
         )}
 
@@ -469,6 +497,7 @@ export default function HomePage() {
             wallet={wallet}
             setActiveTab={setActiveTab}
             setShowWalletModal={setShowWalletModal}
+            networkTotalScore={networkTotalScore}
           />
         )}
 
@@ -486,6 +515,7 @@ export default function HomePage() {
             stakingData={stakingData}
             setActiveTab={setActiveTab}
             pseInfo={pseInfo}
+            estimatePSE={estimatePSEWithNetworkScore}
           />
         )}
 
@@ -517,6 +547,7 @@ export default function HomePage() {
             redelegate={redelegate}
             refresh={refresh}
             txPending={txPending}
+            estimatePSE={estimatePSEWithNetworkScore}
           />
         )}
 
@@ -586,6 +617,7 @@ function OverviewTab({
   timeLeft, pad, cycleProgress, distributed, pseInfo, networkStatus,
   tokenData, stakingData, setActiveTab, wallet, claimRewards, txPending,
   refresh, setShowWalletModal, excludedPSEStake, pseEligibleBonded,
+  estimatePSE,
 }: any) {
   const totalSupply = tokenData?.circulatingSupply ?? 0;
   const stakingPct = stakingRatio.toFixed(1);
@@ -855,11 +887,11 @@ function OverviewTab({
                     Max Est. Next PSE Reward
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 600, color: "var(--tx-neon)" }}>
-                    ~{formatNumber(Math.round(estimatePSERewardFullPeriod(wallet.stakedAmount, bondedTokens, excludedPSEStake)))} TX
+                    ~{formatNumber(Math.round(estimatePSE(wallet.stakedAmount)))} TX
                   </div>
                   {price > 0 && (
                     <div style={{ fontSize: "0.65rem", color: "rgba(177,252,3,0.5)", marginTop: 2 }}>
-                      ~{formatUSD(estimatePSERewardFullPeriod(wallet.stakedAmount, bondedTokens, excludedPSEStake) * price)}
+                      ~{formatUSD(estimatePSE(wallet.stakedAmount) * price)}
                     </div>
                   )}
                 </div>
@@ -1105,6 +1137,7 @@ function OverviewTab({
 function PSETab({
   pseInfo, timeLeft, pad, cycleProgress, distributed,
   nextPSEReward, stakedAmount, bondedTokens, wallet, setActiveTab, setShowWalletModal,
+  networkTotalScore,
 }: any) {
   // Live PSE score lookup
   const [pseAddress, setPseAddress] = useState(wallet.connected ? wallet.address : "");
@@ -1128,14 +1161,12 @@ function PSETab({
 
   // Fetch PSE params (excluded addresses) and clearing balances from Silk Nodes API
   const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({ excludedAddresses: PSE_EXCLUDED_ADDRESSES, communityBalance: 40_000_000_000 });
-  const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
   useEffect(() => {
     async function fetchPSEParams() {
       try {
-        const [paramsRes, balancesRes, networkScoreRes] = await Promise.all([
+        const [paramsRes, balancesRes] = await Promise.all([
           fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/params"),
           fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/clearing_account_balances"),
-          fetch(`${BASE_PATH}/pse-network-score.json`).catch(() => null),
         ]);
         const paramsData = await paramsRes.json();
         const balancesData = await balancesRes.json();
@@ -1143,13 +1174,6 @@ function PSETab({
         const communityEntry = (balancesData?.balances || []).find((b: any) => b.clearing_account === "pse_community");
         const communityBalance = communityEntry ? Number(BigInt(communityEntry.balance) / BigInt(1_000_000)) : 40_000_000_000;
         setPseParams({ excludedAddresses: excluded, communityBalance });
-        // Fetch cached network total score (updated every 6h by GitHub Action)
-        if (networkScoreRes && networkScoreRes.ok) {
-          const scoreData = await networkScoreRes.json();
-          if (scoreData?.networkTotalScore) {
-            setNetworkTotalScore(scoreData.networkTotalScore);
-          }
-        }
       } catch { /* use defaults */ }
     }
     fetchPSEParams();
@@ -1667,7 +1691,7 @@ function CalculatorTab({
   stakeInput, setStakeInput,
   targetPrice, setTargetPrice,
   stakedAmount, apr, nextPSEReward, wallet,
-  tokenData, stakingData, setActiveTab, pseInfo,
+  tokenData, stakingData, setActiveTab, pseInfo, estimatePSE,
 }: any) {
   const bondedTokens = stakingData?.bondedTokens ?? 0;
   const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
@@ -1675,9 +1699,9 @@ function CalculatorTab({
   const price = tokenData?.price ?? 0;
   const tp = parseFloat(targetPrice) || 0;
 
-  // Single month honest estimate
-  const monthlyPSE = pseEligibleBonded > 0 && stakedAmount > 0
-    ? estimatePSERewardFullPeriod(stakedAmount, bondedTokens, excludedPSEStake)
+  // Single month estimate using real network score
+  const monthlyPSE = stakedAmount > 0
+    ? estimatePSE(stakedAmount)
     : 0;
   const userSharePct = pseEligibleBonded > 0 && stakedAmount > 0
     ? (stakedAmount / pseEligibleBonded * 100)
@@ -2244,7 +2268,7 @@ function CalculatorTab({
 function PortfolioTab({
   wallet, price, apr, bondedTokens, excludedPSEStake, pseEligibleBonded,
   pseInfo, stakingData, claimRewards, delegate, undelegate, redelegate,
-  refresh, txPending,
+  refresh, txPending, estimatePSE,
 }: any) {
   const [actionTab, setActionTab] = useState<"delegate" | "undelegate" | "redelegate">("delegate");
   const [amount, setAmount] = useState("");
@@ -2321,8 +2345,8 @@ function PortfolioTab({
   // Reset confirm state when switching tabs/validators
   useEffect(() => { setConfirmUndelegate(false); }, [actionTab, selectedSrcValidator]);
 
-  const nextPSEReward = pseEligibleBonded > 0 && wallet.stakedAmount > 0
-    ? estimatePSERewardFullPeriod(wallet.stakedAmount, bondedTokens, excludedPSEStake)
+  const nextPSEReward = wallet.stakedAmount > 0
+    ? estimatePSE(wallet.stakedAmount)
     : 0;
 
   return (
