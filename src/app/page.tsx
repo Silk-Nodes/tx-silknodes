@@ -1128,12 +1128,14 @@ function PSETab({
 
   // Fetch PSE params (excluded addresses) and clearing balances from Silk Nodes API
   const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({ excludedAddresses: PSE_EXCLUDED_ADDRESSES, communityBalance: 40_000_000_000 });
+  const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
   useEffect(() => {
     async function fetchPSEParams() {
       try {
-        const [paramsRes, balancesRes] = await Promise.all([
+        const [paramsRes, balancesRes, networkScoreRes] = await Promise.all([
           fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/params"),
           fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/clearing_account_balances"),
+          fetch(`${BASE_PATH}/pse-network-score.json`).catch(() => null),
         ]);
         const paramsData = await paramsRes.json();
         const balancesData = await balancesRes.json();
@@ -1141,6 +1143,13 @@ function PSETab({
         const communityEntry = (balancesData?.balances || []).find((b: any) => b.clearing_account === "pse_community");
         const communityBalance = communityEntry ? Number(BigInt(communityEntry.balance) / BigInt(1_000_000)) : 40_000_000_000;
         setPseParams({ excludedAddresses: excluded, communityBalance });
+        // Fetch cached network total score (updated every 6h by GitHub Action)
+        if (networkScoreRes && networkScoreRes.ok) {
+          const scoreData = await networkScoreRes.json();
+          if (scoreData?.networkTotalScore) {
+            setNetworkTotalScore(scoreData.networkTotalScore);
+          }
+        }
       } catch { /* use defaults */ }
     }
     fetchPSEParams();
@@ -1159,14 +1168,12 @@ function PSETab({
     }
     setPseLookup({ loading: true, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
     try {
-      const [scoreRes, delegRes, networkScoreRes] = await Promise.all([
+      const [scoreRes, delegRes] = await Promise.all([
         fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${address}`),
         fetchWithTimeout(`https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}`),
-        fetch(`/tx-silknodes/pse-network-score.json`).catch(() => null),
       ]);
       const scoreData = await scoreRes.json();
       const delegData = await delegRes.json().catch(() => null);
-      const networkScoreData = await networkScoreRes?.json().catch(() => null);
 
       if (scoreData.code || scoreData.error) {
         const rawError = scoreData.message || scoreData.error || "Failed to fetch PSE score";
@@ -1185,23 +1192,25 @@ function PSETab({
         }
       }
 
-      // Use cached real network total score (updated every 6h via GitHub Actions)
-      // Falls back to estimation if cache is unavailable
-      let networkScore: number;
-      if (networkScoreData?.networkTotalScore) {
-        // Use the real summed score from all eligible delegators
-        networkScore = Number(BigInt(networkScoreData.networkTotalScore));
+      // Calculate share using real network total score (from enumeration cache)
+      // or fall back to rough estimate if cache unavailable
+      let share: number;
+      if (networkTotalScore) {
+        // Real network score from pse-network-score.json (updated every 6h)
+        const userScore = BigInt(scoreRaw);
+        const totalScore = BigInt(networkTotalScore);
+        // Use BigInt division with precision multiplier to avoid overflow
+        const PRECISION = BigInt(1_000_000_000_000);
+        share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
       } else {
-        // Fallback: estimate from bonded tokens (less accurate)
+        // Fallback: rough estimate (bondedTokens in ucore * seconds since TGE)
         const tgeTimestamp = 1772755200; // 2026-03-06T00:00:00Z
         const now = Date.now() / 1000;
         const elapsed = now - tgeTimestamp;
         const totalBondedUcore = bondedTokens * 1_000_000;
-        networkScore = totalBondedUcore * elapsed;
+        const networkScoreEst = totalBondedUcore * elapsed;
+        share = Number(BigInt(scoreRaw)) / networkScoreEst;
       }
-
-      const share = Number(BigInt(scoreRaw)) / networkScore;
-      // Use live community balance / 84 months for monthly estimate
       const monthlyFromPool = pseParams.communityBalance / 84;
       const monthlyTX = monthlyFromPool * share;
       const annualTX = monthlyTX * 12;
@@ -1219,7 +1228,7 @@ function PSETab({
     } catch (err: any) {
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: err.message || "Failed to fetch", height: null });
     }
-  }, [pseAddress, bondedTokens, pseParams]);
+  }, [pseAddress, bondedTokens, pseParams, networkTotalScore]);
 
   // Auto-fetch when wallet connects
   useEffect(() => {
@@ -1384,7 +1393,7 @@ function PSETab({
               <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
                 <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>On-Chain Score</div>
                 <div style={{ fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)", wordBreak: "break-all" }}>
-                  {Number(BigInt(pseLookup.score) / BigInt(1_000_000)).toLocaleString()}
+                  {BigInt(pseLookup.score).toLocaleString()}
                 </div>
               </div>
               <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
