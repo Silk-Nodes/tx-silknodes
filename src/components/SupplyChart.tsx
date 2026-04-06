@@ -47,7 +47,7 @@ const TOTAL_MONTHLY_PSE = 1_190_476_190; // 100B / 84
 export default function SupplyChart({ currentSupply, currentStakingRatio, currentInflation }: SupplyChartProps) {
   const chartData = useMemo(() => {
     const pseInfo = getPSEDistributionInfo();
-    const distributionsDone = Math.max(0, pseInfo.distributionNumber - 1);
+    const distributionsDone = Math.max(0, pseInfo.completedCycles);
     const pseMonthsRemaining = Math.max(0, 84 - distributionsDone);
 
     let supply = currentSupply || 1_927_475_509;

@@ -654,9 +654,9 @@ function OverviewTab({
 }: any) {
   const totalSupply = tokenData?.circulatingSupply ?? 0;
   const stakingPct = stakingRatio.toFixed(1);
-  const rawPseProgress = (pseInfo.distributionNumber - 1) / pseInfo.totalDistributions * 100;
+  const rawPseProgress = (pseInfo.completedCycles) / pseInfo.totalDistributions * 100;
   const pseProgressPct = rawPseProgress < 1 ? "<1" : rawPseProgress.toFixed(1);
-  const remainingMonths = 84 - (pseInfo.distributionNumber - 1);
+  const remainingMonths = 84 - pseInfo.completedCycles;
   const remainingYears = (remainingMonths / 12).toFixed(1);
   const activeValidators = networkStatus?.activeValidators ?? stakingData?.activeValidators ?? 0;
 
@@ -666,14 +666,14 @@ function OverviewTab({
   else if (stakingRatio > 25) insights.push(`${stakingPct}% of circulating supply staked,strong early commitment, small bonded pool = high PSE per staker`);
   else insights.push(`${stakingPct}% of circulating supply staked,early phase, room to grow`);
 
-  if (pseInfo.distributionNumber <= 6) insights.push("PSE just started,early phase advantage is highest now");
-  else if (pseInfo.distributionNumber <= 24) insights.push("PSE in early phase,entry still captures significant advantage");
-  else insights.push(`PSE at cycle ${pseInfo.distributionNumber},${(100 - parseFloat(pseProgressPct)).toFixed(0)}% of rewards remaining`);
+  if (pseInfo.currentCycle <= 6) insights.push("PSE just started,early phase advantage is highest now");
+  else if (pseInfo.currentCycle <= 24) insights.push("PSE in early phase,entry still captures significant advantage");
+  else insights.push(`PSE at cycle ${pseInfo.currentCycle},${(100 - parseFloat(pseProgressPct)).toFixed(0)}% of rewards remaining`);
 
   if (apr < 5) insights.push("Low base APR,real yields are driven by PSE rewards, not inflation");
   else insights.push(`${apr.toFixed(1)}% base APR + PSE rewards on top`);
 
-  if (pseInfo.distributionNumber <= 12) insights.push("Each new staker reduces your relative share of future PSE rewards");
+  if (pseInfo.currentCycle <= 12) insights.push("Each new staker reduces your relative share of future PSE rewards");
 
   return (
     <>
@@ -713,10 +713,10 @@ function OverviewTab({
           <div>
             <div style={{ fontSize: "0.68rem", opacity: 0.45, marginBottom: 4 }}>PSE Cycle Status</div>
             <div style={{ fontSize: "2.4rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)", lineHeight: 1.1 }}>
-              {pseInfo.distributionNumber}<span style={{ fontSize: "1rem", opacity: 0.5 }}> / {pseInfo.totalDistributions}</span>
+              {pseInfo.currentCycle}<span style={{ fontSize: "1rem", opacity: 0.5 }}> / {pseInfo.totalDistributions}</span>
             </div>
             <div style={{ fontSize: "0.65rem", opacity: 0.4, marginTop: 4 }}>
-              {pseInfo.distributionNumber <= 6 ? "Early Phase" : pseInfo.distributionNumber <= 24 ? "Growth Phase" : "Mature Phase"},{pseProgressPct}% distributed
+              {pseInfo.currentCycle <= 6 ? "Early Phase" : pseInfo.currentCycle <= 24 ? "Growth Phase" : "Mature Phase"},{pseProgressPct}% distributed
               <Tooltip text="Highest PSE advantage before network saturation increases. Early stakers capture larger share." position="bottom" />
             </div>
           </div>
@@ -737,7 +737,7 @@ function OverviewTab({
               </span>
               <span style={{ fontSize: "0.6rem", opacity: 0.4 }}>m</span>
             </div>
-            <div style={{ fontSize: "0.65rem", opacity: 0.4, marginTop: 4 }}>Distribution #{pseInfo.distributionNumber}</div>
+            <div style={{ fontSize: "0.65rem", opacity: 0.4, marginTop: 4 }}>Distribution #{pseInfo.currentCycle}</div>
           </div>
         </div>
         {/* Global Distribution Progress,prominent */}
@@ -769,7 +769,7 @@ function OverviewTab({
         {/* Current cycle progress */}
         <div style={{ marginTop: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-            <span style={{ fontSize: "0.58rem", opacity: 0.35 }}>Cycle {pseInfo.distributionNumber} distribution progress</span>
+            <span style={{ fontSize: "0.58rem", opacity: 0.35 }}>Cycle {pseInfo.currentCycle} distribution progress</span>
             <span style={{ fontSize: "0.55rem", opacity: 0.3, fontFamily: "var(--font-mono)" }}>{cycleProgress.toFixed(0)}%</span>
           </div>
           <div className="progress-track" style={{ background: "rgba(255,255,255,0.06)", height: 4 }}>
@@ -1294,7 +1294,7 @@ function PSETab({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet.connected, wallet.address]);
 
-  const totalProgressPct = ((pseInfo.distributionNumber - 1) / pseInfo.totalDistributions) * 100;
+  const totalProgressPct = (pseInfo.completedCycles / pseInfo.totalDistributions) * 100;
   const phaseLabel = totalProgressPct < 20
     ? { text: "Early Advantage", color: "var(--tx-neon)", bg: "rgba(177,252,3,0.12)" }
     : totalProgressPct < 60
@@ -1312,7 +1312,7 @@ function PSETab({
     <>
       <div className="section-head">
         <h1 className="page-title">Proof of Support Emission</h1>
-        <span className="status-pill success">Distribution #{pseInfo.distributionNumber} of {pseInfo.totalDistributions}</span>
+        <span className="status-pill success">Cycle {pseInfo.currentCycle} of {pseInfo.totalDistributions}</span>
       </div>
 
       {/* ── PSE Score Lookup ── */}
@@ -1544,7 +1544,7 @@ function PSETab({
               <div className="progress-fill" style={{ width: `${cycleProgress}%` }} />
             </div>
             <div className="flex-between mb-3">
-              <span className="text-xs text-light mono">Cycle {pseInfo.distributionNumber} is {cycleProgress.toFixed(0)}% complete</span>
+              <span className="text-xs text-light mono">Cycle {pseInfo.currentCycle} is {cycleProgress.toFixed(0)}% complete</span>
               <span className="text-xs text-olive mono">~{(PSE_CONFIG.monthlyEmission / (30 * 24 * 3600)).toFixed(2)} TX/sec</span>
             </div>
             <div className="text-xs text-light" style={{ marginBottom: 4 }}>
@@ -1590,9 +1590,9 @@ function PSETab({
             </div>
             <div className="accent-card card-yellow" style={{ minHeight: 120 }}>
               <div className="card-content">
-                <span className="card-title">Progress <Tooltip text={pseInfo.distributionNumber <= 1 ? "Just started, 84 cycles total over 7 years" : `${84 - (pseInfo.distributionNumber - 1)} cycles remaining, ${totalProgressPct < 1 ? "<1" : totalProgressPct.toFixed(0)}% of total emission done`} /></span>
+                <span className="card-title">Progress <Tooltip text={pseInfo.completedCycles === 0 ? "Just started, 84 cycles total over 7 years" : `${84 - pseInfo.completedCycles} cycles remaining, ${totalProgressPct < 1 ? "<1" : totalProgressPct.toFixed(0)}% of total emission done`} /></span>
                 <div className="card-value" style={{ fontSize: "1.8rem" }}>
-                  Cycle {pseInfo.distributionNumber}
+                  Cycle {pseInfo.currentCycle}
                 </div>
               </div>
             </div>
@@ -2167,7 +2167,7 @@ function CalculatorTab({
               <div>
                 <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Cycle</div>
                 <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
-                  #{pseInfo.distributionNumber} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>of 84</span>
+                  #{pseInfo.currentCycle} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>of 84</span>
                 </div>
               </div>
               <div>
@@ -2430,7 +2430,7 @@ function PortfolioTab({
           padding: "16px 18px", color: "#fff",
         }}>
           <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>
-            Max Est. Next PSE (Distribution #{pseInfo.distributionNumber})
+            Max Est. Next PSE (Cycle #{pseInfo.currentCycle})
           </div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
             <div>

@@ -20,7 +20,7 @@ function toDisplay(amount: string | number): number {
  */
 function calculateCirculatingSupply(totalOnChainSupply: number): number {
   const pseInfo = getPSEDistributionInfo();
-  const distributionsDone = Math.max(0, pseInfo.distributionNumber - 1); // distributions already completed
+  const distributionsDone = Math.max(0, pseInfo.completedCycles); // distributions already completed
   const pseDistributed = distributionsDone * TOTAL_MONTHLY_PSE_ALL;
   const pseRemaining = Math.max(0, TOTAL_PSE_PREMINT - pseDistributed);
   return totalOnChainSupply - pseRemaining;

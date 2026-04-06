@@ -463,6 +463,14 @@ export function layeredPSEEstimate(params: {
 /**
  * Get PSE distribution info using on-chain schedule when available,
  * falling back to calculated dates.
+ *
+ * Key concepts:
+ *   currentCycle: which cycle we are currently accumulating scores in (1-indexed)
+ *   completedCycles: how many distributions have already happened
+ *   distributionNumber: alias for currentCycle (the next distribution will close this cycle)
+ *
+ * Timeline example:
+ *   TGE (Mar 6) → accumulating Cycle 1 → Distribution #1 (Apr 6) → accumulating Cycle 2 → ...
  */
 export function getPSEDistributionInfo(onChainSchedule?: number[]) {
   const TGE_DATE = new Date("2026-03-06T00:00:00Z");
@@ -470,17 +478,31 @@ export function getPSEDistributionInfo(onChainSchedule?: number[]) {
   const nowUnix = Math.floor(now.getTime() / 1000);
 
   let nextDistribution: Date;
-  let distributionNumber: number;
+  let currentCycle: number;
+  let completedCycles: number;
 
   if (onChainSchedule && onChainSchedule.length > 0) {
-    // Use real on-chain schedule
+    // Use real on-chain schedule timestamps
     const nextTs = onChainSchedule.find(ts => ts > nowUnix);
-    const nextIdx = nextTs ? onChainSchedule.indexOf(nextTs) : onChainSchedule.length - 1;
 
-    nextDistribution = new Date((nextTs ?? onChainSchedule[onChainSchedule.length - 1]) * 1000);
-    distributionNumber = Math.min(nextIdx + 1, 84); // 1-indexed
+    if (nextTs) {
+      const nextIdx = onChainSchedule.indexOf(nextTs);
+      nextDistribution = new Date(nextTs * 1000);
+      // The schedule may not include past distributions (they get removed after execution).
+      // Total distributions = 84. If schedule has N entries and next is at index nextIdx,
+      // then completed = 84 - N + nextIdx (past distributions not in schedule + past ones still in schedule).
+      // Example: schedule has 83 entries (Apr 6 done, removed), nextIdx=0 → completed = 84-83+0 = 1
+      const pastDistributionsRemoved = 84 - onChainSchedule.length;
+      completedCycles = pastDistributionsRemoved + nextIdx;
+      currentCycle = completedCycles + 1;
+    } else {
+      // All distributions are in the past — PSE program complete
+      nextDistribution = new Date(onChainSchedule[onChainSchedule.length - 1] * 1000);
+      completedCycles = 84;
+      currentCycle = 84;
+    }
   } else {
-    // Fallback: calculate based on 6th at 12:00 UTC
+    // Fallback: calculate based on 6th at 12:00 UTC each month
     const DISTRIBUTION_DAY = 6;
     nextDistribution = new Date(Date.UTC(
       now.getUTCFullYear(),
@@ -496,20 +518,29 @@ export function getPSEDistributionInfo(onChainSchedule?: number[]) {
         12, 0, 0
       ));
     }
+    // Months elapsed since TGE = completed cycles
     const monthsSinceTGE =
-      (nextDistribution.getFullYear() - TGE_DATE.getFullYear()) * 12 +
-      (nextDistribution.getMonth() - TGE_DATE.getMonth());
-    distributionNumber = Math.min(monthsSinceTGE, 84);
+      (now.getUTCFullYear() - TGE_DATE.getUTCFullYear()) * 12 +
+      (now.getUTCMonth() - TGE_DATE.getUTCMonth());
+    // If we're past the 6th of this month, that cycle's distribution happened
+    const pastDistributionThisMonth = now.getUTCDate() >= DISTRIBUTION_DAY ||
+      (now.getUTCDate() === DISTRIBUTION_DAY && now.getUTCHours() >= 12);
+    completedCycles = Math.max(0, Math.min(pastDistributionThisMonth ? monthsSinceTGE : monthsSinceTGE - 1, 84));
+    // Edge: before first distribution (before Apr 6), completedCycles = 0
+    if (now < new Date("2026-04-06T12:00:00Z")) completedCycles = 0;
+    currentCycle = Math.min(completedCycles + 1, 84);
   }
 
-  const progressPercent = Math.round((distributionNumber / 84) * 100);
+  const progressPercent = Math.round((completedCycles / 84) * 100);
   const endDate = new Date(TGE_DATE);
   endDate.setMonth(endDate.getMonth() + 84);
 
   return {
     tgeDate: TGE_DATE,
     nextDistribution,
-    distributionNumber,
+    currentCycle,
+    completedCycles,
+    distributionNumber: currentCycle, // backward compat alias
     totalDistributions: 84,
     progressPercent,
     endDate,
