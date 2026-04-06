@@ -134,39 +134,85 @@ export function estimatePSERewardFullPeriod(
 }
 
 
+// Cached on-chain distribution schedule (fetched once, reused)
+let cachedSchedule: number[] | null = null;
+let scheduleFetchPromise: Promise<number[]> | null = null;
+
 /**
- * Get PSE distribution info
+ * Fetch the real PSE distribution schedule from on-chain data via Hasura.
+ * Returns array of unix timestamps (seconds) for all 84 distributions.
  */
-export function getPSEDistributionInfo() {
-  // TGE date: March 6, 2026 (SOLO + Coreum merge → TX)
-  // PSE started at TGE — first distribution is month 1
+export async function fetchPSESchedule(): Promise<number[]> {
+  if (cachedSchedule) return cachedSchedule;
+  if (scheduleFetchPromise) return scheduleFetchPromise;
+
+  scheduleFetchPromise = (async () => {
+    try {
+      const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `{ action_pse_scheduled_distributions { scheduled_distributions { timestamp } } }`,
+        }),
+      });
+      const data = await res.json();
+      const distributions = data?.data?.action_pse_scheduled_distributions?.scheduled_distributions ?? [];
+      const timestamps = distributions.map((d: { timestamp: number }) => d.timestamp).sort((a: number, b: number) => a - b);
+      if (timestamps.length > 0) {
+        cachedSchedule = timestamps;
+      }
+      return timestamps;
+    } catch {
+      return [];
+    }
+  })();
+
+  return scheduleFetchPromise;
+}
+
+/**
+ * Get PSE distribution info using on-chain schedule when available,
+ * falling back to calculated dates.
+ */
+export function getPSEDistributionInfo(onChainSchedule?: number[]) {
   const TGE_DATE = new Date("2026-03-06T00:00:00Z");
-  const DISTRIBUTION_DAY = TGE_DATE.getDate(); // 6th of each month
-
   const now = new Date();
-  let nextDistribution = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    DISTRIBUTION_DAY
-  );
+  const nowUnix = Math.floor(now.getTime() / 1000);
 
-  // If we've passed this month's distribution, go to next month
-  if (now >= nextDistribution) {
-    nextDistribution = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      DISTRIBUTION_DAY
-    );
+  let nextDistribution: Date;
+  let distributionNumber: number;
+
+  if (onChainSchedule && onChainSchedule.length > 0) {
+    // Use real on-chain schedule
+    const nextTs = onChainSchedule.find(ts => ts > nowUnix);
+    const nextIdx = nextTs ? onChainSchedule.indexOf(nextTs) : onChainSchedule.length - 1;
+
+    nextDistribution = new Date((nextTs ?? onChainSchedule[onChainSchedule.length - 1]) * 1000);
+    distributionNumber = Math.min(nextIdx + 1, 84); // 1-indexed
+  } else {
+    // Fallback: calculate based on 6th at 12:00 UTC
+    const DISTRIBUTION_DAY = 6;
+    nextDistribution = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      DISTRIBUTION_DAY,
+      12, 0, 0
+    ));
+    if (now >= nextDistribution) {
+      nextDistribution = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() + 1,
+        DISTRIBUTION_DAY,
+        12, 0, 0
+      ));
+    }
+    const monthsSinceTGE =
+      (nextDistribution.getFullYear() - TGE_DATE.getFullYear()) * 12 +
+      (nextDistribution.getMonth() - TGE_DATE.getMonth());
+    distributionNumber = Math.min(monthsSinceTGE, 84);
   }
 
-  // Calculate which distribution number this is
-  const monthsSinceTGE =
-    (nextDistribution.getFullYear() - TGE_DATE.getFullYear()) * 12 +
-    (nextDistribution.getMonth() - TGE_DATE.getMonth());
-  const distributionNumber = Math.min(monthsSinceTGE, 84);
   const progressPercent = Math.round((distributionNumber / 84) * 100);
-
-  // End date: 84 months from TGE
   const endDate = new Date(TGE_DATE);
   endDate.setMonth(endDate.getMonth() + 84);
 
