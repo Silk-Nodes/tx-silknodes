@@ -161,24 +161,31 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // Estimate PSE reward using real network score when available
-  const estimatePSEWithNetworkScore = useCallback((userStake: number) => {
+  // Fetch wallet's real on-chain PSE score for accurate estimates
+  const [walletPSEScore, setWalletPSEScore] = useState<string | null>(null);
+  useEffect(() => {
+    if (!wallet.connected || !wallet.address) { setWalletPSEScore(null); return; }
+    fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${wallet.address}`)
+      .then(res => res.json())
+      .then(data => { if (data?.score) setWalletPSEScore(data.score); })
+      .catch(() => {});
+  }, [wallet.connected, wallet.address]);
+
+  // Estimate PSE reward: uses real on-chain score when wallet connected, otherwise simple ratio
+  const estimatePSEWithNetworkScore = useCallback((userStake: number, realScore?: string | null) => {
     if (userStake <= 0) return 0;
-    if (networkTotalScore && bondedTokens > 0) {
-      // Use real network score: user's full-cycle score / network total score * monthly pool
-      // User's full-cycle score = stake(ucore) * cycle_duration(seconds)
-      // Network score already includes all stakers' stake(ucore) * duration(seconds)
-      const userStakeUcore = BigInt(Math.round(userStake)) * BigInt(1_000_000);
-      const cycleDuration = BigInt(30 * 24 * 3600); // 30 days in seconds
-      const userFullCycleScore = userStakeUcore * cycleDuration;
+    const scoreToUse = realScore || walletPSEScore;
+    if (scoreToUse && networkTotalScore) {
+      // Use real on-chain score / real network total score
+      const userScore = BigInt(scoreToUse);
       const totalScore = BigInt(networkTotalScore);
       const PRECISION = BigInt(1_000_000_000_000);
-      const share = Number((userFullCycleScore * PRECISION) / totalScore) / Number(PRECISION);
+      const share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
       return share * PSE_CONFIG.monthlyEmission;
     }
     // Fallback to simple ratio estimate
     return estimatePSERewardFullPeriod(userStake, bondedTokens, excludedPSEStake);
-  }, [networkTotalScore, bondedTokens, excludedPSEStake]);
+  }, [walletPSEScore, networkTotalScore, bondedTokens, excludedPSEStake]);
 
   const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
