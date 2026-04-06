@@ -1,6 +1,6 @@
 import type { TokenData, StakingData, ValidatorInfo, NetworkStatus } from "./types";
 import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-config";
-import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES } from "./pse-calculator";
+import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES, fetchOnChainExcludedAddresses } from "./pse-calculator";
 
 const COINGECKO_API = "https://api.coingecko.com/api/v3";
 const COINGECKO_ID = "tx"; // Changed from "coreum" after SOLO+Coreum merge (March 6, 2026)
@@ -79,15 +79,18 @@ export async function fetchTokenData(): Promise<TokenData> {
   }
 }
 
-// === Fetch total stake of PSE-excluded addresses ===
+// === Fetch total stake of PSE-excluded addresses (from on-chain params) ===
 async function fetchExcludedPSEStake(): Promise<number> {
   try {
+    // Get excluded addresses from on-chain first, fallback to hardcoded
+    const excludedAddresses = await fetchOnChainExcludedAddresses();
+
     // Fetch delegations for all excluded addresses in parallel (batched)
     const batchSize = 5;
     let totalExcluded = 0;
 
-    for (let i = 0; i < PSE_EXCLUDED_ADDRESSES.length; i += batchSize) {
-      const batch = PSE_EXCLUDED_ADDRESSES.slice(i, i + batchSize);
+    for (let i = 0; i < excludedAddresses.length; i += batchSize) {
+      const batch = excludedAddresses.slice(i, i + batchSize);
       const results = await Promise.all(
         batch.map(async (addr) => {
           try {

@@ -21,7 +21,16 @@ import {
   PSE_CONFIG,
   PSE_ALLOCATION,
   PSE_EXCLUDED_ADDRESSES,
+  fetchOnChainExcludedAddresses,
+  fetchOnChainPSEScore,
+  fetchLastPSEDistribution,
+  fetchActualPSEReward,
+  fetchPSEClearingBalances,
+  detectCycleMismatch,
+  layeredPSEEstimate,
+  TGE_TIMESTAMP,
 } from "@/lib/pse-calculator";
+import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
@@ -152,7 +161,9 @@ export default function HomePage() {
   const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
   const pseEligibleBonded = stakingData?.pseEligibleBonded ?? bondedTokens;
 
-  // Real network total PSE score (fetched from cached JSON, updated every 6h)
+  // ─── PSE ON-CHAIN DATA (layered, no hardcoding) ───
+
+  // Layer 1 sources: Real network total score (enumeration cache, updated every 6h)
   const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
   const [networkScoreUpdatedAt, setNetworkScoreUpdatedAt] = useState<number>(0);
   useEffect(() => {
@@ -165,46 +176,39 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // Fetch wallet's real on-chain PSE score for accurate estimates
+  // Layer 2 source: Last distribution's settled total_score from Hasura (ground truth)
+  const [lastDistribution, setLastDistribution] = useState<PSEDistributionAllocation | null>(null);
+  useEffect(() => {
+    fetchLastPSEDistribution().then(d => { if (d) setLastDistribution(d); });
+  }, []);
+
+  // On-chain excluded addresses (fetched at runtime, hardcoded list is only fallback)
+  const [onChainExcluded, setOnChainExcluded] = useState<string[]>([]);
+  useEffect(() => {
+    fetchOnChainExcludedAddresses().then(addrs => setOnChainExcluded(addrs));
+  }, []);
+
+  // Wallet's real on-chain PSE score (Layer 1)
   const [walletPSEScore, setWalletPSEScore] = useState<string | null>(null);
   useEffect(() => {
     if (!wallet.connected || !wallet.address) { setWalletPSEScore(null); return; }
-    fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${wallet.address}`)
-      .then(res => res.json())
-      .then(data => { if (data?.score) setWalletPSEScore(data.score); })
+    fetchOnChainPSEScore(wallet.address)
+      .then(score => { if (score) setWalletPSEScore(score); })
       .catch(() => {});
   }, [wallet.connected, wallet.address]);
 
-  // Detect if PSE scores have reset after a distribution (score cycle mismatch)
-  // After distribution, scores reset to near-zero but cached network total is from previous cycle.
-  // Detection: derive implied staking duration from score. If it's much less than time since TGE,
-  // scores have recently reset. score = stake(ucore) * duration(seconds), so duration = score / stakeUcore.
-  const TGE_TIMESTAMP = 1772755200; // 2026-03-06T00:00:00Z
-  const isScoreCycleMismatch = useCallback((userScore: string, userStake: number) => {
-    if (userStake <= 0) return false;
-    const stakeUcore = BigInt(Math.round(userStake)) * BigInt(1_000_000);
-    if (stakeUcore === BigInt(0)) return false;
-    const impliedDuration = Number(BigInt(userScore) / stakeUcore); // seconds
-    const timeSinceTGE = Math.floor(Date.now() / 1000) - TGE_TIMESTAMP;
-    // If implied staking duration is less than 50% of time since TGE, scores have reset
-    return impliedDuration < timeSinceTGE * 0.5;
-  }, []);
-
-  // Estimate PSE reward: uses real on-chain score when wallet connected, otherwise simple ratio
+  // Layered PSE estimation — all from on-chain, with priority fallbacks
   const estimatePSEWithNetworkScore = useCallback((userStake: number, realScore?: string | null) => {
-    if (userStake <= 0) return 0;
-    const scoreToUse = realScore || walletPSEScore;
-    if (scoreToUse && networkTotalScore && !isScoreCycleMismatch(scoreToUse, userStake)) {
-      // Use real on-chain score / real network total score (same cycle)
-      const userScore = BigInt(scoreToUse);
-      const totalScore = BigInt(networkTotalScore);
-      const PRECISION = BigInt(1_000_000_000_000);
-      const share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
-      return share * PSE_CONFIG.monthlyEmission;
-    }
-    // Fallback: stake ratio estimate (used when scores reset or cache unavailable)
-    return estimatePSERewardFullPeriod(userStake, bondedTokens, excludedPSEStake);
-  }, [walletPSEScore, networkTotalScore, bondedTokens, excludedPSEStake, isScoreCycleMismatch]);
+    const result = layeredPSEEstimate({
+      userStake,
+      userScore: realScore || walletPSEScore,
+      networkTotalScore,
+      lastDistTotalScore: lastDistribution?.totalScore ?? null,
+      bondedTokens,
+      excludedStake: excludedPSEStake,
+    });
+    return result.estimate;
+  }, [walletPSEScore, networkTotalScore, lastDistribution, bondedTokens, excludedPSEStake]);
 
   const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
@@ -525,6 +529,8 @@ export default function HomePage() {
             setShowWalletModal={setShowWalletModal}
             networkTotalScore={networkTotalScore}
             excludedPSEStake={excludedPSEStake}
+            lastDistribution={lastDistribution}
+            onChainExcluded={onChainExcluded}
           />
         )}
 
@@ -1179,7 +1185,7 @@ function OverviewTab({
 function PSETab({
   pseInfo, timeLeft, pad, cycleProgress, distributed,
   nextPSEReward, stakedAmount, bondedTokens, wallet, setActiveTab, setShowWalletModal,
-  networkTotalScore, excludedPSEStake,
+  networkTotalScore, excludedPSEStake, lastDistribution, onChainExcluded,
 }: any) {
   // Live PSE score lookup
   const [pseAddress, setPseAddress] = useState(wallet.connected ? wallet.address : "");
@@ -1201,24 +1207,22 @@ function PSETab({
     }
   }, [wallet.connected, wallet.address]);
 
-  // Fetch PSE params (excluded addresses) and clearing balances from Silk Nodes API
-  const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({ excludedAddresses: PSE_EXCLUDED_ADDRESSES, communityBalance: 40_000_000_000 });
+  // PSE params: excluded addresses from on-chain (passed from parent), clearing balances from on-chain
+  const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({
+    excludedAddresses: onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES,
+    communityBalance: 40_000_000_000,
+  });
   useEffect(() => {
-    async function fetchPSEParams() {
-      try {
-        const [paramsRes, balancesRes] = await Promise.all([
-          fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/params"),
-          fetchWithTimeout("https://api.silknodes.io/coreum/tx/pse/v1/clearing_account_balances"),
-        ]);
-        const paramsData = await paramsRes.json();
-        const balancesData = await balancesRes.json();
-        const excluded = paramsData?.params?.excluded_addresses || PSE_EXCLUDED_ADDRESSES;
-        const communityEntry = (balancesData?.balances || []).find((b: any) => b.clearing_account === "pse_community");
-        const communityBalance = communityEntry ? Number(BigInt(communityEntry.balance) / BigInt(1_000_000)) : 40_000_000_000;
-        setPseParams({ excludedAddresses: excluded, communityBalance });
-      } catch { /* use defaults */ }
+    // Update excluded when on-chain data arrives from parent
+    if (onChainExcluded?.length > 0) {
+      setPseParams(prev => ({ ...prev, excludedAddresses: onChainExcluded }));
     }
-    fetchPSEParams();
+  }, [onChainExcluded]);
+  useEffect(() => {
+    // Fetch clearing balances from on-chain
+    fetchPSEClearingBalances().then(data => {
+      if (data) setPseParams(prev => ({ ...prev, communityBalance: data.communityBalance }));
+    });
   }, []);
 
   const fetchPSEScore = useCallback(async (addr?: string) => {
@@ -1227,63 +1231,44 @@ function PSETab({
       setPseLookup(prev => ({ ...prev, error: "Enter a valid core1... address" }));
       return;
     }
-    // Check if address is excluded from PSE
+    // Check if address is excluded from PSE (using on-chain list)
     if (pseParams.excludedAddresses.includes(address)) {
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: "excluded", height: null });
       return;
     }
     setPseLookup({ loading: true, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
     try {
-      const [scoreRes, delegRes] = await Promise.all([
-        fetchWithTimeout(`https://api.silknodes.io/coreum/tx/pse/v1/score/${address}`),
-        fetchWithTimeout(`https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}`),
+      // Fetch score and delegations from on-chain (with endpoint fallbacks)
+      const [scoreRaw, delegRes] = await Promise.all([
+        fetchOnChainPSEScore(address),
+        fetchWithTimeout(`https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}`)
+          .then(r => r.json()).catch(() => null),
       ]);
-      const scoreData = await scoreRes.json();
-      const delegData = await delegRes.json().catch(() => null);
 
-      if (scoreData.code || scoreData.error) {
-        const rawError = scoreData.message || scoreData.error || "Failed to fetch PSE score";
-        const isEndpointDown = rawError.includes("rpc error") || rawError.includes("timeout") || rawError.includes("Unavailable");
-        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: isEndpointDown ? "PSE score service is temporarily unavailable." : rawError, height: null });
+      if (!scoreRaw) {
+        setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: "PSE score service is temporarily unavailable.", height: null });
         return;
       }
-      const scoreRaw = scoreData.score;
-      const height = null;
 
-      // Calculate staked from delegations
+      // Calculate staked from on-chain delegations
       let totalStaked = 0;
-      if (delegData?.delegation_responses) {
-        for (const d of delegData.delegation_responses) {
+      if (delegRes?.delegation_responses) {
+        for (const d of delegRes.delegation_responses) {
           totalStaked += parseInt(d.balance?.amount || "0") / 1_000_000;
         }
       }
 
-      // Calculate share using real network total score, with cycle mismatch detection
-      // Detect reset: derive implied duration from score. If much less than time since TGE, scores reset.
-      let share: number;
-      const cycleMismatch = totalStaked > 0
-        ? (() => {
-            const stakeUcore = BigInt(Math.round(totalStaked)) * BigInt(1_000_000);
-            if (stakeUcore === BigInt(0)) return false;
-            const impliedDuration = Number(BigInt(scoreRaw) / stakeUcore);
-            const timeSinceTGE = Math.floor(Date.now() / 1000) - 1772755200;
-            return impliedDuration < timeSinceTGE * 0.5;
-          })()
-        : false;
+      // Use the layered approach for estimation (same as all other tabs)
+      const result = layeredPSEEstimate({
+        userStake: totalStaked,
+        userScore: scoreRaw,
+        networkTotalScore,
+        lastDistTotalScore: lastDistribution?.totalScore ?? null,
+        bondedTokens,
+        excludedStake: excludedPSEStake ?? 0,
+      });
 
-      if (networkTotalScore && !cycleMismatch) {
-        // Same cycle: use real scores
-        const userScore = BigInt(scoreRaw);
-        const totalScore = BigInt(networkTotalScore);
-        const PRECISION = BigInt(1_000_000_000_000);
-        share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
-      } else {
-        // Scores reset after distribution or cache unavailable: use stake ratio
-        const eligibleBonded = Math.max(bondedTokens - (excludedPSEStake ?? 0), totalStaked);
-        share = totalStaked / eligibleBonded;
-      }
-      const monthlyFromPool = pseParams.communityBalance / 84;
-      const monthlyTX = monthlyFromPool * share;
+      const monthlyTX = result.estimate;
       const annualTX = monthlyTX * 12;
 
       setPseLookup({
@@ -1291,15 +1276,15 @@ function PSETab({
         score: scoreRaw,
         monthlyEstimate: monthlyTX,
         annualEstimate: annualTX,
-        sharePct: share * 100,
+        sharePct: result.sharePct,
         totalStaked,
         error: null,
-        height,
+        height: null,
       });
     } catch (err: any) {
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: err.message || "Failed to fetch", height: null });
     }
-  }, [pseAddress, bondedTokens, pseParams, networkTotalScore]);
+  }, [pseAddress, bondedTokens, pseParams, networkTotalScore, excludedPSEStake, lastDistribution]);
 
   // Auto-fetch when wallet connects
   useEffect(() => {
