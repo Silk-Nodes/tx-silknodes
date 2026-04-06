@@ -154,10 +154,14 @@ export default function HomePage() {
 
   // Real network total PSE score (fetched from cached JSON, updated every 6h)
   const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
+  const [networkScoreUpdatedAt, setNetworkScoreUpdatedAt] = useState<number>(0);
   useEffect(() => {
     fetch(`${BASE_PATH}/pse-network-score.json`)
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.networkTotalScore) setNetworkTotalScore(data.networkTotalScore); })
+      .then(data => {
+        if (data?.networkTotalScore) setNetworkTotalScore(data.networkTotalScore);
+        if (data?.updatedAtTimestamp) setNetworkScoreUpdatedAt(data.updatedAtTimestamp);
+      })
       .catch(() => {});
   }, []);
 
@@ -171,21 +175,34 @@ export default function HomePage() {
       .catch(() => {});
   }, [wallet.connected, wallet.address]);
 
+  // Detect if PSE scores have reset after a distribution (score cycle mismatch)
+  // After distribution, user scores reset to near-zero but cached network total is from previous cycle
+  // Detection: if user score is >100x smaller than expected for their stake, scores likely reset
+  const isScoreCycleMismatch = useCallback((userScore: string, userStake: number) => {
+    if (!networkTotalScore || userStake <= 0) return false;
+    const scoreNum = Number(BigInt(userScore));
+    const totalNum = Number(BigInt(networkTotalScore));
+    const expectedShare = userStake / (bondedTokens || 1);
+    const actualShare = scoreNum / totalNum;
+    // If actual share is 100x smaller than stake-based share, scores likely reset
+    return actualShare < expectedShare / 100;
+  }, [networkTotalScore, bondedTokens]);
+
   // Estimate PSE reward: uses real on-chain score when wallet connected, otherwise simple ratio
   const estimatePSEWithNetworkScore = useCallback((userStake: number, realScore?: string | null) => {
     if (userStake <= 0) return 0;
     const scoreToUse = realScore || walletPSEScore;
-    if (scoreToUse && networkTotalScore) {
-      // Use real on-chain score / real network total score
+    if (scoreToUse && networkTotalScore && !isScoreCycleMismatch(scoreToUse, userStake)) {
+      // Use real on-chain score / real network total score (same cycle)
       const userScore = BigInt(scoreToUse);
       const totalScore = BigInt(networkTotalScore);
       const PRECISION = BigInt(1_000_000_000_000);
       const share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
       return share * PSE_CONFIG.monthlyEmission;
     }
-    // Fallback to simple ratio estimate
+    // Fallback: stake ratio estimate (used when scores reset or cache unavailable)
     return estimatePSERewardFullPeriod(userStake, bondedTokens, excludedPSEStake);
-  }, [walletPSEScore, networkTotalScore, bondedTokens, excludedPSEStake]);
+  }, [walletPSEScore, networkTotalScore, bondedTokens, excludedPSEStake, isScoreCycleMismatch]);
 
   const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
@@ -505,6 +522,7 @@ export default function HomePage() {
             setActiveTab={setActiveTab}
             setShowWalletModal={setShowWalletModal}
             networkTotalScore={networkTotalScore}
+            excludedPSEStake={excludedPSEStake}
           />
         )}
 
@@ -1144,7 +1162,7 @@ function OverviewTab({
 function PSETab({
   pseInfo, timeLeft, pad, cycleProgress, distributed,
   nextPSEReward, stakedAmount, bondedTokens, wallet, setActiveTab, setShowWalletModal,
-  networkTotalScore,
+  networkTotalScore, excludedPSEStake,
 }: any) {
   // Live PSE score lookup
   const [pseAddress, setPseAddress] = useState(wallet.connected ? wallet.address : "");
@@ -1223,24 +1241,28 @@ function PSETab({
         }
       }
 
-      // Calculate share using real network total score (from enumeration cache)
-      // or fall back to rough estimate if cache unavailable
+      // Calculate share using real network total score, with cycle mismatch detection
       let share: number;
-      if (networkTotalScore) {
-        // Real network score from pse-network-score.json (updated every 6h)
+      const cycleMismatch = networkTotalScore && totalStaked > 0
+        ? (() => {
+            const scoreNum = Number(BigInt(scoreRaw));
+            const totalNum = Number(BigInt(networkTotalScore));
+            const expectedShare = totalStaked / (bondedTokens || 1);
+            const actualShare = scoreNum / totalNum;
+            return actualShare < expectedShare / 100;
+          })()
+        : false;
+
+      if (networkTotalScore && !cycleMismatch) {
+        // Same cycle: use real scores
         const userScore = BigInt(scoreRaw);
         const totalScore = BigInt(networkTotalScore);
-        // Use BigInt division with precision multiplier to avoid overflow
         const PRECISION = BigInt(1_000_000_000_000);
         share = Number((userScore * PRECISION) / totalScore) / Number(PRECISION);
       } else {
-        // Fallback: rough estimate (bondedTokens in ucore * seconds since TGE)
-        const tgeTimestamp = 1772755200; // 2026-03-06T00:00:00Z
-        const now = Date.now() / 1000;
-        const elapsed = now - tgeTimestamp;
-        const totalBondedUcore = bondedTokens * 1_000_000;
-        const networkScoreEst = totalBondedUcore * elapsed;
-        share = Number(BigInt(scoreRaw)) / networkScoreEst;
+        // Scores reset after distribution or cache unavailable: use stake ratio
+        const eligibleBonded = Math.max(bondedTokens - (excludedPSEStake ?? 0), totalStaked);
+        share = totalStaked / eligibleBonded;
       }
       const monthlyFromPool = pseParams.communityBalance / 84;
       const monthlyTX = monthlyFromPool * share;
