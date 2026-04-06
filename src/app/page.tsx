@@ -176,17 +176,19 @@ export default function HomePage() {
   }, [wallet.connected, wallet.address]);
 
   // Detect if PSE scores have reset after a distribution (score cycle mismatch)
-  // After distribution, user scores reset to near-zero but cached network total is from previous cycle
-  // Detection: if user score is >100x smaller than expected for their stake, scores likely reset
+  // After distribution, scores reset to near-zero but cached network total is from previous cycle.
+  // Detection: derive implied staking duration from score. If it's much less than time since TGE,
+  // scores have recently reset. score = stake(ucore) * duration(seconds), so duration = score / stakeUcore.
+  const TGE_TIMESTAMP = 1772755200; // 2026-03-06T00:00:00Z
   const isScoreCycleMismatch = useCallback((userScore: string, userStake: number) => {
-    if (!networkTotalScore || userStake <= 0) return false;
-    const scoreNum = Number(BigInt(userScore));
-    const totalNum = Number(BigInt(networkTotalScore));
-    const expectedShare = userStake / (bondedTokens || 1);
-    const actualShare = scoreNum / totalNum;
-    // If actual share is 100x smaller than stake-based share, scores likely reset
-    return actualShare < expectedShare / 100;
-  }, [networkTotalScore, bondedTokens]);
+    if (userStake <= 0) return false;
+    const stakeUcore = BigInt(Math.round(userStake)) * BigInt(1_000_000);
+    if (stakeUcore === BigInt(0)) return false;
+    const impliedDuration = Number(BigInt(userScore) / stakeUcore); // seconds
+    const timeSinceTGE = Math.floor(Date.now() / 1000) - TGE_TIMESTAMP;
+    // If implied staking duration is less than 50% of time since TGE, scores have reset
+    return impliedDuration < timeSinceTGE * 0.5;
+  }, []);
 
   // Estimate PSE reward: uses real on-chain score when wallet connected, otherwise simple ratio
   const estimatePSEWithNetworkScore = useCallback((userStake: number, realScore?: string | null) => {
@@ -1257,14 +1259,15 @@ function PSETab({
       }
 
       // Calculate share using real network total score, with cycle mismatch detection
+      // Detect reset: derive implied duration from score. If much less than time since TGE, scores reset.
       let share: number;
-      const cycleMismatch = networkTotalScore && totalStaked > 0
+      const cycleMismatch = totalStaked > 0
         ? (() => {
-            const scoreNum = Number(BigInt(scoreRaw));
-            const totalNum = Number(BigInt(networkTotalScore));
-            const expectedShare = totalStaked / (bondedTokens || 1);
-            const actualShare = scoreNum / totalNum;
-            return actualShare < expectedShare / 100;
+            const stakeUcore = BigInt(Math.round(totalStaked)) * BigInt(1_000_000);
+            if (stakeUcore === BigInt(0)) return false;
+            const impliedDuration = Number(BigInt(scoreRaw) / stakeUcore);
+            const timeSinceTGE = Math.floor(Date.now() / 1000) - 1772755200;
+            return impliedDuration < timeSinceTGE * 0.5;
           })()
         : false;
 
