@@ -1001,8 +1001,8 @@ function OverviewTab({
         </div>
       )}
 
-      {/* ═══ SECONDARY: Price + Market Cap + APR ═══ */}
-      <div className="grid-3 mb-3">
+      {/* ═══ SECONDARY: Price + Market Cap + Circ. Supply + APR ═══ */}
+      <div className="responsive-grid-4 mb-3" style={{ gap: 14 }}>
         <div className="accent-card card-orange">
           <div className="texture-dots" />
           <div className="blob-dark" />
@@ -1025,10 +1025,25 @@ function OverviewTab({
           <div className="texture-stripes" />
           <div className="blob-dark" style={{ right: "-20%", bottom: "-30%" }} />
           <div className="card-content">
-            <span className="card-title">Market Cap <Tooltip text={`Circulating supply: ${formatNumber(totalSupply)} TX`} /></span>
+            <span className="card-title">Market Cap <Tooltip text="Price multiplied by circulating supply" /></span>
             <div>
               <div className="card-value">
                 {loading ? "..." : formatUSD(marketCap)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="accent-card" style={{ background: "linear-gradient(135deg, #f5f1e8 0%, #e8e2d4 100%)", border: "1px solid rgba(177,252,3,0.15)" }}>
+          <div className="card-content">
+            <span className="card-title">Circulating Supply <Tooltip text="Total TX tokens in circulation, excluding undistributed PSE module tokens. Source: official TX chain API." /></span>
+            <div>
+              <div className="card-value" style={{ fontSize: "1.3rem" }}>
+                {loading ? "..." : `${(totalSupply / 1_000_000_000).toFixed(2)}B`}
+                <span className="unit">TX</span>
+              </div>
+              <div className="card-sub" style={{ color: "var(--text-medium)" }}>
+                of ~101.9B total
               </div>
             </div>
           </div>
