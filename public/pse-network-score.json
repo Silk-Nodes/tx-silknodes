@@ -1,8 +1,8 @@
 {
-  "networkTotalScore": "102621244588283407741",
+  "networkTotalScore": "0",
   "eligibleDelegators": 9243,
-  "delegatorsWithScore": 9243,
+  "delegatorsWithScore": 0,
   "fetchErrors": 0,
-  "updatedAt": "2026-04-07T12:23:59.673Z",
-  "updatedAtTimestamp": 1775564639
+  "updatedAt": "2026-04-07T18:24:40.393Z",
+  "updatedAtTimestamp": 1775586280
 }
