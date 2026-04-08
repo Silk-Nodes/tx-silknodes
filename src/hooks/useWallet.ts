@@ -10,6 +10,7 @@ import {
   delegateTokens,
   redelegateTokens,
   undelegateTokens,
+  cancelUnbondingTokens,
   getAvailableWallets,
 } from "@/lib/wallet";
 
@@ -145,6 +146,22 @@ export function useWallet() {
     }
   }, [wallet.connected, wallet.walletType, refresh]);
 
+  // Cancel an in-progress unbonding (preserves PSE score)
+  const cancelUnbonding = useCallback(async (validatorAddress: string, amount: number, creationHeight: string) => {
+    if (!wallet.connected) return;
+    setTxPending(true);
+    setError(null);
+    try {
+      const hash = await cancelUnbondingTokens(validatorAddress, amount, creationHeight, wallet.walletType || "keplr");
+      setTxResult({ hash, type: "cancel-unbonding" });
+      setTimeout(() => refresh(), 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to cancel unbonding");
+    } finally {
+      setTxPending(false);
+    }
+  }, [wallet.connected, wallet.walletType, refresh]);
+
   // Auto-reconnect on page load
   useEffect(() => {
     if (autoReconnectAttempted.current) return;
@@ -196,6 +213,7 @@ export function useWallet() {
     delegate,
     redelegate,
     undelegate,
+    cancelUnbonding,
     clearError: () => setError(null),
     clearTxResult: () => setTxResult(null),
     availableWallets: typeof window !== "undefined" ? getAvailableWallets() : { keplr: false, leap: false, cosmostation: false },

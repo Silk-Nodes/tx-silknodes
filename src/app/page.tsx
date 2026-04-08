@@ -34,6 +34,7 @@ import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
+import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
 import { useRWATokens } from "@/hooks/useRWATokens";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
@@ -71,7 +72,7 @@ export default function HomePage() {
   const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
   const {
     wallet, connect, disconnect, refresh, claimRewards,
-    delegate, undelegate, redelegate,
+    delegate, undelegate, redelegate, cancelUnbonding,
     loading: walletLoading, error: walletError, clearError,
     txPending, txResult, clearTxResult, availableWallets,
   } = useWallet();
@@ -470,7 +471,7 @@ export default function HomePage() {
         }}>
           <span style={{ color: "var(--tx-neon)", marginRight: 4 }}>&#10003;</span>
           <span style={{ flex: 1 }}>
-            {txResult.type === "claim" ? "Rewards claimed!" : txResult.type === "delegate" ? "Delegation successful!" : txResult.type === "undelegate" ? "Undelegation started! (7-day unbonding)" : "Redelegation successful!"}
+            {txResult.type === "claim" ? "Rewards claimed!" : txResult.type === "delegate" ? "Delegation successful!" : txResult.type === "undelegate" ? "Undelegation started! (7-day unbonding)" : txResult.type === "cancel-unbonding" ? "Unbonding cancelled! Stake restored, PSE score preserved." : "Redelegation successful!"}
           </span>
           <a
             href={`https://www.mintscan.io/coreum/tx/${txResult.hash}`}
@@ -578,6 +579,7 @@ export default function HomePage() {
             delegate={delegate}
             undelegate={undelegate}
             redelegate={redelegate}
+            cancelUnbonding={cancelUnbonding}
             refresh={refresh}
             txPending={txPending}
             estimatePSE={estimatePSEWithNetworkScore}
@@ -1710,6 +1712,8 @@ function PSETab({
           PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
+
+      <ExcludedAddressesPanel addresses={onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES} />
     </>
   );
 }
@@ -2299,7 +2303,7 @@ function CalculatorTab({
 
 function PortfolioTab({
   wallet, price, apr, bondedTokens, excludedPSEStake, pseEligibleBonded,
-  pseInfo, stakingData, claimRewards, delegate, undelegate, redelegate,
+  pseInfo, stakingData, claimRewards, delegate, undelegate, redelegate, cancelUnbonding,
   refresh, txPending, estimatePSE,
 }: any) {
   const [actionTab, setActionTab] = useState<"delegate" | "undelegate" | "redelegate">("delegate");
@@ -2310,6 +2314,7 @@ function PortfolioTab({
   const [validators, setValidators] = useState<any[]>([]);
   const [validatorsLoading, setValidatorsLoading] = useState(true);
   const [confirmUndelegate, setConfirmUndelegate] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
 
   const parsedAmount = parseFloat(amount.replace(/,/g, "")) || 0;
   const GAS_RESERVE = 0.1; // Reserve for gas fees
@@ -2381,96 +2386,102 @@ function PortfolioTab({
     ? estimatePSE(wallet.stakedAmount)
     : 0;
 
+  const totalValueTX = wallet.balance + wallet.stakedAmount + wallet.rewards;
+  const totalValueUSD = totalValueTX * price;
+  const formatRewards = (n: number) => n > 1 ? formatNumber(Math.round(n)) : n < 0.01 ? n.toFixed(6) : n.toFixed(2);
+
   return (
     <>
-      <div className="section-head">
-        <h1 className="page-title">My Portfolio</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: "0.75rem", color: "var(--text-light)", fontFamily: "var(--font-mono)" }}>
-            {wallet.address.slice(0, 10)}...{wallet.address.slice(-4)}
+      {/* ── Hero: single inline strip (Bloomberg-terminal density) ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 24,
+        padding: "16px 20px",
+        marginTop: 8,
+        marginBottom: 16,
+        background: "rgba(255,255,255,0.4)",
+        border: "1px solid var(--glass-border)",
+        borderRadius: "var(--radius-md)",
+        flexWrap: "wrap",
+      }}>
+        {/* Identity */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16, borderRight: "1px solid var(--glass-border)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-medium)" }}>
+            {wallet.address.slice(0, 10)}…{wallet.address.slice(-6)}
           </span>
           <span style={{
-            fontSize: "0.6rem", color: "var(--accent-olive)", fontWeight: 600,
-            background: "rgba(74,122,26,0.1)", padding: "2px 8px", borderRadius: "var(--radius-pill)",
-            textTransform: "uppercase",
+            fontSize: "0.52rem", color: "var(--accent-olive)", fontWeight: 700,
+            padding: "1px 6px", borderRadius: "var(--radius-pill)",
+            textTransform: "uppercase", border: "1px solid rgba(74,122,26,0.25)",
           }}>{wallet.walletType}</span>
           <button
             onClick={refresh}
             style={{
-              background: "none", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-pill)",
-              padding: "4px 12px", fontSize: "0.7rem", color: "var(--text-medium)", cursor: "pointer",
+              background: "none", border: "none",
+              fontSize: "0.65rem", color: "var(--text-light)", cursor: "pointer",
+              fontFamily: "inherit", padding: 0,
             }}
-          >
-            Refresh
-          </button>
+            title="Refresh"
+          >↻</button>
         </div>
-      </div>
 
-      {/* ── Portfolio Summary ── */}
-      <div className="responsive-grid-4" style={{ gap: 1, background: "rgba(255,255,255,0.3)", borderRadius: "var(--radius-lg)", overflow: "hidden", marginBottom: 16 }}>
-        {[
-          { label: "Available", value: `${formatNumber(Math.round(wallet.balance))} TX`, sub: price > 0 ? formatUSD(wallet.balance * price) : "", color: "var(--text-dark)" },
-          { label: "Staked", value: `${formatNumber(Math.round(wallet.stakedAmount))} TX`, sub: price > 0 ? formatUSD(wallet.stakedAmount * price) : "", color: "var(--accent-olive)" },
-          { label: "Pending Rewards", value: `${wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX`, sub: price > 0 ? formatUSD(wallet.rewards * price) : "", color: "var(--tx-dark-green)" },
-          { label: "Total Value", value: price > 0 ? formatUSD((wallet.balance + wallet.stakedAmount + wallet.rewards) * price) : `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX`, sub: price > 0 ? `${formatNumber(Math.round(wallet.balance + wallet.stakedAmount + wallet.rewards))} TX` : "", color: "var(--text-dark)" },
-        ].map((item) => (
-          <div key={item.label} style={{ background: "var(--glass-bg)", padding: "16px 18px" }}>
-            <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)", marginBottom: 4 }}>{item.label}</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.15rem", fontWeight: 600, color: item.color }}>{item.value}</div>
-            {item.sub && <div style={{ fontSize: "0.65rem", color: "var(--text-light)", marginTop: 2 }}>{item.sub}</div>}
-          </div>
-        ))}
-      </div>
-
-      {/* PSE estimate + Claim rewards row */}
-      <div className="responsive-grid-2" style={{ gap: 14, marginBottom: 16 }}>
-        {/* PSE Estimate */}
-        <div style={{
-          background: "var(--tx-dark-green)", borderRadius: "var(--radius-md)",
-          padding: "16px 18px", color: "#fff",
-        }}>
-          <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>
-            Max Est. Next PSE (Cycle #{pseInfo.currentCycle})
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            <div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.3rem", fontWeight: 600, color: "var(--tx-neon)" }}>
-                ~{formatNumber(Math.round(nextPSEReward))} TX
-              </span>
-              {price > 0 && (
-                <span style={{ fontSize: "0.68rem", color: "rgba(177,252,3,0.5)", marginLeft: 8 }}>
-                  ~{formatUSD(nextPSEReward * price)}
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.35)" }}>
-              Next: {nextDistDate}
-            </div>
-          </div>
-          <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.25)", marginTop: 6 }}>
-            Theoretical max assuming full cycle staking. Real rewards depend on your staking duration.{" "}
-            <a href="https://tx-pse.today" target="_blank" rel="noopener noreferrer" style={{ color: "var(--tx-neon)", textDecoration: "none" }}>
-              tx-pse.today
-            </a>{" "}for exact calculation, or check the PSE tab for your on-chain score.
+        {/* Total */}
+        <div>
+          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Total</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.15rem", fontWeight: 700, color: "var(--text-dark)", lineHeight: 1.2 }}>
+            {price > 0 ? formatUSD(totalValueUSD) : `${formatNumber(Math.round(totalValueTX))} TX`}
           </div>
         </div>
 
-        {/* Claim Rewards */}
-        <div className="panel" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)", marginBottom: 6 }}>
-            Claimable Rewards
+        {/* Available */}
+        <div>
+          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Available</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--text-dark)", lineHeight: 1.2 }}>
+            {formatNumber(Math.round(wallet.balance))} TX
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.3rem", fontWeight: 600, color: "var(--accent-olive)", marginBottom: 10 }}>
-            {wallet.rewards > 1 ? formatNumber(Math.round(wallet.rewards)) : wallet.rewards < 0.01 ? wallet.rewards.toFixed(6) : wallet.rewards.toFixed(2)} TX
-            {price > 0 && <span style={{ fontSize: "0.68rem", color: "var(--text-light)", marginLeft: 8 }}>{formatUSD(wallet.rewards * price)}</span>}
+        </div>
+
+        {/* Staked */}
+        <div>
+          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Staked</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--text-dark)", lineHeight: 1.2 }}>
+            {formatNumber(Math.round(wallet.stakedAmount))} TX
+          </div>
+        </div>
+
+        {/* Next PSE */}
+        <div title={`Theoretical max assuming full cycle staking · ${nextDistDate}`}>
+          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>
+            Next PSE · #{pseInfo.currentCycle}
+          </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--accent-olive)", lineHeight: 1.2 }}>
+            ~{formatNumber(Math.round(nextPSEReward))} TX
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div style={{ flex: 1, minWidth: 0 }} />
+
+        {/* Claim CTA — right side */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingLeft: 16, borderLeft: "1px solid var(--glass-border)" }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Rewards</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, color: "var(--accent-olive)", lineHeight: 1.2 }}>
+              {formatRewards(wallet.rewards)} TX
+            </div>
           </div>
           <button
             onClick={claimRewards}
             disabled={txPending || wallet.rewards < 0.01}
             className="btn-olive"
-            style={{ padding: "10px 16px", fontSize: "0.8rem", opacity: (txPending || wallet.rewards < 0.01) ? 0.4 : 1 }}
+            style={{
+              padding: "8px 16px", fontSize: "0.72rem",
+              opacity: (txPending || wallet.rewards < 0.01) ? 0.35 : 1,
+              whiteSpace: "nowrap",
+            }}
           >
-            {txPending ? "Processing..." : "Claim All Rewards"}
+            {txPending ? "…" : "Claim"}
           </button>
         </div>
       </div>
@@ -2553,7 +2564,7 @@ function PortfolioTab({
                     {validatorsLoading ? (
                       <div style={{ padding: 16, textAlign: "center", fontSize: "0.78rem", color: "var(--text-light)" }}>Loading validators...</div>
                     ) : (
-                      filteredValidators.slice(0, 30).map((v: any) => {
+                      filteredValidators.map((v: any) => {
                         const isSilk = v.moniker === "Silk Nodes";
                         const isSelected = selectedValidator === v.operatorAddress;
                         return (
@@ -2800,7 +2811,6 @@ function PortfolioTab({
                           <div style={{ maxHeight: 160, overflowY: "auto", borderRadius: "var(--radius-sm)", border: "1px solid var(--glass-border)" }}>
                             {filteredValidators
                               .filter((v: any) => v.operatorAddress !== selectedSrcValidator)
-                              .slice(0, 20)
                               .map((v: any) => {
                                 const isSilk = v.moniker === "Silk Nodes";
                                 const isSelected = selectedValidator === v.operatorAddress;
@@ -2855,15 +2865,20 @@ function PortfolioTab({
           </div>
         </div>
 
-        {/* Right: Active Delegations + Unbonding */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Right: Active Delegations + Unbonding — boxed card with hairline list inside */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 20, padding: "20px 22px" }}>
           {/* Active Delegations */}
-          <div className="panel" style={{ padding: "18px 22px" }}>
-            <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-light)", marginBottom: 10, fontWeight: 600 }}>
-              Active Delegations ({wallet.delegations.length})
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--glass-border)" }}>
+              <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", fontWeight: 600 }}>
+                Active Delegations
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "var(--text-light)", fontFamily: "var(--font-mono)" }}>
+                {wallet.delegations.length} {wallet.delegations.length === 1 ? "validator" : "validators"}
+              </div>
             </div>
             {wallet.delegations.length === 0 ? (
-              <div style={{ padding: "20px 0", textAlign: "center", fontSize: "0.82rem", color: "var(--text-light)" }}>
+              <div style={{ padding: "24px 0", textAlign: "center", fontSize: "0.78rem", color: "var(--text-light)" }}>
                 No active delegations yet. Use the Delegate tab to start staking.
               </div>
             ) : (
@@ -2871,25 +2886,24 @@ function PortfolioTab({
                 const votingPower = bondedTokens > 0 ? (del.amount / bondedTokens) * 100 : 0;
                 return (
                   <div key={i} style={{
-                    padding: "10px 14px", borderRadius: "var(--radius-sm)",
-                    background: i % 2 === 0 ? "rgba(255,255,255,0.3)" : "transparent",
-                    marginBottom: 2,
+                    padding: "12px 0",
+                    borderBottom: i < wallet.delegations.length - 1 ? "1px solid var(--glass-border)" : "none",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-olive)" }} />
-                        <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>{del.validatorMoniker}</span>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent-olive)" }} />
+                        <span style={{ fontSize: "0.82rem", fontWeight: 500 }}>{del.validatorMoniker}</span>
                       </div>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", fontWeight: 600 }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600 }}>
                         {formatNumber(Math.round(del.amount))} TX
                       </span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.62rem", color: "var(--text-light)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6rem", color: "var(--text-light)", paddingLeft: 13 }}>
                       <span>{price > 0 ? formatUSD(del.amount * price) : ""}</span>
-                      <div style={{ display: "flex", gap: 12 }}>
-                        <span>VP: {votingPower.toFixed(3)}%</span>
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <span>VP {votingPower.toFixed(3)}%</span>
                         {del.rewards > 0.01 && (
-                          <span style={{ color: "var(--accent-olive)" }}>+{del.rewards > 1 ? formatNumber(Math.round(del.rewards)) : del.rewards.toFixed(2)} TX rewards</span>
+                          <span style={{ color: "var(--accent-olive)" }}>+{formatRewards(del.rewards)} TX</span>
                         )}
                       </div>
                     </div>
@@ -2901,30 +2915,74 @@ function PortfolioTab({
 
           {/* Unbonding Delegations */}
           {wallet.unbondingDelegations.length > 0 && (
-            <div className="panel" style={{ padding: "18px 22px" }}>
-              <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#c4a96a", marginBottom: 10, fontWeight: 600 }}>
-                Unbonding ({wallet.unbondingDelegations.length})
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--glass-border)" }}>
+                <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#c4a96a", fontWeight: 600 }}>
+                  Unbonding
+                </div>
+                <div style={{ fontSize: "0.6rem", color: "var(--text-light)", fontFamily: "var(--font-mono)" }}>
+                  {wallet.unbondingDelegations.length} {wallet.unbondingDelegations.length === 1 ? "entry" : "entries"}
+                </div>
               </div>
+
+              {/* Educational nudge */}
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 8,
+                padding: "10px 0 16px",
+                fontSize: "0.64rem", color: "var(--text-medium)", lineHeight: 1.5,
+                borderBottom: "1px solid var(--glass-border)",
+              }}>
+                <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>💡</span>
+                <div>
+                  <strong style={{ color: "var(--accent-olive)" }}>Cancel to keep your PSE score intact.</strong>{" "}
+                  Cancelling restores stake to the same validator and preserves your accumulated PSE history. Letting unbonding complete resets it.
+                </div>
+              </div>
+
               {wallet.unbondingDelegations.map((u: any, i: number) => {
                 const completeDate = new Date(u.completionTime);
                 const daysLeft = Math.max(0, Math.ceil((completeDate.getTime() - Date.now()) / 86400000));
+                const canCancel = !!u.creationHeight && daysLeft > 0;
                 return (
                   <div key={i} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px", background: "rgba(196,169,106,0.05)", borderRadius: "var(--radius-sm)",
-                    marginBottom: 3,
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+                    padding: "12px 0",
+                    borderBottom: i < wallet.unbondingDelegations.length - 1 ? "1px solid var(--glass-border)" : "none",
                   }}>
-                    <div>
-                      <div style={{ fontSize: "0.8rem" }}>{u.validatorMoniker}</div>
-                      <div style={{ fontSize: "0.62rem", color: "#c4a96a" }}>
-                        {daysLeft > 0 ? `${daysLeft} day${daysLeft > 1 ? "s" : ""} remaining` : "Ready to claim"}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 500 }}>{u.validatorMoniker}</div>
+                      <div style={{ fontSize: "0.6rem", color: "#c4a96a", marginTop: 2 }}>
+                        {daysLeft > 0 ? `${daysLeft} day${daysLeft > 1 ? "s" : ""} remaining · ${completeDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Ready to claim"}
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>{formatNumber(Math.round(u.amount))} TX</div>
-                      <div style={{ fontSize: "0.58rem", color: "var(--text-light)" }}>
-                        {completeDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 600 }}>
+                        {formatNumber(Math.round(u.amount))} TX
                       </div>
+                      {canCancel && (
+                        <button
+                          onClick={() => setCancelTarget(u)}
+                          disabled={txPending}
+                          style={{
+                            padding: "5px 12px",
+                            borderRadius: "var(--radius-pill)",
+                            border: "1px solid rgba(74,122,26,0.35)",
+                            background: "transparent",
+                            color: "var(--accent-olive)",
+                            fontSize: "0.62rem",
+                            fontWeight: 700,
+                            cursor: txPending ? "not-allowed" : "pointer",
+                            opacity: txPending ? 0.5 : 1,
+                            whiteSpace: "nowrap",
+                            fontFamily: "inherit",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                          }}
+                          title="Restore stake and preserve PSE score"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -2932,33 +2990,150 @@ function PortfolioTab({
             </div>
           )}
 
-          {/* Staking info card */}
-          <div style={{
-            background: "var(--tx-dark-green)", borderRadius: "var(--radius-md)",
-            padding: "16px 18px", color: "#fff",
-          }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--tx-neon)", marginBottom: 8 }}>Staking Info</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: "0.68rem" }}>
+          {/* Staking info — minimal flat row */}
+          <div>
+            <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", fontWeight: 600, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--glass-border)" }}>
+              Staking Info
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: "0.66rem" }}>
               <div>
-                <div style={{ color: "rgba(255,255,255,0.4)" }}>Base APR</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", marginTop: 2 }}>{apr.toFixed(2)}%</div>
+                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Base APR</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{apr.toFixed(2)}%</div>
               </div>
               <div>
-                <div style={{ color: "rgba(255,255,255,0.4)" }}>Unbonding Period</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", marginTop: 2 }}>7 days</div>
+                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Unbonding</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>7 days</div>
               </div>
               <div>
-                <div style={{ color: "rgba(255,255,255,0.4)" }}>PSE Eligible Bonded</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", marginTop: 2 }}>{formatNumber(pseEligibleBonded)} TX</div>
+                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>PSE Eligible Bonded</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{formatNumber(pseEligibleBonded)} TX</div>
               </div>
               <div>
-                <div style={{ color: "rgba(255,255,255,0.4)" }}>Next PSE</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", marginTop: 2 }}>{nextDistDate}</div>
+                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Next PSE</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{nextDistDate}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Cancel Unbonding Confirmation Modal ── */}
+      {cancelTarget && (
+        <>
+          <div
+            onClick={() => !txPending && setCancelTarget(null)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 9998,
+              background: "rgba(15,27,7,0.55)", backdropFilter: "blur(4px)",
+              animation: "fadeIn 0.15s ease-out",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 9999, width: "min(440px, 92vw)",
+              background: "#fff", borderRadius: "var(--radius-md)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.25)",
+              border: "1px solid var(--glass-border)",
+              animation: "slideUp 0.2s ease-out",
+            }}
+          >
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+              @keyframes slideUp {
+                from { opacity: 0; transform: translate(-50%, -45%); }
+                to { opacity: 1; transform: translate(-50%, -50%); }
+              }
+            `}</style>
+
+            {/* Header */}
+            <div style={{ padding: "20px 24px 14px", borderBottom: "1px solid var(--glass-border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "1.3rem" }}>↩️</span>
+                <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-dark)" }}>
+                  Cancel Unbonding
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "18px 24px 8px" }}>
+              <div style={{
+                padding: "14px 16px", borderRadius: "var(--radius-sm)",
+                background: "var(--glass-bg)", border: "1px solid var(--glass-border)",
+                marginBottom: 14,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                  <span style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>
+                    Validator
+                  </span>
+                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-dark)" }}>
+                    {cancelTarget.validatorMoniker}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>
+                    Amount
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, color: "var(--accent-olive)" }}>
+                    {formatNumber(Math.round(cancelTarget.amount))} TX
+                  </span>
+                </div>
+              </div>
+
+              <div style={{
+                padding: "12px 14px", borderRadius: "var(--radius-sm)",
+                background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
+                marginBottom: 6,
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ fontSize: "0.95rem", lineHeight: 1 }}>✨</span>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-medium)", lineHeight: 1.55 }}>
+                    Your stake will be restored to <strong>{cancelTarget.validatorMoniker}</strong> and your accumulated <strong style={{ color: "var(--accent-olive)" }}>PSE score will be preserved</strong>. The unbonding entry will be removed.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div style={{
+              display: "flex", gap: 10, padding: "14px 24px 20px",
+              justifyContent: "flex-end",
+            }}>
+              <button
+                onClick={() => setCancelTarget(null)}
+                disabled={txPending}
+                style={{
+                  padding: "10px 20px", borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--glass-border)", background: "transparent",
+                  fontSize: "0.78rem", fontWeight: 600, color: "var(--text-medium)",
+                  cursor: txPending ? "not-allowed" : "pointer", fontFamily: "inherit",
+                  opacity: txPending ? 0.5 : 1,
+                }}
+              >
+                Keep Unbonding
+              </button>
+              <button
+                onClick={async () => {
+                  const target = cancelTarget;
+                  await cancelUnbonding(target.validatorAddress, target.amount, target.creationHeight);
+                  setCancelTarget(null);
+                }}
+                disabled={txPending}
+                className="btn-olive"
+                style={{
+                  padding: "10px 22px", fontSize: "0.78rem",
+                  opacity: txPending ? 0.5 : 1,
+                  cursor: txPending ? "not-allowed" : "pointer",
+                }}
+              >
+                {txPending ? "Processing…" : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

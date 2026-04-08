@@ -231,6 +231,7 @@ async function fetchUnbondingDelegations(address: string): Promise<UnbondingDele
           validatorMoniker: resolveMoniker(valAddr),
           amount: toDisplay(e.balance || "0"),
           completionTime: e.completion_time || "",
+          creationHeight: String(e.creation_height || ""),
         });
       }
     }
@@ -318,6 +319,61 @@ export async function undelegateTokens(
 
   if (result.code !== 0) {
     throw new Error(`Undelegation failed: ${result.rawLog}`);
+  }
+
+  return result.transactionHash;
+}
+
+/**
+ * Cancel an in-progress unbonding delegation. The tokens are returned to the
+ * delegation with the same validator, preserving PSE score (vs full unbonding
+ * which resets it). Requires the original creation_height of the unbonding entry.
+ */
+export async function cancelUnbondingTokens(
+  validatorAddress: string,
+  amount: number,
+  creationHeight: string,
+  walletType: "keplr" | "leap" | "cosmostation" = "keplr"
+): Promise<string> {
+  const provider = getWalletProvider(walletType);
+  if (!provider) throw new Error(`${walletType} not available`);
+
+  await provider.enable(CHAIN_ID);
+  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const accounts = await offlineSigner.getAccounts();
+  const address = accounts[0].address;
+
+  const client = await SigningStargateClient.connectWithSigner(
+    COREUM_CHAIN_INFO.rpc,
+    offlineSigner
+  );
+
+  const amountInMicro = Math.floor(amount * Math.pow(10, COIN_DECIMALS));
+
+  const msg = {
+    typeUrl: "/cosmos.staking.v1beta1.MsgCancelUnbondingDelegation",
+    value: {
+      delegatorAddress: address,
+      validatorAddress,
+      amount: { denom: DENOM, amount: String(amountInMicro) },
+      creationHeight: BigInt(creationHeight),
+    },
+  };
+
+  const result = await client.signAndBroadcast(
+    address,
+    [msg],
+    {
+      amount: [{ denom: DENOM, amount: "25000" }],
+      gas: "300000",
+    },
+    "Cancelled unbonding via tx.silknodes.io"
+  );
+
+  client.disconnect();
+
+  if (result.code !== 0) {
+    throw new Error(`Cancel unbonding failed: ${result.rawLog}`);
   }
 
   return result.transactionHash;

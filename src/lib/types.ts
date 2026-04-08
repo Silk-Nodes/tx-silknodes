@@ -69,6 +69,7 @@ export interface UnbondingDelegation {
   validatorMoniker: string;
   amount: number;
   completionTime: string; // ISO date
+  creationHeight: string; // block height when unbonding was created (needed for cancel)
 }
 
 // === Network Status ===
