@@ -357,6 +357,53 @@ export async function fetchPSEClearingBalances(): Promise<{ communityBalance: nu
   return null;
 }
 
+/**
+ * Categorize an excluded address by inspecting its bech32 length and known role.
+ * Bech32 addresses on Cosmos: 39-45 chars = regular account, 59-65 chars = contract/module.
+ */
+export type ExcludedCategory = "module" | "foundation" | "other";
+
+/**
+ * Foundation staking pool addresses, excluded from PSE by governance proposal #40.
+ * https://www.mintscan.io/coreum/proposals/40
+ */
+export const FOUNDATION_STAKING_ADDRESSES: ReadonlySet<string> = new Set([
+  "core1dsna449t2vzcdkla86p9n9jsxkfdvffufhsl5rnal2rfmwfpay0szdueja",
+  "core1vwgu52h7nseth5utu8m0ufzllrgan5zyxfzzcmxaae93yh3cxy0s5xrmet",
+  "core10qtgwuea5kfmcyuvtpygqzgfz5fuv5qny6xsksfglhgyta2jc38srx4hav",
+  "core1yp38kfyr2wmccyqryqggpmpmq09ur9wy48ksqw6x824n4la83jrssjkscn",
+  "core1hye3asjulz88s0fxr6g2set73qjr5lczn5pm50x7z7k6j4lny6cq7asvk7",
+]);
+
+export function categorizeExcludedAddress(address: string): ExcludedCategory {
+  // PSE module account has a known address
+  if (address === "core17hp75352ankzff4wfctexqsld8ukzh03p6nm8t") return "module";
+  // Foundation staking pool (governance prop #40)
+  if (FOUNDATION_STAKING_ADDRESSES.has(address)) return "foundation";
+  return "other";
+}
+
+/** Fetch delegated stake (in TX) for a single address. Returns 0 on failure. */
+export async function fetchAddressStake(address: string): Promise<number> {
+  const endpoints = [
+    `https://api.silknodes.io/coreum/cosmos/staking/v1beta1/delegations/${address}?pagination.limit=200`,
+    `https://full-node.mainnet-1.coreum.dev:1317/cosmos/staking/v1beta1/delegations/${address}?pagination.limit=200`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const data = await res.json();
+      const dels = data?.delegation_responses || [];
+      let total = 0;
+      for (const d of dels) {
+        total += parseInt(d.balance?.amount || "0") / 1_000_000;
+      }
+      return total;
+    } catch { /* try next */ }
+  }
+  return 0;
+}
+
 /** TGE timestamp (2026-03-06T00:00:00Z) — genesis event, immutable fact */
 export const TGE_TIMESTAMP = 1772755200;
 
