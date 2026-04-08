@@ -215,6 +215,7 @@ export default function HomePage() {
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
   const [addrCopied, setAddrCopied] = useState(false);
+  const [addrHover, setAddrHover] = useState(false);
   const [showBrandPopover, setShowBrandPopover] = useState(false);
   const [brandClickedOnce, setBrandClickedOnce] = useState(false);
   const brandPopoverRef = useRef<HTMLDivElement>(null);
@@ -316,20 +317,58 @@ export default function HomePage() {
               {walletLoading ? "Connecting..." : wallet.connected ? truncAddr(wallet.address) : "Connect Wallet"}
             </button>
             {wallet.connected && (
-              <button
-                onClick={copyAddress}
-                title="Copy address"
-                style={{
-                  background: addrCopied ? "var(--tx-neon)" : "rgba(177,252,3,0.1)",
-                  border: "1px solid rgba(177,252,3,0.3)",
-                  borderRadius: 6, padding: "6px 8px", cursor: "pointer",
-                  fontSize: "0.7rem", color: addrCopied ? "var(--tx-dark-green)" : "var(--text-medium)",
-                  fontWeight: 600, transition: "all 0.2s",
-                  display: "flex", alignItems: "center", gap: 3,
-                }}
-              >
-                {addrCopied ? "✓" : "📋"}
-              </button>
+              <div style={{ position: "relative", display: "inline-flex" }}>
+                <button
+                  onClick={copyAddress}
+                  onMouseEnter={() => setAddrHover(true)}
+                  onMouseLeave={() => setAddrHover(false)}
+                  aria-label="Copy wallet address"
+                  style={{
+                    background: addrCopied ? "var(--tx-neon)" : "rgba(177,252,3,0.1)",
+                    border: "1px solid rgba(177,252,3,0.3)",
+                    borderRadius: 6, padding: "6px 8px", cursor: "pointer",
+                    fontSize: "0.7rem", color: addrCopied ? "var(--tx-dark-green)" : "var(--text-medium)",
+                    fontWeight: 600, transition: "all 0.2s",
+                    display: "flex", alignItems: "center", gap: 3,
+                  }}
+                >
+                  {addrCopied ? "✓" : "📋"}
+                </button>
+                {(addrHover || addrCopied) && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "var(--tx-dark-green)",
+                      color: addrCopied ? "var(--tx-neon)" : "#fff",
+                      fontSize: "0.62rem",
+                      fontWeight: 600,
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      whiteSpace: "nowrap",
+                      pointerEvents: "none",
+                      zIndex: 10000,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                      animation: "fadeIn 0.12s ease-out",
+                    }}
+                  >
+                    {addrCopied ? "Copied!" : "Copy"}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: -3,
+                        left: "50%",
+                        transform: "translateX(-50%) rotate(45deg)",
+                        width: 6,
+                        height: 6,
+                        background: "var(--tx-dark-green)",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -2405,27 +2444,6 @@ function PortfolioTab({
         borderRadius: "var(--radius-md)",
         flexWrap: "wrap",
       }}>
-        {/* Identity */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16, borderRight: "1px solid var(--glass-border)" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-medium)" }}>
-            {wallet.address.slice(0, 10)}…{wallet.address.slice(-6)}
-          </span>
-          <span style={{
-            fontSize: "0.52rem", color: "var(--accent-olive)", fontWeight: 700,
-            padding: "1px 6px", borderRadius: "var(--radius-pill)",
-            textTransform: "uppercase", border: "1px solid rgba(74,122,26,0.25)",
-          }}>{wallet.walletType}</span>
-          <button
-            onClick={refresh}
-            style={{
-              background: "none", border: "none",
-              fontSize: "0.65rem", color: "var(--text-light)", cursor: "pointer",
-              fontFamily: "inherit", padding: 0,
-            }}
-            title="Refresh"
-          >↻</button>
-        </div>
-
         {/* Total */}
         <div>
           <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Total</div>
@@ -2450,12 +2468,20 @@ function PortfolioTab({
           </div>
         </div>
 
-        {/* Next PSE */}
-        <div title={`Theoretical max assuming full cycle staking · ${nextDistDate}`}>
-          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>
+        {/* Next PSE — dark accent block */}
+        <div
+          title={`Theoretical max assuming full cycle staking · ${nextDistDate}`}
+          style={{
+            background: "var(--tx-dark-green)",
+            padding: "8px 14px",
+            borderRadius: "var(--radius-sm)",
+            marginLeft: -4,
+          }}
+        >
+          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)" }}>
             Next PSE · #{pseInfo.currentCycle}
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--accent-olive)", lineHeight: 1.2 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, color: "var(--tx-neon)", lineHeight: 1.2 }}>
             ~{formatNumber(Math.round(nextPSEReward))} TX
           </div>
         </div>
@@ -2473,11 +2499,11 @@ function PortfolioTab({
           </div>
           <button
             onClick={claimRewards}
-            disabled={txPending || wallet.rewards < 0.01}
+            disabled={txPending || wallet.rewards <= 0}
             className="btn-olive"
             style={{
               padding: "8px 16px", fontSize: "0.72rem",
-              opacity: (txPending || wallet.rewards < 0.01) ? 0.35 : 1,
+              opacity: (txPending || wallet.rewards <= 0) ? 0.35 : 1,
               whiteSpace: "nowrap",
             }}
           >
@@ -2925,18 +2951,16 @@ function PortfolioTab({
                 </div>
               </div>
 
-              {/* Educational nudge */}
+              {/* Educational nudge — dark green card */}
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 8,
-                padding: "10px 0 16px",
-                fontSize: "0.64rem", color: "var(--text-medium)", lineHeight: 1.5,
-                borderBottom: "1px solid var(--glass-border)",
+                padding: "12px 14px",
+                marginBottom: 12,
+                background: "var(--tx-dark-green)",
+                borderRadius: "var(--radius-sm)",
+                fontSize: "0.64rem", color: "rgba(255,255,255,0.78)", lineHeight: 1.55,
               }}>
-                <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>💡</span>
-                <div>
-                  <strong style={{ color: "var(--accent-olive)" }}>Cancel to keep your PSE score intact.</strong>{" "}
-                  Cancelling restores stake to the same validator and preserves your accumulated PSE history. Letting unbonding complete resets it.
-                </div>
+                <strong style={{ color: "var(--tx-neon)" }}>Cancel to keep your PSE score intact.</strong>{" "}
+                Cancelling restores stake to the same validator and preserves your accumulated PSE history. Letting unbonding complete resets it.
               </div>
 
               {wallet.unbondingDelegations.map((u: any, i: number) => {
@@ -2990,27 +3014,32 @@ function PortfolioTab({
             </div>
           )}
 
-          {/* Staking info — minimal flat row */}
-          <div>
-            <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", fontWeight: 600, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--glass-border)" }}>
+          {/* Staking info — dark green nested card */}
+          <div style={{
+            background: "var(--tx-dark-green)",
+            borderRadius: "var(--radius-md)",
+            padding: "16px 18px",
+            color: "#fff",
+          }}>
+            <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-neon)", fontWeight: 700, marginBottom: 12 }}>
               Staking Info
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: "0.66rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: "0.66rem" }}>
               <div>
-                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Base APR</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{apr.toFixed(2)}%</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Base APR</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>{apr.toFixed(2)}%</div>
               </div>
               <div>
-                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Unbonding</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>7 days</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Unbonding</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>7 days</div>
               </div>
               <div>
-                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>PSE Eligible Bonded</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{formatNumber(pseEligibleBonded)} TX</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>PSE Eligible Bonded</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>{formatNumber(pseEligibleBonded)} TX</div>
               </div>
               <div>
-                <div style={{ color: "var(--text-light)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Next PSE</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", fontWeight: 600, marginTop: 2 }}>{nextDistDate}</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Next PSE</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>{nextDistDate}</div>
               </div>
             </div>
           </div>
