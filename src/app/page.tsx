@@ -32,6 +32,7 @@ import {
 } from "@/lib/pse-calculator";
 import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
+import AnalyticsTab from "@/components/AnalyticsTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -56,10 +57,11 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "overview" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio";
+type TabId = "overview" | "analytics" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio";
 
 const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "overview", label: "Overview" },
+  { id: "analytics", label: "Analytics" },
   { id: "portfolio", label: "Portfolio", walletOnly: true },
   { id: "pse", label: "PSE" },
   { id: "calculator", label: "Calculator" },
@@ -525,6 +527,7 @@ export default function HomePage() {
 
       {/* ════════ TAB CONTENT ════════ */}
       <div className="tab-content">
+        {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "overview" && (
           <OverviewTab
             price={price}

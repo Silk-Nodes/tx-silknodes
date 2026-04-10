@@ -1357,3 +1357,468 @@ input[type="range"]::-webkit-slider-thumb {
     margin-bottom: 6px;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   ANALYTICS TAB — TX Network Pulse
+   ═══════════════════════════════════════════════ */
+
+.analytics-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Live Pulse Dot */
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--tx-neon);
+  border-radius: 50%;
+  margin-left: 10px;
+  vertical-align: middle;
+  box-shadow: 0 0 6px rgba(177, 252, 3, 0.5);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(177, 252, 3, 0.5); }
+  50% { opacity: 0.35; box-shadow: 0 0 2px rgba(177, 252, 3, 0.15); }
+}
+
+/* ═══ STICKY TIME RANGE ═══ */
+.sticky-pills-bar {
+  position: fixed;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  background: rgba(246, 255, 239, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 6px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 20px rgba(15, 27, 7, 0.06);
+  animation: sticky-fade-in 0.2s ease;
+}
+
+@keyframes sticky-fade-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ═══ TL;DR INSIGHT BAR ═══ */
+.insight-bar {
+  background: var(--tx-dark-green);
+  border-radius: var(--radius-lg);
+  padding: 16px 22px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.insight-bar-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tx-neon);
+  background: rgba(177, 252, 3, 0.12);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.insight-bar-text {
+  font-size: 0.8rem;
+  color: var(--tx-subtle-pale);
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+/* ═══ TIME RANGE PILLS ═══ */
+.time-pills {
+  display: flex;
+  gap: 4px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 5px;
+}
+
+.time-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.time-pill:hover {
+  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.time-pill.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(177, 252, 3, 0.2);
+}
+
+/* ═══ STAT / SIGNAL CARDS ═══ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(15, 27, 7, 0.06);
+}
+
+.stat-card.card-olive {
+  background: var(--tx-dark-green);
+  border-color: rgba(177, 252, 3, 0.15);
+}
+.stat-card.card-olive .stat-card-label { color: var(--tx-subtle); }
+.stat-card.card-olive .stat-card-value { color: var(--tx-neon); }
+.stat-card.card-olive .stat-card-change { opacity: 0.85; }
+.stat-card.card-olive .stat-card-context { color: rgba(255,255,255,0.4) !important; }
+.stat-card.card-olive .health-dot { box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+
+.stat-card.card-dark {
+  background: var(--tx-black);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.stat-card.card-dark .stat-card-label { color: rgba(255, 255, 255, 0.5); }
+.stat-card.card-dark .stat-card-value { color: var(--tx-subtle-pale); }
+.stat-card.card-dark .stat-card-change { opacity: 0.85; }
+.stat-card.card-dark .stat-card-context { color: rgba(255,255,255,0.4) !important; }
+
+.health-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.stat-card-label {
+  font-size: 0.65rem;
+  color: var(--text-light);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+}
+
+.stat-card-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  line-height: 1.1;
+}
+
+.stat-card-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-card-change {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.stat-card-change.positive { color: var(--accent-olive); }
+.stat-card-change.negative { color: var(--danger); }
+
+.stat-card-context {
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+/* Educational tooltip */
+.stat-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 27, 7, 0.94);
+  color: #f4f1eb;
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  border-radius: 10px;
+  padding: 12px 16px;
+  width: 280px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: tooltip-fade 0.15s ease;
+}
+
+@keyframes tooltip-fade {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.stat-tooltip-title {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tx-neon);
+  margin-bottom: 6px;
+}
+
+.stat-tooltip-text {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: rgba(244, 241, 235, 0.85);
+}
+
+/* ═══ CHART CARDS V2 (visual intelligence) ═══ */
+.chart-card-v2 {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 22px 24px 16px;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+  overflow: visible;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chart-card-v2:hover {
+  box-shadow: 0 12px 40px rgba(15, 27, 7, 0.07), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.chart-card-v2-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.chart-card-v2-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+}
+
+/* current value is now rendered on the chart line itself */
+
+/* Badge floating (legacy) */
+.chart-card-v2-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  width: fit-content;
+}
+
+/* Badge inline with title */
+.chart-card-v2-badge-inline {
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.badge-up {
+  color: var(--accent-olive);
+  background: rgba(74, 122, 26, 0.1);
+}
+
+.badge-down {
+  color: var(--danger);
+  background: rgba(180, 74, 62, 0.08);
+}
+
+.badge-neutral {
+  color: var(--text-light);
+  background: rgba(142, 141, 138, 0.08);
+}
+
+.chart-card-v2-body {
+  width: 100%;
+}
+
+/* Size hierarchy */
+.chart-card-hero {
+  padding: 28px 28px 18px;
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+.chart-card-hero .chart-card-v2-title {
+  font-size: 0.78rem;
+}
+
+.chart-card-small .chart-card-v2-current {
+  font-size: 1.1rem;
+}
+
+.chart-card-small .chart-card-v2-badge {
+  font-size: 0.58rem;
+}
+
+/* Chart placeholder for insufficient data */
+.chart-card-placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.chart-placeholder-msg {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* ═══ PRICE CHART (Lightweight Charts) ═══ */
+.price-chart-card .chart-card-v2-header {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.price-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.price-current {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.price-range-pills {
+  display: flex;
+  gap: 3px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+}
+
+.price-range-pills .time-pill {
+  padding: 5px 12px;
+  font-size: 0.7rem;
+}
+
+.price-chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 380px;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  opacity: 0.5;
+  font-family: var(--font-mono);
+}
+
+/* ═══ CHART GRID LAYOUTS (hierarchy) ═══ */
+.chart-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.chart-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 1024px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .chart-grid-2 { grid-template-columns: 1fr; }
+  .chart-grid-3 { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .analytics-tab .section-head { flex-direction: column; }
+
+  .sticky-pills-bar {
+    top: auto;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 4px 24px rgba(15, 27, 7, 0.12);
+  }
+
+  @keyframes sticky-fade-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  .sticky-pills-bar .time-pill {
+    padding: 6px 12px;
+    font-size: 0.72rem;
+  }
+
+  .insight-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .chart-card-hero .chart-card-v2-current { font-size: 1.5rem; }
+}
+
+@media (max-width: 520px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .stat-card-value { font-size: 1.15rem; }
+  .stat-tooltip { width: 220px; }
+  .chart-card-v2 { padding: 16px 16px 12px; }
+}
