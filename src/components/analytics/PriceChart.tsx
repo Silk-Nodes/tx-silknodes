@@ -18,46 +18,16 @@ const RANGE_DAYS: Record<PriceRange, number> = {
 };
 
 interface PricePoint {
-  time: string | number;
+  time: number; // unix seconds (consistent format for all ranges)
   value: number;
 }
 
 // In-memory cache (5 min TTL)
 const priceCache = new Map<string, { data: PricePoint[]; ts: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
+const TX_ERA_START_S = Math.floor(TX_ERA_START_MS / 1000);
 
-function parsePriceData(raw: any, days: number): PricePoint[] {
-  const isHourly = days <= 7;
-
-  const prices: PricePoint[] = raw.prices
-    .filter(([ts]: [number, number]) => ts >= TX_ERA_START_MS)
-    .map(([ts, price]: [number, number]) => {
-      if (isHourly) {
-        return { time: Math.floor(ts / 1000), value: price };
-      }
-      const d = new Date(ts);
-      return {
-        time: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-        value: price,
-      };
-    });
-
-  if (isHourly) {
-    const seen = new Set<number>();
-    return prices.filter((p) => {
-      const key = Math.floor(Number(p.time) / 3600) * 3600;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-
-  const byDate = new Map<string, PricePoint>();
-  for (const p of prices) byDate.set(String(p.time), p);
-  return Array.from(byDate.values()).sort((a, b) => String(a.time).localeCompare(String(b.time)));
-}
-
-async function fetchPriceHistory(range: PriceRange, attempt = 1): Promise<PricePoint[]> {
+async function fetchPriceHistory(range: PriceRange): Promise<PricePoint[]> {
   const cached = priceCache.get(range);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
@@ -66,32 +36,51 @@ async function fetchPriceHistory(range: PriceRange, attempt = 1): Promise<PriceP
     const url = `https://api.coingecko.com/api/v3/coins/tx/market_chart?vs_currency=usd&days=${days}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
-    // Rate limited — retry once after delay
-    if (res.status === 429 && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 2000 * attempt));
-      return fetchPriceHistory(range, attempt + 1);
+    if (res.status === 429) {
+      // Rate limited, wait and retry once
+      await new Promise((r) => setTimeout(r, 3000));
+      const retry = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!retry.ok) throw new Error(`HTTP ${retry.status}`);
+      const raw = await retry.json();
+      const data = parseCoingeckoData(raw);
+      priceCache.set(range, { data, ts: Date.now() });
+      return data;
     }
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
-    const data = parsePriceData(raw, days);
+    const data = parseCoingeckoData(raw);
     priceCache.set(range, { data, ts: Date.now() });
     return data;
   } catch (e) {
-    console.warn(`Price fetch failed (attempt ${attempt}):`, e);
-    // Retry once on network error
-    if (attempt < 2) {
-      await new Promise((r) => setTimeout(r, 1500));
-      return fetchPriceHistory(range, attempt + 1);
-    }
+    console.warn("Price fetch failed:", e);
     if (cached) return cached.data;
     return [];
   }
 }
 
-// Prefetch default range (delayed slightly to avoid competing with page load)
+function parseCoingeckoData(raw: any): PricePoint[] {
+  if (!raw?.prices) return [];
+  const seen = new Set<number>();
+
+  return raw.prices
+    .filter(([ts]: [number, number]) => ts >= TX_ERA_START_MS)
+    .map(([ts, price]: [number, number]) => ({
+      time: Math.floor(ts / 1000),
+      value: price,
+    }))
+    .filter((p: PricePoint) => {
+      // Deduplicate by hour
+      const key = Math.floor(p.time / 3600);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+// Prefetch default range (delayed to not compete with page load)
 if (typeof window !== "undefined") {
-  setTimeout(() => fetchPriceHistory("1M"), 500);
+  setTimeout(() => fetchPriceHistory("1M"), 1000);
 }
 
 // ═══ INNER CHART (remounts on range change via key) ═══
@@ -150,7 +139,8 @@ function PriceChartInner({ range }: { range: PriceRange }) {
         },
         timeScale: {
           borderVisible: false,
-          timeVisible: range === "1D" || range === "7D",
+          timeVisible: true,
+          secondsVisible: false,
           fixLeftEdge: true,
           fixRightEdge: true,
         },
@@ -188,14 +178,11 @@ function PriceChartInner({ range }: { range: PriceRange }) {
           return;
         }
 
-        let formatted: string;
-        if (typeof param.time === "number") {
-          const d = new Date(param.time * 1000);
-          formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
-        } else {
-          const d = new Date(param.time + "T00:00:00");
-          formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-        }
+        const d = new Date((param.time as number) * 1000);
+        const showTime = range === "1D" || range === "7D";
+        const formatted = showTime
+          ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+          : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
         tooltipRef.current.innerHTML = `
           <div style="color:rgba(244,241,235,0.5);font-size:0.62rem;margin-bottom:3px">${formatted}</div>
