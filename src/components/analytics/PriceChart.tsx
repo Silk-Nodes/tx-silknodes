@@ -100,10 +100,24 @@ function PriceChartInner({ range }: { range: PriceRange }) {
       const data = await fetchPriceHistory(range);
       if (cancelled) return;
 
-      if (!containerRef.current || data.length === 0) {
-        setLoading(false);
-        setError(true);
-        return;
+      // Wait for next frame to ensure container is painted and has dimensions
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (cancelled) return;
+
+      if (!containerRef.current || containerRef.current.clientWidth === 0 || data.length === 0) {
+        // Container not ready or no data — retry after a short delay
+        if (containerRef.current && data.length > 0) {
+          await new Promise((r) => setTimeout(r, 200));
+          if (cancelled || !containerRef.current || containerRef.current.clientWidth === 0) {
+            setLoading(false);
+            setError(true);
+            return;
+          }
+        } else {
+          setLoading(false);
+          setError(data.length === 0);
+          return;
+        }
       }
 
       const latest = data[data.length - 1].value;
