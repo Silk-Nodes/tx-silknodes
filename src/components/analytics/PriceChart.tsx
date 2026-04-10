@@ -120,25 +120,13 @@ export default function PriceChart() {
     const bottomColor = isUp ? "rgba(74, 122, 26, 0.01)" : "rgba(180, 74, 62, 0.01)";
     lineColorRef.current = lineColor;
 
-    // If chart exists, just update data and colors
-    if (chartRef.current && seriesRef.current) {
-      seriesRef.current.applyOptions({
-        lineColor,
-        topColor,
-        bottomColor,
-        crosshairMarkerBackgroundColor: lineColor,
-      });
-      seriesRef.current.setData(data as AreaData<Time>[]);
-
-      // Show hours for 1D/7D
-      const isHourly = range === "1D" || range === "7D";
-      chartRef.current.applyOptions({
-        timeScale: { timeVisible: isHourly },
-      });
-
-      chartRef.current.timeScale().fitContent();
-      setLoading(false);
-      return;
+    // Destroy existing chart — Lightweight Charts can't switch between
+    // unix timestamps (hourly) and date strings (daily) on the same series
+    if (chartRef.current) {
+      resizeObserverRef.current?.disconnect();
+      chartRef.current.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     }
 
     // First load: create chart
@@ -254,9 +242,9 @@ export default function PriceChart() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleRangeChange = useCallback((range: PriceRange) => {
+  const handleRangeChange = useCallback(async (range: PriceRange) => {
     setActiveRange(range);
-    loadData(range);
+    await loadData(range);
   }, [loadData]);
 
   return (
