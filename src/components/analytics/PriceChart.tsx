@@ -22,7 +22,46 @@ interface PricePoint {
   value: number;
 }
 
+// In-memory cache so tab switches are instant (5 min TTL)
+const priceCache = new Map<string, { data: PricePoint[]; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+
+function parsePriceData(raw: any, days: number): PricePoint[] {
+  const isHourly = days <= 7;
+
+  const prices: PricePoint[] = raw.prices
+    .filter(([ts]: [number, number]) => ts >= TX_ERA_START_MS)
+    .map(([ts, price]: [number, number]) => {
+      if (isHourly) {
+        return { time: Math.floor(ts / 1000) as any, value: price };
+      }
+      const d = new Date(ts);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return { time: dateStr, value: price };
+    });
+
+  if (isHourly) {
+    const seen = new Set<number>();
+    return prices.filter((p) => {
+      const key = Math.floor(Number(p.time) / 3600) * 3600;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  const byDate = new Map<string, PricePoint>();
+  for (const p of prices) byDate.set(p.time, p);
+  return Array.from(byDate.values()).sort((a, b) => String(a.time).localeCompare(String(b.time)));
+}
+
 async function fetchPriceHistory(range: PriceRange): Promise<PricePoint[]> {
+  // Return cached data instantly if fresh
+  const cached = priceCache.get(range);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data;
+  }
+
   try {
     const days = RANGE_DAYS[range];
     const res = await fetch(
@@ -30,42 +69,23 @@ async function fetchPriceHistory(range: PriceRange): Promise<PricePoint[]> {
       { signal: AbortSignal.timeout(10000) }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const raw = await res.json();
+    const data = parsePriceData(raw, days);
 
-    // CoinGecko returns hourly for 1-7 days, daily for >7 days
-    const isHourly = days <= 7;
-
-    const prices: PricePoint[] = data.prices
-      .filter(([ts]: [number, number]) => ts >= TX_ERA_START_MS)
-      .map(([ts, price]: [number, number]) => {
-        const d = new Date(ts);
-        if (isHourly) {
-          // Use Unix timestamp for hourly (Lightweight Charts needs this)
-          return { time: Math.floor(ts / 1000) as any, value: price };
-        }
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        return { time: dateStr, value: price };
-      });
-
-    if (isHourly) {
-      // Deduplicate by hour
-      const seen = new Set<number>();
-      return prices.filter((p) => {
-        const key = Math.floor(Number(p.time) / 3600) * 3600;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    }
-
-    // Deduplicate by date (keep last value per day)
-    const byDate = new Map<string, PricePoint>();
-    for (const p of prices) byDate.set(p.time, p);
-    return Array.from(byDate.values()).sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    // Cache the result
+    priceCache.set(range, { data, ts: Date.now() });
+    return data;
   } catch (e) {
     console.warn("Failed to fetch price history:", e);
+    // Return stale cache if available
+    if (cached) return cached.data;
     return [];
   }
+}
+
+// Prefetch default range immediately on module load (before component mounts)
+if (typeof window !== "undefined") {
+  fetchPriceHistory("1M");
 }
 
 export default function PriceChart() {
