@@ -57,31 +57,41 @@ function parsePriceData(raw: any, days: number): PricePoint[] {
   return Array.from(byDate.values()).sort((a, b) => String(a.time).localeCompare(String(b.time)));
 }
 
-async function fetchPriceHistory(range: PriceRange): Promise<PricePoint[]> {
+async function fetchPriceHistory(range: PriceRange, attempt = 1): Promise<PricePoint[]> {
   const cached = priceCache.get(range);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
   try {
     const days = RANGE_DAYS[range];
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/tx/market_chart?vs_currency=usd&days=${days}`,
-      { signal: AbortSignal.timeout(10000) }
-    );
+    const url = `https://api.coingecko.com/api/v3/coins/tx/market_chart?vs_currency=usd&days=${days}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+
+    // Rate limited — retry once after delay
+    if (res.status === 429 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+      return fetchPriceHistory(range, attempt + 1);
+    }
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
     const data = parsePriceData(raw, days);
     priceCache.set(range, { data, ts: Date.now() });
     return data;
   } catch (e) {
-    console.warn("Failed to fetch price history:", e);
+    console.warn(`Price fetch failed (attempt ${attempt}):`, e);
+    // Retry once on network error
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return fetchPriceHistory(range, attempt + 1);
+    }
     if (cached) return cached.data;
     return [];
   }
 }
 
-// Prefetch default range
+// Prefetch default range (delayed slightly to avoid competing with page load)
 if (typeof window !== "undefined") {
-  fetchPriceHistory("1M");
+  setTimeout(() => fetchPriceHistory("1M"), 500);
 }
 
 // ═══ INNER CHART (remounts on range change via key) ═══
@@ -90,6 +100,7 @@ function PriceChartInner({ range }: { range: PriceRange }) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [price, setPrice] = useState<{ current: number; change: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let chart: IChartApi | null = null;
@@ -98,8 +109,11 @@ function PriceChartInner({ range }: { range: PriceRange }) {
 
     (async () => {
       const data = await fetchPriceHistory(range);
-      if (cancelled || !containerRef.current || data.length === 0) {
+      if (cancelled) return;
+
+      if (!containerRef.current || data.length === 0) {
         setLoading(false);
+        setError(true);
         return;
       }
 
@@ -236,6 +250,11 @@ function PriceChartInner({ range }: { range: PriceRange }) {
       </div>
       <div className="price-chart-container" ref={containerRef} style={{ position: "relative", height: 380 }}>
         {loading && <div className="price-chart-loading">Loading price data...</div>}
+        {error && !loading && (
+          <div className="price-chart-loading" style={{ cursor: "pointer" }} onClick={() => { setError(false); setLoading(true); priceCache.delete(range); fetchPriceHistory(range).then(() => window.location.reload()); }}>
+            Price data unavailable. Tap to retry.
+          </div>
+        )}
         <div
           ref={tooltipRef}
           style={{
