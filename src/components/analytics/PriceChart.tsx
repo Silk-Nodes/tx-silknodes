@@ -216,10 +216,9 @@ export default function PriceChart() {
         formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
       }
 
-      const lc = lineColorRef.current;
       tooltipRef.current.innerHTML = `
-        <div style="color:rgba(106,90,81,0.5);font-size:0.62rem;margin-bottom:3px">${formatted}</div>
-        <div style="font-weight:700;color:${lc};font-size:0.95rem">$${price.value.toFixed(4)}</div>
+        <div style="color:rgba(244,241,235,0.5);font-size:0.62rem;margin-bottom:3px">${formatted}</div>
+        <div style="font-weight:700;color:#B1FC03;font-size:0.95rem">$${price.value.toFixed(4)}</div>
       `;
       tooltipRef.current.style.opacity = "1";
 
