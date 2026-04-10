@@ -234,7 +234,7 @@ function PriceChartInner({ range }: { range: PriceRange }) {
           </span>
         )}
       </div>
-      <div className="price-chart-container" ref={containerRef} style={{ position: "relative", minHeight: 380 }}>
+      <div className="price-chart-container" ref={containerRef} style={{ position: "relative", height: 380 }}>
         {loading && <div className="price-chart-loading">Loading price data...</div>}
         <div
           ref={tooltipRef}
@@ -264,19 +264,17 @@ export default function PriceChart() {
 
   return (
     <div className="chart-card-v2 chart-card-hero price-chart-card">
-      <div className="chart-card-v2-header">
-        <PriceChartInner key={activeRange} range={activeRange} />
-        <div className="price-range-pills">
-          {PRICE_RANGES.map((range) => (
-            <button
-              key={range}
-              className={`time-pill ${activeRange === range ? "active" : ""}`}
-              onClick={() => setActiveRange(range)}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
+      <PriceChartInner key={activeRange} range={activeRange} />
+      <div className="price-range-pills" style={{ position: "absolute", top: 22, right: 24 }}>
+        {PRICE_RANGES.map((range) => (
+          <button
+            key={range}
+            className={`time-pill ${activeRange === range ? "active" : ""}`}
+            onClick={() => setActiveRange(range)}
+          >
+            {range}
+          </button>
+        ))}
       </div>
     </div>
   );
