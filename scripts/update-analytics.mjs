@@ -194,6 +194,24 @@ async function main() {
     errors++;
   }
 
+  // 6. TX Price (CoinGecko)
+  try {
+    console.log("Fetching TX price...");
+    const res = await fetch("https://api.coingecko.com/api/v3/coins/tx?localization=false&tickers=false&community_data=false&developer_data=false", {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const price = data?.market_data?.current_price?.usd ?? 0;
+      if (price > 0) {
+        appendDataPoint("price-usd.json", date, parseFloat(price.toFixed(6)));
+      }
+    }
+  } catch (e) {
+    console.error(`  ERROR (price): ${e.message}`);
+    errors++;
+  }
+
   // NOTE: Active Addresses and Transactions require a block indexer
   // and cannot be fetched from LCD endpoints.
   // These will need a separate data source (Mintscan API, custom indexer, etc.)

@@ -1,300 +1,140 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createChart, type IChartApi, ColorType, CrosshairMode, AreaSeries, type AreaData, type Time } from "lightweight-charts";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceDot,
+} from "recharts";
+import type { DataPoint } from "@/lib/analytics-utils";
+import { calcChange } from "@/lib/analytics-utils";
+import priceDataRaw from "@/data/analytics/price-usd.json";
 
-// TX era start
-const TX_ERA_START_MS = new Date("2026-03-06").getTime();
+// TX era only
+const TX_ERA = "2026-03-06";
+const priceData: DataPoint[] = (priceDataRaw as DataPoint[]).filter((d) => d.date >= TX_ERA);
 
-type PriceRange = "1D" | "7D" | "1M" | "3M" | "ALL";
-const PRICE_RANGES: PriceRange[] = ["1D", "7D", "1M", "3M", "ALL"];
-
-const RANGE_DAYS: Record<PriceRange, number> = {
-  "1D": 1,
-  "7D": 7,
-  "1M": 30,
-  "3M": 90,
-  "ALL": 90,
-};
-
-interface PricePoint {
-  time: number; // unix seconds (consistent format for all ranges)
-  value: number;
-}
-
-// In-memory cache (5 min TTL)
-const priceCache = new Map<string, { data: PricePoint[]; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
-const TX_ERA_START_S = Math.floor(TX_ERA_START_MS / 1000);
-
-async function fetchPriceHistory(range: PriceRange): Promise<PricePoint[]> {
-  const cached = priceCache.get(range);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
-
-  try {
-    const days = RANGE_DAYS[range];
-    const url = `https://api.coingecko.com/api/v3/coins/tx/market_chart?vs_currency=usd&days=${days}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-
-    if (res.status === 429) {
-      // Rate limited, wait and retry once
-      await new Promise((r) => setTimeout(r, 3000));
-      const retry = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      if (!retry.ok) throw new Error(`HTTP ${retry.status}`);
-      const raw = await retry.json();
-      const data = parseCoingeckoData(raw);
-      priceCache.set(range, { data, ts: Date.now() });
-      return data;
-    }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw = await res.json();
-    const data = parseCoingeckoData(raw);
-    priceCache.set(range, { data, ts: Date.now() });
-    return data;
-  } catch (e) {
-    console.warn("Price fetch failed:", e);
-    if (cached) return cached.data;
-    return [];
-  }
-}
-
-function parseCoingeckoData(raw: any): PricePoint[] {
-  if (!raw?.prices) return [];
-  const seen = new Set<number>();
-
-  return raw.prices
-    .filter(([ts]: [number, number]) => ts >= TX_ERA_START_MS)
-    .map(([ts, price]: [number, number]) => ({
-      time: Math.floor(ts / 1000),
-      value: price,
-    }))
-    .filter((p: PricePoint) => {
-      // Deduplicate by hour
-      const key = Math.floor(p.time / 3600);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-// Prefetch default range (delayed to not compete with page load)
-if (typeof window !== "undefined") {
-  setTimeout(() => fetchPriceHistory("1M"), 1000);
-}
-
-// ═══ INNER CHART (remounts on range change via key) ═══
-function PriceChartInner({ range }: { range: PriceRange }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const [price, setPrice] = useState<{ current: number; change: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let chart: IChartApi | null = null;
-    let resizeObs: ResizeObserver | null = null;
-    let cancelled = false;
-
-    (async () => {
-      const data = await fetchPriceHistory(range);
-      if (cancelled) return;
-
-      // Wait for next frame to ensure container is painted and has dimensions
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      if (cancelled) return;
-
-      if (!containerRef.current || containerRef.current.clientWidth === 0 || data.length === 0) {
-        // Container not ready or no data — retry after a short delay
-        if (containerRef.current && data.length > 0) {
-          await new Promise((r) => setTimeout(r, 200));
-          if (cancelled || !containerRef.current || containerRef.current.clientWidth === 0) {
-            setLoading(false);
-            setError(true);
-            return;
-          }
-        } else {
-          setLoading(false);
-          setError(data.length === 0);
-          return;
-        }
-      }
-
-      const latest = data[data.length - 1].value;
-      const first = data[0].value;
-      setPrice({ current: latest, change: first > 0 ? ((latest - first) / first) * 100 : 0 });
-
-      const isUp = latest >= first;
-      const lineColor = isUp ? "#4a7a1a" : "#b44a3e";
-
-      chart = createChart(containerRef.current, {
-        width: containerRef.current.clientWidth,
-        height: 380,
-        layout: {
-          background: { type: ColorType.Solid, color: "transparent" },
-          textColor: "rgba(106,90,81,0.3)",
-          fontFamily: "SF Mono, Fira Code, monospace",
-          fontSize: 10,
-        },
-        grid: {
-          vertLines: { visible: false },
-          horzLines: { color: "rgba(59,45,38,0.03)", style: 1 },
-        },
-        crosshair: {
-          mode: CrosshairMode.Magnet,
-          vertLine: { color: "rgba(59,45,38,0.08)", style: 3, labelVisible: false },
-          horzLine: { color: "rgba(59,45,38,0.08)", style: 3, labelVisible: false },
-        },
-        rightPriceScale: {
-          borderVisible: false,
-          textColor: "rgba(106,90,81,0.25)",
-          scaleMargins: { top: 0.05, bottom: 0.05 },
-          autoScale: true,
-        },
-        timeScale: {
-          borderVisible: false,
-          timeVisible: true,
-          secondsVisible: false,
-          fixLeftEdge: true,
-          fixRightEdge: true,
-        },
-        handleScroll: { mouseWheel: false, pressedMouseMove: false },
-        handleScale: { mouseWheel: false, pinch: false },
-      });
-
-      const series = (chart as any).addSeries(AreaSeries, {
-        lineColor,
-        lineWidth: 2.5,
-        topColor: isUp ? "rgba(74, 122, 26, 0.25)" : "rgba(180, 74, 62, 0.2)",
-        bottomColor: isUp ? "rgba(74, 122, 26, 0.02)" : "rgba(180, 74, 62, 0.02)",
-        priceLineVisible: false,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: "#fff",
-        crosshairMarkerBorderWidth: 2,
-        crosshairMarkerBackgroundColor: lineColor,
-        lastValueVisible: false,
-      });
-
-      series.setData(data as AreaData<Time>[]);
-      chart.timeScale().fitContent();
-
-      // Tooltip
-      chart.subscribeCrosshairMove((param) => {
-        if (!tooltipRef.current) return;
-        if (!param.time || !param.seriesData.size) {
-          tooltipRef.current.style.opacity = "0";
-          return;
-        }
-        const p = param.seriesData.get(series);
-        if (!p || !("value" in p)) {
-          tooltipRef.current.style.opacity = "0";
-          return;
-        }
-
-        const d = new Date((param.time as number) * 1000);
-        const showTime = range === "1D" || range === "7D";
-        const formatted = showTime
-          ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-          : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-
-        tooltipRef.current.innerHTML = `
-          <div style="color:rgba(244,241,235,0.5);font-size:0.62rem;margin-bottom:3px">${formatted}</div>
-          <div style="font-weight:700;color:#B1FC03;font-size:0.95rem">$${p.value.toFixed(4)}</div>
-        `;
-        tooltipRef.current.style.opacity = "1";
-
-        const coordinate = param.point;
-        if (coordinate && containerRef.current) {
-          const cw = containerRef.current.clientWidth;
-          let left = coordinate.x + 16;
-          if (left + 150 > cw) left = coordinate.x - 160;
-          tooltipRef.current.style.left = `${left}px`;
-          tooltipRef.current.style.top = `${coordinate.y - 10}px`;
-        }
-      });
-
-      // Resize
-      resizeObs = new ResizeObserver((entries) => {
-        for (const entry of entries) chart?.applyOptions({ width: entry.contentRect.width });
-      });
-      resizeObs.observe(containerRef.current);
-
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-      resizeObs?.disconnect();
-      chart?.remove();
-    };
-  }, [range]);
-
-  const changeColor = price && price.change >= 0 ? "#4a7a1a" : "#b44a3e";
-
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+  const d = new Date(label + "T00:00:00");
+  const formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return (
-    <>
-      <div className="price-header-left">
-        <span className="chart-card-v2-title">
-          TX Price
-          {price && (
-            <span className={`chart-card-v2-badge-inline ${price.change > 0 ? "badge-up" : price.change < -3 ? "badge-down" : "badge-neutral"}`}>
-              {price.change >= 0 ? "+" : ""}{price.change.toFixed(1)}%
-            </span>
-          )}
-        </span>
-        {price && (
-          <span className="price-current" style={{ color: changeColor }}>
-            ${price.current.toFixed(4)}
-          </span>
-        )}
-      </div>
-      <div className="price-chart-container" ref={containerRef} style={{ position: "relative", height: 380 }}>
-        {loading && <div className="price-chart-loading">Loading price data...</div>}
-        {error && !loading && (
-          <div className="price-chart-loading" style={{ cursor: "pointer" }} onClick={() => { setError(false); setLoading(true); priceCache.delete(range); fetchPriceHistory(range).then(() => window.location.reload()); }}>
-            Price data unavailable. Tap to retry.
-          </div>
-        )}
-        <div
-          ref={tooltipRef}
-          style={{
-            position: "absolute",
-            pointerEvents: "none",
-            zIndex: 10,
-            background: "rgba(15, 27, 7, 0.94)",
-            border: "1px solid rgba(177, 252, 3, 0.2)",
-            borderRadius: 10,
-            padding: "10px 14px",
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.72rem",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
-            opacity: 0,
-            transition: "opacity 0.12s ease",
-          }}
-        />
-      </div>
-    </>
+    <div style={{
+      background: "rgba(15, 27, 7, 0.94)",
+      color: "#f4f1eb",
+      border: "1px solid rgba(177, 252, 3, 0.2)",
+      borderRadius: 10,
+      padding: "10px 14px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "0.72rem",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
+    }}>
+      <div style={{ color: "rgba(244,241,235,0.5)", marginBottom: 3, fontSize: "0.62rem" }}>{formatted}</div>
+      <div style={{ fontWeight: 700, color: "#B1FC03", fontSize: "0.95rem" }}>${payload[0].value.toFixed(4)}</div>
+    </div>
   );
 }
 
-// ═══ WRAPPER (manages range, remounts inner via key) ═══
 export default function PriceChart() {
-  const [activeRange, setActiveRange] = useState<PriceRange>("1M");
+  if (priceData.length === 0) return null;
+
+  const latest = priceData[priceData.length - 1];
+  const change = calcChange(priceData);
+  const isUp = change !== null && change >= 0;
+  const lineColor = isUp ? "#4a7a1a" : "#b44a3e";
+  const gradientId = "price-grad";
+  const fadeId = "price-fade";
 
   return (
     <div className="chart-card-v2 chart-card-hero price-chart-card">
-      <PriceChartInner key={activeRange} range={activeRange} />
-      <div className="price-range-pills" style={{ position: "absolute", top: 22, right: 24 }}>
-        {PRICE_RANGES.map((range) => (
-          <button
-            key={range}
-            className={`time-pill ${activeRange === range ? "active" : ""}`}
-            onClick={() => setActiveRange(range)}
-          >
-            {range}
-          </button>
-        ))}
+      <div className="price-header-left">
+        <span className="chart-card-v2-title">
+          TX Price
+          {change !== null && (
+            <span className={`chart-card-v2-badge-inline ${change > 0 ? "badge-up" : change < -3 ? "badge-down" : "badge-neutral"}`}>
+              {change >= 0 ? "+" : ""}{change.toFixed(1)}%
+            </span>
+          )}
+        </span>
+        <span className="price-current" style={{ color: lineColor }}>
+          ${latest.value.toFixed(4)}
+        </span>
+      </div>
+      <div style={{ width: "100%", height: 380 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={priceData} margin={{ top: 12, right: 70, bottom: 4, left: 0 }}>
+            <defs>
+              <linearGradient id={fadeId} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.06} />
+                <stop offset="55%" stopColor={lineColor} stopOpacity={0.45} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={1} />
+              </linearGradient>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.0} />
+                <stop offset="70%" stopColor={lineColor} stopOpacity={0.04} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={0.14} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(59,45,38,0.03)" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(d: string) => {
+                const dt = new Date(d + "T00:00:00");
+                return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()]} ${dt.getDate()}`;
+              }}
+              tick={{ fill: "rgba(106,90,81,0.3)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              axisLine={false}
+              tickLine={false}
+              interval={Math.floor(priceData.length / 6)}
+              dy={6}
+            />
+            <YAxis
+              tickFormatter={(v: number) => `$${v.toFixed(3)}`}
+              tick={{ fill: "rgba(106,90,81,0.25)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              axisLine={false}
+              tickLine={false}
+              width={55}
+              tickCount={4}
+              domain={["auto", "auto"]}
+            />
+            <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(59,45,38,0.06)", strokeDasharray: "3 3" }} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={`url(#${fadeId})`}
+              strokeWidth={2.5}
+              fill={`url(#${gradientId})`}
+              dot={false}
+              activeDot={{ r: 5, fill: lineColor, stroke: "#fff", strokeWidth: 2 }}
+              animationDuration={800}
+              animationEasing="ease-out"
+            />
+            <ReferenceDot
+              x={latest.date}
+              y={latest.value}
+              shape={(props: any) => {
+                const { cx, cy } = props;
+                if (!cx || !cy) return <g />;
+                return (
+                  <g>
+                    <circle cx={cx} cy={cy} r={8} fill={lineColor} opacity={0.15}>
+                      <animate attributeName="r" values="6;10;6" dur="2.5s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.2;0.06;0.2" dur="2.5s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx={cx} cy={cy} r={3.5} fill={lineColor} stroke="#fff" strokeWidth={1.5} />
+                    <text x={cx + 10} y={cy - 1} fill={lineColor} fontSize={13} fontWeight={700} fontFamily="var(--font-mono)" dominantBaseline="middle">
+                      ${latest.value.toFixed(4)}
+                    </text>
+                  </g>
+                );
+              }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
