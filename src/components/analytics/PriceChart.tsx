@@ -128,7 +128,12 @@ function PriceChartInner({ range }: { range: PriceRange }) {
           vertLine: { color: "rgba(59,45,38,0.08)", style: 3, labelVisible: false },
           horzLine: { color: "rgba(59,45,38,0.08)", style: 3, labelVisible: false },
         },
-        rightPriceScale: { borderVisible: false, textColor: "rgba(106,90,81,0.25)" },
+        rightPriceScale: {
+          borderVisible: false,
+          textColor: "rgba(106,90,81,0.25)",
+          scaleMargins: { top: 0.05, bottom: 0.05 },
+          autoScale: true,
+        },
         timeScale: {
           borderVisible: false,
           timeVisible: range === "1D" || range === "7D",
@@ -141,9 +146,9 @@ function PriceChartInner({ range }: { range: PriceRange }) {
 
       const series = (chart as any).addSeries(AreaSeries, {
         lineColor,
-        lineWidth: 2,
-        topColor: isUp ? "rgba(74, 122, 26, 0.15)" : "rgba(180, 74, 62, 0.12)",
-        bottomColor: isUp ? "rgba(74, 122, 26, 0.01)" : "rgba(180, 74, 62, 0.01)",
+        lineWidth: 2.5,
+        topColor: isUp ? "rgba(74, 122, 26, 0.25)" : "rgba(180, 74, 62, 0.2)",
+        bottomColor: isUp ? "rgba(74, 122, 26, 0.02)" : "rgba(180, 74, 62, 0.02)",
         priceLineVisible: false,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
