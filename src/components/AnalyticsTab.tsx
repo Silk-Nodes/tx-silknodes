@@ -85,7 +85,7 @@ export default function AnalyticsTab() {
           health={totalStake.health}
           healthContext={totalStake.healthContext}
           explanation={totalStake.explanation}
-          variant="dark"
+          variant="olive"
         />
         <StatCard
           label={activeAddresses.label}
@@ -94,6 +94,7 @@ export default function AnalyticsTab() {
           health={activeAddresses.health}
           healthContext={activeAddresses.healthContext}
           explanation={activeAddresses.explanation}
+          variant="olive"
         />
         <StatCard
           label={transactions.label}
