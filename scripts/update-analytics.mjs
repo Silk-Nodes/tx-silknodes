@@ -161,8 +161,7 @@ async function main() {
       if (!nextKey) break;
     }
 
-    // For each validator, get unbonding entries and group by initiation date
-    const UNBOND_DAYS = 7;
+    // For each validator, get unbonding entries and group by completion date
     const dailyAmounts = {};
 
     for (const valAddr of validators) {
@@ -175,8 +174,7 @@ async function main() {
         for (const resp of (d.unbonding_responses || [])) {
           for (const entry of (resp.entries || [])) {
             const completionDate = new Date(entry.completion_time);
-            const initiationDate = new Date(completionDate.getTime() - UNBOND_DAYS * 86400000);
-            const dateKey = initiationDate.toISOString().split("T")[0];
+            const dateKey = completionDate.toISOString().split("T")[0];
             const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
             dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
           }
