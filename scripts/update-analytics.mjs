@@ -143,9 +143,8 @@ async function main() {
     errors++;
   }
 
-  // NOTE: Pending undelegations requires iterating individual delegator
-  // unbonding entries. The pool's not_bonded_tokens is NOT the same metric.
-  // This data must come from a block indexer or manual CSV updates.
+  // NOTE: Pending undelegations data comes from a separate source (manual CSV).
+  // The pool's not_bonded_tokens is a total, not daily breakdown.
 
   // 2. Staking APR
   try {
