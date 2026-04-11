@@ -137,7 +137,7 @@ export function useAnalyticsData(globalRange: TimeRange) {
   }, [datasets]);
 
   const pendingUndelegations = useMemo(() => {
-    const data = pendingUndelegationsRaw as DataPoint[];
+    const data = txEraOnly(pendingUndelegationsRaw as DataPoint[]);
     const total = data.reduce((sum, d) => sum + d.value, 0);
     return {
       data,
