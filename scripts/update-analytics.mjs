@@ -143,9 +143,70 @@ async function main() {
     errors++;
   }
 
-  // NOTE: Pending undelegations requires iterating individual delegator
-  // unbonding entries. The pool's not_bonded_tokens is NOT the same metric.
-  // This data must come from a block indexer or manual CSV updates.
+  // 1b. Pending Undelegations (query all validators for unbonding entries)
+  try {
+    console.log("Fetching pending undelegations (all validators)...");
+
+    // Get all validators
+    let validators = [];
+    let nextKey = "";
+    while (true) {
+      const url = nextKey
+        ? `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators?pagination.limit=100&pagination.key=${encodeURIComponent(nextKey)}`
+        : `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators?pagination.limit=100`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const d = await res.json();
+      validators.push(...d.validators.map((v) => v.operator_address));
+      nextKey = d.pagination?.next_key || "";
+      if (!nextKey) break;
+    }
+
+    // For each validator, get unbonding entries and group by initiation date
+    const UNBOND_DAYS = 7;
+    const dailyAmounts = {};
+
+    for (const valAddr of validators) {
+      try {
+        const res = await fetch(
+          `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators/${valAddr}/unbonding_delegations?pagination.limit=1000`,
+          { signal: AbortSignal.timeout(10000) }
+        );
+        const d = await res.json();
+        for (const resp of (d.unbonding_responses || [])) {
+          for (const entry of (resp.entries || [])) {
+            const completionDate = new Date(entry.completion_time);
+            const initiationDate = new Date(completionDate.getTime() - UNBOND_DAYS * 86400000);
+            const dateKey = initiationDate.toISOString().split("T")[0];
+            const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
+            dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
+          }
+        }
+      } catch (e) {
+        // Skip individual validator errors
+      }
+    }
+
+    // Write all daily amounts
+    const pendingData = readData("pending-undelegations.json");
+    const existingDates = new Set(pendingData.map((d) => d.date));
+
+    for (const [d, amount] of Object.entries(dailyAmounts)) {
+      if (existingDates.has(d)) {
+        // Update existing
+        const idx = pendingData.findIndex((p) => p.date === d);
+        if (idx >= 0) pendingData[idx].value = Math.round(amount);
+      } else {
+        pendingData.push({ date: d, value: Math.round(amount) });
+      }
+    }
+
+    pendingData.sort((a, b) => a.date.localeCompare(b.date));
+    writeData("pending-undelegations.json", pendingData);
+    console.log(`  Updated pending-undelegations.json: ${Object.keys(dailyAmounts).length} days from ${validators.length} validators`);
+  } catch (e) {
+    console.error(`  ERROR (pending undelegations): ${e.message}`);
+    errors++;
+  }
 
   // 2. Staking APR
   try {
