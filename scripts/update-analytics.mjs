@@ -184,20 +184,12 @@ async function main() {
       }
     }
 
-    // Update data file with all daily amounts
-    const pendingData = readData("pending-undelegations.json");
-    const existingDates = new Set(pendingData.map((d) => d.date));
+    // Replace entire file with only active (pending) undelegations
+    // Completed undelegations are no longer on-chain, so they won't appear
+    const pendingData = Object.entries(dailyAmounts)
+      .map(([d, amount]) => ({ date: d, value: Math.round(amount) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    for (const [d, amount] of Object.entries(dailyAmounts)) {
-      if (existingDates.has(d)) {
-        const idx = pendingData.findIndex((p) => p.date === d);
-        if (idx >= 0) pendingData[idx].value = Math.round(amount);
-      } else {
-        pendingData.push({ date: d, value: Math.round(amount) });
-      }
-    }
-
-    pendingData.sort((a, b) => a.date.localeCompare(b.date));
     writeData("pending-undelegations.json", pendingData);
     console.log(`  Updated pending-undelegations.json: ${Object.keys(dailyAmounts).length} days from ${validators.length} validators`);
   } catch (e) {
