@@ -14,7 +14,7 @@
     "@cosmjs/math": "^0.32.4",
     "@cosmjs/proto-signing": "^0.32.4",
     "@cosmjs/stargate": "^0.32.4",
-    "next": "^15.5.14",
+    "next": "^16.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0"
