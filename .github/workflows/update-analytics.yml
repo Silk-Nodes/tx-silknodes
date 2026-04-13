@@ -38,3 +38,9 @@ jobs:
           git add src/data/analytics/
           git commit -m "chore: update analytics data $(date -u +%Y-%m-%d)"
           git push
+
+      - name: Trigger deploy
+        if: steps.changes.outputs.changed == 'true'
+        run: gh workflow run deploy.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
