@@ -1872,6 +1872,25 @@ input[type="range"]::-webkit-slider-thumb {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+.staking-feed-stale-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: rgba(216, 138, 58, 0.12);
+  border: 1px solid rgba(216, 138, 58, 0.35);
+  border-radius: var(--radius-md);
+  color: var(--text-dark);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.staking-feed-stale-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .staking-feed-type-filter {
   display: flex;
   gap: 6px;

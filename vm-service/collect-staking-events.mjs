@@ -33,8 +33,10 @@ const MIN_AMOUNT_TX = 5000;
 const RETENTION_DAYS = 90;
 const POLL_INTERVAL_MS = 60_000;
 const PUSH_INTERVAL_MS = 5 * 60_000;
+const HEARTBEAT_INTERVAL_MS = 30 * 60_000; // force a push every 30 min so updatedAt never goes silently stale
 const VALIDATOR_REFRESH_MS = 60 * 60_000;
 const MAX_EVENTS = 5000;
+const MAX_CONSECUTIVE_FAILURES = 5; // exit (systemd restarts) after this many failures in a row
 
 const MSG_TYPES = [
   { url: "/cosmos.staking.v1beta1.MsgDelegate", eventName: "delegate", type: "delegate" },
@@ -50,6 +52,9 @@ let blockTimestampCache = new Map();
 let lastValidatorRefresh = 0;
 let hasNewEvents = false;
 let lastPushTime = 0;
+let lastSuccessfulPush = 0;
+let consecutivePushFailures = 0;
+let consecutivePollFailures = 0;
 
 // ═══ LOGGING ═══
 const levels = { debug: 0, info: 1, warn: 2, error: 3 };
@@ -63,6 +68,28 @@ function log(level, ...args) {
 // ═══ HELPERS ═══
 function toDisplay(amount) {
   return Number(amount) / Math.pow(10, DECIMALS);
+}
+
+// execSync returns an Error with .stderr/.stdout buffers. The default
+// Error.message only includes the command line, so "git push failed: Command
+// failed: ..." is useless for debugging. Pull the actual stderr too.
+function formatExecError(e) {
+  const parts = [e.message];
+  const stderr = e.stderr?.toString().trim();
+  const stdout = e.stdout?.toString().trim();
+  if (stderr) parts.push(`stderr: ${stderr}`);
+  if (stdout) parts.push(`stdout: ${stdout}`);
+  return parts.join("\n");
+}
+
+function bailIfTooManyFailures(kind, count) {
+  if (count < MAX_CONSECUTIVE_FAILURES) return;
+  log(
+    "error",
+    `[CIRCUIT BREAKER] ${count} consecutive ${kind} failures. Exiting so systemd restarts ` +
+      `with a fresh process state (and any pulled code changes).`,
+  );
+  process.exit(2);
 }
 
 async function fetchWithRetry(url, attempts = 3) {
@@ -296,30 +323,53 @@ async function poll() {
 }
 
 // ═══ GIT PUSH ═══
-function gitCommitAndPush() {
+// Always rewrite the file before pushing so updatedAt reflects "now". This is
+// important for the heartbeat path: even with no new events, we want the
+// committed JSON to advertise a fresh updatedAt so the client and external
+// monitors can tell the collector is alive.
+function gitCommitAndPush({ heartbeat = false } = {}) {
   if (!GIT_PUSH_ENABLED) {
     log("debug", "Git push disabled via env");
     return;
   }
   try {
     execSync(`cd ${REPO_PATH} && git pull --rebase --autostash origin main`, { stdio: "pipe" });
+
+    // Refresh updatedAt right before commit so the JSON timestamp always
+    // matches the actual push time (within a second).
+    saveData();
+
     const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only ${DATA_FILE_REL}`, {
       stdio: "pipe",
       encoding: "utf-8",
     }).trim();
     if (!hasChanges) {
-      log("debug", "No file changes to commit");
+      log("debug", `No file changes to commit (${heartbeat ? "heartbeat" : "regular"} cycle)`);
+      // Still counts as a successful "push attempt" for failure tracking,
+      // since the git pipeline itself worked.
+      consecutivePushFailures = 0;
+      lastSuccessfulPush = Date.now();
       return;
     }
     const ts = new Date().toISOString().slice(0, 16);
+    const subject = heartbeat
+      ? `chore: heartbeat update staking events ${ts}`
+      : `chore: update staking events ${ts}`;
     execSync(`cd ${REPO_PATH} && git add ${DATA_FILE_REL}`, { stdio: "pipe" });
-    execSync(`cd ${REPO_PATH} && git commit -m "chore: update staking events ${ts}"`, { stdio: "pipe" });
+    execSync(`cd ${REPO_PATH} && git commit -m "${subject}"`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git push origin main`, { stdio: "pipe" });
-    log("info", `Pushed to GitHub: ${ts}`);
+    log("info", `Pushed to GitHub${heartbeat ? " (heartbeat)" : ""}: ${ts}`);
     lastPushTime = Date.now();
+    lastSuccessfulPush = Date.now();
     hasNewEvents = false;
+    consecutivePushFailures = 0;
   } catch (e) {
-    log("error", "Git push failed:", e.message);
+    consecutivePushFailures++;
+    log(
+      "error",
+      `Git push failed (${consecutivePushFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive):\n${formatExecError(e)}`,
+    );
+    bailIfTooManyFailures("git push", consecutivePushFailures);
   }
 }
 
@@ -333,23 +383,45 @@ async function main() {
   loadExistingData();
   await refreshValidators();
   await poll();
-  if (hasNewEvents) gitCommitAndPush();
+  // Always run an initial push so lastSuccessfulPush is set to "now" and the
+  // heartbeat clock has a sensible baseline. This also surfaces any git auth
+  // problem at startup instead of hours later.
+  gitCommitAndPush();
 
   setInterval(async () => {
     try {
       await poll();
+      consecutivePollFailures = 0;
     } catch (e) {
-      log("error", "Poll error:", e.message);
+      consecutivePollFailures++;
+      log(
+        "error",
+        `Poll failed (${consecutivePollFailures}/${MAX_CONSECUTIVE_FAILURES} consecutive): ${e.message}`,
+      );
+      bailIfTooManyFailures("poll", consecutivePollFailures);
     }
   }, POLL_INTERVAL_MS);
 
   setInterval(() => {
-    if (hasNewEvents && Date.now() - lastPushTime >= PUSH_INTERVAL_MS) {
-      gitCommitAndPush();
+    const sinceLastPush = Date.now() - lastPushTime;
+    const heartbeatDue = Date.now() - lastSuccessfulPush >= HEARTBEAT_INTERVAL_MS;
+
+    if (hasNewEvents && sinceLastPush >= PUSH_INTERVAL_MS) {
+      gitCommitAndPush({ heartbeat: false });
+    } else if (heartbeatDue) {
+      // Force a refresh of the JSON's updatedAt so the client and external
+      // monitors can distinguish "alive but quiet" from "dead". The git diff
+      // check inside gitCommitAndPush will short-circuit harmlessly if the
+      // file content hasn't changed.
+      gitCommitAndPush({ heartbeat: true });
     }
   }, PUSH_INTERVAL_MS);
 
-  log("info", "Collector running. Polling every 60s, pushing every 5min when changes exist.");
+  log(
+    "info",
+    `Collector running. Poll: ${POLL_INTERVAL_MS / 1000}s, push: ${PUSH_INTERVAL_MS / 60_000}min, ` +
+      `heartbeat: ${HEARTBEAT_INTERVAL_MS / 60_000}min, circuit breaker: ${MAX_CONSECUTIVE_FAILURES} failures.`,
+  );
 }
 
 main().catch((e) => {

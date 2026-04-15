@@ -1,0 +1,29 @@
+name: Staking Feed Health Check
+
+# External liveness check for the VM-collected staking feed. Reads the
+# committed JSON's updatedAt and fails (sending notification email) if it's
+# older than the threshold. See scripts/check-feed-freshness.mjs.
+
+on:
+  schedule:
+    # Every 20 minutes. Avoid :00 and :30 to spread API load across the hour.
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify feed freshness
+        run: node scripts/check-feed-freshness.mjs
