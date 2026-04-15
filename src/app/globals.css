@@ -1872,6 +1872,54 @@ input[type="range"]::-webkit-slider-thumb {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+.staking-feed-type-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.staking-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  opacity: 0.55;
+}
+
+.staking-type-chip:hover {
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.staking-type-chip.active {
+  opacity: 1;
+  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.staking-type-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
 .staking-feed-tiers {
   display: flex;
   gap: 4px;

@@ -1,6 +1,6 @@
 # Silk Nodes Staking Events Collector
 
-A 24/7 service that runs on your home VM. Polls Coreum RPC for staking events, maintains a rolling 30-day window in `src/data/analytics/staking-events.json`, and pushes updates to GitHub every 5 minutes.
+A 24/7 service that runs on your home VM. Polls Coreum RPC for staking events, maintains a rolling 3 month window in `src/data/analytics/staking-events.json`, and pushes updates to GitHub every 5 minutes.
 
 ## Requirements
 
@@ -98,7 +98,7 @@ Every 60 seconds:
 2. Parses tx events to extract delegator, validator, amount, and block timestamp
 3. Filters out amounts below 5,000 TX
 4. Deduplicates by tx hash
-5. Keeps only the most recent 30 days
+5. Keeps only the most recent 3 months
 6. Writes to `src/data/analytics/staking-events.json`
 
 Every 5 minutes (if there are changes):
