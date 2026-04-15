@@ -162,8 +162,8 @@ async function main() {
     }
 
     // For each validator, get unbonding entries and group by completion date
-    // Only include entries completing AFTER today (exclude completed ones)
-    const todayStr = today();
+    // Only include entries whose completion_time is in the FUTURE (not yet completed)
+    const nowMs = Date.now();
     const dailyAmounts = {};
 
     for (const valAddr of validators) {
@@ -175,10 +175,10 @@ async function main() {
         const d = await res.json();
         for (const resp of (d.unbonding_responses || [])) {
           for (const entry of (resp.entries || [])) {
-            const completionDate = new Date(entry.completion_time);
-            const dateKey = completionDate.toISOString().split("T")[0];
-            // Skip entries that already completed (before today)
-            if (dateKey < todayStr) continue;
+            const completionMs = new Date(entry.completion_time).getTime();
+            // Skip entries already completed (completion_time is in the past)
+            if (completionMs <= nowMs) continue;
+            const dateKey = entry.completion_time.slice(0, 10);
             const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
             dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
           }
