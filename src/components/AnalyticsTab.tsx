@@ -7,6 +7,7 @@ import TimeRangeSelector from "./analytics/TimeRangeSelector";
 import StatCard from "./analytics/StatCard";
 import AnalyticsChart from "./analytics/AnalyticsChart";
 import PriceChart from "./analytics/PriceChart";
+import StakingFeed from "./analytics/StakingFeed";
 import SpikeChart from "./analytics/SpikeChart";
 
 export default function AnalyticsTab() {
@@ -124,6 +125,9 @@ export default function AnalyticsTab() {
 
       {/* ═══ HERO CHART: TX Price (most important) ═══ */}
       <PriceChart />
+
+      {/* ═══ STAKING ACTIVITY FEED ═══ */}
+      <StakingFeed />
 
       {/* ═══ SECONDARY: Staking APR + Total Staked ═══ */}
       <div className="chart-grid-2">
