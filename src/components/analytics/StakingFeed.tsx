@@ -27,7 +27,7 @@ const ALL_TYPES: ReadonlySet<StakingEventType> = new Set<StakingEventType>([
 ]);
 
 export default function StakingFeed() {
-  const { events, validators, updatedAt, now } = useStakingFeed();
+  const { events, validators, updatedAt, now, isStale, fetchError } = useStakingFeed();
   const [activeTier, setActiveTier] = useState<FeedTier>("all");
   const [activeTypes, setActiveTypes] = useState<Set<StakingEventType>>(() => new Set(ALL_TYPES));
   const [selectedEvent, setSelectedEvent] = useState<StakingEvent | null>(null);
@@ -70,6 +70,17 @@ export default function StakingFeed() {
           </div>
           <span className="staking-feed-updated">Updated {formatRelativeTime(updatedAt, now)}</span>
         </div>
+
+        {(isStale || fetchError) && (
+          <div className="staking-feed-stale-banner" role="status">
+            <span className="staking-feed-stale-icon">⚠️</span>
+            <span>
+              {fetchError
+                ? "Cannot reach the feed. Retrying every minute..."
+                : `Feed appears stale. Last update was ${formatRelativeTime(updatedAt, now)}.`}
+            </span>
+          </div>
+        )}
 
         <div className="staking-feed-type-filter" role="group" aria-label="Filter by event type">
           {TYPE_FILTERS.map(({ type, label, color }) => {

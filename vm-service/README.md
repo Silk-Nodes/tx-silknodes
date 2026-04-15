@@ -107,6 +107,17 @@ Every 5 minutes (if there are changes):
 3. Pushes to GitHub
 4. GitHub Pages rebuilds automatically
 
+Every 30 minutes (heartbeat):
+1. Refreshes `updatedAt` and pushes a heartbeat commit even when there are no new events
+2. This keeps the file's `updatedAt` field within 30 min of "now" so the client banner and the GitHub Actions monitor (`.github/workflows/staking-feed-health.yml`) can distinguish "alive but quiet" from "dead"
+
+## Reliability defenses
+
+- **Loud failures:** git errors include full stderr in logs (not just the first line)
+- **Circuit breaker:** after 5 consecutive push failures (or poll failures), the process exits. systemd `Restart=always` brings it back up with a fresh state, and the new process picks up any pulled code changes
+- **Client warning:** if `updatedAt` is older than 60 min, the Staking Activity panel shows an amber "Feed appears stale" banner
+- **External monitor:** GitHub Actions runs `scripts/check-feed-freshness.mjs` every 20 min; a failed run sends notification email
+
 ## Troubleshooting
 
 **Service won't start:**
