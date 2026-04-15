@@ -54,11 +54,15 @@ if [ -z "$(git config user.email || true)" ]; then
   exit 1
 fi
 
+# Auto-detect node path (handles nvm, snap, system installs)
+NODE_PATH="$(command -v node)"
+echo "Node path: $NODE_PATH"
+
 # Create systemd service file with path substitution
 echo
 echo "Creating systemd service..."
 TEMP_SERVICE=$(mktemp)
-sed "s|__REPO_PATH__|$REPO_PATH|g; s|%i|$CURRENT_USER|g" \
+sed "s|__REPO_PATH__|$REPO_PATH|g; s|%i|$CURRENT_USER|g; s|/usr/bin/node|$NODE_PATH|g" \
   "$SCRIPT_DIR/silknodes-collector.service" > "$TEMP_SERVICE"
 
 sudo cp "$TEMP_SERVICE" "$SERVICE_FILE"
