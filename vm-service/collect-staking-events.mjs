@@ -20,7 +20,8 @@ import { execSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
-const DATA_FILE = join(REPO_PATH, "src", "data", "analytics", "staking-events.json");
+const DATA_FILE = join(REPO_PATH, "public", "analytics", "staking-events.json");
+const DATA_FILE_REL = "public/analytics/staking-events.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 
@@ -302,7 +303,7 @@ function gitCommitAndPush() {
   }
   try {
     execSync(`cd ${REPO_PATH} && git pull --rebase --autostash origin main`, { stdio: "pipe" });
-    const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only src/data/analytics/staking-events.json`, {
+    const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only ${DATA_FILE_REL}`, {
       stdio: "pipe",
       encoding: "utf-8",
     }).trim();
@@ -311,7 +312,7 @@ function gitCommitAndPush() {
       return;
     }
     const ts = new Date().toISOString().slice(0, 16);
-    execSync(`cd ${REPO_PATH} && git add src/data/analytics/staking-events.json`, { stdio: "pipe" });
+    execSync(`cd ${REPO_PATH} && git add ${DATA_FILE_REL}`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git commit -m "chore: update staking events ${ts}"`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git push origin main`, { stdio: "pipe" });
     log("info", `Pushed to GitHub: ${ts}`);
