@@ -4,7 +4,7 @@
  * Silk Nodes Staking Events Collector
  *
  * Runs 24/7 on a home VM. Polls Coreum RPC for delegate/undelegate/redelegate
- * transactions, stores a rolling 30 day window in staking-events.json, and
+ * transactions, stores a rolling 3 month window in staking-events.json, and
  * pushes to GitHub every 5 minutes.
  *
  * Environment variables:
@@ -29,7 +29,7 @@ const RPC = "https://rpc-coreum.ecostake.com";
 const LCD = "https://rest-coreum.ecostake.com";
 const DECIMALS = 6;
 const MIN_AMOUNT_TX = 5000;
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = 90;
 const POLL_INTERVAL_MS = 60_000;
 const PUSH_INTERVAL_MS = 5 * 60_000;
 const VALIDATOR_REFRESH_MS = 60 * 60_000;

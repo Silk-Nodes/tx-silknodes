@@ -9,16 +9,47 @@ import {
   formatRelativeTime,
   type FeedTier,
   type StakingEvent,
+  type StakingEventType,
 } from "@/lib/staking-events";
 import StakingFeedRow from "./StakingFeedRow";
 import StakingFeedPanel from "./StakingFeedPanel";
 
+const TYPE_FILTERS: { type: StakingEventType; label: string; color: string }[] = [
+  { type: "delegate", label: "Delegations", color: "#4a7a1a" },
+  { type: "undelegate", label: "Undelegations", color: "#b44a3e" },
+  { type: "redelegate", label: "Redelegations", color: "#d88a3a" },
+];
+
+const ALL_TYPES: ReadonlySet<StakingEventType> = new Set<StakingEventType>([
+  "delegate",
+  "undelegate",
+  "redelegate",
+]);
+
 export default function StakingFeed() {
   const { events, validators, updatedAt, now } = useStakingFeed();
   const [activeTier, setActiveTier] = useState<FeedTier>("all");
+  const [activeTypes, setActiveTypes] = useState<Set<StakingEventType>>(() => new Set(ALL_TYPES));
   const [selectedEvent, setSelectedEvent] = useState<StakingEvent | null>(null);
 
-  const filteredEvents = useMemo(() => filterByTier(events, activeTier), [events, activeTier]);
+  const filteredEvents = useMemo(() => {
+    const byTier = filterByTier(events, activeTier);
+    return byTier.filter((e) => activeTypes.has(e.type));
+  }, [events, activeTier, activeTypes]);
+
+  const toggleType = (type: StakingEventType) => {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        // Don't let the user disable every type (would show empty state with no way back)
+        if (next.size === 1) return prev;
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
 
   if (events.length === 0) {
     return (
@@ -40,6 +71,28 @@ export default function StakingFeed() {
           <span className="staking-feed-updated">Updated {formatRelativeTime(updatedAt, now)}</span>
         </div>
 
+        <div className="staking-feed-type-filter" role="group" aria-label="Filter by event type">
+          {TYPE_FILTERS.map(({ type, label, color }) => {
+            const active = activeTypes.has(type);
+            return (
+              <button
+                key={type}
+                type="button"
+                className={`staking-type-chip ${active ? "active" : ""}`}
+                onClick={() => toggleType(type)}
+                aria-pressed={active}
+                title={active ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+              >
+                <span
+                  className="staking-type-chip-dot"
+                  style={{ background: active ? color : "transparent", borderColor: color }}
+                />
+                <span className="staking-type-chip-label">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="staking-feed-tiers">
           {FEED_TIERS.map((tier) => (
             <button
@@ -54,7 +107,7 @@ export default function StakingFeed() {
 
         <div className="staking-feed-container">
           {filteredEvents.length === 0 ? (
-            <div className="staking-feed-empty-tier">No events in this tier</div>
+            <div className="staking-feed-empty-tier">No events match these filters</div>
           ) : (
             filteredEvents.map((event) => (
               <StakingFeedRow
@@ -69,7 +122,7 @@ export default function StakingFeed() {
         </div>
 
         <div className="staking-feed-footer">
-          Showing {filteredEvents.length} of {events.length} events (last 30 days, 5,000+ TX)
+          Showing {filteredEvents.length} of {events.length} events (last 3 months, 5,000+ TX)
         </div>
       </div>
 
