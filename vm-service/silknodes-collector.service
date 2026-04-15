@@ -1,0 +1,21 @@
+[Unit]
+Description=Silk Nodes Staking Events Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=/usr/bin/node __REPO_PATH__/vm-service/collect-staking-events.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-collector
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+
+[Install]
+WantedBy=multi-user.target

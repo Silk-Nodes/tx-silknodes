@@ -1,0 +1,15 @@
+{
+  "name": "silknodes-staking-collector",
+  "version": "1.0.0",
+  "description": "Collects staking events from Coreum RPC and pushes to GitHub",
+  "private": true,
+  "type": "module",
+  "main": "collect-staking-events.mjs",
+  "scripts": {
+    "start": "node collect-staking-events.mjs",
+    "dev": "GIT_PUSH=false LOG_LEVEL=debug node collect-staking-events.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
