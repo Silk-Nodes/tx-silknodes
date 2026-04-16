@@ -25,13 +25,19 @@ jobs:
       - name: Fetch on-chain data
         run: node scripts/update-analytics.mjs
 
+      # Commit any partial progress, even if the fetch step failed partway
+      # through (e.g. Hasura/RPC blip on day 4 of a 6-day backfill). Without
+      # `if: always()`, any non-zero exit from the fetch step would cause
+      # these to be skipped and all progress thrown away when the runner
+      # tears down, forcing the next run to redo the work from scratch.
       - name: Check for changes
         id: changes
+        if: always()
         run: |
           git diff --quiet src/data/analytics/ && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push
-        if: steps.changes.outputs.changed == 'true'
+        if: always() && steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

@@ -161,34 +161,56 @@ function addDay(dateStr, n) {
 
 // Find min and max block heights for a given UTC date via Hasura. Two small
 // queries, well under the rate limit that trips Cloudflare.
+//
+// Both queries retry on transient failures (timeout, 5xx, Cloudflare HTML
+// challenge response). Running-hot workflows can hit brief blips and we'd
+// rather burn 30s of retries than lose a day of backfill work.
 async function fetchBlockHeightRangeForDate(date) {
   const start = `${date}T00:00:00`;
   const end = addDay(date, 1) + "T00:00:00";
 
-  async function gql(query) {
-    const res = await fetch(HASURA, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("json")) {
-      throw new Error(`Hasura returned non-JSON (likely Cloudflare challenge)`);
-    }
-    return await res.json();
-  }
-
-  const minR = await gql(
+  const minR = await gqlWithRetry(
     `{ block(where: { timestamp: { _gte: "${start}" } }, order_by: { timestamp: asc }, limit: 1) { height } }`,
   );
-  const maxR = await gql(
+  const maxR = await gqlWithRetry(
     `{ block(where: { timestamp: { _lt: "${end}" } }, order_by: { timestamp: desc }, limit: 1) { height } }`,
   );
   const lo = minR.data?.block?.[0]?.height;
   const hi = maxR.data?.block?.[0]?.height;
   if (!lo || !hi) return null;
   return { lo: Number(lo), hi: Number(hi) };
+}
+
+async function gqlWithRetry(query, attempts = 4) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(HASURA, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("json")) {
+        // Cloudflare challenge page, rate-limit page, etc.
+        throw new Error(`non-JSON response (HTTP ${res.status})`);
+      }
+      const json = await res.json();
+      if (json.errors) {
+        throw new Error(`GraphQL error: ${JSON.stringify(json.errors).slice(0, 200)}`);
+      }
+      return json;
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) {
+        const backoff = 2000 * Math.pow(2, i); // 2s, 4s, 8s
+        console.warn(`    hasura attempt ${i + 1}/${attempts} failed: ${e.message} — retrying in ${backoff / 1000}s`);
+        await new Promise((r) => setTimeout(r, backoff));
+      }
+    }
+  }
+  throw new Error(`Hasura failed after ${attempts} attempts: ${lastErr.message}`);
 }
 
 // Daily tx count via RPC tx_search's total_count — one cheap HTTP call.
@@ -399,15 +421,22 @@ async function main() {
   // Both metrics are daily aggregates, so we backfill every missing day from
   // the last committed entry up through yesterday. We never write today because
   // the day isn't complete yet — partial-day numbers would mislead users.
-  try {
-    console.log("Fetching daily transactions + active addresses...");
-    const missingDays = findMissingDays("transactions.json");
-    if (missingDays.length === 0) {
-      console.log("  No missing days — tx/active-addresses already current");
-    } else {
-      console.log(`  Backfilling ${missingDays.length} day(s): ${missingDays.join(", ")}`);
-    }
-    for (const day of missingDays) {
+  //
+  // Each day is wrapped in its own try/catch so a transient Cloudflare/RPC blip
+  // on day N doesn't throw away the completed work for days 1..N-1. Each day
+  // writes to disk as it finishes, so even a total workflow failure doesn't
+  // waste progress — the next run will pick up from the last written day.
+  console.log("Fetching daily transactions + active addresses...");
+  const missingDays = findMissingDays("transactions.json");
+  if (missingDays.length === 0) {
+    console.log("  No missing days — tx/active-addresses already current");
+  } else {
+    console.log(`  Backfilling ${missingDays.length} day(s): ${missingDays.join(", ")}`);
+  }
+  let daysDone = 0;
+  let daysFailed = 0;
+  for (const day of missingDays) {
+    try {
       console.log(`  [${day}] resolving block range...`);
       const range = await fetchBlockHeightRangeForDate(day);
       if (!range) {
@@ -421,10 +450,17 @@ async function main() {
 
       const activeAddrs = await fetchDailyActiveAddresses(lo, hi, txCount);
       appendDataPoint("active-addresses.json", day, activeAddrs);
+      daysDone++;
+    } catch (e) {
+      // Don't bail — the next day might succeed, and the next workflow run
+      // will retry this specific day. Each appendDataPoint above has already
+      // persisted any prior day's work to disk.
+      console.error(`  [${day}] FAILED: ${e.message}`);
+      daysFailed++;
     }
-  } catch (e) {
-    console.error(`  ERROR (tx + active addresses): ${e.message}`);
-    errors++;
+  }
+  if (daysFailed > 0) {
+    console.warn(`  Completed ${daysDone}/${missingDays.length} days, ${daysFailed} failed (will retry next run).`);
   }
 
   console.log(`\nDone. ${errors > 0 ? `${errors} error(s) occurred.` : "All metrics updated successfully."}\n`);
