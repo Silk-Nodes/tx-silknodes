@@ -1,6 +1,28 @@
-# Silk Nodes Staking Events Collector
+# Silk Nodes VM Services
 
-A 24/7 service that runs on your home VM. Polls Coreum RPC for staking events, maintains a rolling 3 month window in `public/analytics/staking-events.json`, and pushes updates to GitHub every 5 minutes.
+This VM is the **single source of truth** for all on-chain analytics that feed the Silk Nodes dashboard. It runs two units side-by-side.
+
+## The two units
+
+### 1. `silknodes-collector.service` — continuous
+Polls Coreum RPC for delegate/undelegate/redelegate transactions, maintains a rolling 3 month window in `public/analytics/staking-events.json`, pushes to GitHub every 5 minutes with a 30-minute heartbeat.
+
+### 2. `silknodes-daily-analytics.timer` — once per day
+Fires at **02:00 UTC** (and 5 min after boot) and runs `collect-daily-analytics.mjs`. Fills every missing day of per-day metrics in `src/data/analytics/`:
+
+| File | Source |
+|---|---|
+| `transactions.json` | RPC `tx_search?per_page=1` → `total_count` |
+| `active-addresses.json` | RPC `tx_search` paginated → unique `message.sender` |
+| `total-stake.json` | LCD `/cosmos/staking/v1beta1/pool` |
+| `staking-apr.json` | LCD mint/distribution params + bonded |
+| `staked-pct.json` | bonded / circulating |
+| `total-supply.json` | LCD `/cosmos/bank/v1beta1/supply/by_denom` |
+| `circulating-supply.json` | TX API `/circulating-supply` |
+| `pending-undelegations.json` | LCD, aggregated across all validators |
+| `price-usd.json` | CoinGecko daily snapshot |
+
+Block heights for a UTC date are resolved by **RPC-only binary search** on `/block?height=X` timestamps. No Hasura, no Cloudflare in the critical path. ~42 RPC calls per date, ~2-3 seconds.
 
 ## Requirements
 
@@ -47,90 +69,93 @@ git config --global user.name "Silk Nodes Bot"
 bash setup.sh
 ```
 
-The script will:
-- Verify Node.js and git are installed
-- Install the systemd service
-- Run an initial data fetch to populate `staking-events.json`
-- Enable + start the service
+The script:
 
-## Managing the service
+- Verifies Node.js and git are installed
+- Installs both systemd units: `silknodes-collector.service` and `silknodes-daily-analytics.{service,timer}`
+- Runs an initial staking fetch to populate `staking-events.json`
+- Enables + starts the staking collector
+- Enables the daily timer (first run at next 02:00 UTC or 5 min after boot, whichever comes first)
 
+## Managing the services
+
+### Staking events collector
 ```bash
-# View live logs
-sudo journalctl -u silknodes-collector -f
+sudo journalctl -u silknodes-collector -f          # live logs
+sudo systemctl status silknodes-collector          # health check
+sudo systemctl restart silknodes-collector         # restart
+```
 
-# Check status
-sudo systemctl status silknodes-collector
-
-# Restart
-sudo systemctl restart silknodes-collector
-
-# Stop
-sudo systemctl stop silknodes-collector
-
-# Disable (won't start on reboot)
-sudo systemctl disable silknodes-collector
+### Daily analytics
+```bash
+systemctl list-timers | grep silknodes             # see next run
+sudo systemctl start silknodes-daily-analytics     # run now (backfills gaps)
+sudo journalctl -u silknodes-daily-analytics -n 200 --no-pager  # last run's logs
 ```
 
 ## Configuration
 
-Environment variables (edit the systemd unit file to change):
+Environment variables in each systemd unit file:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `REPO_PATH` | Parent of vm-service dir | Path to the tx-silknodes repo |
-| `GIT_PUSH` | `true` | Set to `false` to skip git push (for testing) |
+| `GIT_PUSH` | `true` | Set to `false` to skip git push (testing) |
 | `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 
 ## Local testing
 
-Run without pushing to GitHub:
-
 ```bash
 cd vm-service
-npm run dev   # GIT_PUSH=false LOG_LEVEL=debug
+npm run dev                                                 # staking collector, no push
+GIT_PUSH=false LOG_LEVEL=debug node collect-daily-analytics.mjs  # daily analytics, no push
 ```
-
-## What it does
-
-Every 60 seconds:
-1. Queries Coreum RPC `tx_search` for `MsgDelegate`, `MsgUndelegate`, `MsgBeginRedelegate` transactions
-2. Parses tx events to extract delegator, validator, amount, and block timestamp
-3. Filters out amounts below 5,000 TX
-4. Deduplicates by tx hash
-5. Keeps only the most recent 3 months
-6. Writes to `public/analytics/staking-events.json`
-
-Every 5 minutes (if there are changes):
-1. Runs `git pull --rebase --autostash`
-2. Commits the updated JSON
-3. Pushes to GitHub
-4. GitHub Pages rebuilds automatically
-
-Every 30 minutes (heartbeat):
-1. Refreshes `updatedAt` and pushes a heartbeat commit even when there are no new events
-2. This keeps the file's `updatedAt` field within 30 min of "now" so the client banner and the GitHub Actions monitor (`.github/workflows/staking-feed-health.yml`) can distinguish "alive but quiet" from "dead"
 
 ## Reliability defenses
 
-- **Loud failures:** git errors include full stderr in logs (not just the first line)
-- **Circuit breaker:** after 5 consecutive push failures (or poll failures), the process exits. systemd `Restart=always` brings it back up with a fresh state, and the new process picks up any pulled code changes
-- **Client warning:** if `updatedAt` is older than 60 min, the Staking Activity panel shows an amber "Feed appears stale" banner
-- **External monitor:** GitHub Actions runs `scripts/check-feed-freshness.mjs` every 20 min; a failed run sends notification email
+### In the staking collector (continuous)
+- **Loud failures:** git errors include full stderr/stdout
+- **Circuit breaker:** exits after 5 consecutive push or poll failures; systemd `Restart=always` brings it back up with fresh state (and any pulled code changes)
+- **Heartbeat:** forces a commit every 30 min even with no new events, so `updatedAt` never silently goes stale
+- **Client warning:** if `updatedAt` > 60 min, the Staking Activity panel shows an amber "Feed appears stale" banner
+- **External monitor:** `.github/workflows/staking-feed-health.yml` runs every 20 min and fails if the JSON is stale
+
+### In the daily analytics collector (one-shot)
+- **Per-metric try/catch:** one flaky endpoint does not abort the whole run
+- **Per-day try/catch:** a transient RPC blip on day N does not throw away days 1..N-1
+- **Incremental writes:** each day writes to disk before moving on, so failures never waste completed work
+- **Pull-rebase-retry on push:** up to 4 attempts with backoff so we can't collide with the staking collector pushing to the same repo
+- **Systemd `Persistent=true`:** if the VM is off at 02:00 UTC, the timer fires as soon as it comes back online
+- **OnBootSec=5min:** extra safety net to catch gaps immediately after any downtime
+- **RPC-only:** no Hasura, no Cloudflare rate-limit dependency
 
 ## Troubleshooting
 
-**Service won't start:**
+**Either service won't start:**
 ```bash
 sudo journalctl -u silknodes-collector -n 100
+sudo journalctl -u silknodes-daily-analytics -n 100
 ```
 
 **Git push fails:**
 - Check SSH key: `ssh -T git@github.com`
 - Check git remote is SSH not HTTPS: `git remote -v`
-- If HTTPS, switch to SSH: `git remote set-url origin git@github.com:Silk-Nodes/tx-silknodes.git`
+- If HTTPS: `git remote set-url origin git@github.com:Silk-Nodes/tx-silknodes.git`
 
-**No events appearing:**
-- Verify RPC is reachable: `curl https://rpc-coreum.ecostake.com/status`
+**No events appearing in staking feed:**
+- Verify RPC: `curl https://rpc-coreum.ecostake.com/status`
 - Check minimum amount filter (5,000 TX) isn't filtering everything
 - Run in debug mode: `LOG_LEVEL=debug node collect-staking-events.mjs`
+
+**Daily analytics missing a day:**
+- Re-trigger: `sudo systemctl start silknodes-daily-analytics`
+- The script is idempotent: it only processes days that are actually missing
+- If the same day keeps failing, check the RPC's earliest served block: `curl https://rpc-coreum.ecostake.com/status | jq .result.sync_info.earliest_block_height` — data before that height is pruned and can't be recovered
+
+**Verifying a tx count manually:**
+```bash
+# Look up a date's block range
+curl 'https://rpc-coreum.ecostake.com/block?height=70350994' | jq .result.block.header.time   # first block of Apr 15
+# Then query tx_search
+curl 'https://rpc-coreum.ecostake.com/tx_search?query=%22tx.height%3E%3D70350994%20AND%20tx.height%3C%3D70449744%22&per_page=1&page=1' | jq .result.total_count
+```

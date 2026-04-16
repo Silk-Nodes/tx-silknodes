@@ -1,0 +1,20 @@
+[Unit]
+Description=Daily run of Silk Nodes analytics collector
+Requires=silknodes-daily-analytics.service
+
+[Timer]
+# Fire once per day at 02:00 UTC (well past midnight so "yesterday" is stable
+# and block data for yesterday is fully indexed by public RPCs).
+OnCalendar=*-*-* 02:00:00 UTC
+# If the VM was off at the scheduled time, run as soon as possible after it
+# comes back. This is the "gap fill on boot" behavior.
+Persistent=true
+# Belt-and-suspenders: also run 5 minutes after boot. Paired with the script's
+# idempotent findMissingDays logic, this catches any gaps that a Persistent=true
+# couldn't cover (e.g. very first install).
+OnBootSec=5min
+AccuracySec=1min
+Unit=silknodes-daily-analytics.service
+
+[Install]
+WantedBy=timers.target
