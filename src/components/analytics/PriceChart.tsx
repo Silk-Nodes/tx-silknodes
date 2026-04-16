@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -11,12 +12,18 @@ import {
   ReferenceDot,
 } from "recharts";
 import type { DataPoint } from "@/lib/analytics-utils";
-import { calcChange } from "@/lib/analytics-utils";
+import { useTokenData } from "@/hooks/useTokenData";
 import priceDataRaw from "@/data/analytics/price-usd.json";
 
 // TX era only
 const TX_ERA = "2026-03-06";
-const priceData: DataPoint[] = (priceDataRaw as DataPoint[]).filter((d) => d.date >= TX_ERA);
+const historicalPriceData: DataPoint[] = (priceDataRaw as DataPoint[]).filter(
+  (d) => d.date >= TX_ERA,
+);
+
+function todayUTC(): string {
+  return new Date().toISOString().split("T")[0];
+}
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
@@ -40,10 +47,45 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function PriceChart() {
+  // Pull live price from the same hook the Overview page uses, so the big
+  // number and end-of-line label always match the price box on Overview.
+  // The historical JSON only drives the shape of the area chart; the latest
+  // displayed value always comes from the live hook.
+  const { tokenData } = useTokenData();
+  const livePrice = tokenData?.price ?? 0;
+  const livePriceChange24h = tokenData?.priceChange24h ?? null;
+
+  // Append (or replace) today's point with the live price so the chart's
+  // trailing edge reflects reality. During the initial fetch (before
+  // useTokenData resolves) we fall back to the historical series unchanged.
+  const priceData = useMemo<DataPoint[]>(() => {
+    if (historicalPriceData.length === 0) return [];
+    if (!livePrice) return historicalPriceData;
+
+    const today = todayUTC();
+    const last = historicalPriceData[historicalPriceData.length - 1];
+
+    if (last.date === today) {
+      // Cron already wrote today; overwrite with the live value so we don't
+      // show a stale intra-day snapshot that disagrees with the header.
+      return [
+        ...historicalPriceData.slice(0, -1),
+        { date: today, value: livePrice },
+      ];
+    }
+    return [...historicalPriceData, { date: today, value: livePrice }];
+  }, [livePrice]);
+
   if (priceData.length === 0) return null;
 
+  // Display value: prefer live, fall back to last JSON point during load.
   const latest = priceData[priceData.length - 1];
-  const change = calcChange(priceData);
+  const displayPrice = livePrice || latest.value;
+
+  // 24h change: prefer CoinGecko's 24h window from the hook. This is the
+  // same number shown on Overview; computing it from daily JSON here would
+  // diverge because the cron samples once per day.
+  const change = livePriceChange24h;
   const isUp = change !== null && change >= 0;
   const lineColor = isUp ? "#4a7a1a" : "#b44a3e";
   const gradientId = "price-grad";
@@ -61,7 +103,7 @@ export default function PriceChart() {
           )}
         </span>
         <span className="price-current" style={{ color: lineColor }}>
-          ${latest.value.toFixed(4)}
+          ${displayPrice.toFixed(4)}
         </span>
       </div>
       <div style={{ width: "100%", height: 380 }}>
