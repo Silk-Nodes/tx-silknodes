@@ -41,7 +41,12 @@ import { execSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
-const DATA_DIR = join(REPO_PATH, "src", "data", "analytics");
+// Files live in public/analytics so the Next.js export ships them as static
+// assets the browser can fetch at runtime. Static imports (src/data/analytics)
+// bake into the JS bundle and require a Pages rebuild + browser hard-refresh
+// to propagate, which is exactly the staleness problem we're solving.
+const DATA_DIR = join(REPO_PATH, "public", "analytics");
+const DATA_DIR_REL = "public/analytics";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 
@@ -354,7 +359,7 @@ function gitCommitAndPush() {
     try {
       execSync(`cd ${REPO_PATH} && git pull --rebase --autostash origin main`, { stdio: "pipe" });
 
-      const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only src/data/analytics/`, {
+      const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only ${DATA_DIR_REL}`, {
         stdio: "pipe",
         encoding: "utf-8",
       }).trim();
@@ -364,7 +369,7 @@ function gitCommitAndPush() {
       }
 
       const ts = new Date().toISOString().slice(0, 16);
-      execSync(`cd ${REPO_PATH} && git add src/data/analytics/`, { stdio: "pipe" });
+      execSync(`cd ${REPO_PATH} && git add ${DATA_DIR_REL}`, { stdio: "pipe" });
       execSync(`cd ${REPO_PATH} && git commit -m "chore: update analytics data ${ts}"`, { stdio: "pipe" });
       execSync(`cd ${REPO_PATH} && git push origin main`, { stdio: "pipe" });
       log("info", `Pushed to GitHub: ${ts}`);

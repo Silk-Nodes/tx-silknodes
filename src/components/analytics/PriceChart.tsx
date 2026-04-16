@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,13 +13,11 @@ import {
 } from "recharts";
 import type { DataPoint } from "@/lib/analytics-utils";
 import { useTokenData } from "@/hooks/useTokenData";
-import priceDataRaw from "@/data/analytics/price-usd.json";
 
 // TX era only
 const TX_ERA = "2026-03-06";
-const historicalPriceData: DataPoint[] = (priceDataRaw as DataPoint[]).filter(
-  (d) => d.date >= TX_ERA,
-);
+const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+const POLL_INTERVAL_MS = 5 * 60_000;
 
 function todayUTC(): string {
   return new Date().toISOString().split("T")[0];
@@ -55,6 +53,33 @@ export default function PriceChart() {
   const livePrice = tokenData?.price ?? 0;
   const livePriceChange24h = tokenData?.priceChange24h ?? null;
 
+  // Fetch the historical series at runtime instead of static-importing it.
+  // Static imports bake into the bundle at build time, so VM pushes would
+  // never reach already-loaded browser tabs without a hard refresh.
+  const [historicalPriceData, setHistoricalPriceData] = useState<DataPoint[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${BASE_PATH}/analytics/price-usd.json?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as DataPoint[];
+        if (cancelled) return;
+        setHistoricalPriceData(data.filter((d) => d.date >= TX_ERA));
+      } catch {
+        // transient network blip; next poll tick will retry
+      }
+    };
+    load();
+    const id = setInterval(load, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   // Append (or replace) today's point with the live price so the chart's
   // trailing edge reflects reality. During the initial fetch (before
   // useTokenData resolves) we fall back to the historical series unchanged.
@@ -74,7 +99,7 @@ export default function PriceChart() {
       ];
     }
     return [...historicalPriceData, { date: today, value: livePrice }];
-  }, [livePrice]);
+  }, [livePrice, historicalPriceData]);
 
   if (priceData.length === 0) return null;
 
