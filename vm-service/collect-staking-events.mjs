@@ -203,10 +203,29 @@ function extractAttribute(event, key) {
   return attr?.value || null;
 }
 
+// Cosmos SDK's `redelegate` event does NOT emit a `delegator` attribute —
+// only source_validator, destination_validator, amount, and completion_time.
+// The signer (true delegator) lives on the `message` event's `sender`
+// attribute for the same tx. Extract it once so we can fall back to it for
+// redelegates (and defensively for any delegate/undelegate event that may
+// also omit the delegator field on certain SDK versions).
+function extractTxSigner(events) {
+  for (const ev of events) {
+    if (ev.type !== "message") continue;
+    for (const a of ev.attributes || []) {
+      if (a.key === "sender" && typeof a.value === "string" && a.value.startsWith("core1")) {
+        return a.value;
+      }
+    }
+  }
+  return null;
+}
+
 function parseTx(tx, msgType) {
   const hash = tx.hash;
   const height = parseInt(tx.height);
   const events = tx.tx_result?.events || [];
+  const txSigner = extractTxSigner(events);
 
   const results = [];
   for (const event of events) {
@@ -216,7 +235,10 @@ function parseTx(tx, msgType) {
     const amount = parseAmount(amountStr || "");
     if (amount < MIN_AMOUNT_TX) continue;
 
-    const delegator = extractAttribute(event, "delegator");
+    // Prefer the delegator attribute if present, fall back to the tx signer.
+    // Redelegate events never emit a delegator attribute, so txSigner is the
+    // only way to identify who initiated the redelegation.
+    const delegator = extractAttribute(event, "delegator") || txSigner;
 
     let validator = extractAttribute(event, "validator");
     let sourceValidator = null;
