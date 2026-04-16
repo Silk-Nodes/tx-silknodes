@@ -93,6 +93,29 @@ body {
   gap: 16px;
 }
 
+/* Scroll fade band that sits above the sticky nav pill. Without this,
+   scrolled content peeks through the pill's rounded corners and its
+   translucent backdrop blur. The band is a gradient so the transition
+   back into page content stays soft. Mobile has a solid fixed bar with
+   flat top corners, so this only applies on tablet and up. */
+@media (min-width: 769px) {
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: linear-gradient(
+      to bottom,
+      var(--bg-base) 45%,
+      rgba(246, 255, 239, 0) 100%
+    );
+    z-index: 99; /* sits below .top-nav (z-index: 100) */
+    pointer-events: none;
+  }
+}
+
 /* ═══════════════════════════════════════════
    TOP NAV — Glassmorphic pill bar
    ═══════════════════════════════════════════ */
@@ -112,7 +135,7 @@ body {
   flex-shrink: 0;
   z-index: 100;
   position: sticky;
-  top: 0;
+  top: 12px; /* breathing room from viewport top; mobile overrides to 0 */
 }
 
 
