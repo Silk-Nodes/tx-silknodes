@@ -1,0 +1,20 @@
+[Unit]
+Description=Silk Nodes Daily Analytics Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-daily-analytics.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-daily-analytics
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=multi-user.target
