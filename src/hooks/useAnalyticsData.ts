@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import type { DataPoint, TimeRange } from "@/lib/analytics-utils";
 import {
   filterByTimeRange,
@@ -20,14 +22,14 @@ import {
   type StrategySuggestion,
 } from "@/lib/analytics-insights";
 
-import activeAddressesRaw from "@/data/analytics/active-addresses.json";
-import transactionsRaw from "@/data/analytics/transactions.json";
-import totalStakeRaw from "@/data/analytics/total-stake.json";
-import stakedPctRaw from "@/data/analytics/staked-pct.json";
-import stakingAprRaw from "@/data/analytics/staking-apr.json";
-import totalSupplyRaw from "@/data/analytics/total-supply.json";
-import circulatingSupplyRaw from "@/data/analytics/circulating-supply.json";
-import pendingUndelegationsRaw from "@/data/analytics/pending-undelegations.json";
+// All per-day analytics series are fetched at runtime from public/analytics/
+// instead of being statically imported. Static imports bake the data into the
+// JS bundle at build time, which means any data update requires both a Pages
+// rebuild AND a browser hard-refresh. Runtime fetch with a short poll keeps
+// all already-loaded tabs in sync with the VM's daily pushes automatically.
+
+const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+const POLL_INTERVAL_MS = 5 * 60_000; // 5 min
 
 // TX era starts March 6, 2026 (Coreum + Solo merge into TX)
 const TX_ERA_START = "2026-03-06";
@@ -51,22 +53,25 @@ export interface DatasetConfig {
   explanation: string;
 }
 
-const DATASETS: {
+interface DatasetMeta {
   id: string;
   label: string;
-  raw: DataPoint[];
+  file: string;
   unit: "TX" | "%" | "";
   chartType: "area" | "line";
   color: string;
-}[] = [
-  { id: "staking-apr", label: "Staking APR", raw: txEraOnly(stakingAprRaw as DataPoint[]), unit: "%", chartType: "line", color: "#FFB078" },
-  { id: "total-stake", label: "Total Staked", raw: txEraOnly(totalStakeRaw as DataPoint[]), unit: "TX", chartType: "area", color: "#4a7a1a" },
-  { id: "active-addresses", label: "Active Addresses", raw: txEraOnly(activeAddressesRaw as DataPoint[]), unit: "", chartType: "line", color: "#4a7a1a" },
-  { id: "transactions", label: "Transactions", raw: txEraOnly(transactionsRaw as DataPoint[]), unit: "", chartType: "line", color: "#B1FC03" },
-  { id: "staked-pct", label: "Staked Ratio", raw: txEraOnly(stakedPctRaw as DataPoint[]), unit: "%", chartType: "area", color: "#4a7a1a" },
-  { id: "total-supply", label: "Total Supply", raw: txEraOnly(totalSupplyRaw as DataPoint[]), unit: "TX", chartType: "area", color: "#9a8a7a" },
-  { id: "circulating-supply", label: "Circulating Supply", raw: txEraOnly(circulatingSupplyRaw as DataPoint[]), unit: "TX", chartType: "area", color: "#4a7a1a" },
+}
+
+const DATASETS_META: DatasetMeta[] = [
+  { id: "staking-apr", label: "Staking APR", file: "staking-apr.json", unit: "%", chartType: "line", color: "#FFB078" },
+  { id: "total-stake", label: "Total Staked", file: "total-stake.json", unit: "TX", chartType: "area", color: "#4a7a1a" },
+  { id: "active-addresses", label: "Active Addresses", file: "active-addresses.json", unit: "", chartType: "line", color: "#4a7a1a" },
+  { id: "transactions", label: "Transactions", file: "transactions.json", unit: "", chartType: "line", color: "#B1FC03" },
+  { id: "staked-pct", label: "Staked Ratio", file: "staked-pct.json", unit: "%", chartType: "area", color: "#4a7a1a" },
+  { id: "total-supply", label: "Total Supply", file: "total-supply.json", unit: "TX", chartType: "area", color: "#9a8a7a" },
+  { id: "circulating-supply", label: "Circulating Supply", file: "circulating-supply.json", unit: "TX", chartType: "area", color: "#4a7a1a" },
 ];
+const PENDING_UNDELEGATIONS_FILE = "pending-undelegations.json";
 
 function formatValue(value: number, unit: "TX" | "%" | ""): string {
   if (unit === "%") return formatPct(value);
@@ -74,12 +79,54 @@ function formatValue(value: number, unit: "TX" | "%" | ""): string {
   return formatLargeNumber(value, 0);
 }
 
+async function fetchAnalyticsFile(filename: string): Promise<DataPoint[]> {
+  try {
+    const res = await fetch(`${BASE_PATH}/analytics/${filename}?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as DataPoint[];
+  } catch {
+    return [];
+  }
+}
+
 export function useAnalyticsData(globalRange: TimeRange) {
+  // State keyed by dataset id. Starts empty; gets populated on first fetch.
+  const [rawByDataset, setRawByDataset] = useState<Record<string, DataPoint[]>>({});
+  const [pendingUndelegationsRaw, setPendingUndelegationsRaw] = useState<DataPoint[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      const datasetEntries = await Promise.all(
+        DATASETS_META.map(async (ds) => {
+          const data = await fetchAnalyticsFile(ds.file);
+          return [ds.id, data] as const;
+        }),
+      );
+      const pending = await fetchAnalyticsFile(PENDING_UNDELEGATIONS_FILE);
+
+      if (cancelled) return;
+      setRawByDataset(Object.fromEntries(datasetEntries));
+      setPendingUndelegationsRaw(pending);
+    };
+
+    load();
+    const id = setInterval(load, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const datasets = useMemo<DatasetConfig[]>(() => {
-    return DATASETS.map((ds) => {
-      const filtered = filterByTimeRange(ds.raw, globalRange);
+    return DATASETS_META.map((ds) => {
+      const raw = txEraOnly(rawByDataset[ds.id] || []);
+      const filtered = filterByTimeRange(raw, globalRange);
       const data = globalRange === "ALL" ? downsample(filtered) : filtered;
-      const latestRaw = getLatestValue(ds.raw);
+      const latestRaw = getLatestValue(raw);
       const change = calcChange(filtered);
       const health = getHealthStatus(ds.id, change, latestRaw);
       const healthContext = getHealthContext(ds.id, change, latestRaw);
@@ -88,7 +135,7 @@ export function useAnalyticsData(globalRange: TimeRange) {
       return {
         id: ds.id,
         label: ds.label,
-        fullData: ds.raw,
+        fullData: raw,
         data,
         unit: ds.unit,
         chartType: ds.chartType,
@@ -101,7 +148,7 @@ export function useAnalyticsData(globalRange: TimeRange) {
         explanation,
       };
     });
-  }, [globalRange]);
+  }, [rawByDataset, globalRange]);
 
   const insightNarrative = useMemo(() => {
     const summaries = datasets.map((d) => ({
@@ -137,14 +184,14 @@ export function useAnalyticsData(globalRange: TimeRange) {
   }, [datasets]);
 
   const pendingUndelegations = useMemo(() => {
-    const data = txEraOnly(pendingUndelegationsRaw as DataPoint[]);
+    const data = txEraOnly(pendingUndelegationsRaw);
     const total = data.reduce((sum, d) => sum + d.value, 0);
     return {
       data,
       total,
       formatted: formatLargeNumber(total),
     };
-  }, []);
+  }, [pendingUndelegationsRaw]);
 
   return {
     datasets,

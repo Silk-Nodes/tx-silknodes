@@ -1,10 +1,14 @@
 name: Update Analytics Data
 
+# DEPRECATED: the VM-based silknodes-daily-analytics systemd timer now owns
+# all analytics files (see vm-service/collect-daily-analytics.mjs). The
+# scheduled run has been disabled to stop racing the VM's pushes. This
+# workflow is kept as workflow_dispatch-only for emergency manual runs
+# while PR C removes it entirely.
 on:
-  schedule:
-    # Run daily at 00:15 UTC
-    - cron: "15 0 * * *"
-  workflow_dispatch: # Allow manual trigger
+  # schedule:
+  #   - cron: "15 0 * * *"  # disabled — VM timer owns this now
+  workflow_dispatch:
 
 permissions:
   contents: write
