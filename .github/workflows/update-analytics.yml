@@ -39,8 +39,8 @@ jobs:
           git commit -m "chore: update analytics data $(date -u +%Y-%m-%d)"
           git push
 
-      - name: Trigger deploy
-        if: steps.changes.outputs.changed == 'true'
-        run: gh workflow run deploy.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Note: deploy.yml is triggered automatically by `push` to main, so an
+      # explicit `gh workflow run deploy.yml` step here was both redundant
+      # AND broken (GITHUB_TOKEN from a scheduled run cannot dispatch other
+      # workflows: HTTP 403 "Resource not accessible by integration"). The
+      # push above is sufficient to trigger a new Pages build.
