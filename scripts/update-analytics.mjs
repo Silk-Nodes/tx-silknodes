@@ -32,6 +32,8 @@ const DATA_DIR = join(__dirname, "..", "src", "data", "analytics");
 // ═══ CONFIG ═══
 const LCD_PRIMARY = "https://rest-coreum.ecostake.com";
 const LCD_FALLBACK = "https://full-node.mainnet-1.coreum.dev:1317";
+const RPC = "https://rpc-coreum.ecostake.com";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 const TX_API = "https://api.mainnet-1.tx.org/api/chain-data/v1";
 const DENOM = "ucore";
 const DECIMALS = 6;
@@ -123,6 +125,132 @@ function appendDataPoint(filename, date, value) {
   }
 
   writeData(filename, data);
+}
+
+// ═══ TX / ACTIVE ADDRESSES (via RPC + Hasura) ═══
+
+// Compute the list of days (YYYY-MM-DD strings) that are missing from the
+// given daily-totals JSON file, from the day after its last entry up through
+// YESTERDAY (exclusive of today — today's day isn't complete yet).
+function findMissingDays(filename) {
+  const data = readData(filename);
+  const last = data.length > 0 ? data[data.length - 1].date : null;
+
+  // Yesterday in UTC (the file stores per-day totals, and the workflow runs
+  // at 00:15 UTC so "yesterday UTC" is the most recent complete day).
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
+
+  // If there's no history, seed with just yesterday to avoid a giant backfill.
+  // In practice this file already has months of data, so `last` will exist.
+  const startDate = last ? addDay(last, 1) : yesterday;
+
+  const days = [];
+  let d = startDate;
+  while (d <= yesterday) {
+    days.push(d);
+    d = addDay(d, 1);
+  }
+  return days;
+}
+
+function addDay(dateStr, n) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().split("T")[0];
+}
+
+// Find min and max block heights for a given UTC date via Hasura. Two small
+// queries, well under the rate limit that trips Cloudflare.
+async function fetchBlockHeightRangeForDate(date) {
+  const start = `${date}T00:00:00`;
+  const end = addDay(date, 1) + "T00:00:00";
+
+  async function gql(query) {
+    const res = await fetch(HASURA, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("json")) {
+      throw new Error(`Hasura returned non-JSON (likely Cloudflare challenge)`);
+    }
+    return await res.json();
+  }
+
+  const minR = await gql(
+    `{ block(where: { timestamp: { _gte: "${start}" } }, order_by: { timestamp: asc }, limit: 1) { height } }`,
+  );
+  const maxR = await gql(
+    `{ block(where: { timestamp: { _lt: "${end}" } }, order_by: { timestamp: desc }, limit: 1) { height } }`,
+  );
+  const lo = minR.data?.block?.[0]?.height;
+  const hi = maxR.data?.block?.[0]?.height;
+  if (!lo || !hi) return null;
+  return { lo: Number(lo), hi: Number(hi) };
+}
+
+// Daily tx count via RPC tx_search's total_count — one cheap HTTP call.
+async function fetchDailyTxCount(lo, hi) {
+  const url = `${RPC}/tx_search?query=%22tx.height%3E%3D${lo}%20AND%20tx.height%3C%3D${hi}%22&per_page=1&page=1`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`RPC tx_search HTTP ${res.status}`);
+  const data = await res.json();
+  const total = data.result?.total_count;
+  if (!total) throw new Error(`RPC tx_search returned no total_count`);
+  return Number(total);
+}
+
+// Daily active (unique signing) addresses. We paginate RPC tx_search at
+// per_page=100 and collect distinct `message.sender` event attributes from
+// each tx's event log. Cosmos SDK emits exactly one `message.sender` per tx
+// per message, which reliably maps to the signing account — much more robust
+// than decoding tx bodies or walking signer_infos.
+//
+// Cost: ~ceil(txCount/100) RPC calls. For a busy day (~13K txs) that's ~135
+// calls / ~2 minutes — well under the workflow's 6h budget. For a full 7-day
+// backfill we're under 15 min total.
+async function fetchDailyActiveAddresses(lo, hi, knownTxCount) {
+  const senders = new Set();
+  const perPage = 100;
+  const totalPages = Math.ceil(knownTxCount / perPage);
+  if (totalPages === 0) return 0;
+
+  for (let page = 1; page <= totalPages; page++) {
+    const url =
+      `${RPC}/tx_search?query=%22tx.height%3E%3D${lo}%20AND%20tx.height%3C%3D${hi}%22` +
+      `&per_page=${perPage}&page=${page}&order_by=%22asc%22`;
+    let data;
+    // Small retry with backoff — RPC can blip under load.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        data = await res.json();
+        break;
+      } catch (e) {
+        if (attempt === 3) throw e;
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+
+    for (const tx of data.result?.txs || []) {
+      for (const ev of tx.tx_result?.events || []) {
+        if (ev.type !== "message") continue;
+        for (const a of ev.attributes || []) {
+          if (a.key === "sender" && a.value?.startsWith("core1")) {
+            senders.add(a.value);
+          }
+        }
+      }
+    }
+
+    if (page % 25 === 0) {
+      console.log(`      page ${page}/${totalPages}, unique so far: ${senders.size}`);
+    }
+  }
+  return senders.size;
 }
 
 // ═══ MAIN ═══
@@ -266,9 +394,38 @@ async function main() {
     errors++;
   }
 
-  // NOTE: Active Addresses and Transactions require a block indexer
-  // and cannot be fetched from LCD endpoints.
-  // These will need a separate data source (Mintscan API, custom indexer, etc.)
+  // 7. Transactions + Active Addresses (per-day via RPC + Hasura block range)
+  //
+  // Both metrics are daily aggregates, so we backfill every missing day from
+  // the last committed entry up through yesterday. We never write today because
+  // the day isn't complete yet — partial-day numbers would mislead users.
+  try {
+    console.log("Fetching daily transactions + active addresses...");
+    const missingDays = findMissingDays("transactions.json");
+    if (missingDays.length === 0) {
+      console.log("  No missing days — tx/active-addresses already current");
+    } else {
+      console.log(`  Backfilling ${missingDays.length} day(s): ${missingDays.join(", ")}`);
+    }
+    for (const day of missingDays) {
+      console.log(`  [${day}] resolving block range...`);
+      const range = await fetchBlockHeightRangeForDate(day);
+      if (!range) {
+        console.warn(`  [${day}] no blocks found, skipping`);
+        continue;
+      }
+      const { lo, hi } = range;
+
+      const txCount = await fetchDailyTxCount(lo, hi);
+      appendDataPoint("transactions.json", day, txCount);
+
+      const activeAddrs = await fetchDailyActiveAddresses(lo, hi, txCount);
+      appendDataPoint("active-addresses.json", day, activeAddrs);
+    }
+  } catch (e) {
+    console.error(`  ERROR (tx + active addresses): ${e.message}`);
+    errors++;
+  }
 
   console.log(`\nDone. ${errors > 0 ? `${errors} error(s) occurred.` : "All metrics updated successfully."}\n`);
 
