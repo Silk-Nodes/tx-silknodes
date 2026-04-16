@@ -1,12 +1,16 @@
-name: Staking Feed Health Check
+name: Analytics Data Health Check
 
-# External liveness check for the VM-collected staking feed. Reads the
-# committed JSON's updatedAt and fails (sending notification email) if it's
-# older than the threshold. See scripts/check-feed-freshness.mjs.
+# External liveness check for every analytics file the VM owns. Reads the
+# committed JSONs from main and fails (sending a notification email) if any
+# file's data is older than its threshold. See scripts/check-feed-freshness.mjs
+# for the list of files and per-file thresholds.
+#
+# Schedule: every 20 minutes. Avoids :00 and :30 to spread API load across
+# the hour. At most 3 consecutive missed daily runs would go unnoticed before
+# this would fire, and it fires continuously once something is broken.
 
 on:
   schedule:
-    # Every 20 minutes. Avoid :00 and :30 to spread API load across the hour.
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
 
@@ -25,5 +29,5 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Verify feed freshness
+      - name: Verify all analytics files are fresh
         run: node scripts/check-feed-freshness.mjs
