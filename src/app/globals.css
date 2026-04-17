@@ -2634,39 +2634,16 @@ input[type="range"]::-webkit-slider-thumb {
   color: var(--text-dark);
 }
 
-.staking-panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.staking-panel-type {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
+/* Panel header + headline stat + sub-stat are now shared between
+   StakingFeedPanel and DelegatorPanel via the .delegator-panel-header,
+   .delegator-panel-stat and .delegator-panel-stat-sub classes defined
+   further below. The old .staking-panel-header / -type / -amount /
+   -amount-raw rules used to live here — removed to avoid dead CSS. */
 
 .staking-panel-timestamp {
   font-size: 0.75rem;
   color: var(--text-light);
   font-family: var(--font-mono);
-}
-
-.staking-panel-amount {
-  font-size: 2.4rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  line-height: 1.1;
-}
-
-.staking-panel-amount-raw {
-  font-size: 0.72rem;
-  color: var(--text-light);
-  font-family: var(--font-mono);
-  margin-top: 2px;
-  margin-bottom: 28px;
 }
 
 .staking-panel-section {
@@ -2768,9 +2745,6 @@ input[type="range"]::-webkit-slider-thumb {
   .staking-feed-panel {
     width: 100vw;
     padding: 24px 20px;
-  }
-  .staking-panel-amount {
-    font-size: 2rem;
   }
 }
 
