@@ -22,16 +22,10 @@ const TYPE_LABELS: Record<StakingEvent["type"], string> = {
   redelegate: "Redelegation",
 };
 
-const TYPE_COLOR: Record<StakingEvent["type"], string> = {
-  delegate: "#4a7a1a",
-  undelegate: "#b44a3e",
-  redelegate: "#d88a3a",
-};
-
-// Event type icons — small colored dots that mirror the row color scheme
-// used on the activity feed. They live in the header row exactly where
-// DelegatorPanel puts its whale/validator/CEX icon, so the two panels
-// share the same visual rhythm at a glance.
+// Event type icons — colored dots that mirror the row-border color scheme
+// used on the activity feed. Color lives here (plus the amount prefix)
+// rather than on the header text or big stat, matching DelegatorPanel's
+// restrained look where "RANK #N" and the big stake number stay neutral.
 const TYPE_ICON: Record<StakingEvent["type"], string> = {
   delegate: "🟢",
   undelegate: "🔴",
@@ -92,7 +86,6 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
 
   if (!event) return null;
 
-  const color = TYPE_COLOR[event.type];
   const icon = TYPE_ICON[event.type];
   const label = TYPE_LABELS[event.type];
   const prefix = AMOUNT_PREFIX[event.type];
@@ -108,18 +101,23 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
         </button>
 
         {/* ─── Header: icon + type + timestamp (matches DelegatorPanel rhythm) ─── */}
+        {/* Header label stays neutral grey like "RANK #2" in the whale panel —
+            the colored circle icon carries the type signal on its own,
+            matching DelegatorPanel's restraint (color lives in the icon +
+            amount-prefix, not in the header text). */}
         <div className="delegator-panel-header">
           <div className="delegator-panel-rank">
             <span className="delegator-panel-rank-icon">{icon}</span>
-            <span className="delegator-panel-rank-text" style={{ color }}>
-              {label}
-            </span>
+            <span className="delegator-panel-rank-text">{label}</span>
           </div>
           <div className="staking-panel-timestamp">{formatFullTimestamp(event.timestamp)}</div>
         </div>
 
         {/* ─── Headline stat ─── */}
-        <div className="delegator-panel-stat" style={{ color }}>
+        {/* Big number is neutral dark (same as the whale panel's "63.11M TX")
+            so both panels share the same "big stat" visual. The prefix
+            (+/-/) + the icon already convey the type. */}
+        <div className="delegator-panel-stat">
           {prefix}
           {formatEventAmount(event.amount)} TX
         </div>
@@ -192,9 +190,13 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
           </div>
         )}
 
-        {/* ─── Transaction Hash ─── */}
+        {/* ─── Transaction Details (tx hash + block height combined) ─── */}
+        {/* Combined to reduce vertical density — whale panel shows only 2
+            body sections, we now show 3 (delegator, validator, tx details)
+            instead of the previous 4. Block height sits as a small
+            sub-line since it's a technical detail, not headline info. */}
         <div className="staking-panel-section">
-          <div className="staking-panel-label">Transaction Hash</div>
+          <div className="staking-panel-label">Transaction</div>
           <div className="staking-panel-value-row">
             <a
               href={txExplorerUrl(event.txHash)}
@@ -206,12 +208,11 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
             </a>
             <CopyButton text={event.txHash} />
           </div>
-        </div>
-
-        {/* ─── Block Height ─── */}
-        <div className="staking-panel-section">
-          <div className="staking-panel-label">Block Height</div>
-          <div className="staking-panel-mono">{event.height.toLocaleString()}</div>
+          <div className="staking-panel-value-row">
+            <span className="staking-panel-mono staking-panel-sub">
+              Block {event.height.toLocaleString()}
+            </span>
+          </div>
         </div>
 
         {/* ─── Footer: View on Mintscan (matches DelegatorPanel) ─── */}
