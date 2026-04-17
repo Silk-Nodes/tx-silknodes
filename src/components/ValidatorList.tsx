@@ -195,7 +195,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
               margin: "0 auto 14px",
             }} />
             <div style={{
-              fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)",
+              fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)",
               letterSpacing: "0.08em",
             }}>
               Loading validator set...
@@ -211,19 +211,19 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
       <div className="responsive-grid-4" style={{ gap: 12, marginBottom: 16 }}>
         <div style={{
           padding: "14px 16px", borderRadius: 12,
-          background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
+          background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
           <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Active Validators</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-dark-green)", marginTop: 4 }}>
+          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {validators.length}
           </div>
         </div>
         <div style={{
           padding: "14px 16px", borderRadius: 12,
-          background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
+          background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
           <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Bonded</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-dark-green)", marginTop: 4 }}>
+          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {fmt(economics?.totalBonded || 0)}
           </div>
           <div style={{ fontSize: "0.55rem", opacity: 0.35, marginTop: 2 }}>
@@ -232,16 +232,16 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
         </div>
         <div style={{
           padding: "14px 16px", borderRadius: 12,
-          background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
+          background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
           <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Avg Commission</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-dark-green)", marginTop: 4 }}>
+          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {(avgCommission * 100).toFixed(1)}%
           </div>
         </div>
         <div style={{
           padding: "14px 16px", borderRadius: 12,
-          background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.04)",
+          background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
           <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Base APR</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)", marginTop: 4 }}>
@@ -311,7 +311,7 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
               }}
               style={{
                 padding: "8px 20px", borderRadius: 8, border: "none",
-                background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                background: "var(--tx-neon)", color: "var(--text-dark)",
                 fontWeight: 700, fontSize: "0.75rem", cursor: "pointer",
               }}
             >

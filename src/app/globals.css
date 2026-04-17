@@ -95,10 +95,13 @@
   --text-medium: #b0ac9f;
   --text-light: #6b6860;
 
-  /* Glass surfaces need dark rgba instead of white rgba to read right on dark bg. */
-  --glass-bg: rgba(30, 35, 22, 0.55);
-  --glass-border: rgba(160, 170, 130, 0.18);
-  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  /* Glass surfaces need dark rgba instead of white rgba to read right on dark bg.
+     Higher alpha + more saturated green so cards are visible as cards, not as
+     indistinct grey blobs. The border gets a soft warm tint so edges are
+     legible without being harsh. */
+  --glass-bg: rgba(40, 55, 28, 0.7);
+  --glass-border: rgba(180, 200, 140, 0.14);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 
   --pattern-stripes: repeating-linear-gradient(
     -45deg,
