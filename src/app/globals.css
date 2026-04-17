@@ -81,7 +81,10 @@
   --tx-subtle: #4a5a3a;
   --tx-subtle-light: #2a341e;
   --tx-subtle-pale: #1a1f14;
-  --tx-black: #f4f1eb;
+  /* --tx-black is a SURFACE color (used by .card-dark backgrounds, etc.),
+     NOT a text color. Keep it near-black in dark mode so "dark" cards
+     stay dark and their cream inline text remains legible. */
+  --tx-black: #0D0D0C;
   --tx-dark-green: #0F1B07;
 
   --accent-yellow: #EBF450;
@@ -109,6 +112,36 @@
     rgba(255, 255, 255, 0.04) 6px
   );
   --pattern-dots: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+}
+
+/* Dark-mode-only component overrides. These fix places where a component
+   hardcoded a light-mode color (rgba white, inline cream text) that breaks
+   in dark mode. We scope to [data-theme="dark"] so light mode is untouched. */
+:root[data-theme="dark"] .chart-card-hero {
+  /* Was hardcoded rgba(255,255,255,0.55) which reads as grey on dark bg. */
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+}
+
+:root[data-theme="dark"] .silk-delegate-btn,
+:root[data-theme="dark"] button[style*="var(--tx-neon)"] {
+  /* Neon green bg always needs dark text for contrast — override the
+     cream --text-dark that inline styles use in dark mode. */
+  color: #0D0D0C !important;
+}
+
+:root[data-theme="dark"] .btn-olive {
+  /* In light mode btn-olive is dark-green bg + neon text (dramatic).
+     In dark mode that bg disappears into the page — swap to neon bg
+     with dark text so the CTA pops like the other Silk Nodes buttons. */
+  background: var(--tx-neon);
+  color: #0D0D0C;
+  box-shadow: 0 3px 14px rgba(177, 252, 3, 0.25);
+}
+:root[data-theme="dark"] .btn-olive:hover {
+  background: var(--tx-neon-light);
+  color: #0D0D0C;
+  opacity: 1;
 }
 
 /* Smooth transition between themes so switching doesn't flash harshly. */
