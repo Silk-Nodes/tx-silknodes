@@ -2780,3 +2780,389 @@ input[type="range"]::-webkit-slider-thumb {
     font-size: 0.68rem;
   }
 }
+
+/* ═══════════════════════════════════════════
+   DELEGATOR PANEL (side panel reached by clicking a Whale Tracker row)
+   Reuses .staking-feed-panel shell + adds distribution/activity bits.
+   ═══════════════════════════════════════════ */
+
+.whale-table-row-clickable {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.whale-table-row-clickable:hover {
+  background: rgba(177, 252, 3, 0.08);
+}
+
+.whale-table-row-clickable:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: -2px;
+}
+
+.delegator-panel {
+  /* Slightly wider than the event panel because we show a stake
+     distribution table with bar charts that needs breathing room. */
+  width: 480px;
+}
+
+.delegator-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.delegator-panel-rank {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.delegator-panel-rank-icon {
+  font-size: 1rem;
+}
+
+.delegator-panel-address-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delegator-panel-address {
+  font-size: 0.72rem !important;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.delegator-panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.delegator-panel-stat {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.delegator-panel-stat-sub {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-medium);
+  margin-bottom: 18px;
+}
+
+.delegator-panel-stat-sub strong {
+  color: #b44a3e;
+  font-weight: 600;
+}
+
+/* Distribution bars */
+.delegator-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.delegator-dist-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.delegator-dist-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 54px;
+  gap: 10px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.delegator-dist-name {
+  color: var(--text-dark);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.delegator-dist-name:hover {
+  color: var(--tx-dark-green);
+  text-decoration: underline;
+}
+
+.delegator-dist-amount {
+  color: var(--text-dark);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.delegator-dist-pct {
+  color: var(--text-medium);
+  text-align: right;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.delegator-dist-bar-track {
+  height: 5px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.delegator-dist-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a7a1a 0%, #B1FC03 100%);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Pending unbondings list */
+.delegator-unbondings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.delegator-unbond-row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
+}
+
+.delegator-unbond-row:last-child {
+  border-bottom: none;
+}
+
+.delegator-unbond-date {
+  color: var(--text-medium);
+}
+
+.delegator-unbond-val {
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delegator-unbond-amount {
+  color: #b44a3e;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Recent activity */
+.delegator-activity {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.delegator-activity-row {
+  display: grid;
+  grid-template-columns: 58px 90px auto minmax(0, 1fr) 54px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
+  border-left: 3px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s ease;
+}
+
+.delegator-activity-row:first-child {
+  border-top: none;
+}
+
+.delegator-activity-row:hover {
+  background: rgba(177, 252, 3, 0.06);
+}
+
+.delegator-activity-row.type-delegate {
+  border-left-color: #4a7a1a;
+}
+.delegator-activity-row.type-undelegate {
+  border-left-color: #b44a3e;
+}
+.delegator-activity-row.type-redelegate {
+  border-left-color: #d88a3a;
+}
+
+.delegator-activity-time {
+  color: var(--text-light);
+}
+
+.delegator-activity-type {
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+.delegator-activity-type.type-delegate {
+  background: rgba(74, 122, 26, 0.12);
+  color: #4a7a1a;
+}
+.delegator-activity-type.type-undelegate {
+  background: rgba(180, 74, 62, 0.12);
+  color: #b44a3e;
+}
+.delegator-activity-type.type-redelegate {
+  background: rgba(216, 138, 58, 0.12);
+  color: #b46a28;
+}
+
+.delegator-activity-amount {
+  font-weight: 600;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 60px;
+}
+
+.delegator-activity-validator {
+  color: var(--text-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delegator-activity-ago {
+  color: var(--text-light);
+  font-size: 0.62rem;
+  text-align: right;
+}
+
+/* Loading + error + empty states */
+.delegator-panel-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.delegator-panel-skel-row {
+  height: 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.delegator-panel-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(180, 74, 62, 0.08);
+  border: 1px solid rgba(180, 74, 62, 0.25);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #b44a3e;
+}
+
+.delegator-panel-retry {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid #b44a3e;
+  background: transparent;
+  color: #b44a3e;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delegator-panel-retry:hover {
+  background: #b44a3e;
+  color: white;
+}
+
+.delegator-panel-empty {
+  padding: 14px 0 2px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.delegator-panel-footer {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--glass-border);
+  text-align: center;
+}
+
+/* Mobile: panel takes full width, activity grid collapses */
+@media (max-width: 520px) {
+  .delegator-panel {
+    width: 100%;
+    padding: 24px 18px 32px;
+  }
+
+  .delegator-panel-stat {
+    font-size: 1.6rem;
+  }
+
+  .delegator-activity-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "type amount ago"
+      "validator validator validator";
+    row-gap: 2px;
+  }
+  .delegator-activity-time {
+    display: none;
+  }
+  .delegator-activity-type { grid-area: type; }
+  .delegator-activity-amount { grid-area: amount; }
+  .delegator-activity-ago { grid-area: ago; }
+  .delegator-activity-validator { grid-area: validator; font-size: 0.64rem; }
+}
