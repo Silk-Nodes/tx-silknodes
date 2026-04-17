@@ -116,9 +116,9 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
 
   return (
     <>
-      <div style={{
+      <div className="excluded-addresses-panel" style={{
         marginTop: 16,
-        background: "rgba(255,255,255,0.5)",
+        background: "var(--glass-bg)",
         border: "1px solid var(--glass-border)",
         borderRadius: "var(--radius-md)",
         overflow: "hidden",

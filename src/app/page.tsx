@@ -1088,7 +1088,7 @@ function OverviewTab({
           </div>
         </div>
 
-        <div className="accent-card" style={{ background: "linear-gradient(135deg, #f5f1e8 0%, #e8e2d4 100%)", border: "1px solid rgba(177,252,3,0.15)" }}>
+        <div className="accent-card" style={{ background: "var(--glass-bg)", border: "1px solid rgba(177,252,3,0.15)" }}>
           <div className="card-content">
             <span className="card-title">Circulating Supply <Tooltip text="Total TX tokens in circulation, excluding undistributed PSE module tokens. Source: official TX chain API." /></span>
             <div>

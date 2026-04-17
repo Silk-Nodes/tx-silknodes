@@ -98,11 +98,11 @@
   --text-medium: #b0ac9f;
   --text-light: #6b6860;
 
-  /* Option A — Warm Forest: saturated dark green surface with high opacity
-     so cards read unmistakably as green (not grey) on the near-black bg.
-     A faint neon border edge reinforces brand accent without being harsh. */
-  --glass-bg: rgba(22, 38, 18, 0.88);
-  --glass-border: rgba(177, 252, 3, 0.12);
+  /* Warm Forest surface: fully opaque saturated dark green so cards read
+     unmistakably as green. Translucency was washing out to grey through
+     the backdrop-filter blur — a solid color guarantees the intended hue. */
+  --glass-bg: #17261a;
+  --glass-border: rgba(177, 252, 3, 0.14);
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 
   --pattern-stripes: repeating-linear-gradient(
@@ -222,6 +222,21 @@
 :root[data-theme="dark"] .whale-label-cex {
   background: rgba(216, 138, 58, 0.15);
   color: #e5a368;
+}
+
+/* Whale tracker inner bands: header strip, row dividers, and hover tint
+   all used rgba black values that vanish on dark bg. Re-tint in dark mode
+   with subtle neon-warm accents so the table reads as banded, not flat. */
+:root[data-theme="dark"] .whale-table-head {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .whale-table-row {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .whale-table-row:hover,
+:root[data-theme="dark"] .whale-table-row-clickable:hover {
+  background: rgba(177, 252, 3, 0.06);
 }
 
 /* Smooth transition between themes so switching doesn't flash harshly. */
