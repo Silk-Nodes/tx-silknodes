@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import { NO_FLASH_SCRIPT } from "@/lib/theme";
 
 const basePath = "/tx-silknodes";
 
@@ -70,6 +71,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Theme no-flash script MUST run before first paint so the <html>
+            gets the correct data-theme attribute before React hydrates.
+            Otherwise the first render would always be light theme and
+            dark/warm users would see a ~100ms flash on every page load. */}
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
         <meta name="theme-color" content="#B1FC03" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

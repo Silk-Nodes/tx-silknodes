@@ -63,6 +63,106 @@
   --space-8: 64px;
 }
 
+/* ═══════════════════════════════════════════
+   DARK THEME
+   Earthy layered darks inspired by alpha.silknodes.io.
+   Neon green stays as the primary accent to preserve brand identity.
+   Applied via <html data-theme="dark"> set by the no-flash script in
+   layout.tsx. Variables override the :root defaults above.
+   ═══════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --bg-base: #0a0d07;
+  --bg-gradient: radial-gradient(circle at top left, #0d1209 0%, #0a0d07 50%, #080a05 100%);
+
+  /* Brand neon stays the same — it's the Silk Nodes signature. */
+  --tx-neon: #B1FC03;
+  --tx-neon-light: #c9ff4a;
+  --tx-neon-pale: rgba(177, 252, 3, 0.15);
+  --tx-subtle: #4a5a3a;
+  --tx-subtle-light: #2a341e;
+  --tx-subtle-pale: #1a1f14;
+  --tx-black: #f4f1eb;
+  --tx-dark-green: #0F1B07;
+
+  --accent-yellow: #EBF450;
+  --accent-orange: #FFB078;
+  --accent-lime: #B1FC03;
+  --accent-olive: #8fbc8f;
+  --accent-olive-light: rgba(143, 188, 143, 0.15);
+  --danger: #ef6b5d;
+
+  --text-dark: #f0ece3;
+  --text-medium: #b0ac9f;
+  --text-light: #6b6860;
+
+  /* Glass surfaces need dark rgba instead of white rgba to read right on dark bg. */
+  --glass-bg: rgba(30, 35, 22, 0.55);
+  --glass-border: rgba(160, 170, 130, 0.18);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+  --pattern-stripes: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 3px,
+    rgba(255, 255, 255, 0.04) 3px,
+    rgba(255, 255, 255, 0.04) 6px
+  );
+  --pattern-dots: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+}
+
+/* Smooth transition between themes so switching doesn't flash harshly. */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ═══════════════════════════════════════════
+   THEME SWITCHER (icon trio in top nav)
+   ═══════════════════════════════════════════ */
+.theme-switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+}
+
+.theme-switcher-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.theme-switcher-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.08);
+}
+
+.theme-switcher-btn.active {
+  background: var(--tx-neon);
+  box-shadow: 0 0 0 1px var(--tx-dark-green);
+}
+
+.theme-switcher-btn.disabled,
+.theme-switcher-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+:root[data-theme="dark"] .theme-switcher-btn.active {
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.4);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { height: 100%; }

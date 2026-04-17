@@ -36,6 +36,7 @@ import AnalyticsTab from "@/components/AnalyticsTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { useRWATokens } from "@/hooks/useRWATokens";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
@@ -307,6 +308,7 @@ export default function HomePage() {
         </div>
 
         <div className="nav-right">
+          <ThemeSwitcher />
           <span className="live-indicator">
             <span className="live-dot" />
             {loading ? "Syncing" : "Live"}
