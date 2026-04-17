@@ -11,7 +11,6 @@ import {
   isWhaleEvent,
 } from "@/lib/staking-events";
 import type { TopDelegatorEntry, TopDelegatorLabel } from "@/hooks/useWhaleData";
-import DelegatorPanel from "./DelegatorPanel";
 
 interface WhaleTrackerProps {
   topDelegators: TopDelegatorEntry[];
@@ -19,6 +18,13 @@ interface WhaleTrackerProps {
   validators: Record<string, string>;
   now: number;
   onEventClick: (e: StakingEvent) => void;
+  /**
+   * Row click handler — lifted to the parent (StakingFeed) so the
+   * DelegatorPanel overlay can render at the top level, OUTSIDE the
+   * ancestor `.chart-card-v2` whose `backdrop-filter` would otherwise
+   * trap the panel's `position: fixed` inside the card bounds.
+   */
+  onDelegatorClick: (entry: TopDelegatorEntry) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -52,9 +58,9 @@ export default function WhaleTracker({
   validators,
   now,
   onEventClick,
+  onDelegatorClick,
 }: WhaleTrackerProps) {
   const [page, setPage] = useState(0);
-  const [selectedDelegator, setSelectedDelegator] = useState<TopDelegatorEntry | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(topDelegators.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages - 1);
@@ -85,7 +91,6 @@ export default function WhaleTracker({
   }
 
   return (
-    <>
     <div className="whale-tracker">
       {/* ─── Section A: Top Delegators ─── */}
       <div className="whale-section">
@@ -115,11 +120,11 @@ export default function WhaleTracker({
                 className="whale-table-row whale-table-row-clickable"
                 role="button"
                 tabIndex={0}
-                onClick={() => setSelectedDelegator(entry)}
+                onClick={() => onDelegatorClick(entry)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setSelectedDelegator(entry);
+                    onDelegatorClick(entry);
                   }
                 }}
                 aria-label={`Open details for ${entry.label?.text || "unlabeled address"} ${entry.address}`}
@@ -232,14 +237,5 @@ export default function WhaleTracker({
         )}
       </div>
     </div>
-
-    <DelegatorPanel
-      entry={selectedDelegator}
-      events={events}
-      validators={validators}
-      now={now}
-      onClose={() => setSelectedDelegator(null)}
-    />
-    </>
   );
 }
