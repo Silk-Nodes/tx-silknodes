@@ -69,6 +69,24 @@ const CHECKS = [
     mode: "updatedAt",
   },
 
+  // Whale changes: diff between current and previous top-delegators
+  // refresh. Written alongside top-delegators.json so identical threshold.
+  {
+    file: "public/analytics/whale-changes.json",
+    label: "Whale Changes",
+    thresholdMinutes: 8 * HOUR,
+    mode: "updatedAt",
+  },
+
+  // Whale history: appended once per UTC day. 48 h = one day + 24 h grace
+  // so a single missed snapshot isn't a false alarm.
+  {
+    file: "public/analytics/whale-history.json",
+    label: "Whale History",
+    thresholdMinutes: 48 * HOUR,
+    mode: "updatedAt",
+  },
+
   // Daily metrics: pushed once per day by silknodes-daily-analytics timer at
   // 02:00 UTC. Between runs, age drifts up to ~26h; threshold 36h gives us
   // a ~10h grace window after a missed run before alerting.

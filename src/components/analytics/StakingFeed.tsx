@@ -39,7 +39,7 @@ const ALL_TYPES: ReadonlySet<StakingEventType> = new Set<StakingEventType>([
 // (ranked top delegators + recent ≥1M TX moves).
 export default function StakingFeed() {
   const { events, validators, updatedAt, now, isStale, fetchError } = useStakingFeed();
-  const { topDelegators } = useWhaleData();
+  const { topDelegators, whaleChanges } = useWhaleData();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("activity");
   const [activeTier, setActiveTier] = useState<FeedTier>("all");
@@ -215,11 +215,29 @@ export default function StakingFeed() {
         ) : (
           <WhaleTracker
             topDelegators={topDelegators.entries}
+            whaleChanges={whaleChanges}
             events={events}
             validators={validators}
             now={now}
             onEventClick={setSelectedEvent}
             onDelegatorClick={setSelectedDelegator}
+            onAddressClick={(address, label, stake, rank) => {
+              // Synthesize a minimal TopDelegatorEntry for addresses surfaced
+              // by the diff feed that may not be in the current top-500 list
+              // (e.g. exits, or arrivals whose full entry hasn't been paged to).
+              // The panel fetches real stake distribution on demand, so the
+              // synthesized totalStake/validatorCount are just placeholders.
+              const existing = topDelegators.entries.find((e) => e.address === address);
+              setSelectedDelegator(
+                existing ?? {
+                  rank,
+                  address,
+                  totalStake: stake,
+                  validatorCount: 0,
+                  label,
+                },
+              );
+            }}
           />
         )}
       </div>
