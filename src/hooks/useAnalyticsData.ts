@@ -71,8 +71,6 @@ const DATASETS_META: DatasetMeta[] = [
   { id: "total-supply", label: "Total Supply", file: "total-supply.json", unit: "TX", chartType: "area", color: "#9a8a7a" },
   { id: "circulating-supply", label: "Circulating Supply", file: "circulating-supply.json", unit: "TX", chartType: "area", color: "#4a7a1a" },
 ];
-const PENDING_UNDELEGATIONS_FILE = "pending-undelegations.json";
-
 function formatValue(value: number, unit: "TX" | "%" | ""): string {
   if (unit === "%") return formatPct(value);
   if (unit === "TX") return formatLargeNumber(value);
@@ -91,10 +89,39 @@ async function fetchAnalyticsFile(filename: string): Promise<DataPoint[]> {
   }
 }
 
+// pending-undelegations.json uses a wrapped schema: { updatedAt, entries }
+// The updatedAt field lets the external monitor treat it like a live
+// snapshot. Legacy shape (bare array) is still accepted during rollout.
+interface PendingUndelegationsPayload {
+  updatedAt?: string;
+  entries: DataPoint[];
+}
+
+async function fetchPendingUndelegationsFile(): Promise<PendingUndelegationsPayload> {
+  try {
+    const res = await fetch(`${BASE_PATH}/analytics/pending-undelegations.json?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return { entries: [] };
+    const raw = await res.json();
+    if (Array.isArray(raw)) return { entries: raw as DataPoint[] };
+    return {
+      updatedAt: typeof raw?.updatedAt === "string" ? raw.updatedAt : undefined,
+      entries: Array.isArray(raw?.entries) ? (raw.entries as DataPoint[]) : [],
+    };
+  } catch {
+    return { entries: [] };
+  }
+}
+
+function todayUTC(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 export function useAnalyticsData(globalRange: TimeRange) {
   // State keyed by dataset id. Starts empty; gets populated on first fetch.
   const [rawByDataset, setRawByDataset] = useState<Record<string, DataPoint[]>>({});
-  const [pendingUndelegationsRaw, setPendingUndelegationsRaw] = useState<DataPoint[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<PendingUndelegationsPayload>({ entries: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -106,11 +133,11 @@ export function useAnalyticsData(globalRange: TimeRange) {
           return [ds.id, data] as const;
         }),
       );
-      const pending = await fetchAnalyticsFile(PENDING_UNDELEGATIONS_FILE);
+      const pending = await fetchPendingUndelegationsFile();
 
       if (cancelled) return;
       setRawByDataset(Object.fromEntries(datasetEntries));
-      setPendingUndelegationsRaw(pending);
+      setPendingPayload(pending);
     };
 
     load();
@@ -184,14 +211,20 @@ export function useAnalyticsData(globalRange: TimeRange) {
   }, [datasets]);
 
   const pendingUndelegations = useMemo(() => {
-    const data = txEraOnly(pendingUndelegationsRaw);
+    // Client-side defense: never render entries whose completion day is in
+    // the past. The VM refreshes every 15 min, but within that window a
+    // freshly-completed entry could still be in the file. This filter
+    // makes stale data visually invisible regardless of server lag.
+    const today = todayUTC();
+    const data = txEraOnly(pendingPayload.entries).filter((d) => d.date >= today);
     const total = data.reduce((sum, d) => sum + d.value, 0);
     return {
       data,
       total,
       formatted: formatLargeNumber(total),
+      updatedAt: pendingPayload.updatedAt,
     };
-  }, [pendingUndelegationsRaw]);
+  }, [pendingPayload]);
 
   return {
     datasets,

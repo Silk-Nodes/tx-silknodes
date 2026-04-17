@@ -22,6 +22,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
 const DATA_FILE = join(REPO_PATH, "public", "analytics", "staking-events.json");
 const DATA_FILE_REL = "public/analytics/staking-events.json";
+// Pending undelegations is a "current-state snapshot" (list of unbonding
+// entries whose completion_time is in the future). It's owned by this
+// continuous collector instead of the daily analytics collector because:
+//   - It needs to refresh faster than once/day — entries mature at arbitrary
+//     times and a daily cadence leaves completed entries on the chart for
+//     up to 24h.
+//   - Single writer = no push races.
+// The daily collector no longer writes this file (PR that introduced this
+// change removed its section).
+const PENDING_FILE = join(REPO_PATH, "public", "analytics", "pending-undelegations.json");
+const PENDING_FILE_REL = "public/analytics/pending-undelegations.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 
@@ -34,6 +45,7 @@ const RETENTION_DAYS = 90;
 const POLL_INTERVAL_MS = 60_000;
 const PUSH_INTERVAL_MS = 5 * 60_000;
 const HEARTBEAT_INTERVAL_MS = 30 * 60_000; // force a push every 30 min so updatedAt never goes silently stale
+const PENDING_REFRESH_MS = 15 * 60_000; // refresh pending undelegations every 15 min
 const VALIDATOR_REFRESH_MS = 60 * 60_000;
 const MAX_EVENTS = 5000;
 const MAX_CONSECUTIVE_FAILURES = 5; // exit (systemd restarts) after this many failures in a row
@@ -53,6 +65,7 @@ let lastValidatorRefresh = 0;
 let hasNewEvents = false;
 let lastPushTime = 0;
 let lastSuccessfulPush = 0;
+let lastPendingRefresh = 0;
 let consecutivePushFailures = 0;
 let consecutivePollFailures = 0;
 
@@ -266,6 +279,91 @@ function parseTx(tx, msgType) {
   return results;
 }
 
+// ═══ PENDING UNDELEGATIONS ═══
+// Fetches every validator's unbonding_delegations, filters to entries whose
+// completion_time is still in the future, and aggregates the balance by
+// completion day. Writes public/analytics/pending-undelegations.json with
+// the schema { updatedAt: ISO, entries: [{date, value}] }.
+//
+// updatedAt lets the external freshness monitor treat this file the same
+// way it treats staking-events.json. The entries array is what the dashboard
+// renders — same {date, value} shape as before.
+
+async function fetchAllValidatorAddresses() {
+  const addresses = [];
+  let nextKey = "";
+  while (true) {
+    const url = nextKey
+      ? `${LCD}/cosmos/staking/v1beta1/validators?pagination.limit=200&pagination.key=${encodeURIComponent(nextKey)}`
+      : `${LCD}/cosmos/staking/v1beta1/validators?pagination.limit=200`;
+    const data = await fetchWithRetry(url, 3);
+    addresses.push(...data.validators.map((v) => v.operator_address));
+    nextKey = data.pagination?.next_key || "";
+    if (!nextKey) break;
+  }
+  return addresses;
+}
+
+async function fetchPendingUndelegations() {
+  const validators = await fetchAllValidatorAddresses();
+  const nowMs = Date.now();
+  const dailyAmounts = {};
+
+  // Per-validator errors are caught and swallowed so one unreachable
+  // validator doesn't break the whole aggregate. A failed validator is
+  // rare and would just under-count its own unbonding entries for this
+  // cycle — the next cycle retries.
+  for (const valAddr of validators) {
+    try {
+      const data = await fetchWithRetry(
+        `${LCD}/cosmos/staking/v1beta1/validators/${valAddr}/unbonding_delegations?pagination.limit=1000`,
+        2,
+      );
+      for (const resp of data.unbonding_responses || []) {
+        for (const entry of resp.entries || []) {
+          const completionMs = new Date(entry.completion_time).getTime();
+          if (completionMs <= nowMs) continue; // already released on-chain
+          const dateKey = entry.completion_time.slice(0, 10);
+          const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
+          dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
+        }
+      }
+    } catch {
+      // swallow per-validator errors
+    }
+  }
+
+  const entries = Object.entries(dailyAmounts)
+    .map(([d, amount]) => ({ date: d, value: Math.round(amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return { entries, validatorCount: validators.length };
+}
+
+function savePending(entries) {
+  const dir = dirname(PENDING_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    entries,
+  };
+  writeFileSync(PENDING_FILE, JSON.stringify(payload, null, null));
+  log("debug", `Saved ${entries.length} pending-undelegations entries`);
+}
+
+async function refreshPendingUndelegations() {
+  try {
+    const { entries, validatorCount } = await fetchPendingUndelegations();
+    savePending(entries);
+    lastPendingRefresh = Date.now();
+    log("info", `Pending undelegations refreshed: ${entries.length} days from ${validatorCount} validators`);
+  } catch (e) {
+    // This runs on its own interval — a failure just leaves the file at
+    // its last good state. The next tick retries. We log but don't bail.
+    log("error", `refreshPendingUndelegations failed: ${e.message}`);
+  }
+}
+
 // ═══ POLLING ═══
 async function pollMessageType(msgType) {
   const q = encodeURIComponent(`"message.action='${msgType.url}'"`);
@@ -361,10 +459,13 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     // matches the actual push time (within a second).
     saveData();
 
-    const hasChanges = execSync(`cd ${REPO_PATH} && git diff --name-only ${DATA_FILE_REL}`, {
-      stdio: "pipe",
-      encoding: "utf-8",
-    }).trim();
+    // The push cycle is responsible for two files: staking-events.json and
+    // pending-undelegations.json. Check both for changes so a pending-only
+    // update (no staking events this window) still gets pushed.
+    const hasChanges = execSync(
+      `cd ${REPO_PATH} && git diff --name-only ${DATA_FILE_REL} ${PENDING_FILE_REL}`,
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
     if (!hasChanges) {
       log("debug", `No file changes to commit (${heartbeat ? "heartbeat" : "regular"} cycle)`);
       // Still counts as a successful "push attempt" for failure tracking,
@@ -377,7 +478,7 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     const subject = heartbeat
       ? `chore: heartbeat update staking events ${ts}`
       : `chore: update staking events ${ts}`;
-    execSync(`cd ${REPO_PATH} && git add ${DATA_FILE_REL}`, { stdio: "pipe" });
+    execSync(`cd ${REPO_PATH} && git add ${DATA_FILE_REL} ${PENDING_FILE_REL}`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git commit -m "${subject}"`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git push origin main`, { stdio: "pipe" });
     log("info", `Pushed to GitHub${heartbeat ? " (heartbeat)" : ""}: ${ts}`);
@@ -405,6 +506,10 @@ async function main() {
   loadExistingData();
   await refreshValidators();
   await poll();
+  // Refresh pending undelegations before the initial push so the first
+  // commit carries a fresh file (and the file exists on disk for git add
+  // in subsequent pushes even when pending hasn't changed since).
+  await refreshPendingUndelegations();
   // Always run an initial push so lastSuccessfulPush is set to "now" and the
   // heartbeat clock has a sensible baseline. This also surfaces any git auth
   // problem at startup instead of hours later.
@@ -424,6 +529,16 @@ async function main() {
     }
   }, POLL_INTERVAL_MS);
 
+  // Pending undelegations refresh. Independent of the push cycle — the
+  // push cycle naturally picks up any diff the refresh produces. Failures
+  // here are non-fatal: the file keeps its last good state until the next
+  // tick succeeds.
+  setInterval(() => {
+    refreshPendingUndelegations().catch((e) => {
+      log("error", `pending refresh interval error: ${e.message}`);
+    });
+  }, PENDING_REFRESH_MS);
+
   setInterval(() => {
     const sinceLastPush = Date.now() - lastPushTime;
     const heartbeatDue = Date.now() - lastSuccessfulPush >= HEARTBEAT_INTERVAL_MS;
@@ -442,7 +557,8 @@ async function main() {
   log(
     "info",
     `Collector running. Poll: ${POLL_INTERVAL_MS / 1000}s, push: ${PUSH_INTERVAL_MS / 60_000}min, ` +
-      `heartbeat: ${HEARTBEAT_INTERVAL_MS / 60_000}min, circuit breaker: ${MAX_CONSECUTIVE_FAILURES} failures.`,
+      `heartbeat: ${HEARTBEAT_INTERVAL_MS / 60_000}min, pending refresh: ${PENDING_REFRESH_MS / 60_000}min, ` +
+      `circuit breaker: ${MAX_CONSECUTIVE_FAILURES} failures.`,
   );
 }
 
