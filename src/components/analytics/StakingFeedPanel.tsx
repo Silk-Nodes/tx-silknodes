@@ -28,6 +28,22 @@ const TYPE_COLOR: Record<StakingEvent["type"], string> = {
   redelegate: "#d88a3a",
 };
 
+// Event type icons — small colored dots that mirror the row color scheme
+// used on the activity feed. They live in the header row exactly where
+// DelegatorPanel puts its whale/validator/CEX icon, so the two panels
+// share the same visual rhythm at a glance.
+const TYPE_ICON: Record<StakingEvent["type"], string> = {
+  delegate: "🟢",
+  undelegate: "🔴",
+  redelegate: "🟡",
+};
+
+const AMOUNT_PREFIX: Record<StakingEvent["type"], string> = {
+  delegate: "+",
+  undelegate: "-",
+  redelegate: "",
+};
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -37,7 +53,7 @@ function CopyButton({ text }: { text: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // ignore
+      // ignore clipboard permission errors
     }
   };
 
@@ -54,6 +70,12 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+// Visual structure matches DelegatorPanel:
+//   .delegator-panel-header  — icon + type label + timestamp (with border-bottom)
+//   .delegator-panel-stat    — big formatted amount (colored by type)
+//   .delegator-panel-stat-sub — raw TX count
+//   .staking-panel-section × N — delegator, validator(s), tx hash, block
+//   .delegator-panel-footer  — "View on Mintscan" link
 export default function StakingFeedPanel({ event, validators, onClose }: StakingFeedPanelProps) {
   useEffect(() => {
     if (!event) return;
@@ -71,6 +93,9 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
   if (!event) return null;
 
   const color = TYPE_COLOR[event.type];
+  const icon = TYPE_ICON[event.type];
+  const label = TYPE_LABELS[event.type];
+  const prefix = AMOUNT_PREFIX[event.type];
   const validatorName = resolveValidator(event.validator, validators);
   const sourceName = event.sourceValidator ? resolveValidator(event.sourceValidator, validators) : null;
 
@@ -82,19 +107,25 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
           ×
         </button>
 
-        <div className="staking-panel-header">
-          <span className="staking-panel-type" style={{ color }}>
-            {TYPE_LABELS[event.type]}
-          </span>
-          <span className="staking-panel-timestamp">{formatFullTimestamp(event.timestamp)}</span>
+        {/* ─── Header: icon + type + timestamp (matches DelegatorPanel rhythm) ─── */}
+        <div className="delegator-panel-header">
+          <div className="delegator-panel-rank">
+            <span className="delegator-panel-rank-icon">{icon}</span>
+            <span className="delegator-panel-rank-text" style={{ color }}>
+              {label}
+            </span>
+          </div>
+          <div className="staking-panel-timestamp">{formatFullTimestamp(event.timestamp)}</div>
         </div>
 
-        <div className="staking-panel-amount" style={{ color }}>
-          {event.type === "delegate" ? "+" : event.type === "undelegate" ? "-" : ""}
+        {/* ─── Headline stat ─── */}
+        <div className="delegator-panel-stat" style={{ color }}>
+          {prefix}
           {formatEventAmount(event.amount)} TX
         </div>
-        <div className="staking-panel-amount-raw">{event.amount.toLocaleString()} TX</div>
+        <div className="delegator-panel-stat-sub">{event.amount.toLocaleString()} TX</div>
 
+        {/* ─── Delegator ─── */}
         <div className="staking-panel-section">
           <div className="staking-panel-label">Delegator</div>
           <div className="staking-panel-value-row">
@@ -103,6 +134,7 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
           </div>
         </div>
 
+        {/* ─── Validator(s) ─── */}
         {event.type === "redelegate" && sourceName ? (
           <>
             <div className="staking-panel-section">
@@ -160,6 +192,7 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
           </div>
         )}
 
+        {/* ─── Transaction Hash ─── */}
         <div className="staking-panel-section">
           <div className="staking-panel-label">Transaction Hash</div>
           <div className="staking-panel-value-row">
@@ -175,9 +208,22 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
           </div>
         </div>
 
+        {/* ─── Block Height ─── */}
         <div className="staking-panel-section">
           <div className="staking-panel-label">Block Height</div>
           <div className="staking-panel-mono">{event.height.toLocaleString()}</div>
+        </div>
+
+        {/* ─── Footer: View on Mintscan (matches DelegatorPanel) ─── */}
+        <div className="delegator-panel-footer">
+          <a
+            href={txExplorerUrl(event.txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="staking-panel-link"
+          >
+            View transaction on Mintscan ↗
+          </a>
         </div>
       </div>
     </>
