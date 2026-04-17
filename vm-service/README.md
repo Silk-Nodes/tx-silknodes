@@ -12,10 +12,33 @@ Files written:
 |---|---|---|
 | `public/analytics/staking-events.json` | 60s poll, 5 min push, 30 min heartbeat | RPC `tx_search` |
 | `public/analytics/pending-undelegations.json` | 15 min refresh | LCD `unbonding_delegations` aggregated across all validators |
+| `public/analytics/top-delegators.json` | 6 h refresh | LCD `delegations` aggregated across all validators |
+| `public/analytics/known-entities.json` | Written alongside top-delegators | Auto-derived (validator self-stakes via bech32, PSE-excluded) + manual `_manual` section |
 
-The pending-undelegations file lives here (not in the daily collector) because it's a **current-state snapshot** — entries mature at arbitrary times and a daily cadence would leave completed entries on the chart for up to 24h. Single writer = no race with the daily collector.
+The pending-undelegations and top-delegators files live here (not in the daily collector) because they're **current-state snapshots** — their values change continuously and a daily cadence would show stale data. Single writer = no race with the daily collector.
 
-Schema: `{ updatedAt: ISO, entries: [{date, value}, ...] }`. The `updatedAt` field lets the external monitor treat it with the same freshness discipline as staking-events.json.
+Schemas:
+- `pending-undelegations.json`: `{ updatedAt, entries: [{date, value}] }`
+- `top-delegators.json`: `{ updatedAt, entries: [{rank, address, totalStake, validatorCount, label?}] }`
+- `known-entities.json`: `{ updatedAt, entries: { "core1...": {label, type, verified, source?} }, _manual: {} }`
+
+The `updatedAt` field lets the external monitor treat all three files with the same freshness discipline.
+
+#### Adding manual labels (CEX addresses, team wallets, etc.)
+Edit the `_manual` slot in `public/analytics/known-entities.json` directly and commit. Manual labels take precedence over auto-derived ones. Example:
+```json
+{
+  "_manual": {
+    "core1abc...xyz": {
+      "label": "Binance Hot Wallet",
+      "type": "cex",
+      "verified": false,
+      "source": "community"
+    }
+  }
+}
+```
+The continuous collector reads `_manual` on each refresh and preserves it across regenerations.
 
 ### 2. `silknodes-daily-analytics.timer` — once per day
 Fires at **02:00 UTC** (and 5 min after boot) and runs `collect-daily-analytics.mjs`. Fills every missing day of per-day metrics in `public/analytics/`:

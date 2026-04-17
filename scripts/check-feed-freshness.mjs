@@ -59,6 +59,16 @@ const CHECKS = [
     mode: "updatedAt",
   },
 
+  // Top delegators: refreshed every 6 h by the continuous collector. 8 h
+  // threshold gives a 2 h grace window for any slowdown in the delegation
+  // aggregation (which iterates ~100 validators × pagination).
+  {
+    file: "public/analytics/top-delegators.json",
+    label: "Top Delegators",
+    thresholdMinutes: 8 * HOUR,
+    mode: "updatedAt",
+  },
+
   // Daily metrics: pushed once per day by silknodes-daily-analytics timer at
   // 02:00 UTC. Between runs, age drifts up to ~26h; threshold 36h gives us
   // a ~10h grace window after a missed run before alerting.

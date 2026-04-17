@@ -65,6 +65,16 @@ fi
 NODE_PATH="$(command -v node)"
 echo "Node path: $NODE_PATH"
 
+# Install npm dependencies in vm-service (idempotent, safe to re-run on upgrades).
+# We keep the dep list minimal — currently just bech32 for deriving validator
+# self-stake account addresses from operator_address.
+echo
+echo "Installing vm-service npm dependencies..."
+(cd "$SCRIPT_DIR" && npm install --production --no-audit --no-fund) || {
+  echo "WARNING: npm install failed. Top-delegators labels that need bech32"
+  echo "may not appear until this succeeds. Proceed with setup anyway."
+}
+
 # Helper: substitute template placeholders and install a systemd unit file
 install_unit() {
   local src="$1"
