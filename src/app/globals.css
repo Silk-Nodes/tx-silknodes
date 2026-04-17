@@ -2124,37 +2124,99 @@ input[type="range"]::-webkit-slider-thumb {
   font-style: italic;
 }
 
-/* Pagination */
+/* ═══ WHALE PAGER ═══
+   Two-tier nav for up-to-50-page lists. First/Last (⟪ ⟫) for jumping to
+   extremes, Prev/Next (‹ ›) for stepping, ellipsis number list in the
+   middle for ±1 jumps, and a "Page X of Y" label below for orientation.
+   Typography uses tabular numbers so buttons don't jiggle as the page
+   number grows from 1 to 50. */
 .whale-pager {
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "first prev pages next last"
+    "status status status status status";
+  gap: 4px 6px;
+  align-items: center;
+  justify-items: center;
+  margin-top: 14px;
+  padding: 10px 6px 8px;
+  border-top: 1px solid var(--glass-border);
 }
 
+.whale-pager-pages {
+  grid-area: pages;
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.whale-pager-nav {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.whale-pager-nav:nth-child(1) { grid-area: first; }
+.whale-pager-nav:nth-child(2) { grid-area: prev; }
+/* next/last get explicit grid-area via nth-of-type below */
+
+.whale-pager-nav:hover:not(:disabled) {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  border-color: var(--tx-neon);
+}
+
+.whale-pager-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Number buttons — tabular font so 1, 12, 500 all render same width. */
 .whale-pager-btn {
-  min-width: 28px;
-  padding: 5px 9px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-medium);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .whale-pager-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.45);
   color: var(--text-dark);
+  border-color: var(--glass-border);
 }
 
 .whale-pager-btn.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
   font-weight: 700;
+  border-color: var(--tx-neon);
 }
 
 .whale-pager-btn:disabled {
@@ -2162,15 +2224,46 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: not-allowed;
 }
 
-/* Ellipsis gap between pager buttons when the page list is truncated.
-   Purely visual — not a button. */
+/* Ellipsis gap — pure decoration between number buttons, not clickable. */
 .whale-pager-gap {
-  min-width: 22px;
-  padding: 5px 4px;
+  min-width: 16px;
+  padding: 0 2px;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.9rem;
   color: var(--text-light);
   user-select: none;
+  line-height: 1;
+}
+
+/* "Page X of Y" orientation label. aria-live polite so screen readers
+   announce page changes. */
+.whale-pager-status {
+  grid-area: status;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Mobile: stack next/last under prev/first so the page row is uninterrupted. */
+@media (max-width: 520px) {
+  .whale-pager {
+    grid-template-columns: auto auto 1fr auto auto;
+    gap: 3px 4px;
+  }
+  .whale-pager-nav {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    font-size: 0.8rem;
+  }
+  .whale-pager-btn {
+    min-width: 26px;
+    height: 26px;
+    font-size: 0.65rem;
+  }
 }
 
 /* ═══ WHALES ON THE MOVE ═══ */
