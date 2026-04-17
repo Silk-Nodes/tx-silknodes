@@ -5,10 +5,20 @@ This VM is the **single source of truth** for all on-chain analytics that feed t
 ## The two units
 
 ### 1. `silknodes-collector.service` — continuous
-Polls Coreum RPC for delegate/undelegate/redelegate transactions, maintains a rolling 3 month window in `public/analytics/staking-events.json`, pushes to GitHub every 5 minutes with a 30-minute heartbeat.
+Polls Coreum RPC for delegate/undelegate/redelegate transactions, maintains a rolling 3 month window, pushes to GitHub every 5 minutes with a 30-minute heartbeat.
+
+Files written:
+| File | Cadence | Source |
+|---|---|---|
+| `public/analytics/staking-events.json` | 60s poll, 5 min push, 30 min heartbeat | RPC `tx_search` |
+| `public/analytics/pending-undelegations.json` | 15 min refresh | LCD `unbonding_delegations` aggregated across all validators |
+
+The pending-undelegations file lives here (not in the daily collector) because it's a **current-state snapshot** — entries mature at arbitrary times and a daily cadence would leave completed entries on the chart for up to 24h. Single writer = no race with the daily collector.
+
+Schema: `{ updatedAt: ISO, entries: [{date, value}, ...] }`. The `updatedAt` field lets the external monitor treat it with the same freshness discipline as staking-events.json.
 
 ### 2. `silknodes-daily-analytics.timer` — once per day
-Fires at **02:00 UTC** (and 5 min after boot) and runs `collect-daily-analytics.mjs`. Fills every missing day of per-day metrics in `src/data/analytics/`:
+Fires at **02:00 UTC** (and 5 min after boot) and runs `collect-daily-analytics.mjs`. Fills every missing day of per-day metrics in `public/analytics/`:
 
 | File | Source |
 |---|---|
@@ -19,7 +29,6 @@ Fires at **02:00 UTC** (and 5 min after boot) and runs `collect-daily-analytics.
 | `staked-pct.json` | bonded / circulating |
 | `total-supply.json` | LCD `/cosmos/bank/v1beta1/supply/by_denom` |
 | `circulating-supply.json` | TX API `/circulating-supply` |
-| `pending-undelegations.json` | LCD, aggregated across all validators |
 | `price-usd.json` | CoinGecko daily snapshot |
 
 Block heights for a UTC date are resolved by **RPC-only binary search** on `/block?height=X` timestamps. No Hasura, no Cloudflare in the critical path. ~42 RPC calls per date, ~2-3 seconds.

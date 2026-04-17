@@ -47,6 +47,18 @@ const CHECKS = [
     mode: "updatedAt",
   },
 
+  // Pending undelegations: refreshed every 15 min by the continuous collector.
+  // 45 min = 3× refresh interval, same belt-and-suspenders margin as staking
+  // events. The file now carries an updatedAt field (wrapped schema); legacy
+  // bare-array responses will fail the check, which is acceptable because it
+  // also means they're stale (written by the old daily pipeline).
+  {
+    file: "public/analytics/pending-undelegations.json",
+    label: "Pending Undelegations",
+    thresholdMinutes: 45 * MIN,
+    mode: "updatedAt",
+  },
+
   // Daily metrics: pushed once per day by silknodes-daily-analytics timer at
   // 02:00 UTC. Between runs, age drifts up to ~26h; threshold 36h gives us
   // a ~10h grace window after a missed run before alerting.
@@ -58,12 +70,6 @@ const CHECKS = [
   { file: "public/analytics/total-supply.json", label: "Total Supply", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
   { file: "public/analytics/circulating-supply.json", label: "Circulating Supply", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
   { file: "public/analytics/price-usd.json", label: "Price USD", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-
-  // Note: pending-undelegations.json is intentionally not checked here. It is
-  // a forward-looking file (unbonding entries with future completion_time) and
-  // has no natural "updatedAt" primitive. Since all daily files are written in
-  // one atomic commit, any one of them being fresh proves pending-undelegations
-  // was refreshed too.
 ];
 
 function check(c) {

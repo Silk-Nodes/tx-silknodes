@@ -16,8 +16,11 @@
  *   - staked-pct.json           bonded / circulating
  *   - total-supply.json         LCD bank supply
  *   - circulating-supply.json   TX API
- *   - pending-undelegations.json  LCD, one row per completion day
  *   - price-usd.json            CoinGecko daily snapshot
+ *
+ * Note: pending-undelegations.json is NOT written here. It's a current-state
+ * snapshot, not a historical aggregate, so it's owned by the continuous
+ * collect-staking-events.mjs service which refreshes it every 15 min.
  *
  * Design principles:
  *   1. RPC only for the expensive per-day metrics. No Hasura, no CF.
@@ -254,45 +257,9 @@ async function fetchCirculatingSupply() {
   return parseFloat(text.trim());
 }
 
-// Aggregate all validators' pending unbonding_delegations into a per-day map.
-// Completed (past) undelegations are skipped because they've already been
-// released and are no longer on-chain.
-async function fetchPendingUndelegations() {
-  const validators = [];
-  let nextKey = "";
-  while (true) {
-    const url = nextKey
-      ? `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators?pagination.limit=200&pagination.key=${encodeURIComponent(nextKey)}`
-      : `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators?pagination.limit=200`;
-    const d = await fetchJson(url, 3);
-    validators.push(...d.validators.map((v) => v.operator_address));
-    nextKey = d.pagination?.next_key || "";
-    if (!nextKey) break;
-  }
-
-  const nowMs = Date.now();
-  const dailyAmounts = {};
-  for (const valAddr of validators) {
-    try {
-      const d = await fetchJson(
-        `${LCD_PRIMARY}/cosmos/staking/v1beta1/validators/${valAddr}/unbonding_delegations?pagination.limit=1000`,
-        2,
-      );
-      for (const resp of d.unbonding_responses || []) {
-        for (const entry of resp.entries || []) {
-          const completionMs = new Date(entry.completion_time).getTime();
-          if (completionMs <= nowMs) continue;
-          const dateKey = entry.completion_time.slice(0, 10);
-          const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
-          dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
-        }
-      }
-    } catch (e) {
-      // Skip individual validator errors — the aggregate is still useful.
-    }
-  }
-  return { dailyAmounts, validatorCount: validators.length };
-}
+// Note: pending-undelegations.json is owned by vm-service/collect-staking-events.mjs
+// (the continuous collector). It refreshes every 15 min there so the dashboard
+// doesn't show matured-but-not-yet-refreshed entries for up to 24h.
 
 async function fetchPrice() {
   const url = `${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`;
@@ -490,19 +457,9 @@ async function main() {
     }
   }
 
-  // ─── 3. Pending undelegations (full rewrite each run, not append) ───
-  try {
-    log("info", "Fetching pending undelegations across all validators...");
-    const { dailyAmounts, validatorCount } = await fetchPendingUndelegations();
-    const pendingData = Object.entries(dailyAmounts)
-      .map(([d, amount]) => ({ date: d, value: Math.round(amount) }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-    writeData("pending-undelegations.json", pendingData);
-    log("info", `  pending-undelegations.json: ${pendingData.length} days from ${validatorCount} validators`);
-  } catch (e) {
-    log("error", `ERROR (pending-undelegations): ${e.message}`);
-    errors++;
-  }
+  // ─── 3. pending-undelegations.json ───
+  // Not computed here. Owned by collect-staking-events.mjs (the continuous
+  // collector) which refreshes it every 15 min. Single writer → no race.
 
   // ─── 4. Commit and push ───
   try {
