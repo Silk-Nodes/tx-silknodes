@@ -16,6 +16,8 @@ import {
 import StakingFeedRow from "./StakingFeedRow";
 import StakingFeedPanel from "./StakingFeedPanel";
 import WhaleTracker from "./WhaleTracker";
+import DelegatorPanel from "./DelegatorPanel";
+import type { TopDelegatorEntry } from "@/hooks/useWhaleData";
 
 type ActiveTab = "activity" | "whales";
 
@@ -43,6 +45,14 @@ export default function StakingFeed() {
   const [activeTier, setActiveTier] = useState<FeedTier>("all");
   const [activeTypes, setActiveTypes] = useState<Set<StakingEventType>>(() => new Set(ALL_TYPES));
   const [selectedEvent, setSelectedEvent] = useState<StakingEvent | null>(null);
+  // Selected delegator state is LIFTED here from WhaleTracker. Why? The
+  // parent <div className="chart-card-v2"> has `backdrop-filter: blur(20px)`
+  // which creates a new containing block for `position: fixed` descendants.
+  // That means any panel rendered INSIDE the card gets clipped to the
+  // card's bounds instead of the viewport. DelegatorPanel must be a
+  // sibling of the card (not nested) to render as a full-viewport overlay
+  // — same pattern we already use for StakingFeedPanel.
+  const [selectedDelegator, setSelectedDelegator] = useState<TopDelegatorEntry | null>(null);
 
   // Sync tab with URL hash so people can link to #whales directly.
   useEffect(() => {
@@ -209,14 +219,25 @@ export default function StakingFeed() {
             validators={validators}
             now={now}
             onEventClick={setSelectedEvent}
+            onDelegatorClick={setSelectedDelegator}
           />
         )}
       </div>
 
+      {/* Both panels are siblings of the card so their `position: fixed`
+          escapes the card's backdrop-filter stacking context and fills
+          the viewport identically. */}
       <StakingFeedPanel
         event={selectedEvent}
         validators={validators}
         onClose={() => setSelectedEvent(null)}
+      />
+      <DelegatorPanel
+        entry={selectedDelegator}
+        events={events}
+        validators={validators}
+        now={now}
+        onClose={() => setSelectedDelegator(null)}
       />
     </>
   );

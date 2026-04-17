@@ -22,16 +22,8 @@ const TYPE_LABELS: Record<StakingEvent["type"], string> = {
   redelegate: "Redelegation",
 };
 
-const TYPE_COLOR: Record<StakingEvent["type"], string> = {
-  delegate: "#4a7a1a",
-  undelegate: "#b44a3e",
-  redelegate: "#d88a3a",
-};
-
-// Event type icons — small colored dots that mirror the row color scheme
-// used on the activity feed. They live in the header row exactly where
-// DelegatorPanel puts its whale/validator/CEX icon, so the two panels
-// share the same visual rhythm at a glance.
+// Event type icons — colored dots that mirror the row-border color scheme
+// used on the activity feed.
 const TYPE_ICON: Record<StakingEvent["type"], string> = {
   delegate: "🟢",
   undelegate: "🔴",
@@ -42,6 +34,15 @@ const AMOUNT_PREFIX: Record<StakingEvent["type"], string> = {
   delegate: "+",
   undelegate: "-",
   redelegate: "",
+};
+
+// Maps event type to a class that reuses the whale label pill color palette,
+// so the "timestamp pill" in the header looks the same as the "Silk Nodes
+// (self)" / "PSE Excluded" pills on DelegatorPanel.
+const TYPE_PILL_CLASS: Record<StakingEvent["type"], string> = {
+  delegate: "whale-label-validator", // green palette
+  undelegate: "whale-label-cex", // amber/orange — repurposed for undel
+  redelegate: "whale-label-pse-excluded", // neutral tan
 };
 
 function CopyButton({ text }: { text: string }) {
@@ -70,12 +71,20 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-// Visual structure matches DelegatorPanel:
-//   .delegator-panel-header  — icon + type label + timestamp (with border-bottom)
-//   .delegator-panel-stat    — big formatted amount (colored by type)
-//   .delegator-panel-stat-sub — raw TX count
-//   .staking-panel-section × N — delegator, validator(s), tx hash, block
-//   .delegator-panel-footer  — "View on Mintscan" link
+// This component is a 1:1 structural mirror of DelegatorPanel. Same root
+// classes, same header rhythm (3 rows: rank + prominent-mono-line +
+// pill), same .delegator-panel-stat / -stat-sub, same section shells,
+// same footer. The only differences are content-driven (an event has no
+// stake-distribution bars to show, a delegator has no tx hash).
+//
+// DelegatorPanel equivalents:
+//   .delegator-panel-rank       → icon + "DELEGATION"
+//   .delegator-panel-address-row → prominent tx hash + copy
+//   .delegator-panel-label      → timestamp rendered as a pill
+//   .delegator-panel-stat       → big amount (neutral dark)
+//   .delegator-panel-stat-sub   → raw TX count
+//   .staking-panel-section × 2  → Parties, Transaction
+//   .delegator-panel-footer     → View on Mintscan link
 export default function StakingFeedPanel({ event, validators, onClose }: StakingFeedPanelProps) {
   useEffect(() => {
     if (!event) return;
@@ -92,53 +101,73 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
 
   if (!event) return null;
 
-  const color = TYPE_COLOR[event.type];
   const icon = TYPE_ICON[event.type];
   const label = TYPE_LABELS[event.type];
   const prefix = AMOUNT_PREFIX[event.type];
+  const pillClass = TYPE_PILL_CLASS[event.type];
   const validatorName = resolveValidator(event.validator, validators);
   const sourceName = event.sourceValidator ? resolveValidator(event.sourceValidator, validators) : null;
 
   return (
     <>
       <div className="staking-feed-panel-backdrop" onClick={onClose} />
-      <div className="staking-feed-panel" role="dialog" aria-modal="true">
+      <div className="staking-feed-panel delegator-panel" role="dialog" aria-modal="true">
         <button type="button" className="staking-panel-close" onClick={onClose} aria-label="Close">
           ×
         </button>
 
-        {/* ─── Header: icon + type + timestamp (matches DelegatorPanel rhythm) ─── */}
+        {/* ─── Header: 3 rows, mirrors DelegatorPanel exactly ─── */}
         <div className="delegator-panel-header">
           <div className="delegator-panel-rank">
             <span className="delegator-panel-rank-icon">{icon}</span>
-            <span className="delegator-panel-rank-text" style={{ color }}>
-              {label}
-            </span>
+            <span className="delegator-panel-rank-text">{label}</span>
           </div>
-          <div className="staking-panel-timestamp">{formatFullTimestamp(event.timestamp)}</div>
+          {/* Row 2: prominent mono identifier — tx hash here, full address
+              on the whale panel. Takes the same vertical space. */}
+          <div className="delegator-panel-address-row">
+            <a
+              href={txExplorerUrl(event.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="staking-panel-link staking-panel-mono delegator-panel-address"
+              title="View transaction on Mintscan"
+            >
+              {event.txHash}
+            </a>
+            <CopyButton text={event.txHash} />
+          </div>
+          {/* Row 3: timestamp rendered as a label pill, matching the
+              "🏛 Validator (self)" style pill on the whale panel. */}
+          <div className={`delegator-panel-label ${pillClass}`}>
+            🕒 {formatFullTimestamp(event.timestamp)}
+          </div>
         </div>
 
         {/* ─── Headline stat ─── */}
-        <div className="delegator-panel-stat" style={{ color }}>
+        <div className="delegator-panel-stat">
           {prefix}
           {formatEventAmount(event.amount)} TX
         </div>
-        <div className="delegator-panel-stat-sub">{event.amount.toLocaleString()} TX</div>
+        <div className="delegator-panel-stat-sub">
+          {event.amount.toLocaleString()} TX · Block {event.height.toLocaleString()}
+        </div>
 
-        {/* ─── Delegator ─── */}
+        {/* ─── Section 1: Parties (delegator + validator) ─── */}
         <div className="staking-panel-section">
-          <div className="staking-panel-label">Delegator</div>
+          <div className="staking-panel-label">Parties</div>
+          <div className="staking-panel-value-row">
+            <span className="staking-panel-mono staking-panel-sub">Delegator</span>
+          </div>
           <div className="staking-panel-value-row">
             <span className="staking-panel-mono">{event.delegator}</span>
             <CopyButton text={event.delegator} />
           </div>
-        </div>
 
-        {/* ─── Validator(s) ─── */}
-        {event.type === "redelegate" && sourceName ? (
-          <>
-            <div className="staking-panel-section">
-              <div className="staking-panel-label">From Validator</div>
+          {event.type === "redelegate" && sourceName ? (
+            <>
+              <div className="staking-panel-value-row" style={{ marginTop: 10 }}>
+                <span className="staking-panel-mono staking-panel-sub">From Validator</span>
+              </div>
               <div className="staking-panel-value-row">
                 <a
                   href={validatorUrl(event.sourceValidator!)}
@@ -149,13 +178,9 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
                   {sourceName} ↗
                 </a>
               </div>
-              <div className="staking-panel-value-row">
-                <span className="staking-panel-mono staking-panel-sub">{event.sourceValidator}</span>
-                <CopyButton text={event.sourceValidator!} />
+              <div className="staking-panel-value-row" style={{ marginTop: 10 }}>
+                <span className="staking-panel-mono staking-panel-sub">To Validator</span>
               </div>
-            </div>
-            <div className="staking-panel-section">
-              <div className="staking-panel-label">To Validator</div>
               <div className="staking-panel-value-row">
                 <a
                   href={validatorUrl(event.validator)}
@@ -166,55 +191,27 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
                   {validatorName} ↗
                 </a>
               </div>
-              <div className="staking-panel-value-row">
-                <span className="staking-panel-mono staking-panel-sub">{event.validator}</span>
-                <CopyButton text={event.validator} />
+            </>
+          ) : (
+            <>
+              <div className="staking-panel-value-row" style={{ marginTop: 10 }}>
+                <span className="staking-panel-mono staking-panel-sub">Validator</span>
               </div>
-            </div>
-          </>
-        ) : (
-          <div className="staking-panel-section">
-            <div className="staking-panel-label">Validator</div>
-            <div className="staking-panel-value-row">
-              <a
-                href={validatorUrl(event.validator)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="staking-panel-link"
-              >
-                {validatorName} ↗
-              </a>
-            </div>
-            <div className="staking-panel-value-row">
-              <span className="staking-panel-mono staking-panel-sub">{event.validator}</span>
-              <CopyButton text={event.validator} />
-            </div>
-          </div>
-        )}
-
-        {/* ─── Transaction Hash ─── */}
-        <div className="staking-panel-section">
-          <div className="staking-panel-label">Transaction Hash</div>
-          <div className="staking-panel-value-row">
-            <a
-              href={txExplorerUrl(event.txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="staking-panel-link staking-panel-mono"
-            >
-              {event.txHash.slice(0, 20)}... ↗
-            </a>
-            <CopyButton text={event.txHash} />
-          </div>
+              <div className="staking-panel-value-row">
+                <a
+                  href={validatorUrl(event.validator)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="staking-panel-link"
+                >
+                  {validatorName} ↗
+                </a>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* ─── Block Height ─── */}
-        <div className="staking-panel-section">
-          <div className="staking-panel-label">Block Height</div>
-          <div className="staking-panel-mono">{event.height.toLocaleString()}</div>
-        </div>
-
-        {/* ─── Footer: View on Mintscan (matches DelegatorPanel) ─── */}
+        {/* ─── Footer: matches DelegatorPanel's "View on Mintscan ↗" exactly ─── */}
         <div className="delegator-panel-footer">
           <a
             href={txExplorerUrl(event.txHash)}
@@ -222,7 +219,7 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
             rel="noopener noreferrer"
             className="staking-panel-link"
           >
-            View transaction on Mintscan ↗
+            View on Mintscan ↗
           </a>
         </div>
       </div>
