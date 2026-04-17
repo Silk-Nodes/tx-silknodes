@@ -144,6 +144,86 @@
   opacity: 1;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   DARK MODE: replace hardcoded rgba(255,255,255,*) fills that
+   scatter across the codebase. In light mode these read as soft
+   white glass; in dark mode they read as grey. Re-tint them with
+   translucent dark green so pills, chips, inputs, pager buttons,
+   and secondary panels all feel like the forest palette.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] .input-group,
+:root[data-theme="dark"] .info-box,
+:root[data-theme="dark"] .compare-box,
+:root[data-theme="dark"] .staking-panel-section,
+:root[data-theme="dark"] .staking-feed-row,
+:root[data-theme="dark"] .whale-top-row,
+:root[data-theme="dark"] .whale-change-card,
+:root[data-theme="dark"] .whale-changes-section {
+  background: rgba(30, 48, 22, 0.55) !important;
+}
+
+:root[data-theme="dark"] .filter-chip,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .page-btn,
+:root[data-theme="dark"] .whale-pager-btn,
+:root[data-theme="dark"] .staking-type-chip {
+  background: rgba(40, 60, 25, 0.5) !important;
+  border-color: rgba(177, 252, 3, 0.12);
+}
+
+:root[data-theme="dark"] .staking-type-chip.active {
+  background: rgba(40, 60, 25, 0.85) !important;
+  color: var(--text-dark) !important;
+}
+
+:root[data-theme="dark"] .filter-chip:hover,
+:root[data-theme="dark"] .chip:hover,
+:root[data-theme="dark"] .page-btn:hover:not(:disabled),
+:root[data-theme="dark"] .whale-pager-btn:hover:not(:disabled),
+:root[data-theme="dark"] .staking-type-chip:hover,
+:root[data-theme="dark"] .time-pill:hover,
+:root[data-theme="dark"] .network-activity-tab:hover,
+:root[data-theme="dark"] .staking-feed-row:hover,
+:root[data-theme="dark"] .data-table tbody tr:hover,
+:root[data-theme="dark"] .validator-table tbody tr:hover {
+  background: rgba(55, 80, 30, 0.7) !important;
+}
+
+/* Inputs + select fields: use a solid-ish dark-green fill so the
+   placeholder text reads without washing out. */
+:root[data-theme="dark"] input[type="text"],
+:root[data-theme="dark"] input[type="number"],
+:root[data-theme="dark"] input:not([type]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background: rgba(22, 38, 18, 0.85);
+  border-color: var(--glass-border);
+  color: var(--text-dark);
+}
+
+/* Whale label pills: re-tint so the "unlabeled 🕊" and similar
+   light-colored pills match the dark palette. */
+:root[data-theme="dark"] .whale-label-unlabeled {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .whale-label-individual {
+  background: rgba(200, 200, 200, 0.08);
+}
+:root[data-theme="dark"] .whale-label-validator {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon-light);
+}
+:root[data-theme="dark"] .whale-label-pse-excluded,
+:root[data-theme="dark"] .whale-label-validator-pse {
+  background: rgba(200, 175, 120, 0.12);
+  color: #d8c09a;
+}
+:root[data-theme="dark"] .whale-label-cex {
+  background: rgba(216, 138, 58, 0.15);
+  color: #e5a368;
+}
+
 /* Smooth transition between themes so switching doesn't flash harshly. */
 html {
   transition: background-color 0.2s ease, color 0.2s ease;
