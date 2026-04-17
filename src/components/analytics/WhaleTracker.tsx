@@ -11,6 +11,7 @@ import {
   isWhaleEvent,
 } from "@/lib/staking-events";
 import type { TopDelegatorEntry, TopDelegatorLabel } from "@/hooks/useWhaleData";
+import DelegatorPanel from "./DelegatorPanel";
 
 interface WhaleTrackerProps {
   topDelegators: TopDelegatorEntry[];
@@ -53,6 +54,7 @@ export default function WhaleTracker({
   onEventClick,
 }: WhaleTrackerProps) {
   const [page, setPage] = useState(0);
+  const [selectedDelegator, setSelectedDelegator] = useState<TopDelegatorEntry | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(topDelegators.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages - 1);
@@ -83,6 +85,7 @@ export default function WhaleTracker({
   }
 
   return (
+    <>
     <div className="whale-tracker">
       {/* ─── Section A: Top Delegators ─── */}
       <div className="whale-section">
@@ -103,19 +106,27 @@ export default function WhaleTracker({
 
           {pageEntries.map((entry) => {
             const pct = topTotalTX > 0 ? (entry.totalStake / topTotalTX) * 100 : 0;
-            const explorerUrl = `https://www.mintscan.io/coreum/address/${entry.address}`;
+            // Whole row is a button that opens the side panel. Keyboard
+            // users get Enter/Space; screen readers announce as button with
+            // address text as its accessible name.
             return (
-              <div key={entry.address} className="whale-table-row">
+              <div
+                key={entry.address}
+                className="whale-table-row whale-table-row-clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedDelegator(entry)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedDelegator(entry);
+                  }
+                }}
+                aria-label={`Open details for ${entry.label?.text || "unlabeled address"} ${entry.address}`}
+                title={entry.address}
+              >
                 <span className="whale-col-rank">#{entry.rank}</span>
-                <a
-                  href={explorerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="whale-col-addr"
-                  title={entry.address}
-                >
-                  {truncateAddress(entry.address, 10, 6)}
-                </a>
+                <span className="whale-col-addr">{truncateAddress(entry.address, 10, 6)}</span>
                 <span className="whale-col-label">
                   <LabelBadge label={entry.label} />
                 </span>
@@ -221,5 +232,14 @@ export default function WhaleTracker({
         )}
       </div>
     </div>
+
+    <DelegatorPanel
+      entry={selectedDelegator}
+      events={events}
+      validators={validators}
+      now={now}
+      onClose={() => setSelectedDelegator(null)}
+    />
+    </>
   );
 }
