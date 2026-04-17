@@ -178,45 +178,79 @@ export default function WhaleTracker({
         </div>
 
         {totalPages > 1 && (
-          <div className="whale-pager" role="navigation" aria-label="Top delegators pagination">
+          <nav className="whale-pager" aria-label="Top delegators pagination">
+            {/* First / Prev — on the left, two-tier nav for 50-page lists. */}
             <button
               type="button"
-              className="whale-pager-btn"
+              className="whale-pager-nav"
+              disabled={clampedPage === 0}
+              onClick={() => setPage(0)}
+              aria-label="First page"
+              title="First page"
+            >
+              ⟪
+            </button>
+            <button
+              type="button"
+              className="whale-pager-nav"
               disabled={clampedPage === 0}
               onClick={() => setPage(clampedPage - 1)}
               aria-label="Previous page"
+              title="Previous page"
             >
-              «
+              ‹
             </button>
-            {/* Smart ellipsis pagination: with up to 50 pages we can't render
-                all of them. Show first + last + a sliding window around current.
-                Ellipsis fills the gaps. */}
-            {buildPageList(clampedPage, totalPages).map((item, idx) =>
-              item === "…" ? (
-                <span key={`gap-${idx}`} className="whale-pager-gap" aria-hidden="true">…</span>
-              ) : (
-                <button
-                  key={item}
-                  type="button"
-                  className={`whale-pager-btn ${item === clampedPage ? "active" : ""}`}
-                  onClick={() => setPage(item)}
-                  aria-current={item === clampedPage ? "page" : undefined}
-                  aria-label={`Go to page ${item + 1}`}
-                >
-                  {item + 1}
-                </button>
-              ),
-            )}
+
+            {/* Smart ellipsis number list in the middle */}
+            <div className="whale-pager-pages">
+              {buildPageList(clampedPage, totalPages).map((item, idx) =>
+                item === "…" ? (
+                  <span key={`gap-${idx}`} className="whale-pager-gap" aria-hidden="true">
+                    ⋯
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`whale-pager-btn ${item === clampedPage ? "active" : ""}`}
+                    onClick={() => setPage(item)}
+                    aria-current={item === clampedPage ? "page" : undefined}
+                    aria-label={`Go to page ${item + 1}`}
+                  >
+                    {item + 1}
+                  </button>
+                ),
+              )}
+            </div>
+
+            {/* Next / Last — on the right */}
             <button
               type="button"
-              className="whale-pager-btn"
+              className="whale-pager-nav"
               disabled={clampedPage >= totalPages - 1}
               onClick={() => setPage(clampedPage + 1)}
               aria-label="Next page"
+              title="Next page"
             >
-              »
+              ›
             </button>
-          </div>
+            <button
+              type="button"
+              className="whale-pager-nav"
+              disabled={clampedPage >= totalPages - 1}
+              onClick={() => setPage(totalPages - 1)}
+              aria-label="Last page"
+              title="Last page"
+            >
+              ⟫
+            </button>
+
+            {/* Subtle position label — always shows where we are regardless of
+                which page buttons happen to be rendered. */}
+            <div className="whale-pager-status" aria-live="polite">
+              Page {clampedPage + 1} of {totalPages}
+            </div>
+          </nav>
         )}
       </div>
 
