@@ -54,15 +54,24 @@ export default function StakingFeed() {
   // — same pattern we already use for StakingFeedPanel.
   const [selectedDelegator, setSelectedDelegator] = useState<TopDelegatorEntry | null>(null);
 
-  // Sync tab with URL hash so people can link to #whales directly.
+  // Sync tab with URL hash so both tabs have shareable custom links:
+  //   /#staking  → Staking Activity (also accepts "activity" as an alias)
+  //   /#whales   → Whale Tracker
+  // A bare URL (no hash) defaults to Staking Activity to preserve the
+  // "landing page" feel for first-time visitors.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hash = window.location.hash.replace("#", "");
-    if (hash === "whales") setActiveTab("whales");
-    const onHashChange = () => {
+    const readTab = (): ActiveTab | null => {
       const h = window.location.hash.replace("#", "");
-      if (h === "whales") setActiveTab("whales");
-      else if (h === "activity") setActiveTab("activity");
+      if (h === "whales") return "whales";
+      if (h === "staking" || h === "activity") return "activity";
+      return null; // no recognized hash → keep current tab state
+    };
+    const initial = readTab();
+    if (initial) setActiveTab(initial);
+    const onHashChange = () => {
+      const t = readTab();
+      if (t) setActiveTab(t);
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -71,10 +80,12 @@ export default function StakingFeed() {
   const setTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
-      // Write the hash without triggering a scroll jump.
-      const newHash = tab === "whales" ? "#whales" : "";
+      // Both tabs now get an explicit hash so the URL always reflects
+      // current state after user interaction. replaceState (not
+      // pushState) so tab switching doesn't clutter browser history.
+      const newHash = tab === "whales" ? "#whales" : "#staking";
       if (window.location.hash !== newHash) {
-        history.replaceState(null, "", newHash || window.location.pathname + window.location.search);
+        history.replaceState(null, "", newHash);
       }
     }
   };
