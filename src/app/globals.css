@@ -2591,7 +2591,10 @@ input[type="range"]::-webkit-slider-thumb {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 420px;
+  /* Unified width across both panels (event detail + delegator detail).
+     480px fits long addresses without wrapping and leaves room for the
+     stake distribution bars in DelegatorPanel without feeling cramped. */
+  width: 480px;
   max-width: 100vw;
   background: var(--bg-base);
   border-left: 1px solid var(--glass-border);
@@ -2800,11 +2803,10 @@ input[type="range"]::-webkit-slider-thumb {
   outline-offset: -2px;
 }
 
-.delegator-panel {
-  /* Slightly wider than the event panel because we show a stake
-     distribution table with bar charts that needs breathing room. */
-  width: 480px;
-}
+/* Width is now set on the shared .staking-feed-panel class (480px).
+   Both panels share the same size for UX consistency.
+   .delegator-panel retains its body-specific styles (header, stats,
+   distribution, activity) which are defined below. */
 
 .delegator-panel-header {
   display: flex;
@@ -3140,13 +3142,10 @@ input[type="range"]::-webkit-slider-thumb {
   text-align: center;
 }
 
-/* Mobile: panel takes full width, activity grid collapses */
+/* Mobile: shared .staking-feed-panel already handles the full-width
+   collapse at max-width: 768px. Below only covers body-specific
+   adjustments (activity row density + stat size). */
 @media (max-width: 520px) {
-  .delegator-panel {
-    width: 100%;
-    padding: 24px 18px 32px;
-  }
-
   .delegator-panel-stat {
     font-size: 1.6rem;
   }
