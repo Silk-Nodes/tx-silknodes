@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+import { bech32 } from "bech32";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
@@ -33,6 +34,13 @@ const DATA_FILE_REL = "public/analytics/staking-events.json";
 // change removed its section).
 const PENDING_FILE = join(REPO_PATH, "public", "analytics", "pending-undelegations.json");
 const PENDING_FILE_REL = "public/analytics/pending-undelegations.json";
+// Top delegators: ranked list of largest bonded accounts. Refreshed every
+// few hours (stake rankings move slowly). known-entities.json piggy-backs
+// on the same refresh cycle since it's also a "who is who" artifact.
+const TOP_DELEGATORS_FILE = join(REPO_PATH, "public", "analytics", "top-delegators.json");
+const TOP_DELEGATORS_FILE_REL = "public/analytics/top-delegators.json";
+const KNOWN_ENTITIES_FILE = join(REPO_PATH, "public", "analytics", "known-entities.json");
+const KNOWN_ENTITIES_FILE_REL = "public/analytics/known-entities.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 
@@ -46,6 +54,8 @@ const POLL_INTERVAL_MS = 60_000;
 const PUSH_INTERVAL_MS = 5 * 60_000;
 const HEARTBEAT_INTERVAL_MS = 30 * 60_000; // force a push every 30 min so updatedAt never goes silently stale
 const PENDING_REFRESH_MS = 15 * 60_000; // refresh pending undelegations every 15 min
+const TOP_DELEGATORS_REFRESH_MS = 6 * 60 * 60_000; // refresh ranked delegator list every 6 h
+const TOP_DELEGATORS_COUNT = 200; // write top N to the file; the UI can show a subset + paginate
 const VALIDATOR_REFRESH_MS = 60 * 60_000;
 const MAX_EVENTS = 5000;
 const MAX_CONSECUTIVE_FAILURES = 5; // exit (systemd restarts) after this many failures in a row
@@ -66,6 +76,7 @@ let hasNewEvents = false;
 let lastPushTime = 0;
 let lastSuccessfulPush = 0;
 let lastPendingRefresh = 0;
+let lastTopDelegatorsRefresh = 0;
 let consecutivePushFailures = 0;
 let consecutivePollFailures = 0;
 
@@ -364,6 +375,217 @@ async function refreshPendingUndelegations() {
   }
 }
 
+// ═══ TOP DELEGATORS + KNOWN ENTITIES ═══
+// Ranks every bonded account by total stake across all validators and writes
+// public/analytics/top-delegators.json. Also writes known-entities.json — a
+// label registry that maps addresses to human-friendly names (validator
+// self-stakes, PSE-excluded addresses, and a _manual slot for community
+// contributions).
+//
+// Cadence: 6 h (TOP_DELEGATORS_REFRESH_MS). Stake rankings move slowly so
+// this is generous — the LCD cost is ~100 validators × a few pages of
+// delegations each, a couple of minutes per refresh, 4×/day.
+
+// Convert a validator operator address (corevaloper1...) to its account
+// address (core1...). Both share the same underlying bytes, only the HRP
+// differs. This is how we identify which delegation is a validator's own
+// self-bond versus an arbitrary delegator.
+function valoperToAccount(valoperAddr) {
+  try {
+    const { prefix, words } = bech32.decode(valoperAddr);
+    if (!prefix.endsWith("valoper")) return null;
+    const accountPrefix = prefix.slice(0, -"valoper".length);
+    return bech32.encode(accountPrefix, words);
+  } catch {
+    return null;
+  }
+}
+
+// Fetch the PSE module's params to learn which addresses are excluded from
+// community PSE rewards. Labelling these on the top-delegators list is
+// useful context (they're often protocol-owned addresses or team holdings).
+async function fetchPSEExcludedAddresses() {
+  const endpoints = [
+    "https://api.silknodes.io/coreum/tx/pse/v1/params",
+    "https://full-node.mainnet-1.coreum.dev:1317/tx/pse/v1/params",
+  ];
+  for (const base of endpoints) {
+    try {
+      const data = await fetchWithRetry(base, 2);
+      const list = data?.params?.excluded_addresses;
+      if (Array.isArray(list) && list.length > 0) return list;
+    } catch {
+      // try next
+    }
+  }
+  return [];
+}
+
+// Iterate every validator's delegations and aggregate bonded stake by
+// delegator address. Returns a Map(address -> { totalUcore, validators: Set }).
+async function aggregateAllDelegations(validatorAddresses) {
+  const byDelegator = new Map();
+  for (const valAddr of validatorAddresses) {
+    let nextKey = "";
+    // Paginate defensively — top validators can have 500+ delegators.
+    // We cap iterations to avoid a runaway loop if the LCD misbehaves.
+    for (let page = 0; page < 50; page++) {
+      const base = `${LCD}/cosmos/staking/v1beta1/validators/${valAddr}/delegations?pagination.limit=500`;
+      const url = nextKey ? `${base}&pagination.key=${encodeURIComponent(nextKey)}` : base;
+      let data;
+      try {
+        data = await fetchWithRetry(url, 2);
+      } catch {
+        break; // give up on this validator, move on
+      }
+      for (const resp of data.delegation_responses || []) {
+        const addr = resp.delegation?.delegator_address;
+        const amount = parseInt(resp.balance?.amount || "0");
+        if (!addr || !amount) continue;
+        const entry = byDelegator.get(addr) || { totalUcore: 0, validators: new Set() };
+        entry.totalUcore += amount;
+        entry.validators.add(valAddr);
+        byDelegator.set(addr, entry);
+      }
+      nextKey = data.pagination?.next_key || "";
+      if (!nextKey) break;
+    }
+  }
+  return byDelegator;
+}
+
+// Build known-entities.json from on-chain facts we know. Each validator's
+// self-stake account (derived via bech32) gets labelled "<Moniker> (self)".
+// PSE-excluded addresses get labelled "PSE Excluded". The _manual section is
+// preserved from any existing file so manual labels (CEX addresses, team
+// wallets, etc.) aren't overwritten.
+function buildKnownEntities(existing, validators, pseExcluded) {
+  const entries = {};
+
+  // 1. Validator self-stakes
+  for (const v of validators) {
+    const accountAddr = valoperToAccount(v.operator_address);
+    if (!accountAddr) continue;
+    const moniker = v.description?.moniker || "Validator";
+    entries[accountAddr] = {
+      label: `${moniker} (self)`,
+      type: "validator",
+      verified: true,
+      source: "derived from validator operator_address",
+    };
+  }
+
+  // 2. PSE-excluded addresses
+  for (const addr of pseExcluded) {
+    if (typeof addr !== "string" || !addr.startsWith("core1")) continue;
+    // Don't overwrite a validator-self label with PSE-excluded — a validator
+    // could be both. Concatenate the types in the label if so.
+    if (entries[addr]) {
+      entries[addr].label += " · PSE Excluded";
+      entries[addr].type = "validator+pse";
+    } else {
+      entries[addr] = {
+        label: "PSE Excluded",
+        type: "pse-excluded",
+        verified: true,
+        source: "on-chain /tx/pse/v1/params",
+      };
+    }
+  }
+
+  // 3. Preserve manual contributions from existing file
+  const manual = existing?._manual && typeof existing._manual === "object" ? existing._manual : {};
+
+  return {
+    updatedAt: new Date().toISOString(),
+    // Manual labels take precedence — they're explicit human decisions.
+    entries: { ...entries, ...manual },
+    _manual: manual, // keep a separate slot so the user knows which entries are hand-curated
+  };
+}
+
+function readJsonFile(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+function saveTopDelegators(entries) {
+  const dir = dirname(TOP_DELEGATORS_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    TOP_DELEGATORS_FILE,
+    JSON.stringify({ updatedAt: new Date().toISOString(), entries }, null, null),
+  );
+}
+
+function saveKnownEntities(payload) {
+  const dir = dirname(KNOWN_ENTITIES_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(KNOWN_ENTITIES_FILE, JSON.stringify(payload, null, null));
+}
+
+async function refreshTopDelegators() {
+  try {
+    log("info", "Refreshing top delegators (may take 1-2 min)...");
+
+    // Fetch validator list with full info so we get monikers for known-entities.
+    const validators = [];
+    let nextKey = "";
+    while (true) {
+      const url = nextKey
+        ? `${LCD}/cosmos/staking/v1beta1/validators?pagination.limit=200&pagination.key=${encodeURIComponent(nextKey)}`
+        : `${LCD}/cosmos/staking/v1beta1/validators?pagination.limit=200`;
+      const d = await fetchWithRetry(url, 3);
+      validators.push(...d.validators);
+      nextKey = d.pagination?.next_key || "";
+      if (!nextKey) break;
+    }
+
+    const pseExcluded = await fetchPSEExcludedAddresses();
+    const existingEntities = readJsonFile(KNOWN_ENTITIES_FILE);
+    const knownEntities = buildKnownEntities(existingEntities, validators, pseExcluded);
+    saveKnownEntities(knownEntities);
+
+    const validatorAddrs = validators.map((v) => v.operator_address);
+    const byDelegator = await aggregateAllDelegations(validatorAddrs);
+
+    const ranked = [...byDelegator.entries()]
+      .map(([address, v]) => ({
+        address,
+        totalUcore: v.totalUcore,
+        validatorCount: v.validators.size,
+      }))
+      .sort((a, b) => b.totalUcore - a.totalUcore)
+      .slice(0, TOP_DELEGATORS_COUNT);
+
+    const entries = ranked.map((r, i) => {
+      const label = knownEntities.entries[r.address] || null;
+      return {
+        rank: i + 1,
+        address: r.address,
+        totalStake: Math.floor(r.totalUcore / 1_000_000), // TX units
+        validatorCount: r.validatorCount,
+        label: label
+          ? { text: label.label, type: label.type, verified: !!label.verified }
+          : null,
+      };
+    });
+
+    saveTopDelegators(entries);
+    lastTopDelegatorsRefresh = Date.now();
+    log(
+      "info",
+      `Top delegators refreshed: ${entries.length} ranked, ${Object.keys(knownEntities.entries).length} labels (${validators.length} validators, ${pseExcluded.length} PSE excluded)`,
+    );
+  } catch (e) {
+    // Non-fatal. The file stays at its last good state until the next tick.
+    log("error", `refreshTopDelegators failed: ${e.message}`);
+  }
+}
+
 // ═══ POLLING ═══
 async function pollMessageType(msgType) {
   const q = encodeURIComponent(`"message.action='${msgType.url}'"`);
@@ -459,11 +681,13 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     // matches the actual push time (within a second).
     saveData();
 
-    // The push cycle is responsible for two files: staking-events.json and
-    // pending-undelegations.json. Check both for changes so a pending-only
-    // update (no staking events this window) still gets pushed.
+    // The push cycle is responsible for four files now. Check all of them
+    // for changes so a refresh of any one (pending undels every 15 min,
+    // top-delegators every 6 h) naturally triggers a push even if no
+    // staking events happened in the window.
+    const TRACKED = [DATA_FILE_REL, PENDING_FILE_REL, TOP_DELEGATORS_FILE_REL, KNOWN_ENTITIES_FILE_REL].join(" ");
     const hasChanges = execSync(
-      `cd ${REPO_PATH} && git diff --name-only ${DATA_FILE_REL} ${PENDING_FILE_REL}`,
+      `cd ${REPO_PATH} && git diff --name-only ${TRACKED}`,
       { stdio: "pipe", encoding: "utf-8" },
     ).trim();
     if (!hasChanges) {
@@ -478,7 +702,7 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     const subject = heartbeat
       ? `chore: heartbeat update staking events ${ts}`
       : `chore: update staking events ${ts}`;
-    execSync(`cd ${REPO_PATH} && git add ${DATA_FILE_REL} ${PENDING_FILE_REL}`, { stdio: "pipe" });
+    execSync(`cd ${REPO_PATH} && git add ${TRACKED}`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git commit -m "${subject}"`, { stdio: "pipe" });
     execSync(`cd ${REPO_PATH} && git push origin main`, { stdio: "pipe" });
     log("info", `Pushed to GitHub${heartbeat ? " (heartbeat)" : ""}: ${ts}`);
@@ -510,6 +734,10 @@ async function main() {
   // commit carries a fresh file (and the file exists on disk for git add
   // in subsequent pushes even when pending hasn't changed since).
   await refreshPendingUndelegations();
+  // Refresh top delegators + known entities on startup too. Takes 1-2 min
+  // on first run, then 6 h cadence after. If this fails on startup the
+  // files stay at their last good state and the next interval retries.
+  await refreshTopDelegators();
   // Always run an initial push so lastSuccessfulPush is set to "now" and the
   // heartbeat clock has a sensible baseline. This also surfaces any git auth
   // problem at startup instead of hours later.
@@ -539,6 +767,15 @@ async function main() {
     });
   }, PENDING_REFRESH_MS);
 
+  // Top delegators refresh (6 h). Same non-fatal semantics: failures leave
+  // the file at its last good state. Runs off the push cycle so we don't
+  // block a push on the slow delegation aggregation.
+  setInterval(() => {
+    refreshTopDelegators().catch((e) => {
+      log("error", `top-delegators refresh interval error: ${e.message}`);
+    });
+  }, TOP_DELEGATORS_REFRESH_MS);
+
   setInterval(() => {
     const sinceLastPush = Date.now() - lastPushTime;
     const heartbeatDue = Date.now() - lastSuccessfulPush >= HEARTBEAT_INTERVAL_MS;
@@ -558,6 +795,7 @@ async function main() {
     "info",
     `Collector running. Poll: ${POLL_INTERVAL_MS / 1000}s, push: ${PUSH_INTERVAL_MS / 60_000}min, ` +
       `heartbeat: ${HEARTBEAT_INTERVAL_MS / 60_000}min, pending refresh: ${PENDING_REFRESH_MS / 60_000}min, ` +
+      `top-delegators refresh: ${TOP_DELEGATORS_REFRESH_MS / 3_600_000}h, ` +
       `circuit breaker: ${MAX_CONSECUTIVE_FAILURES} failures.`,
   );
 }

@@ -1914,6 +1914,431 @@ input[type="range"]::-webkit-slider-thumb {
   line-height: 1;
 }
 
+/* ═══ NETWORK ACTIVITY TABS ═══ */
+.network-activity-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.network-activity-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 11px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-medium);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* align with the container's border-bottom */
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+.network-activity-tab:hover {
+  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.network-activity-tab.active {
+  color: var(--tx-dark-green);
+  border-bottom-color: var(--tx-neon);
+}
+
+.network-activity-tab-count {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-medium);
+  min-width: 22px;
+  text-align: center;
+}
+
+.network-activity-tab.active .network-activity-tab-count {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+
+/* ═══ WHALE TRACKER ═══ */
+.whale-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.whale-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whale-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.whale-section-title {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.whale-section-sub {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-light);
+  opacity: 0.7;
+}
+
+.whale-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.whale-table-head,
+.whale-table-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 0.9fr) 70px 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.whale-table-head {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-light);
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.whale-table-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.1s ease;
+}
+
+.whale-table-row:hover {
+  background: rgba(177, 252, 3, 0.06);
+}
+
+.whale-col-rank {
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.whale-col-addr {
+  color: var(--text-dark);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whale-col-addr:hover {
+  color: var(--tx-dark-green);
+  text-decoration: underline;
+}
+
+.whale-col-stake {
+  font-weight: 700;
+  color: var(--text-dark);
+  text-align: right;
+}
+
+.whale-col-pct {
+  color: var(--text-medium);
+  text-align: right;
+}
+
+.whale-col-vals {
+  color: var(--text-medium);
+  text-align: right;
+}
+
+/* Labels */
+.whale-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.whale-label-icon {
+  flex-shrink: 0;
+}
+
+.whale-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whale-label-validator {
+  background: rgba(74, 122, 26, 0.12);
+  color: #4a7a1a;
+}
+
+.whale-label-pse-excluded,
+.whale-label-validator-pse {
+  background: rgba(154, 138, 122, 0.15);
+  color: #6a5a4f;
+}
+
+.whale-label-cex {
+  background: rgba(216, 138, 58, 0.12);
+  color: #b46a28;
+}
+
+.whale-label-individual {
+  background: rgba(100, 100, 100, 0.1);
+  color: var(--text-medium);
+}
+
+.whale-label-unlabeled {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* Pagination */
+.whale-pager {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.whale-pager-btn {
+  min-width: 28px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.whale-pager-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--text-dark);
+}
+
+.whale-pager-btn.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  font-weight: 700;
+}
+
+.whale-pager-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Whale moves list */
+.whale-moves {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.whale-move {
+  display: grid;
+  grid-template-columns: 70px 110px 110px minmax(0, 1fr) 70px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  border-left: 3px solid transparent;
+  transition: background 0.1s ease;
+}
+
+.whale-move:first-child {
+  border-top: none;
+}
+
+.whale-move:hover {
+  background: rgba(177, 252, 3, 0.06);
+}
+
+.whale-move-delegate {
+  border-left-color: #4a7a1a;
+}
+.whale-move-undelegate {
+  border-left-color: #b44a3e;
+}
+.whale-move-redelegate {
+  border-left-color: #d88a3a;
+}
+
+.whale-move-time {
+  color: var(--text-light);
+}
+
+.whale-move-type {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+.whale-move-type.type-delegate {
+  background: rgba(74, 122, 26, 0.12);
+  color: #4a7a1a;
+}
+.whale-move-type.type-undelegate {
+  background: rgba(180, 74, 62, 0.12);
+  color: #b44a3e;
+}
+.whale-move-type.type-redelegate {
+  background: rgba(216, 138, 58, 0.12);
+  color: #b46a28;
+}
+
+.whale-move-amount {
+  font-weight: 700;
+  color: var(--text-dark);
+  text-align: right;
+}
+
+.whale-move-parties {
+  color: var(--text-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whale-move-arrow {
+  color: var(--text-light);
+}
+
+.whale-move-ago {
+  color: var(--text-light);
+  text-align: right;
+  font-size: 0.66rem;
+}
+
+.whale-empty,
+.whale-empty-moves {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.whale-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.whale-empty-text {
+  color: var(--text-medium);
+  margin-bottom: 6px;
+}
+
+.whale-empty-sub {
+  font-size: 0.68rem;
+  opacity: 0.7;
+}
+
+.whale-empty-moves {
+  padding: 24px 20px;
+}
+
+/* Mobile: collapse whale table to stacked card layout */
+@media (max-width: 768px) {
+  .whale-table-head,
+  .whale-table-row {
+    grid-template-columns: 40px minmax(0, 1fr) 80px;
+    grid-template-areas:
+      "rank addr stake"
+      "rank label pct"
+      "rank vals vals";
+    row-gap: 3px;
+  }
+  .whale-col-rank {
+    grid-area: rank;
+  }
+  .whale-col-addr {
+    grid-area: addr;
+  }
+  .whale-col-label {
+    grid-area: label;
+  }
+  .whale-col-stake {
+    grid-area: stake;
+  }
+  .whale-col-pct {
+    grid-area: pct;
+  }
+  .whale-col-vals {
+    grid-area: vals;
+    font-size: 0.62rem;
+    color: var(--text-light);
+  }
+
+  .whale-move {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "type amount"
+      "parties parties"
+      "time ago";
+    row-gap: 3px;
+  }
+  .whale-move-time {
+    grid-area: time;
+  }
+  .whale-move-type {
+    grid-area: type;
+    justify-self: start;
+  }
+  .whale-move-amount {
+    grid-area: amount;
+  }
+  .whale-move-parties {
+    grid-area: parties;
+  }
+  .whale-move-ago {
+    grid-area: ago;
+  }
+}
+
 .staking-feed-type-filter {
   display: flex;
   gap: 6px;
