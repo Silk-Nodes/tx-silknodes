@@ -10,10 +10,15 @@ import {
   resolveValidator,
   isWhaleEvent,
 } from "@/lib/staking-events";
-import type { TopDelegatorEntry, TopDelegatorLabel } from "@/hooks/useWhaleData";
+import type {
+  TopDelegatorEntry,
+  TopDelegatorLabel,
+  WhaleChangesPayload,
+} from "@/hooks/useWhaleData";
 
 interface WhaleTrackerProps {
   topDelegators: TopDelegatorEntry[];
+  whaleChanges: WhaleChangesPayload;
   events: StakingEvent[];
   validators: Record<string, string>;
   now: number;
@@ -25,9 +30,36 @@ interface WhaleTrackerProps {
    * trap the panel's `position: fixed` inside the card bounds.
    */
   onDelegatorClick: (entry: TopDelegatorEntry) => void;
+  /**
+   * Optional: open the delegator panel by address alone (used by the
+   * "Whales on the Move" section where we only have an address + label,
+   * not a full TopDelegatorEntry — we synthesize a minimal entry so
+   * the panel can still render correctly).
+   */
+  onAddressClick: (address: string, label: TopDelegatorLabel | null, stake: number, rank: number) => void;
 }
 
 const PAGE_SIZE = 10;
+const WINDOW_SIZE = 1; // pages shown on either side of current before ellipsis
+const MOVERS_PER_LIST = 5; // how many rows per mover sub-list in "Whales on the Move"
+
+// Build a compact page list like [0, "…", 5, 6, 7, "…", 49]. Keeps the
+// pager to ~7-9 buttons regardless of total page count.
+function buildPageList(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const pages: (number | "…")[] = [];
+  const firstRange = Math.max(0, current - WINDOW_SIZE);
+  const lastRange = Math.min(total - 1, current + WINDOW_SIZE);
+
+  pages.push(0);
+  if (firstRange > 1) pages.push("…");
+  for (let i = Math.max(1, firstRange); i <= Math.min(total - 2, lastRange); i++) {
+    pages.push(i);
+  }
+  if (lastRange < total - 2) pages.push("…");
+  pages.push(total - 1);
+  return pages;
+}
 
 // Type → display prefix. We show labels as concise tokens so the rank row
 // stays scannable even with long monikers.
@@ -54,11 +86,13 @@ function LabelBadge({ label }: { label: TopDelegatorLabel | null }) {
 
 export default function WhaleTracker({
   topDelegators,
+  whaleChanges,
   events,
   validators,
   now,
   onEventClick,
   onDelegatorClick,
+  onAddressClick,
 }: WhaleTrackerProps) {
   const [page, setPage] = useState(0);
 
@@ -154,17 +188,25 @@ export default function WhaleTracker({
             >
               «
             </button>
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`whale-pager-btn ${i === clampedPage ? "active" : ""}`}
-                onClick={() => setPage(i)}
-                aria-current={i === clampedPage ? "page" : undefined}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {/* Smart ellipsis pagination: with up to 50 pages we can't render
+                all of them. Show first + last + a sliding window around current.
+                Ellipsis fills the gaps. */}
+            {buildPageList(clampedPage, totalPages).map((item, idx) =>
+              item === "…" ? (
+                <span key={`gap-${idx}`} className="whale-pager-gap" aria-hidden="true">…</span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  className={`whale-pager-btn ${item === clampedPage ? "active" : ""}`}
+                  onClick={() => setPage(item)}
+                  aria-current={item === clampedPage ? "page" : undefined}
+                  aria-label={`Go to page ${item + 1}`}
+                >
+                  {item + 1}
+                </button>
+              ),
+            )}
             <button
               type="button"
               className="whale-pager-btn"
@@ -178,7 +220,161 @@ export default function WhaleTracker({
         )}
       </div>
 
-      {/* ─── Section B: Recent Whale Moves ─── */}
+      {/* ─── Section B: Whales on the Move ─── */}
+      {/* Diff between the current 6h refresh and the previous one. Shows up
+          to MOVERS_PER_LIST items per category so the section stays compact
+          even when there are many changes. Each card clicks through to the
+          delegator panel for that address. */}
+      {(() => {
+        const { arrivals, exits, rankMovers, stakeMovers } = whaleChanges;
+        const hasAny =
+          arrivals.length + exits.length + rankMovers.length + stakeMovers.length > 0;
+        if (!hasAny) return null;
+
+        return (
+          <div className="whale-section">
+            <div className="whale-section-header">
+              <span className="whale-section-title">Whales on the Move</span>
+              <span className="whale-section-sub">since last 6 h refresh</span>
+            </div>
+            <div className="whale-movers-grid">
+              {rankMovers.length > 0 && (
+                <div className="whale-movers-card">
+                  <div className="whale-movers-card-title">
+                    🚀 Rank Movers <span className="whale-movers-count">{rankMovers.length}</span>
+                  </div>
+                  {rankMovers.slice(0, MOVERS_PER_LIST).map((m) => {
+                    const up = m.rankDelta > 0;
+                    return (
+                      <div
+                        key={m.address}
+                        className="whale-movers-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onAddressClick(m.address, m.label, m.totalStake, m.currentRank)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onAddressClick(m.address, m.label, m.totalStake, m.currentRank);
+                          }
+                        }}
+                      >
+                        <span className="whale-movers-addr">
+                          {m.label?.text ?? truncateAddress(m.address, 8, 6)}
+                        </span>
+                        <span className={`whale-movers-delta ${up ? "up" : "down"}`}>
+                          {up ? "↑" : "↓"} {Math.abs(m.rankDelta)}
+                        </span>
+                        <span className="whale-movers-rank">
+                          #{m.previousRank} → #{m.currentRank}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {stakeMovers.length > 0 && (
+                <div className="whale-movers-card">
+                  <div className="whale-movers-card-title">
+                    💰 Stake Movers <span className="whale-movers-count">{stakeMovers.length}</span>
+                  </div>
+                  {stakeMovers.slice(0, MOVERS_PER_LIST).map((m) => {
+                    const up = m.stakeDelta > 0;
+                    return (
+                      <div
+                        key={m.address}
+                        className="whale-movers-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onAddressClick(m.address, m.label, m.currentStake, m.currentRank)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onAddressClick(m.address, m.label, m.currentStake, m.currentRank);
+                          }
+                        }}
+                      >
+                        <span className="whale-movers-addr">
+                          {m.label?.text ?? truncateAddress(m.address, 8, 6)}
+                        </span>
+                        <span className={`whale-movers-delta ${up ? "up" : "down"}`}>
+                          {up ? "+" : "−"}{formatEventAmount(Math.abs(m.stakeDelta))} TX
+                        </span>
+                        <span className="whale-movers-rank">#{m.currentRank}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {arrivals.length > 0 && (
+                <div className="whale-movers-card">
+                  <div className="whale-movers-card-title">
+                    🆕 New Arrivals <span className="whale-movers-count">{arrivals.length}</span>
+                  </div>
+                  {arrivals.slice(0, MOVERS_PER_LIST).map((a) => (
+                    <div
+                      key={a.address}
+                      className="whale-movers-row"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onAddressClick(a.address, a.label, a.totalStake, a.rank)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAddressClick(a.address, a.label, a.totalStake, a.rank);
+                        }
+                      }}
+                    >
+                      <span className="whale-movers-addr">
+                        {a.label?.text ?? truncateAddress(a.address, 8, 6)}
+                      </span>
+                      <span className="whale-movers-delta up">
+                        {formatEventAmount(a.totalStake)} TX
+                      </span>
+                      <span className="whale-movers-rank">#{a.rank}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {exits.length > 0 && (
+                <div className="whale-movers-card">
+                  <div className="whale-movers-card-title">
+                    👋 Exits <span className="whale-movers-count">{exits.length}</span>
+                  </div>
+                  {exits.slice(0, MOVERS_PER_LIST).map((x) => (
+                    <div
+                      key={x.address}
+                      className="whale-movers-row"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onAddressClick(x.address, x.label, x.lastStake, x.lastRank)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAddressClick(x.address, x.label, x.lastStake, x.lastRank);
+                        }
+                      }}
+                    >
+                      <span className="whale-movers-addr">
+                        {x.label?.text ?? truncateAddress(x.address, 8, 6)}
+                      </span>
+                      <span className="whale-movers-delta down">
+                        was {formatEventAmount(x.lastStake)} TX
+                      </span>
+                      <span className="whale-movers-rank">was #{x.lastRank}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ─── Section C: Recent Whale Moves ─── */}
       <div className="whale-section">
         <div className="whale-section-header">
           <span className="whale-section-title">Recent Whale Moves</span>

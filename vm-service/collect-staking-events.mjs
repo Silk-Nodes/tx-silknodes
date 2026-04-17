@@ -41,6 +41,17 @@ const TOP_DELEGATORS_FILE = join(REPO_PATH, "public", "analytics", "top-delegato
 const TOP_DELEGATORS_FILE_REL = "public/analytics/top-delegators.json";
 const KNOWN_ENTITIES_FILE = join(REPO_PATH, "public", "analytics", "known-entities.json");
 const KNOWN_ENTITIES_FILE_REL = "public/analytics/known-entities.json";
+// Diff of current vs previous refresh — arrivals, exits, rank movers, stake
+// movers. Recomputed every 6 h alongside top-delegators.json. Powers the
+// "Whales on the Move" section.
+const WHALE_CHANGES_FILE = join(REPO_PATH, "public", "analytics", "whale-changes.json");
+const WHALE_CHANGES_FILE_REL = "public/analytics/whale-changes.json";
+// Rolling 90-day history of daily top-100 snapshots. Only appended when a
+// fresh UTC day has started since the previous append. Keeps the file size
+// manageable (~1 MB max). Basis for future trend charts once enough history
+// accumulates.
+const WHALE_HISTORY_FILE = join(REPO_PATH, "public", "analytics", "whale-history.json");
+const WHALE_HISTORY_FILE_REL = "public/analytics/whale-history.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 
@@ -55,7 +66,11 @@ const PUSH_INTERVAL_MS = 5 * 60_000;
 const HEARTBEAT_INTERVAL_MS = 30 * 60_000; // force a push every 30 min so updatedAt never goes silently stale
 const PENDING_REFRESH_MS = 15 * 60_000; // refresh pending undelegations every 15 min
 const TOP_DELEGATORS_REFRESH_MS = 6 * 60 * 60_000; // refresh ranked delegator list every 6 h
-const TOP_DELEGATORS_COUNT = 200; // write top N to the file; the UI can show a subset + paginate
+const TOP_DELEGATORS_COUNT = 500; // flat cap — every address ranked 1..500
+const HISTORY_SNAPSHOT_TOP_N = 100; // each daily history entry keeps only the top 100 (file size control)
+const HISTORY_RETENTION_DAYS = 90; // rolling 90-day history window
+const RANK_MOVER_THRESHOLD = 5; // rank delta >= 5 qualifies as a mover
+const STAKE_MOVER_THRESHOLD_UCORE = 500_000 * 1_000_000; // 500K TX in ucore — stake delta threshold
 const VALIDATOR_REFRESH_MS = 60 * 60_000;
 const MAX_EVENTS = 5000;
 const MAX_CONSECUTIVE_FAILURES = 5; // exit (systemd restarts) after this many failures in a row
@@ -527,9 +542,137 @@ function saveKnownEntities(payload) {
   writeFileSync(KNOWN_ENTITIES_FILE, JSON.stringify(payload, null, null));
 }
 
+// ─── Whale changes (diff between current and previous refresh) ───────────
+// Takes the previous entries and the new entries and returns:
+//   arrivals   addresses present in new but not in old
+//   exits      addresses present in old but not in new
+//   rankMovers addresses in BOTH whose rank changed by >= RANK_MOVER_THRESHOLD
+//   stakeMovers addresses in BOTH whose stake changed by >= STAKE_MOVER_THRESHOLD
+// Each item carries enough info to render a row with no extra lookups.
+function computeWhaleChanges(prevEntries, newEntries) {
+  const prevByAddr = new Map(prevEntries.map((e) => [e.address, e]));
+  const newByAddr = new Map(newEntries.map((e) => [e.address, e]));
+
+  const arrivals = [];
+  const exits = [];
+  const rankMovers = [];
+  const stakeMovers = [];
+
+  for (const curr of newEntries) {
+    const prev = prevByAddr.get(curr.address);
+    if (!prev) {
+      arrivals.push({
+        address: curr.address,
+        rank: curr.rank,
+        totalStake: curr.totalStake,
+        label: curr.label,
+      });
+      continue;
+    }
+    const rankDelta = prev.rank - curr.rank; // positive = climbed (lower rank number)
+    const stakeDelta = curr.totalStake - prev.totalStake;
+    if (Math.abs(rankDelta) >= RANK_MOVER_THRESHOLD) {
+      rankMovers.push({
+        address: curr.address,
+        label: curr.label,
+        previousRank: prev.rank,
+        currentRank: curr.rank,
+        rankDelta,
+        totalStake: curr.totalStake,
+      });
+    }
+    // STAKE_MOVER_THRESHOLD is in ucore; totalStake is TX, so compare TX*1e6
+    if (Math.abs(stakeDelta * 1_000_000) >= STAKE_MOVER_THRESHOLD_UCORE) {
+      stakeMovers.push({
+        address: curr.address,
+        label: curr.label,
+        previousStake: prev.totalStake,
+        currentStake: curr.totalStake,
+        stakeDelta,
+        currentRank: curr.rank,
+      });
+    }
+  }
+
+  for (const prev of prevEntries) {
+    if (!newByAddr.has(prev.address)) {
+      exits.push({
+        address: prev.address,
+        lastRank: prev.rank,
+        lastStake: prev.totalStake,
+        label: prev.label,
+      });
+    }
+  }
+
+  // Sort each list for deterministic UI rendering.
+  arrivals.sort((a, b) => a.rank - b.rank);
+  exits.sort((a, b) => a.lastRank - b.lastRank);
+  rankMovers.sort((a, b) => Math.abs(b.rankDelta) - Math.abs(a.rankDelta));
+  stakeMovers.sort((a, b) => Math.abs(b.stakeDelta) - Math.abs(a.stakeDelta));
+
+  return { arrivals, exits, rankMovers, stakeMovers };
+}
+
+function saveWhaleChanges(changes) {
+  const dir = dirname(WHALE_CHANGES_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    rankThreshold: RANK_MOVER_THRESHOLD,
+    stakeThresholdTX: STAKE_MOVER_THRESHOLD_UCORE / 1_000_000,
+    ...changes,
+  };
+  writeFileSync(WHALE_CHANGES_FILE, JSON.stringify(payload, null, null));
+}
+
+// ─── Whale history (daily top-100 snapshot, 90-day rolling window) ───────
+function todayUTC() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function maybeAppendDailyHistory(entries) {
+  const today = todayUTC();
+  const existing = readJsonFile(WHALE_HISTORY_FILE);
+  const snapshots = Array.isArray(existing?.snapshots) ? existing.snapshots : [];
+
+  // If we've already snapshotted today, nothing to do.
+  if (snapshots.length > 0 && snapshots[snapshots.length - 1].date === today) {
+    return;
+  }
+
+  // Strip label text to save bytes — for history we only need the type so
+  // UI can style a label pill. Skip verification/source metadata.
+  const compactTop = entries.slice(0, HISTORY_SNAPSHOT_TOP_N).map((e) => ({
+    rank: e.rank,
+    address: e.address,
+    totalStake: e.totalStake,
+    labelType: e.label?.type ?? null,
+  }));
+
+  snapshots.push({ date: today, entries: compactTop });
+
+  // Prune snapshots older than HISTORY_RETENTION_DAYS.
+  const cutoffMs = Date.now() - HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const kept = snapshots.filter((s) => new Date(s.date + "T00:00:00Z").getTime() >= cutoffMs);
+
+  const dir = dirname(WHALE_HISTORY_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    WHALE_HISTORY_FILE,
+    JSON.stringify({ updatedAt: new Date().toISOString(), snapshots: kept }, null, null),
+  );
+  log("info", `Whale history: appended ${today} snapshot (${compactTop.length} entries, ${kept.length} days retained)`);
+}
+
 async function refreshTopDelegators() {
   try {
     log("info", "Refreshing top delegators (may take 1-2 min)...");
+
+    // IMPORTANT: read the previous state BEFORE we overwrite it. The diff
+    // between previous and current feeds the "Whales on the Move" section.
+    const prevFile = readJsonFile(TOP_DELEGATORS_FILE);
+    const prevEntries = Array.isArray(prevFile?.entries) ? prevFile.entries : [];
 
     // Fetch validator list with full info so we get monikers for known-entities.
     const validators = [];
@@ -574,11 +717,25 @@ async function refreshTopDelegators() {
       };
     });
 
+    // Write the new current state FIRST so subsequent reads see the fresh file.
     saveTopDelegators(entries);
+
+    // Compute and write the diff against the previous state. On the very
+    // first run there's no prev → arrivals == all entries, which is fine;
+    // the UI can optionally hide arrivals on day one if it wants.
+    const changes = computeWhaleChanges(prevEntries, entries);
+    saveWhaleChanges(changes);
+
+    // Append to daily history if a new UTC day has started since the last snapshot.
+    maybeAppendDailyHistory(entries);
+
     lastTopDelegatorsRefresh = Date.now();
     log(
       "info",
-      `Top delegators refreshed: ${entries.length} ranked, ${Object.keys(knownEntities.entries).length} labels (${validators.length} validators, ${pseExcluded.length} PSE excluded)`,
+      `Top delegators refreshed: ${entries.length} ranked, ${Object.keys(knownEntities.entries).length} labels ` +
+        `(${validators.length} validators, ${pseExcluded.length} PSE excluded) · ` +
+        `changes: ${changes.arrivals.length} new, ${changes.exits.length} exits, ` +
+        `${changes.rankMovers.length} rank, ${changes.stakeMovers.length} stake`,
     );
   } catch (e) {
     // Non-fatal. The file stays at its last good state until the next tick.
@@ -685,7 +842,14 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     // for changes so a refresh of any one (pending undels every 15 min,
     // top-delegators every 6 h) naturally triggers a push even if no
     // staking events happened in the window.
-    const TRACKED = [DATA_FILE_REL, PENDING_FILE_REL, TOP_DELEGATORS_FILE_REL, KNOWN_ENTITIES_FILE_REL].join(" ");
+    const TRACKED = [
+      DATA_FILE_REL,
+      PENDING_FILE_REL,
+      TOP_DELEGATORS_FILE_REL,
+      KNOWN_ENTITIES_FILE_REL,
+      WHALE_CHANGES_FILE_REL,
+      WHALE_HISTORY_FILE_REL,
+    ].join(" ");
     const hasChanges = execSync(
       `cd ${REPO_PATH} && git diff --name-only ${TRACKED}`,
       { stdio: "pipe", encoding: "utf-8" },

@@ -2162,6 +2162,109 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: not-allowed;
 }
 
+/* Ellipsis gap between pager buttons when the page list is truncated.
+   Purely visual — not a button. */
+.whale-pager-gap {
+  min-width: 22px;
+  padding: 5px 4px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-light);
+  user-select: none;
+}
+
+/* ═══ WHALES ON THE MOVE ═══ */
+/* Four-card grid showing the diff between the last two refreshes:
+   rank movers, stake movers, arrivals, exits. Responsive — 4 cols on
+   desktop, 2 on tablet, 1 on mobile. */
+.whale-movers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.whale-movers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.whale-movers-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.whale-movers-count {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-medium);
+  font-weight: 500;
+}
+
+.whale-movers-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  transition: background 0.1s ease;
+}
+
+.whale-movers-row:hover {
+  background: rgba(177, 252, 3, 0.08);
+}
+
+.whale-movers-row:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: -2px;
+}
+
+.whale-movers-addr {
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.whale-movers-delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.whale-movers-delta.up {
+  color: #4a7a1a;
+}
+
+.whale-movers-delta.down {
+  color: #b44a3e;
+}
+
+.whale-movers-rank {
+  color: var(--text-light);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
 /* Whale moves list */
 .whale-moves {
   display: flex;
