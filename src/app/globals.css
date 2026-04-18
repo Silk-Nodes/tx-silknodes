@@ -369,6 +369,41 @@
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
+/* Tooltip bubble: was rendering pale neon (15% alpha) text on dark green
+   bg — practically unreadable. In dark mode use a solid high-contrast
+   near-black surface with bright cream text. */
+:root[data-theme="dark"] .tooltip-bubble {
+  background: #1a2318;
+  color: var(--text-dark);
+  border: 1px solid rgba(177, 252, 3, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .tooltip-top::after { border-top-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-bottom::after { border-bottom-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-left::after { border-left-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-right::after { border-right-color: #1a2318; }
+
+/* Top-nav Connect Wallet pill — mirror the PSE page's neon-filled CTA
+   so all "connect/delegate" actions use one visual language. */
+:root[data-theme="dark"] .wallet-pill:not(.connected) {
+  background: var(--tx-neon);
+  color: #0D0D0C;
+  border-color: var(--tx-neon);
+  box-shadow: 0 3px 14px rgba(177, 252, 3, 0.35);
+  font-weight: 700;
+}
+:root[data-theme="dark"] .wallet-pill:not(.connected):hover {
+  background: var(--tx-neon-light);
+  color: #0D0D0C;
+  opacity: 1;
+  transform: translateY(-1px);
+}
+:root[data-theme="dark"] .wallet-pill.connected {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+  border-color: var(--tx-neon);
+}
+
 /* INNER boxes only — the Staking Activity feed list and the Whale
    Tracker table get a lighter, cleaner green surface (#44624c) that
    sits inside the outer Network Activity card without making the whole
@@ -385,6 +420,21 @@
 }
 :root[data-theme="dark"] .staking-feed-container .staking-feed-row:hover {
   background: rgba(255, 255, 255, 0.08) !important;
+}
+/* On the sage feed, every text column must render white so the timestamp,
+   address, delegator, validator, and "Xh ago" are all readable. Default
+   row styles use muted colors that wash out on sage. */
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-delegator,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-validator,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-amount,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-arrow {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago {
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
 :root[data-theme="dark"] .whale-tracker .whale-section {
