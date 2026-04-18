@@ -98,11 +98,11 @@
   --text-medium: #b0ac9f;
   --text-light: #6b6860;
 
-  /* Warm Forest surface: fully opaque saturated dark green so cards read
-     unmistakably as green. Translucency was washing out to grey through
-     the backdrop-filter blur — a solid color guarantees the intended hue. */
-  --glass-bg: #17261a;
-  --glass-border: rgba(177, 252, 3, 0.14);
+  /* Forest surface — brighter and more saturated so cards clearly read
+     as green, not charcoal. #17261a at low brightness was perceptually
+     grey on many displays; #233f28 pushes green channel higher. */
+  --glass-bg: #233f28;
+  --glass-border: rgba(177, 252, 3, 0.18);
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 
   --pattern-stripes: repeating-linear-gradient(
@@ -313,8 +313,34 @@
   background: transparent;
 }
 :root[data-theme="dark"] .whale-tracker .whale-table-head {
-  background: rgba(177, 252, 3, 0.04);
+  background: rgba(177, 252, 3, 0.06);
   border-bottom: 1px solid var(--glass-border);
+}
+
+/* Wallet modal — light mode keeps a white card; dark mode needs a
+   proper dark surface. Previously hardcoded background:"#fff" inline
+   made the modal render as a white box with invisible cream text. */
+.wallet-modal {
+  background: #fff;
+}
+:root[data-theme="dark"] .wallet-modal {
+  background: #1a2a1e;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .wallet-modal button {
+  background: rgba(177, 252, 3, 0.06) !important;
+  border-color: var(--glass-border) !important;
+}
+:root[data-theme="dark"] .wallet-modal button:hover {
+  background: rgba(177, 252, 3, 0.12) !important;
+}
+
+/* PSE Connect Wallet CTA — neon-filled pill matching the Silk Nodes
+   "Delegate" CTA so all connect/delegate actions share one visual. */
+.pse-connect-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(177, 252, 3, 0.5);
 }
 
 /* Smooth transition between themes so switching doesn't flash harshly. */

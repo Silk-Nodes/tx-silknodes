@@ -390,8 +390,9 @@ export default function HomePage() {
           onClick={() => setShowWalletModal(false)}
         >
           <div
+            className="wallet-modal"
             style={{
-              background: "#fff", borderRadius: "var(--radius-lg)", padding: "28px 32px",
+              borderRadius: "var(--radius-lg)", padding: "28px 32px",
               width: "min(380px, 90vw)", boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1382,11 +1383,14 @@ function PSETab({
           {!wallet.connected && (
             <button
               onClick={() => setShowWalletModal(true)}
+              className="pse-connect-cta"
               style={{
-                marginLeft: "auto", padding: "7px 14px", borderRadius: 8,
-                background: "rgba(177,252,3,0.12)", border: "1px solid rgba(177,252,3,0.25)",
-                color: "var(--tx-neon)", fontSize: "0.7rem", fontWeight: 600,
+                marginLeft: "auto", padding: "8px 16px", borderRadius: "var(--radius-pill)",
+                background: "var(--tx-neon)", border: "none",
+                color: "#0D0D0C", fontSize: "0.72rem", fontWeight: 700,
                 cursor: "pointer", whiteSpace: "nowrap",
+                boxShadow: "0 3px 14px rgba(177,252,3,0.35)",
+                transition: "transform 0.15s",
               }}
             >
               Connect Wallet
