@@ -31,6 +31,11 @@ import { readFileSync } from "fs";
  * @property {string} label short human label for logs
  * @property {number} thresholdMinutes  max tolerated age
  * @property {"updatedAt" | "lastDate"} mode
+ * @property {string} [entriesPath]  optional dot-path to an array whose length
+ *   must be validated (e.g. "entries"). When set with minEntries, the check
+ *   fails if the array is shorter than expected — catches silent regressions
+ *   where the collector runs but publishes too few rows.
+ * @property {number} [minEntries]  minimum length required for entriesPath.
  */
 
 const MIN = 1;
@@ -62,11 +67,18 @@ const CHECKS = [
   // Top delegators: refreshed every 6 h by the continuous collector. 8 h
   // threshold gives a 2 h grace window for any slowdown in the delegation
   // aggregation (which iterates ~100 validators × pagination).
+  //
+  // Also verify entry count. The collector is configured for 500 ranked
+  // addresses; a regression (e.g. VM running stale code after a config
+  // change) would silently publish fewer rows. Floor at 450 to absorb any
+  // legitimate short-term dip where <500 unique delegators exist on-chain.
   {
     file: "public/analytics/top-delegators.json",
     label: "Top Delegators",
     thresholdMinutes: 8 * HOUR,
     mode: "updatedAt",
+    entriesPath: "entries",
+    minEntries: 450,
   },
 
   // Whale changes: diff between current and previous top-delegators
@@ -136,6 +148,28 @@ function check(c) {
       ageMinutes,
     };
   }
+
+  // Optional entry-count check. Catches silent-regression cases where the
+  // file is timely (updatedAt is fresh) but the content is wrong — e.g.
+  // a collector running old code that caps rows below the expected floor.
+  if (c.entriesPath && typeof c.minEntries === "number") {
+    const arr = c.entriesPath.split(".").reduce((o, k) => (o == null ? o : o[k]), data);
+    if (!Array.isArray(arr)) {
+      return {
+        ok: false,
+        reason: `entriesPath "${c.entriesPath}" did not resolve to an array`,
+        ageMinutes,
+      };
+    }
+    if (arr.length < c.minEntries) {
+      return {
+        ok: false,
+        reason: `too few entries: ${arr.length} < ${c.minEntries} (VM likely running stale code — restart silknodes-collector)`,
+        ageMinutes,
+      };
+    }
+  }
+
   return { ok: true, ageMinutes, reason: null };
 }
 
