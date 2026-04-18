@@ -156,9 +156,7 @@
 :root[data-theme="dark"] .compare-box,
 :root[data-theme="dark"] .staking-panel-section,
 :root[data-theme="dark"] .staking-feed-row,
-:root[data-theme="dark"] .whale-top-row,
-:root[data-theme="dark"] .whale-change-card,
-:root[data-theme="dark"] .whale-changes-section {
+:root[data-theme="dark"] .whale-top-row {
   background: rgba(30, 48, 22, 0.55) !important;
 }
 
@@ -304,14 +302,8 @@
   border-color: rgba(177, 252, 3, 0.5) !important;
 }
 
-/* Whale tracker cards: the .chart-card-v2 already uses --glass-bg
-   (solid #17261a now), but the whale-tracker itself has no bg and
-   renders flat. Add a subtle section fill so the Top Delegators /
-   Whales on the Move blocks read as a unified card. Also kill any
-   inherited "rgba(0,0,0,0.X)" striping that looks grey on dark. */
-:root[data-theme="dark"] .whale-section {
-  background: transparent;
-}
+/* (removed: .whale-section transparent rule — superseded by the
+   .whale-tracker .whale-section sage rule further below.) */
 :root[data-theme="dark"] .whale-tracker .whale-table-head {
   background: rgba(177, 252, 3, 0.06);
   border-bottom: 1px solid var(--glass-border);
@@ -438,7 +430,7 @@
 }
 
 :root[data-theme="dark"] .whale-tracker .whale-section {
-  background: #44624c;
+  background: #44624c !important;
   border-radius: var(--radius-md);
   padding: 16px;
   color: #fff;
