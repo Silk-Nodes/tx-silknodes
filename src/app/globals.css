@@ -327,93 +327,105 @@
   background: #1a2a1e;
   border: 1px solid var(--glass-border);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-  color: var(--text-dark);
-}
-/* Wallet modal headline + subtitle in dark mode */
-:root[data-theme="dark"] .wallet-modal > div:first-of-type {
-  color: var(--text-dark);
-}
-:root[data-theme="dark"] .wallet-modal p {
-  color: var(--text-medium) !important;
-}
-/* Wallet option buttons: higher-contrast fill + force white button text
-   (browser default is black "buttontext" which is invisible on dim bg). */
-:root[data-theme="dark"] .wallet-modal button {
-  background: rgba(177, 252, 3, 0.08) !important;
-  border-color: var(--glass-border) !important;
-  color: var(--text-dark) !important;
-}
-:root[data-theme="dark"] .wallet-modal button > div,
-:root[data-theme="dark"] .wallet-modal button > div > div {
-  color: var(--text-dark) !important;
-}
-:root[data-theme="dark"] .wallet-modal button:hover {
-  background: rgba(177, 252, 3, 0.15) !important;
-}
-
-/* Whale tracker (and the whole Network Activity card it lives in)
-   gets the sage/olive surface of Latest Snapshot in dark mode, with
-   white text. This is the ONE card that opts out of the forest palette,
-   per explicit design direction. */
-:root[data-theme="dark"] .staking-feed-card {
-  background: var(--accent-olive) !important;
   color: #fff;
 }
-:root[data-theme="dark"] .staking-feed-card .chart-card-v2-title,
-:root[data-theme="dark"] .staking-feed-card .staking-feed-updated,
-:root[data-theme="dark"] .staking-feed-card .whale-section-title,
-:root[data-theme="dark"] .staking-feed-card .whale-section-sub,
-:root[data-theme="dark"] .staking-feed-card .whale-col-addr,
-:root[data-theme="dark"] .staking-feed-card .whale-col-stake,
-:root[data-theme="dark"] .staking-feed-card .whale-col-pct,
-:root[data-theme="dark"] .staking-feed-card .whale-col-vals,
-:root[data-theme="dark"] .staking-feed-card .staking-feed-footer,
-:root[data-theme="dark"] .staking-feed-card .whale-table-head {
+/* Wallet modal headline (first direct div child) + subtitle */
+:root[data-theme="dark"] .wallet-modal > div:first-of-type {
   color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-col-rank,
-:root[data-theme="dark"] .staking-feed-card .whale-change-sub {
+:root[data-theme="dark"] .wallet-modal p {
   color: rgba(255, 255, 255, 0.7) !important;
 }
-:root[data-theme="dark"] .staking-feed-card .network-activity-tab {
-  color: rgba(255, 255, 255, 0.75) !important;
-}
-:root[data-theme="dark"] .staking-feed-card .network-activity-tab.active {
-  color: #fff !important;
-  border-bottom-color: #fff !important;
-}
-:root[data-theme="dark"] .staking-feed-card .network-activity-tab-count {
-  background: rgba(255, 255, 255, 0.2) !important;
+/* Wallet option buttons: solid sage surface so wallet names + logos
+   stand out cleanly. Force white text on all descendants — the deep
+   nested divs were still inheriting black `buttontext` from the
+   browser default, making "Keplr / Leap / Cosmostation" invisible. */
+:root[data-theme="dark"] .wallet-modal button {
+  background: #44624c !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-card .network-activity-tab.active .network-activity-tab-count {
-  background: #fff !important;
-  color: var(--accent-olive) !important;
+:root[data-theme="dark"] .wallet-modal button *,
+:root[data-theme="dark"] .wallet-modal button div,
+:root[data-theme="dark"] .wallet-modal button span {
+  color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-table-head {
+:root[data-theme="dark"] .wallet-modal button > div > div:last-child {
+  /* "Not installed" subtitle — slightly dimmed but still readable */
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+:root[data-theme="dark"] .wallet-modal button a {
+  /* "Install" link */
+  color: var(--tx-neon) !important;
+}
+:root[data-theme="dark"] .wallet-modal button:hover {
+  background: #557361 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+/* Cancel button at bottom of modal */
+:root[data-theme="dark"] .wallet-modal > button:last-child {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* INNER boxes only — the Staking Activity feed list and the Whale
+   Tracker table get a lighter, cleaner green surface (#44624c) that
+   sits inside the outer Network Activity card without making the whole
+   card bright. White text on top for readability. */
+:root[data-theme="dark"] .staking-feed-container {
+  background: #44624c;
+  border-radius: var(--radius-md);
+  padding: 8px 4px;
+  color: #fff;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row {
+  background: transparent !important;
+  color: #fff;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:root[data-theme="dark"] .whale-tracker .whale-section {
+  background: #44624c;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section-title,
+:root[data-theme="dark"] .whale-tracker .whale-section-sub,
+:root[data-theme="dark"] .whale-tracker .whale-col-addr,
+:root[data-theme="dark"] .whale-tracker .whale-col-stake,
+:root[data-theme="dark"] .whale-tracker .whale-col-pct,
+:root[data-theme="dark"] .whale-tracker .whale-col-vals {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-col-rank {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table-head {
   background: rgba(255, 255, 255, 0.08) !important;
   border-bottom-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85) !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-table-row {
+:root[data-theme="dark"] .whale-tracker .whale-table-row {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .staking-feed-card .whale-table-row:hover,
-:root[data-theme="dark"] .staking-feed-card .whale-table-row-clickable:hover {
+:root[data-theme="dark"] .whale-tracker .whale-table-row:hover,
+:root[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
   background: rgba(255, 255, 255, 0.10) !important;
 }
-/* Tier pills / type chips / pager inside the olive card */
-:root[data-theme="dark"] .staking-feed-card .time-pill,
-:root[data-theme="dark"] .staking-feed-card .staking-type-chip,
-:root[data-theme="dark"] .staking-feed-card .whale-pager-btn,
-:root[data-theme="dark"] .staking-feed-card .whale-pager-nav {
+/* Pager inside the whale-tracker sage box */
+:root[data-theme="dark"] .whale-tracker .whale-pager-btn,
+:root[data-theme="dark"] .whale-tracker .whale-pager-nav {
   background: rgba(255, 255, 255, 0.12) !important;
   color: #fff !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
-:root[data-theme="dark"] .staking-feed-card .time-pill.active,
-:root[data-theme="dark"] .staking-feed-card .whale-pager-btn.active {
+:root[data-theme="dark"] .whale-tracker .whale-pager-btn.active {
   background: #fff !important;
-  color: var(--accent-olive) !important;
+  color: #44624c !important;
 }
 
 /* PSE Connect Wallet CTA — neon-filled pill matching the Silk Nodes
