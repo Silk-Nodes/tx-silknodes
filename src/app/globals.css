@@ -404,10 +404,10 @@
   border-color: var(--tx-neon);
 }
 
-/* INNER boxes only — the Staking Activity feed list and the Whale
-   Tracker table get a lighter, cleaner green surface (#44624c) that
-   sits inside the outer Network Activity card without making the whole
-   card bright. White text on top for readability. */
+/* INNER boxes only — Staking Activity feed list and Whale Tracker
+   table both use the SAME sage surface (#44624c) and identical white
+   text treatments so the two tabs feel like one unified card system.
+   Sage sits inside the dark outer card as a single visual tier. */
 :root[data-theme="dark"] .staking-feed-container {
   background: #44624c;
   border-radius: var(--radius-md);
@@ -476,6 +476,80 @@
 :root[data-theme="dark"] .whale-tracker .whale-pager-btn.active {
   background: #fff !important;
   color: #44624c !important;
+}
+
+/* Whale tracker: headers + sub-labels + empty states all read white on
+   sage. These were inheriting --text-light / --text-medium which muted
+   them into the sage background. */
+:root[data-theme="dark"] .whale-tracker .whale-section-header,
+:root[data-theme="dark"] .whale-tracker .whale-empty,
+:root[data-theme="dark"] .whale-tracker .whale-empty-moves,
+:root[data-theme="dark"] .whale-tracker .whale-empty-text,
+:root[data-theme="dark"] .whale-tracker .whale-empty-sub,
+:root[data-theme="dark"] .whale-tracker .whale-pager-status {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section-sub {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* "Whales on the Move" movers cards — also part of the whale tracker,
+   need the same sage + white treatment so arrivals/exits/rank/stake
+   cards stay in the unified scheme. */
+:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-card-title {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-count {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-row {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-addr {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-rank {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Whale label pills on the sage surface — retint so "unlabeled",
+   "PSE Excluded", "CEX", validator pills all stay legible. The earlier
+   dark-mode variants (neon on forest) now clash with sage, so use
+   white-tinted fills for this specific context. */
+:root[data-theme="dark"] .staking-feed-card .whale-label-unlabeled,
+:root[data-theme="dark"] .whale-tracker .whale-label-unlabeled {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-validator,
+:root[data-theme="dark"] .whale-tracker .whale-label-validator {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-pse-excluded,
+:root[data-theme="dark"] .whale-tracker .whale-label-pse-excluded,
+:root[data-theme="dark"] .staking-feed-card .whale-label-validator-pse,
+:root[data-theme="dark"] .whale-tracker .whale-label-validator-pse {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-cex,
+:root[data-theme="dark"] .whale-tracker .whale-label-cex {
+  background: rgba(255, 200, 130, 0.22) !important;
+  color: #ffd8a0 !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-individual,
+:root[data-theme="dark"] .whale-tracker .whale-label-individual {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
 /* PSE Connect Wallet CTA — neon-filled pill matching the Silk Nodes
