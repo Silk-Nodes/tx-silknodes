@@ -327,13 +327,93 @@
   background: #1a2a1e;
   border: 1px solid var(--glass-border);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  color: var(--text-dark);
 }
+/* Wallet modal headline + subtitle in dark mode */
+:root[data-theme="dark"] .wallet-modal > div:first-of-type {
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .wallet-modal p {
+  color: var(--text-medium) !important;
+}
+/* Wallet option buttons: higher-contrast fill + force white button text
+   (browser default is black "buttontext" which is invisible on dim bg). */
 :root[data-theme="dark"] .wallet-modal button {
-  background: rgba(177, 252, 3, 0.06) !important;
+  background: rgba(177, 252, 3, 0.08) !important;
   border-color: var(--glass-border) !important;
+  color: var(--text-dark) !important;
+}
+:root[data-theme="dark"] .wallet-modal button > div,
+:root[data-theme="dark"] .wallet-modal button > div > div {
+  color: var(--text-dark) !important;
 }
 :root[data-theme="dark"] .wallet-modal button:hover {
-  background: rgba(177, 252, 3, 0.12) !important;
+  background: rgba(177, 252, 3, 0.15) !important;
+}
+
+/* Whale tracker (and the whole Network Activity card it lives in)
+   gets the sage/olive surface of Latest Snapshot in dark mode, with
+   white text. This is the ONE card that opts out of the forest palette,
+   per explicit design direction. */
+:root[data-theme="dark"] .staking-feed-card {
+  background: var(--accent-olive) !important;
+  color: #fff;
+}
+:root[data-theme="dark"] .staking-feed-card .chart-card-v2-title,
+:root[data-theme="dark"] .staking-feed-card .staking-feed-updated,
+:root[data-theme="dark"] .staking-feed-card .whale-section-title,
+:root[data-theme="dark"] .staking-feed-card .whale-section-sub,
+:root[data-theme="dark"] .staking-feed-card .whale-col-addr,
+:root[data-theme="dark"] .staking-feed-card .whale-col-stake,
+:root[data-theme="dark"] .staking-feed-card .whale-col-pct,
+:root[data-theme="dark"] .staking-feed-card .whale-col-vals,
+:root[data-theme="dark"] .staking-feed-card .staking-feed-footer,
+:root[data-theme="dark"] .staking-feed-card .whale-table-head {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-col-rank,
+:root[data-theme="dark"] .staking-feed-card .whale-change-sub {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .network-activity-tab {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .network-activity-tab.active {
+  color: #fff !important;
+  border-bottom-color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .network-activity-tab-count {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .network-activity-tab.active .network-activity-tab-count {
+  background: #fff !important;
+  color: var(--accent-olive) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-table-head {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .staking-feed-card .whale-table-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .staking-feed-card .whale-table-row:hover,
+:root[data-theme="dark"] .staking-feed-card .whale-table-row-clickable:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+/* Tier pills / type chips / pager inside the olive card */
+:root[data-theme="dark"] .staking-feed-card .time-pill,
+:root[data-theme="dark"] .staking-feed-card .staking-type-chip,
+:root[data-theme="dark"] .staking-feed-card .whale-pager-btn,
+:root[data-theme="dark"] .staking-feed-card .whale-pager-nav {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .time-pill.active,
+:root[data-theme="dark"] .staking-feed-card .whale-pager-btn.active {
+  background: #fff !important;
+  color: var(--accent-olive) !important;
 }
 
 /* PSE Connect Wallet CTA — neon-filled pill matching the Silk Nodes
