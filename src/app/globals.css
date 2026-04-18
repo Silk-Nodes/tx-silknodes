@@ -239,6 +239,84 @@
   background: rgba(177, 252, 3, 0.06);
 }
 
+/* ──────────────────────────────────────────────────────────────
+   DARK MODE: round 3 — tab active state, status pills, side
+   panels, PSE lookup, Silk Nodes Connect Wallet CTA. All places
+   where --tx-dark-green (near-black) was used as a foreground
+   color in light mode, which renders invisible on dark surfaces.
+   ────────────────────────────────────────────────────────────── */
+
+/* Active tab text — was var(--tx-dark-green) (near-black) → invisible. */
+:root[data-theme="dark"] .network-activity-tab.active {
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .network-activity-tab {
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .network-activity-tab-count {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .network-activity-tab.active .network-activity-tab-count {
+  background: var(--tx-neon);
+  color: #0D0D0C;
+}
+
+/* Status pills (e.g. "Cycle 2 of 84") — green text on green fill
+   needs brighter foreground in dark mode. */
+:root[data-theme="dark"] .status-pill {
+  background: rgba(177, 252, 3, 0.10);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .status-pill.success {
+  background: rgba(177, 252, 3, 0.15);
+  color: var(--tx-neon);
+  border-color: rgba(177, 252, 3, 0.4);
+}
+
+/* PSE Score lookup container — the linear-gradient(dark-green → #1a2e10)
+   was vanishing into the page. Bump the gradient so it reads as a
+   distinct surface with a clear neon edge. */
+:root[data-theme="dark"] [class*="page-title"] + .status-pill,
+:root[data-theme="dark"] .pse-lookup-shell {
+  /* reserved for future pse-specific treatments */
+}
+
+/* Side panels (StakingFeedPanel + DelegatorPanel) — force explicit
+   dark surface + border so they can't inherit any stale light color. */
+:root[data-theme="dark"] .staking-feed-panel {
+  background: #0F1410;
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .staking-feed-panel-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme="dark"] .staking-panel-close:hover {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+}
+
+/* Inline CTA: "Connect Wallet" pill inside the PSE lookup card.
+   rgba(177,252,3,0.12) was too dim on an already dim parent — boost. */
+:root[data-theme="dark"] button[style*="rgba(177,252,3,0.12)"] {
+  background: rgba(177, 252, 3, 0.22) !important;
+  border-color: rgba(177, 252, 3, 0.5) !important;
+}
+
+/* Whale tracker cards: the .chart-card-v2 already uses --glass-bg
+   (solid #17261a now), but the whale-tracker itself has no bg and
+   renders flat. Add a subtle section fill so the Top Delegators /
+   Whales on the Move blocks read as a unified card. Also kill any
+   inherited "rgba(0,0,0,0.X)" striping that looks grey on dark. */
+:root[data-theme="dark"] .whale-section {
+  background: transparent;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table-head {
+  background: rgba(177, 252, 3, 0.04);
+  border-bottom: 1px solid var(--glass-border);
+}
+
 /* Smooth transition between themes so switching doesn't flash harshly. */
 html {
   transition: background-color 0.2s ease, color 0.2s ease;
