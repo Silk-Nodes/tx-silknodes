@@ -261,19 +261,18 @@ export default function HomePage() {
           {showBrandPopover && (
             <div
               ref={brandPopoverRef}
+              className="brand-popover"
               style={{
                 position: "absolute", top: "calc(100% + 12px)", left: 0,
-                background: "#fff", borderRadius: "var(--radius-lg)",
+                borderRadius: "var(--radius-lg)",
                 padding: "20px 22px", width: "min(380px, calc(100vw - 40px))",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
                 zIndex: 9999, animation: "fadeIn 0.2s ease",
               }}
             >
-              <div style={{
+              <div className="brand-popover-arrow" style={{
                 position: "absolute", top: -6, left: 24,
-                width: 12, height: 12, background: "#fff",
+                width: 12, height: 12,
                 transform: "rotate(45deg)",
-                boxShadow: "-1px -1px 0 rgba(0,0,0,0.05)",
               }} />
               <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>
                 This tool is free and open source
@@ -1036,23 +1035,17 @@ function OverviewTab({
       {/* Not connected,subtle prompt */}
       {!wallet.connected && (
         <div
+          className="wallet-connect-prompt"
           onClick={() => setShowWalletModal(true)}
-          style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
-            borderRadius: 10, background: "rgba(15,27,7,0.03)", border: "1px dashed rgba(15,27,7,0.12)",
-            marginBottom: 20, cursor: "pointer", transition: "all 0.15s",
-          }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="1" y="4" width="14" height="10" rx="2" stroke="var(--text-light)" strokeWidth="1.2" fill="none" />
-            <path d="M4 4V3a4 4 0 0 1 8 0v1" stroke="var(--text-light)" strokeWidth="1.2" fill="none" />
+          <svg className="wallet-connect-prompt-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="4" width="14" height="10" rx="2" strokeWidth="1.2" fill="none" />
+            <path d="M4 4V3a4 4 0 0 1 8 0v1" strokeWidth="1.2" fill="none" />
           </svg>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-medium)" }}>
+          <span className="wallet-connect-prompt-text">
             Connect your wallet to see your portfolio, delegations, and PSE estimates
           </span>
-          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--accent-olive)", fontWeight: 600 }}>
-            Connect
-          </span>
+          <span className="wallet-connect-prompt-cta">Connect</span>
         </div>
       )}
 
@@ -1093,7 +1086,7 @@ function OverviewTab({
           <div className="card-content">
             <span className="card-title">Circulating Supply <Tooltip text="Total TX tokens in circulation, excluding undistributed PSE module tokens. Source: official TX chain API." /></span>
             <div>
-              <div className="card-value" style={{ fontSize: "1.3rem" }}>
+              <div className="card-value">
                 {loading ? "..." : `${(totalSupply / 1_000_000_000).toFixed(2)}B`}
                 <span className="unit">TX</span>
               </div>

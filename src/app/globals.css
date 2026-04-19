@@ -95,8 +95,8 @@
   --danger: #ef6b5d;
 
   --text-dark: #f0ece3;
-  --text-medium: #b0ac9f;
-  --text-light: #6b6860;
+  --text-medium: #c9c5b9;
+  --text-light: rgba(255, 255, 255, 0.62);
 
   /* Forest surface — brighter and more saturated so cards clearly read
      as green, not charcoal. #17261a at low brightness was perceptually
@@ -124,9 +124,12 @@
 }
 
 :root[data-theme="dark"] .silk-delegate-btn,
-:root[data-theme="dark"] button[style*="var(--tx-neon)"] {
+:root[data-theme="dark"] button[style*="background: var(--tx-neon)"],
+:root[data-theme="dark"] button[style*="background:var(--tx-neon)"] {
   /* Neon green bg always needs dark text for contrast — override the
-     cream --text-dark that inline styles use in dark mode. */
+     cream --text-dark that inline styles use in dark mode. Scope to
+     buttons whose BACKGROUND is neon (not just any inline style that
+     references the neon token, e.g. a hover border-color change). */
   color: #0D0D0C !important;
 }
 
@@ -197,6 +200,44 @@
   background: rgba(22, 38, 18, 0.85);
   border-color: var(--glass-border);
   color: var(--text-dark);
+}
+
+/* Recharts tick labels (dates on X axis, values on Y axis) use inline
+   SVG fill attributes set to a dark brown in the chart component. Those
+   attributes have low CSS specificity (presentation attributes) and are
+   beaten by a plain selector — so in dark mode we re-paint them white-ish
+   with !important defense in case Recharts re-renders. */
+:root[data-theme="dark"] .recharts-cartesian-axis-tick-value,
+:root[data-theme="dark"] .recharts-cartesian-axis-tick text,
+:root[data-theme="dark"] .recharts-text.recharts-cartesian-axis-tick-value {
+  fill: rgba(255, 255, 255, 0.65) !important;
+}
+:root[data-theme="dark"] .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Validator search field: override the grey-tinted wrapper in dark mode */
+:root[data-theme="dark"] .field-input {
+  background: #44624c;
+  border-color: var(--glass-border);
+}
+:root[data-theme="dark"] .field-input input {
+  color: #fff;
+  background: transparent;
+}
+:root[data-theme="dark"] .field-input input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] .field-input .field-addon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Validator table sticky header in dark mode */
+:root[data-theme="dark"] .validator-table th {
+  background: #44624c !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
 /* Whale label pills: re-tint so the "unlabeled 🕊" and similar
@@ -429,11 +470,52 @@
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
-:root[data-theme="dark"] .whale-tracker .whale-section {
+:root[data-theme="dark"] .whale-tracker {
   background: #44624c !important;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 16px;
   color: #fff;
+  gap: 24px;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section {
+  background: transparent !important;
+  padding: 0;
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-moves {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move {
+  color: #fff !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move-time,
+:root[data-theme="dark"] .whale-tracker .whale-move-ago,
+:root[data-theme="dark"] .whale-tracker .whale-move-arrow,
+:root[data-theme="dark"] .whale-tracker .whale-move-parties,
+:root[data-theme="dark"] .whale-tracker .whale-move-amount {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move-time,
+:root[data-theme="dark"] .whale-tracker .whale-move-ago {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-delta.up,
+:root[data-theme="dark"] .whale-tracker .whale-movers-delta.down {
+  color: #fff !important;
 }
 :root[data-theme="dark"] .whale-tracker .whale-section-title,
 :root[data-theme="dark"] .whale-tracker .whale-section-sub,
@@ -456,7 +538,7 @@
 }
 :root[data-theme="dark"] .whale-tracker .whale-table-row:hover,
 :root[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
-  background: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 /* Pager inside the whale-tracker sage box */
 :root[data-theme="dark"] .whale-tracker .whale-pager-btn,
@@ -559,50 +641,118 @@ html {
 /* ═══════════════════════════════════════════
    THEME SWITCHER (icon trio in top nav)
    ═══════════════════════════════════════════ */
-.theme-switcher {
+.theme-switcher-group {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.theme-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 60px;
+  height: 30px;
+  padding: 0 6px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
 }
 
-.theme-switcher-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  cursor: pointer;
+.theme-switcher:hover {
+  border-color: rgba(177, 252, 3, 0.4);
+}
+
+.theme-switcher-icon {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
   line-height: 1;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  pointer-events: none;
+  color: var(--text-dark);
 }
 
-.theme-switcher-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.25);
-  transform: scale(1.08);
+.theme-switcher.is-light .theme-switcher-icon.is-left {
+  color: var(--tx-dark-green);
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-right {
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .theme-switcher-icon {
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .theme-switcher.is-dark .theme-switcher-icon.is-right {
+  color: var(--tx-dark-green);
 }
 
-.theme-switcher-btn.active {
+.theme-switcher.is-light .theme-switcher-icon.is-left {
+  opacity: 1;
+}
+.theme-switcher.is-light .theme-switcher-icon.is-right {
+  opacity: 0.4;
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-left {
+  opacity: 0.4;
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-right {
+  opacity: 1;
+}
+
+.theme-switcher-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: var(--tx-neon);
   box-shadow: 0 0 0 1px var(--tx-dark-green);
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.theme-switcher-btn.disabled,
-.theme-switcher-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.theme-switcher.is-dark .theme-switcher-thumb {
+  left: 32px;
 }
 
-:root[data-theme="dark"] .theme-switcher-btn.active {
+:root[data-theme="dark"] .theme-switcher-thumb {
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.4);
+}
+
+.theme-switcher-system {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.58rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+  opacity: 0.7;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.theme-switcher-system:hover {
+  opacity: 1;
+  color: var(--text-dark);
+  text-decoration: underline;
+}
+
+:root[data-theme="dark"] .theme-switcher-system {
+  color: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] .theme-switcher-system:hover {
+  color: var(--tx-neon);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -845,7 +995,13 @@ body::-webkit-scrollbar-thumb { background: rgba(44,44,43,0.15); border-radius: 
 .card-yellow { background: var(--accent-yellow); color: #1a1f0d; }
 .card-orange { background: var(--accent-orange); color: #1f1408; }
 .card-olive { background: var(--tx-dark-green); color: var(--tx-neon); }
-.card-dark { background: var(--tx-black); color: var(--tx-subtle-pale); }
+/* card-dark keeps a fixed pale text regardless of theme — its always-dark
+   background needs light text. In dark mode --tx-subtle-pale flips to a
+   dark olive and would vanish into the card. */
+.card-dark { background: var(--tx-black); color: #F6FFEF; }
+:root[data-theme="dark"] .card-dark { color: #F6FFEF; }
+:root[data-theme="dark"] .card-dark .card-value,
+:root[data-theme="dark"] .card-dark .card-value .unit { color: #F6FFEF; }
 
 .card-content {
   position: relative;
@@ -1130,6 +1286,32 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   border: 3px solid var(--bg-base);
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--text-dark);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--bg-base);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Dark mode: track was invisible (near-black on dark). Give it a visible
+   neon-tinted track and a neon thumb so drag affordance is obvious. */
+:root[data-theme="dark"] input[type="range"] {
+  background: rgba(177, 252, 3, 0.18);
+}
+:root[data-theme="dark"] input[type="range"]::-webkit-slider-thumb {
+  background: var(--tx-neon);
+  border-color: var(--tx-dark-green);
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] input[type="range"]::-moz-range-thumb {
+  background: var(--tx-neon);
+  border-color: var(--tx-dark-green);
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 /* ═══════════════════════════════════════════
@@ -1449,7 +1631,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 .validator-table thead {
   position: sticky;
-  top: 56px;
+  top: 72px;
   z-index: 5;
 }
 
@@ -1467,6 +1649,12 @@ input[type="range"]::-webkit-slider-thumb {
   white-space: nowrap;
   background: #ede9e0;
   box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.validator-table th:first-child {
+  border-top-left-radius: var(--radius-md);
+}
+.validator-table th:last-child {
+  border-top-right-radius: var(--radius-md);
 }
 
 .validator-table td {
@@ -1638,6 +1826,96 @@ input[type="range"]::-webkit-slider-thumb {
 .card-dark .tooltip-wrapper:hover .tooltip-icon {
   background: rgba(177, 252, 3, 0.25);
   border-color: var(--tx-neon);
+}
+
+/* Dark mode: every tooltip icon uses the neon treatment by default so
+   the subtle olive-on-dark fallback doesn't disappear. Light cards
+   (yellow/orange) keep their original dark-olive tooltip for contrast. */
+:root[data-theme="dark"] .tooltip-icon {
+  background: rgba(177, 252, 3, 0.15);
+  border-color: rgba(177, 252, 3, 0.4);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .tooltip-wrapper:hover .tooltip-icon {
+  background: rgba(177, 252, 3, 0.28);
+  border-color: var(--tx-neon);
+}
+:root[data-theme="dark"] .card-yellow .tooltip-icon,
+:root[data-theme="dark"] .card-orange .tooltip-icon {
+  background: rgba(177, 252, 3, 0.15);
+  border-color: rgba(177, 252, 3, 0.4);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .card-yellow .tooltip-wrapper:hover .tooltip-icon,
+:root[data-theme="dark"] .card-orange .tooltip-wrapper:hover .tooltip-icon {
+  background: rgba(177, 252, 3, 0.28);
+  border-color: var(--tx-neon);
+}
+
+/* ─── Accent cards in dark mode ────────────────────────────────────
+   In light mode the yellow/orange accent cards are vibrant fills that
+   carry dark text. Leaving them as-is in dark mode creates jarring
+   light "islands" on the dark page. Replace with a tinted dark surface
+   that keeps the color DNA (warm/amber) but sits in the dark system. */
+:root[data-theme="dark"] .card-yellow {
+  background: linear-gradient(135deg, rgba(235, 244, 80, 0.10), rgba(235, 244, 80, 0.04));
+  color: var(--text-dark);
+  border: 1px solid rgba(235, 244, 80, 0.22);
+}
+:root[data-theme="dark"] .card-orange {
+  background: linear-gradient(135deg, rgba(255, 176, 120, 0.10), rgba(255, 176, 120, 0.04));
+  color: var(--text-dark);
+  border: 1px solid rgba(255, 176, 120, 0.22);
+}
+:root[data-theme="dark"] .card-yellow .card-title,
+:root[data-theme="dark"] .card-orange .card-title {
+  color: var(--text-dark) !important;
+}
+:root[data-theme="dark"] .card-yellow .card-value,
+:root[data-theme="dark"] .card-orange .card-value {
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .card-yellow .card-sub,
+:root[data-theme="dark"] .card-orange .card-sub {
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .card-orange .unit,
+:root[data-theme="dark"] .card-yellow .unit {
+  color: var(--text-medium);
+}
+
+/* Unify stat cards: the .card-olive variant rendered near-black while
+   sibling stat cards on the same grid sat on sage. Normalize the
+   olive override in dark mode so the grid reads as one family. */
+:root[data-theme="dark"] .stat-card.card-olive {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-label {
+  color: var(--text-light);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-value {
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-context {
+  color: var(--text-light) !important;
+}
+
+/* Side-panel muted labels: "Parties", "Delegator", "Validator", tx-hash
+   sub-line, copy / close buttons, rank icon, empty state. Previously
+   inherited --text-light which was the dim warm-grey that washed out
+   against panel sage. */
+:root[data-theme="dark"] .staking-panel-label,
+:root[data-theme="dark"] .staking-panel-copy,
+:root[data-theme="dark"] .staking-panel-close,
+:root[data-theme="dark"] .staking-panel-sub,
+:root[data-theme="dark"] .delegator-panel-rank-icon,
+:root[data-theme="dark"] .delegator-panel-rank-text,
+:root[data-theme="dark"] .delegator-panel-empty {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+:root[data-theme="dark"] .staking-panel-link.staking-panel-mono {
+  color: var(--tx-neon-pale, #cdeea5);
 }
 
 .tooltip-bubble {
@@ -3857,6 +4135,32 @@ input[type="range"]::-webkit-slider-thumb {
   text-align: center;
 }
 
+/* Pill CTA — matches the "Open on Mintscan" button in the 29 excluded
+   addresses drawer. Scoped to the footer so other .staking-panel-link
+   instances (inline address/tx links) stay as simple text links. */
+.delegator-panel-footer .staking-panel-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.delegator-panel-footer .staking-panel-link:hover {
+  background: #0c1606;
+  border-color: rgba(177, 252, 3, 0.45);
+  color: var(--tx-neon);
+  text-decoration: none;
+}
+
 /* Mobile: shared .staking-feed-panel already handles the full-width
    collapse at max-width: 768px. Below only covers body-specific
    adjustments (activity row density + stat size). */
@@ -3879,4 +4183,90 @@ input[type="range"]::-webkit-slider-thumb {
   .delegator-activity-amount { grid-area: amount; }
   .delegator-activity-ago { grid-area: ago; }
   .delegator-activity-validator { grid-area: validator; font-size: 0.64rem; }
+}
+
+/* ═══ Brand popover (logo click: "This tool is free and open source") ═══ */
+.brand-popover {
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+.brand-popover-arrow {
+  background: #fff;
+  box-shadow: -1px -1px 0 rgba(0, 0, 0, 0.05);
+}
+:root[data-theme="dark"] .brand-popover {
+  background: #0F1B07;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(177, 252, 3, 0.2);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .brand-popover-arrow {
+  background: #0F1B07;
+  box-shadow: -1px -1px 0 rgba(177, 252, 3, 0.2);
+}
+
+/* ═══ Excluded Addresses drawer (right-side panel) ═══ */
+.excluded-addresses-drawer {
+  background: #fff;
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .excluded-addresses-drawer {
+  background: #0F1B07;
+  color: #fff;
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6) !important;
+}
+:root[data-theme="dark"] .excluded-addresses-drawer .excluded-addresses-panel,
+:root[data-theme="dark"] .excluded-addresses-drawer > div[style*="background: rgb(255, 255, 255)"],
+:root[data-theme="dark"] .excluded-addresses-drawer div[style*="background: rgba(255,255,255"] {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ═══ Wallet connect prompt (Overview, not-connected state) ═══ */
+.wallet-connect-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(15, 27, 7, 0.03);
+  border: 1px dashed rgba(15, 27, 7, 0.12);
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.wallet-connect-prompt:hover {
+  background: rgba(15, 27, 7, 0.06);
+  border-color: rgba(15, 27, 7, 0.22);
+}
+.wallet-connect-prompt-icon {
+  stroke: var(--text-light);
+  flex-shrink: 0;
+}
+.wallet-connect-prompt-text {
+  font-size: 0.78rem;
+  color: var(--text-medium);
+}
+.wallet-connect-prompt-cta {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-olive);
+}
+
+:root[data-theme="dark"] .wallet-connect-prompt {
+  background: rgba(177, 252, 3, 0.04);
+  border: 1px dashed rgba(177, 252, 3, 0.28);
+}
+:root[data-theme="dark"] .wallet-connect-prompt:hover {
+  background: rgba(177, 252, 3, 0.08);
+  border-color: rgba(177, 252, 3, 0.45);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-icon {
+  stroke: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-cta {
+  color: var(--tx-neon);
 }
