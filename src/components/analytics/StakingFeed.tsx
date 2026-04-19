@@ -22,7 +22,7 @@ import type { TopDelegatorEntry } from "@/hooks/useWhaleData";
 type ActiveTab = "activity" | "whales";
 
 const TYPE_FILTERS: { type: StakingEventType; label: string; color: string }[] = [
-  { type: "delegate", label: "Delegations", color: "#4a7a1a" },
+  { type: "delegate", label: "Delegations", color: "var(--accent-olive)" },
   { type: "undelegate", label: "Undelegations", color: "#b44a3e" },
   { type: "redelegate", label: "Redelegations", color: "#d88a3a" },
 ];

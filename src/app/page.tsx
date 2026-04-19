@@ -36,6 +36,7 @@ import AnalyticsTab from "@/components/AnalyticsTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { useRWATokens } from "@/hooks/useRWATokens";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
@@ -260,21 +261,20 @@ export default function HomePage() {
           {showBrandPopover && (
             <div
               ref={brandPopoverRef}
+              className="brand-popover"
               style={{
                 position: "absolute", top: "calc(100% + 12px)", left: 0,
-                background: "#fff", borderRadius: "var(--radius-lg)",
+                borderRadius: "var(--radius-lg)",
                 padding: "20px 22px", width: "min(380px, calc(100vw - 40px))",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
                 zIndex: 9999, animation: "fadeIn 0.2s ease",
               }}
             >
-              <div style={{
+              <div className="brand-popover-arrow" style={{
                 position: "absolute", top: -6, left: 24,
-                width: 12, height: 12, background: "#fff",
+                width: 12, height: 12,
                 transform: "rotate(45deg)",
-                boxShadow: "-1px -1px 0 rgba(0,0,0,0.05)",
               }} />
-              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--tx-dark-green)", marginBottom: 8 }}>
+              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-dark)", marginBottom: 8 }}>
                 This tool is free and open source
               </div>
               <div style={{ fontSize: "0.78rem", color: "var(--text-medium)", lineHeight: 1.5, marginBottom: 14 }}>
@@ -307,6 +307,7 @@ export default function HomePage() {
         </div>
 
         <div className="nav-right">
+          <ThemeSwitcher />
           <span className="live-indicator">
             <span className="live-dot" />
             {loading ? "Syncing" : "Live"}
@@ -388,8 +389,9 @@ export default function HomePage() {
           onClick={() => setShowWalletModal(false)}
         >
           <div
+            className="wallet-modal"
             style={{
-              background: "#fff", borderRadius: "var(--radius-lg)", padding: "28px 32px",
+              borderRadius: "var(--radius-lg)", padding: "28px 32px",
               width: "min(380px, 90vw)", boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -659,7 +661,7 @@ export default function HomePage() {
             <button
               onClick={() => handleCookieConsent("accepted")}
               style={{
-                background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                background: "var(--tx-neon)", color: "var(--text-dark)",
                 border: "none", borderRadius: "var(--radius-pill)",
                 padding: "7px 18px", fontSize: "0.75rem", fontWeight: 700,
                 cursor: "pointer",
@@ -1033,23 +1035,17 @@ function OverviewTab({
       {/* Not connected,subtle prompt */}
       {!wallet.connected && (
         <div
+          className="wallet-connect-prompt"
           onClick={() => setShowWalletModal(true)}
-          style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
-            borderRadius: 10, background: "rgba(15,27,7,0.03)", border: "1px dashed rgba(15,27,7,0.12)",
-            marginBottom: 20, cursor: "pointer", transition: "all 0.15s",
-          }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="1" y="4" width="14" height="10" rx="2" stroke="var(--text-light)" strokeWidth="1.2" fill="none" />
-            <path d="M4 4V3a4 4 0 0 1 8 0v1" stroke="var(--text-light)" strokeWidth="1.2" fill="none" />
+          <svg className="wallet-connect-prompt-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="4" width="14" height="10" rx="2" strokeWidth="1.2" fill="none" />
+            <path d="M4 4V3a4 4 0 0 1 8 0v1" strokeWidth="1.2" fill="none" />
           </svg>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-medium)" }}>
+          <span className="wallet-connect-prompt-text">
             Connect your wallet to see your portfolio, delegations, and PSE estimates
           </span>
-          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--accent-olive)", fontWeight: 600 }}>
-            Connect
-          </span>
+          <span className="wallet-connect-prompt-cta">Connect</span>
         </div>
       )}
 
@@ -1086,11 +1082,11 @@ function OverviewTab({
           </div>
         </div>
 
-        <div className="accent-card" style={{ background: "linear-gradient(135deg, #f5f1e8 0%, #e8e2d4 100%)", border: "1px solid rgba(177,252,3,0.15)" }}>
+        <div className="accent-card" style={{ background: "var(--glass-bg)", border: "1px solid rgba(177,252,3,0.15)" }}>
           <div className="card-content">
             <span className="card-title">Circulating Supply <Tooltip text="Total TX tokens in circulation, excluding undistributed PSE module tokens. Source: official TX chain API." /></span>
             <div>
-              <div className="card-value" style={{ fontSize: "1.3rem" }}>
+              <div className="card-value">
                 {loading ? "..." : `${(totalSupply / 1_000_000_000).toFixed(2)}B`}
                 <span className="unit">TX</span>
               </div>
@@ -1171,21 +1167,21 @@ function OverviewTab({
               <button
                 onClick={() => setActiveTab("pse")}
                 className="btn-olive"
-                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--tx-dark-green)", border: "1px solid rgba(15,27,7,0.1)" }}
+                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--text-dark)", border: "1px solid rgba(15,27,7,0.1)" }}
               >
                 See how early entry boosts rewards
               </button>
               <button
                 onClick={() => setActiveTab("validators")}
                 className="btn-olive"
-                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--tx-dark-green)", border: "1px solid rgba(15,27,7,0.1)" }}
+                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--text-dark)", border: "1px solid rgba(15,27,7,0.1)" }}
               >
                 Start staking (choose validator)
               </button>
               <button
                 onClick={() => setActiveTab("rwa")}
                 className="btn-olive"
-                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--tx-dark-green)", border: "1px solid rgba(15,27,7,0.1)" }}
+                style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10, background: "rgba(15,27,7,0.06)", color: "var(--text-dark)", border: "1px solid rgba(15,27,7,0.1)" }}
               >
                 Explore Smart Tokens
               </button>
@@ -1380,11 +1376,14 @@ function PSETab({
           {!wallet.connected && (
             <button
               onClick={() => setShowWalletModal(true)}
+              className="pse-connect-cta"
               style={{
-                marginLeft: "auto", padding: "7px 14px", borderRadius: 8,
-                background: "rgba(177,252,3,0.12)", border: "1px solid rgba(177,252,3,0.25)",
-                color: "var(--tx-neon)", fontSize: "0.7rem", fontWeight: 600,
+                marginLeft: "auto", padding: "8px 16px", borderRadius: "var(--radius-pill)",
+                background: "var(--tx-neon)", border: "none",
+                color: "#0D0D0C", fontSize: "0.72rem", fontWeight: 700,
                 cursor: "pointer", whiteSpace: "nowrap",
+                boxShadow: "0 3px 14px rgba(177,252,3,0.35)",
+                transition: "transform 0.15s",
               }}
             >
               Connect Wallet
@@ -1411,7 +1410,7 @@ function PSETab({
             disabled={pseLookup.loading}
             style={{
               padding: "11px 22px", borderRadius: 8, border: "none",
-              background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+              background: "var(--tx-neon)", color: "var(--text-dark)",
               fontSize: "0.8rem", fontWeight: 700, cursor: "pointer",
               opacity: pseLookup.loading ? 0.6 : 1,
               whiteSpace: "nowrap",
@@ -2442,7 +2441,7 @@ function PortfolioTab({
         padding: "16px 20px",
         marginTop: 8,
         marginBottom: 16,
-        background: "rgba(255,255,255,0.4)",
+        background: "var(--glass-bg)",
         border: "1px solid var(--glass-border)",
         borderRadius: "var(--radius-md)",
         flexWrap: "wrap",
@@ -3294,7 +3293,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               className="silk-delegate-btn"
               style={{
                 border: "none", padding: "10px 20px", fontSize: "0.78rem", fontWeight: 700,
-                background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                background: "var(--tx-neon)", color: "var(--text-dark)",
                 borderRadius: "var(--radius-pill)", cursor: "pointer",
                 boxShadow: "0 3px 14px rgba(177,252,3,0.35)",
                 transition: "transform 0.15s", flexShrink: 0, whiteSpace: "nowrap",
@@ -3341,7 +3340,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           padding: "12px 20px",
           borderBottom: "1px solid rgba(0,0,0,0.06)",
         }}>
-          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--tx-dark-green)" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text-dark)" }}>
             Why Silk Nodes?
           </span>
         </div>
@@ -3379,7 +3378,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           }}>
             <div style={{
               fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.08em",
-              color: "#3a5a0a", marginBottom: 12,
+              color: "var(--accent-olive)", marginBottom: 12,
             }}>SILK NODES</div>
             {[
               ["Commission", "5% (minimum)"],
@@ -3390,10 +3389,10 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
             ].map(([label, value], i) => (
               <div key={i} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
-                marginBottom: 8, fontSize: "0.75rem", color: "var(--tx-dark-green)", lineHeight: 1.4,
+                marginBottom: 8, fontSize: "0.75rem", color: "var(--text-dark)", lineHeight: 1.4,
               }}>
                 <span>{label}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", fontWeight: 600, color: "#3a5a0a" }}>{value}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", fontWeight: 600, color: "var(--accent-olive)" }}>{value}</span>
               </div>
             ))}
           </div>
@@ -3406,7 +3405,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           onClick={delegateCTA}
           style={{
             border: "none", padding: "12px 32px", fontSize: "0.82rem", fontWeight: 700,
-            background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+            background: "var(--tx-neon)", color: "var(--text-dark)",
             borderRadius: "var(--radius-pill)", cursor: "pointer",
             boxShadow: "0 3px 14px rgba(177,252,3,0.25)",
             transition: "transform 0.15s",
@@ -3459,15 +3458,15 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           </div>
           <div style={{ display: "flex", gap: 20 }}>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>{silkVotingPower}%</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--text-dark)" }}>{silkVotingPower}%</div>
               <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Voting Power</div>
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>0</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--text-dark)" }}>0</div>
               <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Slashing Events</div>
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>0</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 700, color: "var(--text-dark)" }}>0</div>
               <div style={{ fontSize: "0.6rem", color: "var(--text-light)" }}>Missed Blocks</div>
             </div>
           </div>
@@ -3480,7 +3479,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
       <div style={{ marginBottom: 18 }}>
         <div className="panel" style={{ padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>Maximize Your Rewards</span>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-dark)" }}>Maximize Your Rewards</span>
             <span style={{
               background: "var(--accent-olive)", color: "#fff",
               padding: "2px 8px", borderRadius: "var(--radius-pill)",
@@ -3504,8 +3503,8 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
               borderRadius: "var(--radius-md)", padding: "12px 14px", textAlign: "center",
             }}>
-              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#3a5a0a", marginBottom: 4 }}>With Compounding</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>13.39% APY</div>
+              <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent-olive)", marginBottom: 4 }}>With Compounding</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)" }}>13.39% APY</div>
             </div>
           </div>
           <p style={{ fontSize: "0.72rem", color: "var(--accent-olive)", fontWeight: 600, margin: "0 0 14px", textAlign: "center" }}>
@@ -3527,7 +3526,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
           ═══════════════════════════════════════════════════════ */}
       <div className="panel" style={{ padding: "24px 24px 20px", marginBottom: 18, background: "linear-gradient(135deg, rgba(15,27,7,0.03) 0%, rgba(177,252,3,0.04) 100%)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--tx-dark-green)" }}>For Institutional &amp; Large Delegators</span>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text-dark)" }}>For Institutional &amp; Large Delegators</span>
         </div>
         <p style={{ fontSize: "0.76rem", color: "var(--text-medium)", lineHeight: 1.5, margin: "0 0 16px" }}>
           Delegating a significant amount? We offer custom commission rates, dedicated support, infrastructure transparency, and a direct communication channel.
@@ -3560,7 +3559,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                 padding: "16px", textAlign: "center", borderRadius: "var(--radius-md)",
                 background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
               }}>
-                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--tx-dark-green)" }}>
+                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-dark)" }}>
                   Message sent! We&apos;ll get back to you soon.
                 </span>
               </div>
@@ -3814,7 +3813,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--tx-dark-green)" strokeWidth="2">
                   <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
                 </svg>
-                <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--tx-dark-green)" }}>
+                <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-dark)" }}>
                   REStake · Auto-Compound Setup
                 </span>
               </div>
@@ -3825,7 +3824,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
                   rel="noopener noreferrer"
                   style={{
                     padding: "6px 14px", borderRadius: 8, fontSize: "0.78rem", fontWeight: 600,
-                    background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+                    background: "var(--tx-neon)", color: "var(--text-dark)",
                     textDecoration: "none", display: "flex", alignItems: "center", gap: 6,
                   }}
                 >
@@ -4016,7 +4015,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
               margin: "0 auto 14px",
             }} />
             <div style={{
-              fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)",
+              fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)",
               letterSpacing: "0.08em",
             }}>
               Fetching live data...
@@ -4036,7 +4035,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
         <span style={{
           display: "inline-block", fontSize: "0.6rem", fontWeight: 600,
           padding: "4px 14px", borderRadius: 20,
-          background: "rgba(177,252,3,0.15)", color: "#3a5a0a",
+          background: "rgba(177,252,3,0.15)", color: "var(--accent-olive)",
           letterSpacing: "0.1em", marginBottom: 16,
           border: "1px solid rgba(177,252,3,0.3)",
         }}>
@@ -4047,7 +4046,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
         </h1>
         <p style={{
           maxWidth: 640, margin: "0 auto", fontSize: "0.85rem",
-          lineHeight: 1.6, opacity: 0.6, color: "var(--tx-dark-green)",
+          lineHeight: 1.6, opacity: 0.6, color: "var(--text-dark)",
         }}>
           TX enables compliant, programmable financial assets at the protocol level — not through smart contracts. The infrastructure is live. Real-world adoption is building.
         </p>
@@ -4090,7 +4089,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
         textAlign: "center", marginBottom: 32, padding: "0 20px",
       }}>
         <p style={{
-          fontSize: "0.68rem", color: "var(--tx-dark-green)", opacity: 0.4,
+          fontSize: "0.68rem", color: "var(--text-dark)", opacity: 0.4,
           lineHeight: 1.5, fontStyle: "italic", maxWidth: 500, margin: "0 auto",
         }}>
           Note: Most current tokens are developer-issued or experimental. The infrastructure is production-ready — real-world asset tokenization is in its early adoption phase.
@@ -4297,7 +4296,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
               {s.step}
             </div>
 
-            <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "var(--tx-dark-green)" }}>
+            <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "var(--text-dark)" }}>
               {s.title}
             </div>
             <div style={{ fontSize: "0.72rem", opacity: 0.55, lineHeight: 1.45 }}>
@@ -4313,7 +4312,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           padding: "14px 20px",
           borderBottom: "1px solid rgba(0,0,0,0.06)",
         }}>
-          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--tx-dark-green)" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text-dark)" }}>
             TX vs Traditional Tokenization
           </span>
         </div>
@@ -4353,7 +4352,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           }}>
             <div style={{
               fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.08em",
-              color: "#3a5a0a", marginBottom: 14,
+              color: "var(--accent-olive)", marginBottom: 14,
             }}>TX PROTOCOL</div>
             {[
               "Native token standard \u2014 no contracts needed",
@@ -4364,9 +4363,9 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
             ].map((item, i) => (
               <div key={i} style={{
                 display: "flex", alignItems: "flex-start", gap: 8,
-                marginBottom: 10, fontSize: "0.78rem", color: "var(--tx-dark-green)", lineHeight: 1.4,
+                marginBottom: 10, fontSize: "0.78rem", color: "var(--text-dark)", lineHeight: 1.4,
               }}>
-                <span style={{ color: "#3a5a0a", flexShrink: 0, marginTop: 1, fontSize: "0.7rem" }}>{"\u2713"}</span>
+                <span style={{ color: "var(--accent-olive)", flexShrink: 0, marginTop: 1, fontSize: "0.7rem" }}>{"\u2713"}</span>
                 {item}
               </div>
             ))}
@@ -4534,7 +4533,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           onClick={() => setActiveTab("overview")}
           style={{
             padding: "12px 28px", borderRadius: 10,
-            background: "var(--tx-neon)", color: "var(--tx-dark-green)",
+            background: "var(--tx-neon)", color: "var(--text-dark)",
             fontWeight: 700, fontSize: "0.82rem", border: "none",
             cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s",
             boxShadow: "0 2px 12px rgba(177,252,3,0.3)",
@@ -4548,7 +4547,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           onClick={() => setActiveTab("validators")}
           style={{
             padding: "12px 28px", borderRadius: 10,
-            background: "transparent", color: "var(--tx-dark-green)",
+            background: "transparent", color: "var(--text-dark)",
             fontWeight: 700, fontSize: "0.82rem",
             border: "2px solid rgba(15,27,7,0.2)",
             cursor: "pointer", transition: "border-color 0.15s",
@@ -4562,7 +4561,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           onClick={() => setActiveTab("pse")}
           style={{
             padding: "12px 28px", borderRadius: 10,
-            background: "transparent", color: "var(--tx-dark-green)",
+            background: "transparent", color: "var(--text-dark)",
             fontWeight: 700, fontSize: "0.82rem",
             border: "2px solid rgba(15,27,7,0.2)",
             cursor: "pointer", transition: "border-color 0.15s",

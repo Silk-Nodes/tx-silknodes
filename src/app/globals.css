@@ -63,6 +63,698 @@
   --space-8: 64px;
 }
 
+/* ═══════════════════════════════════════════
+   DARK THEME
+   Earthy layered darks inspired by alpha.silknodes.io.
+   Neon green stays as the primary accent to preserve brand identity.
+   Applied via <html data-theme="dark"> set by the no-flash script in
+   layout.tsx. Variables override the :root defaults above.
+   ═══════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --bg-base: #0a0d07;
+  --bg-gradient: radial-gradient(circle at top left, #0d1209 0%, #0a0d07 50%, #080a05 100%);
+
+  /* Brand neon stays the same — it's the Silk Nodes signature. */
+  --tx-neon: #B1FC03;
+  --tx-neon-light: #c9ff4a;
+  --tx-neon-pale: rgba(177, 252, 3, 0.15);
+  --tx-subtle: #4a5a3a;
+  --tx-subtle-light: #2a341e;
+  --tx-subtle-pale: #1a1f14;
+  /* --tx-black is a SURFACE color (used by .card-dark backgrounds, etc.),
+     NOT a text color. Keep it near-black in dark mode so "dark" cards
+     stay dark and their cream inline text remains legible. */
+  --tx-black: #0D0D0C;
+  --tx-dark-green: #0F1B07;
+
+  --accent-yellow: #EBF450;
+  --accent-orange: #FFB078;
+  --accent-lime: #B1FC03;
+  --accent-olive: #8fbc8f;
+  --accent-olive-light: rgba(143, 188, 143, 0.15);
+  --danger: #ef6b5d;
+
+  --text-dark: #f0ece3;
+  --text-medium: #c9c5b9;
+  --text-light: rgba(255, 255, 255, 0.62);
+
+  /* Forest surface — brighter and more saturated so cards clearly read
+     as green, not charcoal. #17261a at low brightness was perceptually
+     grey on many displays; #233f28 pushes green channel higher. */
+  --glass-bg: #233f28;
+  --glass-border: rgba(177, 252, 3, 0.18);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+  --pattern-stripes: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 3px,
+    rgba(255, 255, 255, 0.04) 3px,
+    rgba(255, 255, 255, 0.04) 6px
+  );
+  --pattern-dots: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+}
+
+/* Dark-mode-only component overrides. These fix places where a component
+   hardcoded a light-mode color (rgba white, inline cream text) that breaks
+   in dark mode. We scope to [data-theme="dark"] so light mode is untouched. */
+:root[data-theme="dark"] .chart-card-hero {
+  /* Was hardcoded rgba(255,255,255,0.55) which reads as grey on dark bg. */
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+}
+
+:root[data-theme="dark"] .silk-delegate-btn,
+:root[data-theme="dark"] button[style*="background: var(--tx-neon)"],
+:root[data-theme="dark"] button[style*="background:var(--tx-neon)"] {
+  /* Neon green bg always needs dark text for contrast — override the
+     cream --text-dark that inline styles use in dark mode. Scope to
+     buttons whose BACKGROUND is neon (not just any inline style that
+     references the neon token, e.g. a hover border-color change). */
+  color: #0D0D0C !important;
+}
+
+:root[data-theme="dark"] .btn-olive {
+  /* In light mode btn-olive is dark-green bg + neon text (dramatic).
+     In dark mode that bg disappears into the page — swap to neon bg
+     with dark text so the CTA pops like the other Silk Nodes buttons. */
+  background: var(--tx-neon);
+  color: #0D0D0C;
+  box-shadow: 0 3px 14px rgba(177, 252, 3, 0.25);
+}
+:root[data-theme="dark"] .btn-olive:hover {
+  background: var(--tx-neon-light);
+  color: #0D0D0C;
+  opacity: 1;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DARK MODE: replace hardcoded rgba(255,255,255,*) fills that
+   scatter across the codebase. In light mode these read as soft
+   white glass; in dark mode they read as grey. Re-tint them with
+   translucent dark green so pills, chips, inputs, pager buttons,
+   and secondary panels all feel like the forest palette.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] .input-group,
+:root[data-theme="dark"] .info-box,
+:root[data-theme="dark"] .compare-box,
+:root[data-theme="dark"] .staking-panel-section,
+:root[data-theme="dark"] .staking-feed-row,
+:root[data-theme="dark"] .whale-top-row {
+  background: rgba(30, 48, 22, 0.55) !important;
+}
+
+:root[data-theme="dark"] .filter-chip,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .page-btn,
+:root[data-theme="dark"] .whale-pager-btn,
+:root[data-theme="dark"] .staking-type-chip {
+  background: rgba(40, 60, 25, 0.5) !important;
+  border-color: rgba(177, 252, 3, 0.12);
+}
+
+:root[data-theme="dark"] .staking-type-chip.active {
+  background: rgba(40, 60, 25, 0.85) !important;
+  color: var(--text-dark) !important;
+}
+
+:root[data-theme="dark"] .filter-chip:hover,
+:root[data-theme="dark"] .chip:hover,
+:root[data-theme="dark"] .page-btn:hover:not(:disabled),
+:root[data-theme="dark"] .whale-pager-btn:hover:not(:disabled),
+:root[data-theme="dark"] .staking-type-chip:hover,
+:root[data-theme="dark"] .time-pill:hover,
+:root[data-theme="dark"] .network-activity-tab:hover,
+:root[data-theme="dark"] .staking-feed-row:hover,
+:root[data-theme="dark"] .data-table tbody tr:hover,
+:root[data-theme="dark"] .validator-table tbody tr:hover {
+  background: rgba(55, 80, 30, 0.7) !important;
+}
+
+/* Inputs + select fields: use a solid-ish dark-green fill so the
+   placeholder text reads without washing out. */
+:root[data-theme="dark"] input[type="text"],
+:root[data-theme="dark"] input[type="number"],
+:root[data-theme="dark"] input:not([type]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background: rgba(22, 38, 18, 0.85);
+  border-color: var(--glass-border);
+  color: var(--text-dark);
+}
+
+/* Recharts tick labels (dates on X axis, values on Y axis) use inline
+   SVG fill attributes set to a dark brown in the chart component. Those
+   attributes have low CSS specificity (presentation attributes) and are
+   beaten by a plain selector — so in dark mode we re-paint them white-ish
+   with !important defense in case Recharts re-renders. */
+:root[data-theme="dark"] .recharts-cartesian-axis-tick-value,
+:root[data-theme="dark"] .recharts-cartesian-axis-tick text,
+:root[data-theme="dark"] .recharts-text.recharts-cartesian-axis-tick-value {
+  fill: rgba(255, 255, 255, 0.65) !important;
+}
+:root[data-theme="dark"] .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Validator search field: override the grey-tinted wrapper in dark mode */
+:root[data-theme="dark"] .field-input {
+  background: #44624c;
+  border-color: var(--glass-border);
+}
+:root[data-theme="dark"] .field-input input {
+  color: #fff;
+  background: transparent;
+}
+:root[data-theme="dark"] .field-input input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] .field-input .field-addon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Validator table sticky header in dark mode */
+:root[data-theme="dark"] .validator-table th {
+  background: #44624c !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Whale label pills: re-tint so the "unlabeled 🕊" and similar
+   light-colored pills match the dark palette. */
+:root[data-theme="dark"] .whale-label-unlabeled {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .whale-label-individual {
+  background: rgba(200, 200, 200, 0.08);
+}
+:root[data-theme="dark"] .whale-label-validator {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon-light);
+}
+:root[data-theme="dark"] .whale-label-pse-excluded,
+:root[data-theme="dark"] .whale-label-validator-pse {
+  background: rgba(200, 175, 120, 0.12);
+  color: #d8c09a;
+}
+:root[data-theme="dark"] .whale-label-cex {
+  background: rgba(216, 138, 58, 0.15);
+  color: #e5a368;
+}
+
+/* Whale tracker inner bands: header strip, row dividers, and hover tint
+   all used rgba black values that vanish on dark bg. Re-tint in dark mode
+   with subtle neon-warm accents so the table reads as banded, not flat. */
+:root[data-theme="dark"] .whale-table-head {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .whale-table-row {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .whale-table-row:hover,
+:root[data-theme="dark"] .whale-table-row-clickable:hover {
+  background: rgba(177, 252, 3, 0.06);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DARK MODE: round 3 — tab active state, status pills, side
+   panels, PSE lookup, Silk Nodes Connect Wallet CTA. All places
+   where --tx-dark-green (near-black) was used as a foreground
+   color in light mode, which renders invisible on dark surfaces.
+   ────────────────────────────────────────────────────────────── */
+
+/* Active tab text — was var(--tx-dark-green) (near-black) → invisible. */
+:root[data-theme="dark"] .network-activity-tab.active {
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .network-activity-tab {
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .network-activity-tab-count {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .network-activity-tab.active .network-activity-tab-count {
+  background: var(--tx-neon);
+  color: #0D0D0C;
+}
+
+/* Status pills (e.g. "Cycle 2 of 84") — green text on green fill
+   needs brighter foreground in dark mode. */
+:root[data-theme="dark"] .status-pill {
+  background: rgba(177, 252, 3, 0.10);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .status-pill.success {
+  background: rgba(177, 252, 3, 0.15);
+  color: var(--tx-neon);
+  border-color: rgba(177, 252, 3, 0.4);
+}
+
+/* PSE Score lookup container — the linear-gradient(dark-green → #1a2e10)
+   was vanishing into the page. Bump the gradient so it reads as a
+   distinct surface with a clear neon edge. */
+:root[data-theme="dark"] [class*="page-title"] + .status-pill,
+:root[data-theme="dark"] .pse-lookup-shell {
+  /* reserved for future pse-specific treatments */
+}
+
+/* Side panels (StakingFeedPanel + DelegatorPanel) — force explicit
+   dark surface + border so they can't inherit any stale light color. */
+:root[data-theme="dark"] .staking-feed-panel {
+  background: #0F1410;
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .staking-feed-panel-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme="dark"] .staking-panel-close:hover {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+}
+
+/* Inline CTA: "Connect Wallet" pill inside the PSE lookup card.
+   rgba(177,252,3,0.12) was too dim on an already dim parent — boost. */
+:root[data-theme="dark"] button[style*="rgba(177,252,3,0.12)"] {
+  background: rgba(177, 252, 3, 0.22) !important;
+  border-color: rgba(177, 252, 3, 0.5) !important;
+}
+
+/* (removed: .whale-section transparent rule — superseded by the
+   .whale-tracker .whale-section sage rule further below.) */
+:root[data-theme="dark"] .whale-tracker .whale-table-head {
+  background: rgba(177, 252, 3, 0.06);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* Wallet modal — light mode keeps a white card; dark mode needs a
+   proper dark surface. Previously hardcoded background:"#fff" inline
+   made the modal render as a white box with invisible cream text. */
+.wallet-modal {
+  background: #fff;
+}
+:root[data-theme="dark"] .wallet-modal {
+  background: #1a2a1e;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+/* Wallet modal headline (first direct div child) + subtitle */
+:root[data-theme="dark"] .wallet-modal > div:first-of-type {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .wallet-modal p {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+/* Wallet option buttons: solid sage surface so wallet names + logos
+   stand out cleanly. Force white text on all descendants — the deep
+   nested divs were still inheriting black `buttontext` from the
+   browser default, making "Keplr / Leap / Cosmostation" invisible. */
+:root[data-theme="dark"] .wallet-modal button {
+  background: #44624c !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .wallet-modal button *,
+:root[data-theme="dark"] .wallet-modal button div,
+:root[data-theme="dark"] .wallet-modal button span {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .wallet-modal button > div > div:last-child {
+  /* "Not installed" subtitle — slightly dimmed but still readable */
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+:root[data-theme="dark"] .wallet-modal button a {
+  /* "Install" link */
+  color: var(--tx-neon) !important;
+}
+:root[data-theme="dark"] .wallet-modal button:hover {
+  background: #557361 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+/* Cancel button at bottom of modal */
+:root[data-theme="dark"] .wallet-modal > button:last-child {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Tooltip bubble: was rendering pale neon (15% alpha) text on dark green
+   bg — practically unreadable. In dark mode use a solid high-contrast
+   near-black surface with bright cream text. */
+:root[data-theme="dark"] .tooltip-bubble {
+  background: #1a2318;
+  color: var(--text-dark);
+  border: 1px solid rgba(177, 252, 3, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .tooltip-top::after { border-top-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-bottom::after { border-bottom-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-left::after { border-left-color: #1a2318; }
+:root[data-theme="dark"] .tooltip-right::after { border-right-color: #1a2318; }
+
+/* Top-nav Connect Wallet pill — mirror the PSE page's neon-filled CTA
+   so all "connect/delegate" actions use one visual language. */
+:root[data-theme="dark"] .wallet-pill:not(.connected) {
+  background: var(--tx-neon);
+  color: #0D0D0C;
+  border-color: var(--tx-neon);
+  box-shadow: 0 3px 14px rgba(177, 252, 3, 0.35);
+  font-weight: 700;
+}
+:root[data-theme="dark"] .wallet-pill:not(.connected):hover {
+  background: var(--tx-neon-light);
+  color: #0D0D0C;
+  opacity: 1;
+  transform: translateY(-1px);
+}
+:root[data-theme="dark"] .wallet-pill.connected {
+  background: rgba(177, 252, 3, 0.12);
+  color: var(--tx-neon);
+  border-color: var(--tx-neon);
+}
+
+/* INNER boxes only — Staking Activity feed list and Whale Tracker
+   table both use the SAME sage surface (#44624c) and identical white
+   text treatments so the two tabs feel like one unified card system.
+   Sage sits inside the dark outer card as a single visual tier. */
+:root[data-theme="dark"] .staking-feed-container {
+  background: #44624c;
+  border-radius: var(--radius-md);
+  padding: 8px 4px;
+  color: #fff;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row {
+  background: transparent !important;
+  color: #fff;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+/* On the sage feed, every text column must render white so the timestamp,
+   address, delegator, validator, and "Xh ago" are all readable. Default
+   row styles use muted colors that wash out on sage. */
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-delegator,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-validator,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-amount,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-arrow {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+:root[data-theme="dark"] .whale-tracker {
+  background: #44624c !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  color: #fff;
+  gap: 24px;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section {
+  background: transparent !important;
+  padding: 0;
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-moves {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move {
+  color: #fff !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move-time,
+:root[data-theme="dark"] .whale-tracker .whale-move-ago,
+:root[data-theme="dark"] .whale-tracker .whale-move-arrow,
+:root[data-theme="dark"] .whale-tracker .whale-move-parties,
+:root[data-theme="dark"] .whale-tracker .whale-move-amount {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-move-time,
+:root[data-theme="dark"] .whale-tracker .whale-move-ago {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-delta.up,
+:root[data-theme="dark"] .whale-tracker .whale-movers-delta.down {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section-title,
+:root[data-theme="dark"] .whale-tracker .whale-section-sub,
+:root[data-theme="dark"] .whale-tracker .whale-col-addr,
+:root[data-theme="dark"] .whale-tracker .whale-col-stake,
+:root[data-theme="dark"] .whale-tracker .whale-col-pct,
+:root[data-theme="dark"] .whale-tracker .whale-col-vals {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-col-rank {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table-head {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-table-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .whale-tracker .whale-table-row:hover,
+:root[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+/* Pager inside the whale-tracker sage box */
+:root[data-theme="dark"] .whale-tracker .whale-pager-btn,
+:root[data-theme="dark"] .whale-tracker .whale-pager-nav {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-pager-btn.active {
+  background: #fff !important;
+  color: #44624c !important;
+}
+
+/* Whale tracker: headers + sub-labels + empty states all read white on
+   sage. These were inheriting --text-light / --text-medium which muted
+   them into the sage background. */
+:root[data-theme="dark"] .whale-tracker .whale-section-header,
+:root[data-theme="dark"] .whale-tracker .whale-empty,
+:root[data-theme="dark"] .whale-tracker .whale-empty-moves,
+:root[data-theme="dark"] .whale-tracker .whale-empty-text,
+:root[data-theme="dark"] .whale-tracker .whale-empty-sub,
+:root[data-theme="dark"] .whale-tracker .whale-pager-status {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-section-sub {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* "Whales on the Move" movers cards — also part of the whale tracker,
+   need the same sage + white treatment so arrivals/exits/rank/stake
+   cards stay in the unified scheme. */
+:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-card-title {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-count {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-row {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-addr {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-rank {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Whale label pills on the sage surface — retint so "unlabeled",
+   "PSE Excluded", "CEX", validator pills all stay legible. The earlier
+   dark-mode variants (neon on forest) now clash with sage, so use
+   white-tinted fills for this specific context. */
+:root[data-theme="dark"] .staking-feed-card .whale-label-unlabeled,
+:root[data-theme="dark"] .whale-tracker .whale-label-unlabeled {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-validator,
+:root[data-theme="dark"] .whale-tracker .whale-label-validator {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-pse-excluded,
+:root[data-theme="dark"] .whale-tracker .whale-label-pse-excluded,
+:root[data-theme="dark"] .staking-feed-card .whale-label-validator-pse,
+:root[data-theme="dark"] .whale-tracker .whale-label-validator-pse {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-cex,
+:root[data-theme="dark"] .whale-tracker .whale-label-cex {
+  background: rgba(255, 200, 130, 0.22) !important;
+  color: #ffd8a0 !important;
+}
+:root[data-theme="dark"] .staking-feed-card .whale-label-individual,
+:root[data-theme="dark"] .whale-tracker .whale-label-individual {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* PSE Connect Wallet CTA — neon-filled pill matching the Silk Nodes
+   "Delegate" CTA so all connect/delegate actions share one visual. */
+.pse-connect-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(177, 252, 3, 0.5);
+}
+
+/* Smooth transition between themes so switching doesn't flash harshly. */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ═══════════════════════════════════════════
+   THEME SWITCHER (icon trio in top nav)
+   ═══════════════════════════════════════════ */
+.theme-switcher-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.theme-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 60px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.theme-switcher:hover {
+  border-color: rgba(177, 252, 3, 0.4);
+}
+
+.theme-switcher-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  pointer-events: none;
+  color: var(--text-dark);
+}
+
+.theme-switcher.is-light .theme-switcher-icon.is-left {
+  color: var(--tx-dark-green);
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-right {
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .theme-switcher-icon {
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .theme-switcher.is-dark .theme-switcher-icon.is-right {
+  color: var(--tx-dark-green);
+}
+
+.theme-switcher.is-light .theme-switcher-icon.is-left {
+  opacity: 1;
+}
+.theme-switcher.is-light .theme-switcher-icon.is-right {
+  opacity: 0.4;
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-left {
+  opacity: 0.4;
+}
+.theme-switcher.is-dark .theme-switcher-icon.is-right {
+  opacity: 1;
+}
+
+.theme-switcher-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--tx-neon);
+  box-shadow: 0 0 0 1px var(--tx-dark-green);
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.theme-switcher.is-dark .theme-switcher-thumb {
+  left: 32px;
+}
+
+:root[data-theme="dark"] .theme-switcher-thumb {
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.4);
+}
+
+.theme-switcher-system {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.58rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+  opacity: 0.7;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.theme-switcher-system:hover {
+  opacity: 1;
+  color: var(--text-dark);
+  text-decoration: underline;
+}
+
+:root[data-theme="dark"] .theme-switcher-system {
+  color: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] .theme-switcher-system:hover {
+  color: var(--tx-neon);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { height: 100%; }
@@ -297,10 +989,19 @@ body::-webkit-scrollbar-thumb { background: rgba(44,44,43,0.15); border-radius: 
 }
 
 
-.card-yellow { background: var(--accent-yellow); }
-.card-orange { background: var(--accent-orange); }
+/* Yellow/orange accent cards keep a fixed dark text color regardless of
+   theme — their bright backgrounds need dark text to stay legible. Without
+   this, dark mode's cream --text-dark would vanish against the yellow. */
+.card-yellow { background: var(--accent-yellow); color: #1a1f0d; }
+.card-orange { background: var(--accent-orange); color: #1f1408; }
 .card-olive { background: var(--tx-dark-green); color: var(--tx-neon); }
-.card-dark { background: var(--tx-black); color: var(--tx-subtle-pale); }
+/* card-dark keeps a fixed pale text regardless of theme — its always-dark
+   background needs light text. In dark mode --tx-subtle-pale flips to a
+   dark olive and would vanish into the card. */
+.card-dark { background: var(--tx-black); color: #F6FFEF; }
+:root[data-theme="dark"] .card-dark { color: #F6FFEF; }
+:root[data-theme="dark"] .card-dark .card-value,
+:root[data-theme="dark"] .card-dark .card-value .unit { color: #F6FFEF; }
 
 .card-content {
   position: relative;
@@ -585,6 +1286,32 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   border: 3px solid var(--bg-base);
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--text-dark);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid var(--bg-base);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Dark mode: track was invisible (near-black on dark). Give it a visible
+   neon-tinted track and a neon thumb so drag affordance is obvious. */
+:root[data-theme="dark"] input[type="range"] {
+  background: rgba(177, 252, 3, 0.18);
+}
+:root[data-theme="dark"] input[type="range"]::-webkit-slider-thumb {
+  background: var(--tx-neon);
+  border-color: var(--tx-dark-green);
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme="dark"] input[type="range"]::-moz-range-thumb {
+  background: var(--tx-neon);
+  border-color: var(--tx-dark-green);
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 /* ═══════════════════════════════════════════
@@ -904,7 +1631,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 .validator-table thead {
   position: sticky;
-  top: 56px;
+  top: 72px;
   z-index: 5;
 }
 
@@ -922,6 +1649,12 @@ input[type="range"]::-webkit-slider-thumb {
   white-space: nowrap;
   background: #ede9e0;
   box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.validator-table th:first-child {
+  border-top-left-radius: var(--radius-md);
+}
+.validator-table th:last-child {
+  border-top-right-radius: var(--radius-md);
 }
 
 .validator-table td {
@@ -1093,6 +1826,96 @@ input[type="range"]::-webkit-slider-thumb {
 .card-dark .tooltip-wrapper:hover .tooltip-icon {
   background: rgba(177, 252, 3, 0.25);
   border-color: var(--tx-neon);
+}
+
+/* Dark mode: every tooltip icon uses the neon treatment by default so
+   the subtle olive-on-dark fallback doesn't disappear. Light cards
+   (yellow/orange) keep their original dark-olive tooltip for contrast. */
+:root[data-theme="dark"] .tooltip-icon {
+  background: rgba(177, 252, 3, 0.15);
+  border-color: rgba(177, 252, 3, 0.4);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .tooltip-wrapper:hover .tooltip-icon {
+  background: rgba(177, 252, 3, 0.28);
+  border-color: var(--tx-neon);
+}
+:root[data-theme="dark"] .card-yellow .tooltip-icon,
+:root[data-theme="dark"] .card-orange .tooltip-icon {
+  background: rgba(177, 252, 3, 0.15);
+  border-color: rgba(177, 252, 3, 0.4);
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .card-yellow .tooltip-wrapper:hover .tooltip-icon,
+:root[data-theme="dark"] .card-orange .tooltip-wrapper:hover .tooltip-icon {
+  background: rgba(177, 252, 3, 0.28);
+  border-color: var(--tx-neon);
+}
+
+/* ─── Accent cards in dark mode ────────────────────────────────────
+   In light mode the yellow/orange accent cards are vibrant fills that
+   carry dark text. Leaving them as-is in dark mode creates jarring
+   light "islands" on the dark page. Replace with a tinted dark surface
+   that keeps the color DNA (warm/amber) but sits in the dark system. */
+:root[data-theme="dark"] .card-yellow {
+  background: linear-gradient(135deg, rgba(235, 244, 80, 0.10), rgba(235, 244, 80, 0.04));
+  color: var(--text-dark);
+  border: 1px solid rgba(235, 244, 80, 0.22);
+}
+:root[data-theme="dark"] .card-orange {
+  background: linear-gradient(135deg, rgba(255, 176, 120, 0.10), rgba(255, 176, 120, 0.04));
+  color: var(--text-dark);
+  border: 1px solid rgba(255, 176, 120, 0.22);
+}
+:root[data-theme="dark"] .card-yellow .card-title,
+:root[data-theme="dark"] .card-orange .card-title {
+  color: var(--text-dark) !important;
+}
+:root[data-theme="dark"] .card-yellow .card-value,
+:root[data-theme="dark"] .card-orange .card-value {
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .card-yellow .card-sub,
+:root[data-theme="dark"] .card-orange .card-sub {
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .card-orange .unit,
+:root[data-theme="dark"] .card-yellow .unit {
+  color: var(--text-medium);
+}
+
+/* Unify stat cards: the .card-olive variant rendered near-black while
+   sibling stat cards on the same grid sat on sage. Normalize the
+   olive override in dark mode so the grid reads as one family. */
+:root[data-theme="dark"] .stat-card.card-olive {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-label {
+  color: var(--text-light);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-value {
+  color: var(--tx-neon);
+}
+:root[data-theme="dark"] .stat-card.card-olive .stat-card-context {
+  color: var(--text-light) !important;
+}
+
+/* Side-panel muted labels: "Parties", "Delegator", "Validator", tx-hash
+   sub-line, copy / close buttons, rank icon, empty state. Previously
+   inherited --text-light which was the dim warm-grey that washed out
+   against panel sage. */
+:root[data-theme="dark"] .staking-panel-label,
+:root[data-theme="dark"] .staking-panel-copy,
+:root[data-theme="dark"] .staking-panel-close,
+:root[data-theme="dark"] .staking-panel-sub,
+:root[data-theme="dark"] .delegator-panel-rank-icon,
+:root[data-theme="dark"] .delegator-panel-rank-text,
+:root[data-theme="dark"] .delegator-panel-empty {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+:root[data-theme="dark"] .staking-panel-link.staking-panel-mono {
+  color: var(--tx-neon-pale, #cdeea5);
 }
 
 .tooltip-bubble {
@@ -3312,6 +4135,32 @@ input[type="range"]::-webkit-slider-thumb {
   text-align: center;
 }
 
+/* Pill CTA — matches the "Open on Mintscan" button in the 29 excluded
+   addresses drawer. Scoped to the footer so other .staking-panel-link
+   instances (inline address/tx links) stay as simple text links. */
+.delegator-panel-footer .staking-panel-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.delegator-panel-footer .staking-panel-link:hover {
+  background: #0c1606;
+  border-color: rgba(177, 252, 3, 0.45);
+  color: var(--tx-neon);
+  text-decoration: none;
+}
+
 /* Mobile: shared .staking-feed-panel already handles the full-width
    collapse at max-width: 768px. Below only covers body-specific
    adjustments (activity row density + stat size). */
@@ -3334,4 +4183,90 @@ input[type="range"]::-webkit-slider-thumb {
   .delegator-activity-amount { grid-area: amount; }
   .delegator-activity-ago { grid-area: ago; }
   .delegator-activity-validator { grid-area: validator; font-size: 0.64rem; }
+}
+
+/* ═══ Brand popover (logo click: "This tool is free and open source") ═══ */
+.brand-popover {
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+.brand-popover-arrow {
+  background: #fff;
+  box-shadow: -1px -1px 0 rgba(0, 0, 0, 0.05);
+}
+:root[data-theme="dark"] .brand-popover {
+  background: #0F1B07;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(177, 252, 3, 0.2);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .brand-popover-arrow {
+  background: #0F1B07;
+  box-shadow: -1px -1px 0 rgba(177, 252, 3, 0.2);
+}
+
+/* ═══ Excluded Addresses drawer (right-side panel) ═══ */
+.excluded-addresses-drawer {
+  background: #fff;
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .excluded-addresses-drawer {
+  background: #0F1B07;
+  color: #fff;
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6) !important;
+}
+:root[data-theme="dark"] .excluded-addresses-drawer .excluded-addresses-panel,
+:root[data-theme="dark"] .excluded-addresses-drawer > div[style*="background: rgb(255, 255, 255)"],
+:root[data-theme="dark"] .excluded-addresses-drawer div[style*="background: rgba(255,255,255"] {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ═══ Wallet connect prompt (Overview, not-connected state) ═══ */
+.wallet-connect-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(15, 27, 7, 0.03);
+  border: 1px dashed rgba(15, 27, 7, 0.12);
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.wallet-connect-prompt:hover {
+  background: rgba(15, 27, 7, 0.06);
+  border-color: rgba(15, 27, 7, 0.22);
+}
+.wallet-connect-prompt-icon {
+  stroke: var(--text-light);
+  flex-shrink: 0;
+}
+.wallet-connect-prompt-text {
+  font-size: 0.78rem;
+  color: var(--text-medium);
+}
+.wallet-connect-prompt-cta {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-olive);
+}
+
+:root[data-theme="dark"] .wallet-connect-prompt {
+  background: rgba(177, 252, 3, 0.04);
+  border: 1px dashed rgba(177, 252, 3, 0.28);
+}
+:root[data-theme="dark"] .wallet-connect-prompt:hover {
+  background: rgba(177, 252, 3, 0.08);
+  border-color: rgba(177, 252, 3, 0.45);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-icon {
+  stroke: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .wallet-connect-prompt-cta {
+  color: var(--tx-neon);
 }

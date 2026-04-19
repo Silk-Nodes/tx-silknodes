@@ -14,7 +14,7 @@ interface StatCardProps {
 }
 
 const HEALTH_DOT: Record<HealthStatus, { color: string; label: string }> = {
-  healthy: { color: "#4a7a1a", label: "Healthy" },
+  healthy: { color: "var(--accent-olive)", label: "Healthy" },
   neutral: { color: "#b5a040", label: "Neutral" },
   risk: { color: "#b44a3e", label: "Declining" },
 };

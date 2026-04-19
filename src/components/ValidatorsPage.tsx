@@ -67,7 +67,7 @@ export default function ValidatorsPage({
               margin: "0 auto 14px",
             }} />
             <div style={{
-              fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-dark-green)",
+              fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)",
               letterSpacing: "0.08em",
             }}>
               Fetching live data...

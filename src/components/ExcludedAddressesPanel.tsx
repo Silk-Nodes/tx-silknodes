@@ -116,9 +116,9 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
 
   return (
     <>
-      <div style={{
+      <div className="excluded-addresses-panel" style={{
         marginTop: 16,
-        background: "rgba(255,255,255,0.5)",
+        background: "var(--glass-bg)",
         border: "1px solid var(--glass-border)",
         borderRadius: "var(--radius-md)",
         overflow: "hidden",
@@ -229,10 +229,11 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
           />
           {/* Drawer panel */}
           <div
+            className="excluded-addresses-drawer"
             style={{
               position: "fixed", top: 0, right: 0, bottom: 0,
               width: "min(420px, 92vw)", zIndex: 9999,
-              background: "#fff", boxShadow: "-12px 0 40px rgba(0,0,0,0.18)",
+              boxShadow: "-12px 0 40px rgba(0,0,0,0.18)",
               padding: "24px 26px", overflowY: "auto",
               animation: "slideInRight 0.18s ease-out",
             }}
@@ -285,10 +286,11 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
               <button
                 onClick={() => copyAddress(drawerAddr.address)}
                 style={{
-                  marginTop: 10, padding: "6px 12px", borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--glass-border)", background: "rgba(255,255,255,0.5)",
-                  cursor: "pointer", fontSize: "0.68rem", fontWeight: 600,
-                  color: copied === drawerAddr.address ? "var(--accent-olive)" : "var(--text-medium)",
+                  marginTop: 10, padding: "8px 14px", borderRadius: "var(--radius-pill)",
+                  border: "1px solid rgba(177,252,3,0.25)",
+                  background: "var(--tx-dark-green)",
+                  color: "var(--tx-neon)",
+                  cursor: "pointer", fontSize: "0.72rem", fontWeight: 600,
                 }}
               >
                 {copied === drawerAddr.address ? "✓ Copied" : "Copy address"}
