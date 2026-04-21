@@ -1,1 +1,1 @@
-{"updatedAt":"2026-04-21T04:07:39.670Z","rankThreshold":5,"stakeThresholdTX":500000,"arrivals":[],"exits":[],"rankMovers":[],"stakeMovers":[]}
+{"updatedAt":"2026-04-21T04:29:00.893Z","rankThreshold":5,"stakeThresholdTX":500000,"arrivals":[],"exits":[],"rankMovers":[{"address":"core1gqwqk3ccmxgl0xhudjx74j8xdgxnf6ach7wd95","label":null,"previousRank":461,"currentRank":435,"rankDelta":26,"totalStake":586668}],"stakeMovers":[]}
