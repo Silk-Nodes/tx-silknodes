@@ -10,9 +10,21 @@ permissions:
   pages: write
   id-token: write
 
+# Cancel any in-flight deployment when a newer push arrives. The VM pushes
+# staking-events commits every 5 min; without cancel-in-progress the second
+# concurrent run would hit "Deployment request failed ... in progress" from
+# the GitHub Pages service (it allows only one deployment at a time). The
+# next run's content supersedes the cancelled one, so no data is lost.
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
+
+# Opt the JavaScript-based actions (checkout, setup-node, configure-pages,
+# upload-pages-artifact, deploy-pages) into the Node 24 runtime ahead of the
+# June 2026 forced migration. Silences the "Node.js 20 actions are deprecated"
+# warnings on every run without waiting for each action's next major bump.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -24,7 +36,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Build Node pinned to 22 LTS — matches the VM runtime and the
+          # Next.js 15 engine recommendation. Bumped from 20 so locally
+          # reproducible builds stay aligned with production-side tooling.
+          node-version: "22"
           cache: "npm"
 
       - name: Setup Pages

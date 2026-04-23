@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# See deploy.yml for rationale — opt JavaScript actions into Node 24 ahead
+# of the June 2026 forced migration.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   update-score:
     runs-on: ubuntu-latest
@@ -20,7 +25,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Calculate PSE Network Score
         run: node scripts/update-pse-network-score.js
