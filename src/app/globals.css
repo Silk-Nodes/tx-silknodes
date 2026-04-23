@@ -540,6 +540,17 @@
 :root[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
+/* Sortable headers: active state needs to pop on dark background, so we
+   switch from the dark-green brand token to neon which reads clearly. */
+:root[data-theme="dark"] .whale-tracker .whale-col-sortable {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-col-sortable:hover {
+  color: #fff !important;
+}
+:root[data-theme="dark"] .whale-tracker .whale-col-sortable.active {
+  color: var(--tx-neon) !important;
+}
 /* Pager inside the whale-tracker sage box */
 :root[data-theme="dark"] .whale-tracker .whale-pager-btn,
 :root[data-theme="dark"] .whale-tracker .whale-pager-nav {
@@ -2837,10 +2848,10 @@ input[type="range"]::-moz-range-thumb {
 .whale-table-head,
 .whale-table-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 0.9fr) 70px 60px;
+  grid-template-columns: 48px minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 0.9fr) 70px 84px;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
+  padding: 8px 18px;
   font-family: var(--font-mono);
   font-size: 0.72rem;
 }
@@ -2896,6 +2907,46 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-medium);
   text-align: right;
 }
+
+/* Sortable header buttons. Styled to blend with the existing header spans
+   (inherits font, uppercase, letter-spacing from .whale-table-head) but
+   adds a pointer cursor + subtle hover and a stronger active state so the
+   user knows which column drives the current order. */
+.whale-col-sortable {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: color 0.12s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+.whale-col-sortable:hover {
+  color: var(--text-dark);
+}
+.whale-col-sortable.active {
+  color: var(--tx-dark-green);
+  font-weight: 700;
+}
+.whale-col-sortable:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* Preserve column alignment — the grid cells enforce text-align, but buttons
+   default to center-aligned text content, so restore per-column intent. */
+.whale-table-head .whale-col-rank.whale-col-sortable { text-align: left; }
+.whale-table-head .whale-col-stake.whale-col-sortable,
+.whale-table-head .whale-col-pct.whale-col-sortable,
+.whale-table-head .whale-col-vals.whale-col-sortable { text-align: right; }
+/* The last column (Validators) sits flush against the table-head's rounded
+   right edge; the ▲/▼ indicator bleeds into the card border. Inset it. */
+.whale-table-head .whale-col-vals.whale-col-sortable { padding-right: 10px; }
 
 /* Labels */
 .whale-label {

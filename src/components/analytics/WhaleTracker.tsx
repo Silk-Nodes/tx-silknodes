@@ -43,6 +43,12 @@ const PAGE_SIZE = 10;
 const WINDOW_SIZE = 1; // pages shown on either side of current before ellipsis
 const MOVERS_PER_LIST = 5; // how many rows per mover sub-list in "Whales on the Move"
 
+// Sortable columns. "pct" is an alias for "stake" under the hood since pct is
+// derived from totalStake with a constant denominator (topTotalTX); we keep
+// them separate so the UI indicator lands on whichever column the user clicked.
+type SortColumn = "rank" | "stake" | "pct" | "vals";
+type SortDirection = "asc" | "desc";
+
 // Build a compact page list like [0, "…", 5, 6, 7, "…", 49]. Keeps the
 // pager to ~7-9 buttons regardless of total page count.
 function buildPageList(current: number, total: number): (number | "…")[] {
@@ -95,10 +101,41 @@ export default function WhaleTracker({
   onAddressClick,
 }: WhaleTrackerProps) {
   const [page, setPage] = useState(0);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("rank");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const totalPages = Math.max(1, Math.ceil(topDelegators.length / PAGE_SIZE));
+  // Clicking the active column toggles direction; clicking a new column uses
+  // each column's "natural" first direction (rank asc, everything else desc).
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(col);
+      setSortDirection(col === "rank" ? "asc" : "desc");
+    }
+    setPage(0); // keep user on the first page of the new sort
+  };
+
+  // Sort BEFORE pagination so page slices always reflect the active order.
+  // Non-mutating copy: topDelegators is a prop, we must not sort in place.
+  const sortedDelegators = useMemo(() => {
+    const arr = [...topDelegators];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      if (sortColumn === "rank") cmp = a.rank - b.rank;
+      else if (sortColumn === "vals") cmp = a.validatorCount - b.validatorCount;
+      else cmp = a.totalStake - b.totalStake; // "stake" and "pct" share the same ordering
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [topDelegators, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedDelegators.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages - 1);
-  const pageEntries = topDelegators.slice(clampedPage * PAGE_SIZE, (clampedPage + 1) * PAGE_SIZE);
+  const pageEntries = sortedDelegators.slice(clampedPage * PAGE_SIZE, (clampedPage + 1) * PAGE_SIZE);
+
+  const sortIndicator = (col: SortColumn) =>
+    sortColumn === col ? (sortDirection === "asc" ? " ▲" : " ▼") : "";
 
   // Recent whale moves: filter staking events to ≥ 1M TX threshold. The
   // `isWhaleEvent` helper lives in lib/staking-events.ts so we stay aligned
@@ -135,12 +172,40 @@ export default function WhaleTracker({
 
         <div className="whale-table">
           <div className="whale-table-head">
-            <span className="whale-col-rank">#</span>
+            <button
+              type="button"
+              className={`whale-col-rank whale-col-sortable ${sortColumn === "rank" ? "active" : ""}`}
+              onClick={() => handleSort("rank")}
+              aria-label={`Sort by rank${sortColumn === "rank" ? `, currently ${sortDirection === "asc" ? "ascending" : "descending"}` : ""}`}
+            >
+              #{sortIndicator("rank")}
+            </button>
             <span className="whale-col-addr">Address</span>
             <span className="whale-col-label">Label</span>
-            <span className="whale-col-stake">Stake</span>
-            <span className="whale-col-pct">% of top</span>
-            <span className="whale-col-vals">Validators</span>
+            <button
+              type="button"
+              className={`whale-col-stake whale-col-sortable ${sortColumn === "stake" ? "active" : ""}`}
+              onClick={() => handleSort("stake")}
+              aria-label={`Sort by stake${sortColumn === "stake" ? `, currently ${sortDirection === "asc" ? "ascending" : "descending"}` : ""}`}
+            >
+              Stake{sortIndicator("stake")}
+            </button>
+            <button
+              type="button"
+              className={`whale-col-pct whale-col-sortable ${sortColumn === "pct" ? "active" : ""}`}
+              onClick={() => handleSort("pct")}
+              aria-label={`Sort by percentage of top${sortColumn === "pct" ? `, currently ${sortDirection === "asc" ? "ascending" : "descending"}` : ""}`}
+            >
+              % of top{sortIndicator("pct")}
+            </button>
+            <button
+              type="button"
+              className={`whale-col-vals whale-col-sortable ${sortColumn === "vals" ? "active" : ""}`}
+              onClick={() => handleSort("vals")}
+              aria-label={`Sort by validator count${sortColumn === "vals" ? `, currently ${sortDirection === "asc" ? "ascending" : "descending"}` : ""}`}
+            >
+              Validators{sortIndicator("vals")}
+            </button>
           </div>
 
           {pageEntries.map((entry) => {
