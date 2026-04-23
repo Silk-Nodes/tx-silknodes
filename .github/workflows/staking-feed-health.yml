@@ -14,6 +14,11 @@ on:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
 
+# See deploy.yml for rationale — opt JavaScript actions into Node 24 ahead
+# of the June 2026 forced migration so health-check runs don't log warnings.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -27,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Verify all analytics files are fresh
         run: node scripts/check-feed-freshness.mjs
