@@ -2948,6 +2948,178 @@ input[type="range"]::-moz-range-thumb {
    right edge; the ▲/▼ indicator bleeds into the card border. Inset it. */
 .whale-table-head .whale-col-vals.whale-col-sortable { padding-right: 10px; }
 
+/* ═══ WHALE FILTER BAR (search + chips) ═══ */
+.whale-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px 12px;
+}
+
+.whale-search {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+}
+.whale-search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 0.78rem;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.whale-search-input {
+  width: 100%;
+  padding: 7px 30px 7px 30px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.whale-search-input::placeholder {
+  color: var(--text-light);
+}
+.whale-search-input:focus {
+  outline: none;
+  border-color: var(--tx-dark-green);
+  background: rgba(255, 255, 255, 0.85);
+}
+.whale-search-clear {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  cursor: pointer;
+  color: var(--text-light);
+  font-size: 0.78rem;
+  border-radius: 50%;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.whale-search-clear:hover {
+  color: var(--text-dark);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.whale-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.whale-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+}
+.whale-filter-chip:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-dark);
+}
+.whale-filter-chip.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  border-color: var(--tx-dark-green);
+}
+.whale-filter-chip-count {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.66rem;
+}
+.whale-filter-chip.active .whale-filter-chip-count {
+  opacity: 0.85;
+}
+.whale-filter-chip:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.whale-filter-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.whale-filter-empty-text { margin-bottom: 10px; }
+.whale-filter-empty-clear {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.whale-filter-empty-clear:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode overrides for the filter bar: search input and chips need
+   higher-contrast surfaces against the dark section backdrop. */
+:root[data-theme="dark"] .whale-tracker .whale-search-input {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .whale-tracker .whale-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+:root[data-theme="dark"] .whale-tracker .whale-search-input:focus {
+  border-color: var(--tx-neon);
+  background: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .whale-tracker .whale-search-icon,
+:root[data-theme="dark"] .whale-tracker .whale-search-clear {
+  color: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] .whale-tracker .whale-search-clear:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-chip {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-chip.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  border-color: var(--tx-neon);
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-empty {
+  color: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-empty-clear {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-filter-empty-clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* Labels */
 .whale-label {
   display: inline-flex;
