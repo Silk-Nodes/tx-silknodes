@@ -2235,7 +2235,7 @@ input[type="range"]::-moz-range-thumb {
 /* ═══ STICKY TIME RANGE ═══ */
 .sticky-pills-bar {
   position: fixed;
-  top: 54px;
+  top: 88px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
