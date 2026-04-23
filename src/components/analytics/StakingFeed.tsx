@@ -39,7 +39,7 @@ const ALL_TYPES: ReadonlySet<StakingEventType> = new Set<StakingEventType>([
 // (ranked top delegators + recent ≥1M TX moves).
 export default function StakingFeed() {
   const { events, validators, updatedAt, now, isStale, fetchError } = useStakingFeed();
-  const { topDelegators, whaleChanges } = useWhaleData();
+  const { topDelegators, whaleChanges, whaleHistory } = useWhaleData();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("activity");
   const [activeTier, setActiveTier] = useState<FeedTier>("all");
@@ -227,6 +227,7 @@ export default function StakingFeed() {
           <WhaleTracker
             topDelegators={topDelegators.entries}
             whaleChanges={whaleChanges}
+            whaleHistory={whaleHistory}
             events={events}
             validators={validators}
             now={now}

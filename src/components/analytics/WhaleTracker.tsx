@@ -14,11 +14,21 @@ import type {
   TopDelegatorEntry,
   TopDelegatorLabel,
   WhaleChangesPayload,
+  WhaleHistoryPayload,
 } from "@/hooks/useWhaleData";
+import {
+  WINDOW_ORDER,
+  WINDOW_LABELS,
+  computeMovesForWindow,
+  findSnapshotForWindow,
+  windowLookbackDays,
+  type WhaleWindow,
+} from "@/lib/whale-moves";
 
 interface WhaleTrackerProps {
   topDelegators: TopDelegatorEntry[];
   whaleChanges: WhaleChangesPayload;
+  whaleHistory: WhaleHistoryPayload;
   events: StakingEvent[];
   validators: Record<string, string>;
   now: number;
@@ -120,6 +130,7 @@ function LabelBadge({ label }: { label: TopDelegatorLabel | null }) {
 export default function WhaleTracker({
   topDelegators,
   whaleChanges,
+  whaleHistory,
   events,
   validators,
   now,
@@ -127,6 +138,10 @@ export default function WhaleTracker({
   onDelegatorClick,
   onAddressClick,
 }: WhaleTrackerProps) {
+  // Selected window for "Whales on the Move". 6H uses the prebuilt VM diff
+  // (whale-changes.json); everything else is computed client-side by diffing
+  // the current top-delegators against the closest historical snapshot.
+  const [movesWindow, setMovesWindow] = useState<WhaleWindow>("7d");
   const [page, setPage] = useState(0);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -460,22 +475,95 @@ export default function WhaleTracker({
       </div>
 
       {/* ─── Section B: Whales on the Move ─── */}
-      {/* Diff between the current 6h refresh and the previous one. Shows up
-          to MOVERS_PER_LIST items per category so the section stays compact
-          even when there are many changes. Each card clicks through to the
-          delegator panel for that address. */}
+      {/* 6H uses the prebuilt whale-changes.json (VM computes this on each
+          refresh cycle). Longer windows are computed client-side from
+          whale-history.json so a single daily snapshot on the VM unlocks
+          the entire ladder of window options. */}
       {(() => {
-        const { arrivals, exits, rankMovers, stakeMovers } = whaleChanges;
+        // Resolve active window to a changes payload.
+        // - 6H: pre-computed VM diff
+        // - everything else: find closest historical snapshot, compute diff
+        //   in the browser. If no snapshot satisfies the window (too new),
+        //   we surface a "collecting more history" empty state.
+        let movesPayload: WhaleChangesPayload | null = null;
+        let insufficientHistory = false;
+        let snapshotMeta: { date: string; ageDays: number } | null = null;
+
+        if (movesWindow === "6h") {
+          movesPayload = whaleChanges;
+        } else {
+          const match = findSnapshotForWindow(whaleHistory, windowLookbackDays(movesWindow), now);
+          if (!match) {
+            insufficientHistory = true;
+          } else {
+            snapshotMeta = { date: match.snapshot.date, ageDays: match.actualAgeDays };
+            movesPayload = computeMovesForWindow(
+              topDelegators,
+              match.snapshot,
+              whaleHistory.updatedAt || match.snapshot.date,
+            );
+          }
+        }
+
+        const arrivals = movesPayload?.arrivals ?? [];
+        const exits = movesPayload?.exits ?? [];
+        const rankMovers = movesPayload?.rankMovers ?? [];
+        const stakeMovers = movesPayload?.stakeMovers ?? [];
         const hasAny =
           arrivals.length + exits.length + rankMovers.length + stakeMovers.length > 0;
-        if (!hasAny) return null;
+
+        // Sub-header describes what's being compared so users understand
+        // the window they're viewing.
+        const subText =
+          movesWindow === "6h"
+            ? "since last 6 h refresh"
+            : insufficientHistory
+              ? `collecting history (need ${windowLookbackDays(movesWindow).toFixed(0)} days)`
+              : snapshotMeta
+                ? `vs ${snapshotMeta.date} (${snapshotMeta.ageDays.toFixed(1)} d ago)`
+                : "";
 
         return (
           <div className="whale-section">
             <div className="whale-section-header">
               <span className="whale-section-title">Whales on the Move</span>
-              <span className="whale-section-sub">since last 6 h refresh</span>
+              <span className="whale-section-sub">{subText}</span>
             </div>
+
+            {/* Window selector: pill row above the grid. 6H is always
+                enabled because whale-changes.json is written on every VM
+                refresh; the historical windows depend on snapshots piling
+                up in whale-history.json. */}
+            <div className="whale-window-pills" role="radiogroup" aria-label="Select moves window">
+              {WINDOW_ORDER.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  role="radio"
+                  aria-checked={movesWindow === w}
+                  className={`whale-window-pill ${movesWindow === w ? "active" : ""}`}
+                  onClick={() => setMovesWindow(w)}
+                >
+                  {WINDOW_LABELS[w]}
+                </button>
+              ))}
+            </div>
+
+            {insufficientHistory && (
+              <div className="whale-movers-empty">
+                Not enough daily snapshots yet for this window. Collecting
+                {" "}
+                {windowLookbackDays(movesWindow).toFixed(0)}
+                {" "}
+                days of history — come back soon.
+              </div>
+            )}
+
+            {!insufficientHistory && !hasAny && (
+              <div className="whale-movers-empty">
+                No qualifying whale moves in this window.
+              </div>
+            )}
             <div className="whale-movers-grid">
               {rankMovers.length > 0 && (
                 <div className="whale-movers-card">
