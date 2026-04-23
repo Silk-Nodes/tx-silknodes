@@ -46,10 +46,12 @@ const KNOWN_ENTITIES_FILE_REL = "public/analytics/known-entities.json";
 // "Whales on the Move" section.
 const WHALE_CHANGES_FILE = join(REPO_PATH, "public", "analytics", "whale-changes.json");
 const WHALE_CHANGES_FILE_REL = "public/analytics/whale-changes.json";
-// Rolling 90-day history of daily top-100 snapshots. Only appended when a
-// fresh UTC day has started since the previous append. Keeps the file size
-// manageable (~1 MB max). Basis for future trend charts once enough history
-// accumulates.
+// Rolling 90-day history of daily top-500 snapshots. Only appended when a
+// fresh UTC day has started since the previous append. File size lands
+// around ~5 MB uncompressed / ~700 KB gzipped at full retention — acceptable
+// given GitHub Pages serves it gzipped and the analytics tab caches the
+// response. Basis for the windowed "Whales on the Move" diff (7d/30d/90d)
+// and future trend charts.
 const WHALE_HISTORY_FILE = join(REPO_PATH, "public", "analytics", "whale-history.json");
 const WHALE_HISTORY_FILE_REL = "public/analytics/whale-history.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
@@ -67,7 +69,7 @@ const HEARTBEAT_INTERVAL_MS = 30 * 60_000; // force a push every 30 min so updat
 const PENDING_REFRESH_MS = 15 * 60_000; // refresh pending undelegations every 15 min
 const TOP_DELEGATORS_REFRESH_MS = 6 * 60 * 60_000; // refresh ranked delegator list every 6 h
 const TOP_DELEGATORS_COUNT = 500; // flat cap — every address ranked 1..500
-const HISTORY_SNAPSHOT_TOP_N = 100; // each daily history entry keeps only the top 100 (file size control)
+const HISTORY_SNAPSHOT_TOP_N = 500; // each daily history entry snapshots the full top 500 so the windowed diff UI matches current top-delegators semantics
 const HISTORY_RETENTION_DAYS = 90; // rolling 90-day history window
 const RANK_MOVER_THRESHOLD = 5; // rank delta >= 5 qualifies as a mover
 const STAKE_MOVER_THRESHOLD_UCORE = 500_000 * 1_000_000; // 500K TX in ucore — stake delta threshold

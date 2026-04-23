@@ -3120,6 +3120,63 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* ═══ WHALES ON THE MOVE — WINDOW SELECTOR ═══ */
+.whale-window-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 14px 12px;
+}
+.whale-window-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  letter-spacing: 0.02em;
+}
+.whale-window-pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-dark);
+}
+.whale-window-pill.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+.whale-window-pill:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.whale-movers-empty {
+  padding: 20px 20px 12px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+:root[data-theme="dark"] .whale-tracker .whale-window-pill {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .whale-tracker .whale-window-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+:root[data-theme="dark"] .whale-tracker .whale-window-pill.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .whale-tracker .whale-movers-empty {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* Labels */
 .whale-label {
   display: inline-flex;

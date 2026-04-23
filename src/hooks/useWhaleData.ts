@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 // The VM writes public/analytics/top-delegators.json every 6 h and
 // public/analytics/known-entities.json alongside the same push cycle.
 // The diff-between-refreshes lives in whale-changes.json (same cadence).
-// Daily top-100 snapshots accumulate in whale-history.json (future trend UI).
+// Daily top-500 snapshots accumulate in whale-history.json — powers the
+// windowed "Whales on the Move" diff (7d/30d/90d).
 // We fetch all of them at runtime so new VM pushes propagate to already-loaded
 // browser tabs within the poll window without a hard refresh.
 
@@ -79,6 +80,24 @@ export interface WhaleChangesPayload {
   stakeMovers: WhaleStakeMover[];
 }
 
+// Daily snapshot written by the VM (compact shape — no full label text
+// because label metadata lives in top-delegators.json / known-entities.json
+// and would balloon the history file).
+export interface WhaleHistoryEntry {
+  rank: number;
+  address: string;
+  totalStake: number;
+  labelType: string | null;
+}
+export interface WhaleHistorySnapshot {
+  date: string; // YYYY-MM-DD UTC
+  entries: WhaleHistoryEntry[];
+}
+export interface WhaleHistoryPayload {
+  updatedAt: string | null;
+  snapshots: WhaleHistorySnapshot[]; // oldest first
+}
+
 async function safeFetchJson<T>(filename: string, fallback: T): Promise<T> {
   try {
     const res = await fetch(`${BASE_PATH}/analytics/${filename}?t=${Date.now()}`, {
@@ -101,6 +120,11 @@ const EMPTY_CHANGES: WhaleChangesPayload = {
   stakeMovers: [],
 };
 
+const EMPTY_HISTORY: WhaleHistoryPayload = {
+  updatedAt: null,
+  snapshots: [],
+};
+
 export function useWhaleData() {
   const [topDelegators, setTopDelegators] = useState<TopDelegatorsPayload>({
     updatedAt: null,
@@ -108,23 +132,26 @@ export function useWhaleData() {
   });
   const [knownEntities, setKnownEntities] = useState<Record<string, KnownEntityMeta>>({});
   const [whaleChanges, setWhaleChanges] = useState<WhaleChangesPayload>(EMPTY_CHANGES);
+  const [whaleHistory, setWhaleHistory] = useState<WhaleHistoryPayload>(EMPTY_HISTORY);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      const [td, ke, wc] = await Promise.all([
+      const [td, ke, wc, wh] = await Promise.all([
         safeFetchJson<TopDelegatorsPayload>("top-delegators.json", { updatedAt: null, entries: [] }),
         safeFetchJson<{ updatedAt?: string; entries?: Record<string, KnownEntityMeta> }>(
           "known-entities.json",
           { entries: {} },
         ),
         safeFetchJson<WhaleChangesPayload>("whale-changes.json", EMPTY_CHANGES),
+        safeFetchJson<WhaleHistoryPayload>("whale-history.json", EMPTY_HISTORY),
       ]);
       if (cancelled) return;
       setTopDelegators(td);
       setKnownEntities(ke.entries || {});
       setWhaleChanges(wc);
+      setWhaleHistory(wh);
     };
 
     load();
@@ -135,5 +162,5 @@ export function useWhaleData() {
     };
   }, []);
 
-  return { topDelegators, knownEntities, whaleChanges };
+  return { topDelegators, knownEntities, whaleChanges, whaleHistory };
 }
