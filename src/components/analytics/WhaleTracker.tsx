@@ -49,6 +49,33 @@ const MOVERS_PER_LIST = 5; // how many rows per mover sub-list in "Whales on the
 type SortColumn = "rank" | "stake" | "pct" | "vals";
 type SortDirection = "asc" | "desc";
 
+// Label filter buckets. The underlying label.type field has many values
+// (individual, validator, validator+pse, pse-excluded, cex, …); we group
+// them into a small set of user-facing categories so the chip row stays
+// readable. "other" catches anything that isn't a primary bucket — including
+// individual-labeled addresses, which are kept discoverable via search by
+// name but don't warrant a dedicated filter chip.
+type LabelFilter = "all" | "unlabeled" | "validator" | "cex" | "other";
+const FILTER_ORDER: LabelFilter[] = ["all", "unlabeled", "validator", "cex", "other"];
+const FILTER_LABELS: Record<LabelFilter, string> = {
+  all: "All",
+  unlabeled: "Unlabeled",
+  validator: "Validator",
+  cex: "CEX",
+  other: "Other",
+};
+
+function categorizeLabel(label: TopDelegatorLabel | null): Exclude<LabelFilter, "all"> {
+  if (!label) return "unlabeled";
+  const t = label.type;
+  // validator and validator+pse both bucket as validator; users don't care
+  // about the PSE subtype at the filter level.
+  if (t.startsWith("validator")) return "validator";
+  if (t === "cex") return "cex";
+  // Everything else (individual, pse-excluded, etc.) goes under "Other".
+  return "other";
+}
+
 // Build a compact page list like [0, "…", 5, 6, 7, "…", 49]. Keeps the
 // pager to ~7-9 buttons regardless of total page count.
 function buildPageList(current: number, total: number): (number | "…")[] {
@@ -103,6 +130,8 @@ export default function WhaleTracker({
   const [page, setPage] = useState(0);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [search, setSearch] = useState("");
+  const [labelFilter, setLabelFilter] = useState<LabelFilter>("all");
 
   // Clicking the active column toggles direction; clicking a new column uses
   // each column's "natural" first direction (rank asc, everything else desc).
@@ -116,10 +145,39 @@ export default function WhaleTracker({
     setPage(0); // keep user on the first page of the new sort
   };
 
+  const handleSearchChange = (v: string) => {
+    setSearch(v);
+    setPage(0);
+  };
+  const handleFilterChange = (f: LabelFilter) => {
+    setLabelFilter(f);
+    setPage(0);
+  };
+  const clearFilters = () => {
+    setSearch("");
+    setLabelFilter("all");
+    setPage(0);
+  };
+
+  // Filter → sort → paginate. Search matches address substring OR label text,
+  // both case-insensitive. Filter applies the label category bucket.
+  const filteredDelegators = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return topDelegators.filter((entry) => {
+      if (labelFilter !== "all" && categorizeLabel(entry.label) !== labelFilter) return false;
+      if (q) {
+        const addrMatch = entry.address.toLowerCase().includes(q);
+        const labelMatch = entry.label?.text.toLowerCase().includes(q) ?? false;
+        if (!addrMatch && !labelMatch) return false;
+      }
+      return true;
+    });
+  }, [topDelegators, search, labelFilter]);
+
   // Sort BEFORE pagination so page slices always reflect the active order.
-  // Non-mutating copy: topDelegators is a prop, we must not sort in place.
+  // Non-mutating copy: prop arrays must not be sorted in place.
   const sortedDelegators = useMemo(() => {
-    const arr = [...topDelegators];
+    const arr = [...filteredDelegators];
     arr.sort((a, b) => {
       let cmp = 0;
       if (sortColumn === "rank") cmp = a.rank - b.rank;
@@ -128,11 +186,29 @@ export default function WhaleTracker({
       return sortDirection === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [topDelegators, sortColumn, sortDirection]);
+  }, [filteredDelegators, sortColumn, sortDirection]);
+
+  // Chip counts: computed against the UNFILTERED list so the numbers don't
+  // flicker as the user switches filters. Search is intentionally ignored
+  // too — chip counts reflect label categories, not the current text query.
+  const filterCounts = useMemo(() => {
+    const counts: Record<LabelFilter, number> = {
+      all: topDelegators.length,
+      unlabeled: 0,
+      validator: 0,
+      cex: 0,
+      other: 0,
+    };
+    for (const entry of topDelegators) {
+      counts[categorizeLabel(entry.label)]++;
+    }
+    return counts;
+  }, [topDelegators]);
 
   const totalPages = Math.max(1, Math.ceil(sortedDelegators.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages - 1);
   const pageEntries = sortedDelegators.slice(clampedPage * PAGE_SIZE, (clampedPage + 1) * PAGE_SIZE);
+  const hasActiveFilter = search.trim().length > 0 || labelFilter !== "all";
 
   const sortIndicator = (col: SortColumn) =>
     sortColumn === col ? (sortDirection === "asc" ? " ▲" : " ▼") : "";
@@ -167,7 +243,52 @@ export default function WhaleTracker({
       <div className="whale-section">
         <div className="whale-section-header">
           <span className="whale-section-title">Top Delegators</span>
-          <span className="whale-section-sub">{topDelegators.length} ranked</span>
+          <span className="whale-section-sub">
+            {hasActiveFilter
+              ? `${sortedDelegators.length} of ${topDelegators.length} ranked`
+              : `${topDelegators.length} ranked`}
+          </span>
+        </div>
+
+        {/* Filter bar: search matches address/label substring; chips filter by
+            label category. Counts are computed against the unfiltered list so
+            chip numbers stay stable as the user narrows. */}
+        <div className="whale-filter-bar">
+          <div className="whale-search">
+            <span className="whale-search-icon" aria-hidden="true">🔍</span>
+            <input
+              type="text"
+              className="whale-search-input"
+              placeholder="Search address or label…"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              aria-label="Search top delegators"
+            />
+            {search && (
+              <button
+                type="button"
+                className="whale-search-clear"
+                onClick={() => handleSearchChange("")}
+                aria-label="Clear search"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="whale-filter-chips" role="group" aria-label="Filter by label type">
+            {FILTER_ORDER.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={`whale-filter-chip ${labelFilter === f ? "active" : ""}`}
+                onClick={() => handleFilterChange(f)}
+                aria-pressed={labelFilter === f}
+              >
+                {FILTER_LABELS[f]} <span className="whale-filter-chip-count">{filterCounts[f]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="whale-table">
@@ -208,38 +329,49 @@ export default function WhaleTracker({
             </button>
           </div>
 
-          {pageEntries.map((entry) => {
-            const pct = topTotalTX > 0 ? (entry.totalStake / topTotalTX) * 100 : 0;
-            // Whole row is a button that opens the side panel. Keyboard
-            // users get Enter/Space; screen readers announce as button with
-            // address text as its accessible name.
-            return (
-              <div
-                key={entry.address}
-                className="whale-table-row whale-table-row-clickable"
-                role="button"
-                tabIndex={0}
-                onClick={() => onDelegatorClick(entry)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onDelegatorClick(entry);
-                  }
-                }}
-                aria-label={`Open details for ${entry.label?.text || "unlabeled address"} ${entry.address}`}
-                title={entry.address}
-              >
-                <span className="whale-col-rank">#{entry.rank}</span>
-                <span className="whale-col-addr">{truncateAddress(entry.address, 10, 6)}</span>
-                <span className="whale-col-label">
-                  <LabelBadge label={entry.label} />
-                </span>
-                <span className="whale-col-stake">{formatEventAmount(entry.totalStake)} TX</span>
-                <span className="whale-col-pct">{pct.toFixed(2)}%</span>
-                <span className="whale-col-vals">{entry.validatorCount}</span>
+          {sortedDelegators.length === 0 ? (
+            <div className="whale-filter-empty">
+              <div className="whale-filter-empty-text">
+                No delegators match the current filters.
               </div>
-            );
-          })}
+              <button type="button" className="whale-filter-empty-clear" onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            pageEntries.map((entry) => {
+              const pct = topTotalTX > 0 ? (entry.totalStake / topTotalTX) * 100 : 0;
+              // Whole row is a button that opens the side panel. Keyboard
+              // users get Enter/Space; screen readers announce as button with
+              // address text as its accessible name.
+              return (
+                <div
+                  key={entry.address}
+                  className="whale-table-row whale-table-row-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDelegatorClick(entry)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onDelegatorClick(entry);
+                    }
+                  }}
+                  aria-label={`Open details for ${entry.label?.text || "unlabeled address"} ${entry.address}`}
+                  title={entry.address}
+                >
+                  <span className="whale-col-rank">#{entry.rank}</span>
+                  <span className="whale-col-addr">{truncateAddress(entry.address, 10, 6)}</span>
+                  <span className="whale-col-label">
+                    <LabelBadge label={entry.label} />
+                  </span>
+                  <span className="whale-col-stake">{formatEventAmount(entry.totalStake)} TX</span>
+                  <span className="whale-col-pct">{pct.toFixed(2)}%</span>
+                  <span className="whale-col-vals">{entry.validatorCount}</span>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {totalPages > 1 && (
