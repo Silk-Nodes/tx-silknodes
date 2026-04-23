@@ -264,7 +264,10 @@ export default function WhaleTracker({
               onChange={(e) => handleSearchChange(e.target.value)}
               aria-label="Search top delegators"
             />
-            {search && (
+            {/* Gate on trimmed value so whitespace-only input doesn't render
+                a clear affordance while the rest of the UI (sub-header,
+                filter query) treats the search as empty. */}
+            {search.trim() && (
               <button
                 type="button"
                 className="whale-search-clear"
@@ -276,14 +279,19 @@ export default function WhaleTracker({
               </button>
             )}
           </div>
-          <div className="whale-filter-chips" role="group" aria-label="Filter by label type">
+          {/* Single-select chip row: clicking one deselects the others, so
+              aria-current (idiomatic for "active choice among siblings") is
+              correct. aria-pressed would imply independent toggle semantics
+              — matches how the sibling StakingFeed multi-select uses it, but
+              not how this filter actually behaves. */}
+          <div className="whale-filter-chips" aria-label="Filter by label type">
             {FILTER_ORDER.map((f) => (
               <button
                 key={f}
                 type="button"
                 className={`whale-filter-chip ${labelFilter === f ? "active" : ""}`}
                 onClick={() => handleFilterChange(f)}
-                aria-pressed={labelFilter === f}
+                aria-current={labelFilter === f ? "true" : undefined}
               >
                 {FILTER_LABELS[f]} <span className="whale-filter-chip-count">{filterCounts[f]}</span>
               </button>
