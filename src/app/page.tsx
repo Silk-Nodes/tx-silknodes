@@ -172,7 +172,10 @@ export default function HomePage() {
   const [networkTotalScore, setNetworkTotalScore] = useState<string | null>(null);
   const [networkScoreUpdatedAt, setNetworkScoreUpdatedAt] = useState<number>(0);
   useEffect(() => {
-    fetch(`${BASE_PATH}/pse-network-score.json`)
+    // Phase 2.3: reads from /api/pse-score (Postgres) instead of the
+    // JSON file the VM's pse-score timer used to commit. Response
+    // shape is preserved so no other change is needed here.
+    fetch(`/api/pse-score`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.networkTotalScore) setNetworkTotalScore(data.networkTotalScore);

@@ -28,10 +28,13 @@ import {
 // rebuild AND a browser hard-refresh. Runtime fetch with a short poll keeps
 // all already-loaded tabs in sync with the VM's daily pushes automatically.
 
-// Phase 2: app served from its own origin; no more /tx-silknodes/ path
-// prefix. Left as a constant so call sites don't need to change if a
-// future reverse-proxy pathing requirement shows up.
-const BASE_PATH = "";
+// Phase 2.3: all 7 per-metric JSONs + pending-undelegations.json are
+// now served through a single /api/analytics-data endpoint backed by
+// Postgres (wide daily_metrics table + pending_undelegations). The
+// client goes from ~8 round trips per poll to 1. See route.ts for
+// the response shape; keys under `datasets` match DATASETS_META ids
+// below exactly.
+const ANALYTICS_URL = "/api/analytics-data";
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 min
 
 // TX era starts March 6, 2026 (Coreum + Solo merge into TX)
@@ -80,40 +83,25 @@ function formatValue(value: number, unit: "TX" | "%" | ""): string {
   return formatLargeNumber(value, 0);
 }
 
-async function fetchAnalyticsFile(filename: string): Promise<DataPoint[]> {
-  try {
-    const res = await fetch(`${BASE_PATH}/analytics/${filename}?t=${Date.now()}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return (await res.json()) as DataPoint[];
-  } catch {
-    return [];
-  }
-}
-
-// pending-undelegations.json uses a wrapped schema: { updatedAt, entries }
-// The updatedAt field lets the external monitor treat it like a live
-// snapshot. Legacy shape (bare array) is still accepted during rollout.
 interface PendingUndelegationsPayload {
   updatedAt?: string;
   entries: DataPoint[];
 }
 
-async function fetchPendingUndelegationsFile(): Promise<PendingUndelegationsPayload> {
+interface AnalyticsResponse {
+  datasets: Record<string, DataPoint[]>;
+  pending: PendingUndelegationsPayload;
+}
+
+async function fetchAnalyticsData(): Promise<AnalyticsResponse | null> {
   try {
-    const res = await fetch(`${BASE_PATH}/analytics/pending-undelegations.json?t=${Date.now()}`, {
+    const res = await fetch(`${ANALYTICS_URL}?t=${Date.now()}`, {
       cache: "no-store",
     });
-    if (!res.ok) return { entries: [] };
-    const raw = await res.json();
-    if (Array.isArray(raw)) return { entries: raw as DataPoint[] };
-    return {
-      updatedAt: typeof raw?.updatedAt === "string" ? raw.updatedAt : undefined,
-      entries: Array.isArray(raw?.entries) ? (raw.entries as DataPoint[]) : [],
-    };
+    if (!res.ok) return null;
+    return (await res.json()) as AnalyticsResponse;
   } catch {
-    return { entries: [] };
+    return null;
   }
 }
 
@@ -130,17 +118,18 @@ export function useAnalyticsData(globalRange: TimeRange) {
     let cancelled = false;
 
     const load = async () => {
-      const datasetEntries = await Promise.all(
-        DATASETS_META.map(async (ds) => {
-          const data = await fetchAnalyticsFile(ds.file);
-          return [ds.id, data] as const;
-        }),
-      );
-      const pending = await fetchPendingUndelegationsFile();
-
-      if (cancelled) return;
-      setRawByDataset(Object.fromEntries(datasetEntries));
-      setPendingPayload(pending);
+      const data = await fetchAnalyticsData();
+      if (cancelled || !data) return;
+      // Keep only the keys the UI knows about (DATASETS_META). Extra
+      // keys from the API (e.g. price-usd, consumed by PriceChart) are
+      // intentionally ignored here — they don't correspond to a
+      // DatasetMeta entry and would confuse the consumer.
+      const byId: Record<string, DataPoint[]> = {};
+      for (const ds of DATASETS_META) {
+        byId[ds.id] = data.datasets[ds.id] ?? [];
+      }
+      setRawByDataset(byId);
+      setPendingPayload(data.pending ?? { entries: [] });
     };
 
     load();
