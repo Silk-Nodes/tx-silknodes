@@ -2,17 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-// The VM writes public/analytics/top-delegators.json every 6 h and
-// public/analytics/known-entities.json alongside the same push cycle.
-// The diff-between-refreshes lives in whale-changes.json (same cadence).
-// Daily top-500 snapshots accumulate in whale-history.json — powers the
-// windowed "Whales on the Move" diff (7d/30d/90d).
-// We fetch all of them at runtime so new VM pushes propagate to already-loaded
-// browser tabs within the poll window without a hard refresh.
+// Phase 2.2: previously we fetched four separate JSON files
+// (top-delegators, known-entities, whale-changes, whale-history) that
+// the VM collector committed to the repo. All four are now served
+// through a single /api/whale-data endpoint backed by Postgres via
+// Sequelize — one round trip per poll instead of four. The wire
+// shapes are preserved exactly so components consuming this hook
+// need no changes.
 
-// Phase 2: app served from its own origin; no more /tx-silknodes/ path
-// prefix.
-const BASE_PATH = "";
+const WHALE_DATA_URL = "/api/whale-data";
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 min
 
 export interface TopDelegatorLabel {
@@ -100,16 +98,11 @@ export interface WhaleHistoryPayload {
   snapshots: WhaleHistorySnapshot[]; // oldest first
 }
 
-async function safeFetchJson<T>(filename: string, fallback: T): Promise<T> {
-  try {
-    const res = await fetch(`${BASE_PATH}/analytics/${filename}?t=${Date.now()}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return fallback;
-    return (await res.json()) as T;
-  } catch {
-    return fallback;
-  }
+interface WhaleDataResponse {
+  topDelegators: TopDelegatorsPayload;
+  knownEntities: { updatedAt?: string; entries?: Record<string, KnownEntityMeta> };
+  whaleChanges: WhaleChangesPayload;
+  whaleHistory: WhaleHistoryPayload;
 }
 
 const EMPTY_CHANGES: WhaleChangesPayload = {
@@ -140,20 +133,21 @@ export function useWhaleData() {
     let cancelled = false;
 
     const load = async () => {
-      const [td, ke, wc, wh] = await Promise.all([
-        safeFetchJson<TopDelegatorsPayload>("top-delegators.json", { updatedAt: null, entries: [] }),
-        safeFetchJson<{ updatedAt?: string; entries?: Record<string, KnownEntityMeta> }>(
-          "known-entities.json",
-          { entries: {} },
-        ),
-        safeFetchJson<WhaleChangesPayload>("whale-changes.json", EMPTY_CHANGES),
-        safeFetchJson<WhaleHistoryPayload>("whale-history.json", EMPTY_HISTORY),
-      ]);
-      if (cancelled) return;
-      setTopDelegators(td);
-      setKnownEntities(ke.entries || {});
-      setWhaleChanges(wc);
-      setWhaleHistory(wh);
+      try {
+        const res = await fetch(`${WHALE_DATA_URL}?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as WhaleDataResponse;
+        if (cancelled) return;
+        setTopDelegators(data.topDelegators ?? { updatedAt: null, entries: [] });
+        setKnownEntities(data.knownEntities?.entries ?? {});
+        setWhaleChanges(data.whaleChanges ?? EMPTY_CHANGES);
+        setWhaleHistory(data.whaleHistory ?? EMPTY_HISTORY);
+      } catch {
+        // Soft-fail: keep current state so a transient blip doesn't
+        // wipe the UI. The 5 min poll will try again.
+      }
     };
 
     load();
