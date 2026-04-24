@@ -1,0 +1,49 @@
+# Silk Nodes TX — Caddy config template.
+#
+# Install as /etc/caddy/Caddyfile on the VM then:
+#   sudo caddy fmt --overwrite /etc/caddy/Caddyfile
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy auto-fetches a Let's Encrypt certificate the first time the
+# domain resolves to this server. That means: point DNS at the VM
+# BEFORE reloading Caddy, otherwise the cert challenge fails and the
+# site serves HTTP only.
+#
+# If you need to test before DNS is ready, substitute the placeholder
+# TX_SILKNODES_DOMAIN with http://<vm-ip>:80 (no TLS) so you can
+# verify the reverse proxy works, then swap the real domain in when
+# DNS is set.
+
+tx.silknodes.io {
+	# Next.js listens on localhost:3002 (silknodes-web.service). We
+	# terminate TLS here and proxy plain HTTP over the loopback —
+	# no need to re-encrypt to the upstream.
+	reverse_proxy localhost:3002
+
+	# Compression for text responses. Next.js doesn't gzip by default
+	# when running behind a proxy; Caddy handles it here so the JSON
+	# payloads (whale-data, analytics-data) ride the wire compressed.
+	encode gzip
+
+	# Log to journald alongside every other Silk Nodes service so
+	# `sudo journalctl -u caddy` gives one consolidated access log.
+	# Request logs are off by default in Caddy — flip this on if you
+	# want them:
+	# log {
+	#     output stdout
+	#     format json
+	# }
+
+	# Sensible security headers. Nothing fancy, just the baseline.
+	header {
+		# Prevent MIME type sniffing
+		X-Content-Type-Options nosniff
+		# Prevent framing (clickjacking) by other origins
+		X-Frame-Options DENY
+		# Referrer policy: send only the origin on cross-origin nav
+		Referrer-Policy strict-origin-when-cross-origin
+		# Remove Next.js's X-Powered-By if it slips through
+		-X-Powered-By
+	}
+}
