@@ -10,7 +10,9 @@ import { useEffect, useState } from "react";
 // We fetch all of them at runtime so new VM pushes propagate to already-loaded
 // browser tabs within the poll window without a hard refresh.
 
-const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+// Phase 2: app served from its own origin; no more /tx-silknodes/ path
+// prefix.
+const BASE_PATH = "";
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 min
 
 export interface TopDelegatorLabel {

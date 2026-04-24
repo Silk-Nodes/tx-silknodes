@@ -1,6 +1,7 @@
 "use client";
 
-const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+// Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
+const BASE_PATH = "";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Tooltip from "@/components/Tooltip";

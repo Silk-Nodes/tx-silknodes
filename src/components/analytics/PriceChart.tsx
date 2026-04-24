@@ -16,7 +16,8 @@ import { useTokenData } from "@/hooks/useTokenData";
 
 // TX era only
 const TX_ERA = "2026-03-06";
-const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+// Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
+const BASE_PATH = "";
 const POLL_INTERVAL_MS = 5 * 60_000;
 
 function todayUTC(): string {
