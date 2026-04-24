@@ -25,6 +25,9 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+# vm-service secrets — only the .example template is tracked
+vm-service/silknodes-db.env
+vm-service/*.env
 
 # vercel
 .vercel

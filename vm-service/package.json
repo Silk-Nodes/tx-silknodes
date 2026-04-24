@@ -9,12 +9,14 @@
     "start": "node collect-staking-events.mjs",
     "dev": "GIT_PUSH=false LOG_LEVEL=debug node collect-staking-events.mjs",
     "daily": "node collect-daily-analytics.mjs",
-    "daily-dev": "GIT_PUSH=false LOG_LEVEL=debug node collect-daily-analytics.mjs"
+    "daily-dev": "GIT_PUSH=false LOG_LEVEL=debug node collect-daily-analytics.mjs",
+    "check-db": "node check-db.mjs"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "bech32": "^2.0.0"
+    "bech32": "^2.0.0",
+    "pg": "^8.13.1"
   }
 }
