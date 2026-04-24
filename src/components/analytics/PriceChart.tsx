@@ -16,8 +16,12 @@ import { useTokenData } from "@/hooks/useTokenData";
 
 // TX era only
 const TX_ERA = "2026-03-06";
-// Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
-const BASE_PATH = "";
+// Phase 2.3: price history comes through /api/analytics-data (the
+// same endpoint useAnalyticsData consumes) under the "price-usd"
+// dataset key. Keeps a single round trip for all chart data even
+// when the user has both PriceChart and the main analytics grid
+// mounted at once (browsers coalesce identical in-flight GETs).
+const ANALYTICS_URL = "/api/analytics-data";
 const POLL_INTERVAL_MS = 5 * 60_000;
 
 function todayUTC(): string {
@@ -62,13 +66,16 @@ export default function PriceChart() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`${BASE_PATH}/analytics/price-usd.json?t=${Date.now()}`, {
+        const res = await fetch(`${ANALYTICS_URL}?t=${Date.now()}`, {
           cache: "no-store",
         });
         if (!res.ok) return;
-        const data = (await res.json()) as DataPoint[];
+        const payload = (await res.json()) as {
+          datasets?: Record<string, DataPoint[]>;
+        };
+        const priceSeries = payload?.datasets?.["price-usd"] ?? [];
         if (cancelled) return;
-        setHistoricalPriceData(data.filter((d) => d.date >= TX_ERA));
+        setHistoricalPriceData(priceSeries.filter((d) => d.date >= TX_ERA));
       } catch {
         // transient network blip; next poll tick will retry
       }
