@@ -28,7 +28,10 @@ import {
 // rebuild AND a browser hard-refresh. Runtime fetch with a short poll keeps
 // all already-loaded tabs in sync with the VM's daily pushes automatically.
 
-const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+// Phase 2: app served from its own origin; no more /tx-silknodes/ path
+// prefix. Left as a constant so call sites don't need to change if a
+// future reverse-proxy pathing requirement shows up.
+const BASE_PATH = "";
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 min
 
 // TX era starts March 6, 2026 (Coreum + Solo merge into TX)

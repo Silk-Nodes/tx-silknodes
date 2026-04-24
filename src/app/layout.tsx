@@ -3,7 +3,8 @@ import Script from "next/script";
 import "./globals.css";
 import { NO_FLASH_SCRIPT } from "@/lib/theme";
 
-const basePath = "/tx-silknodes";
+// Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
+const basePath = "";
 
 export const metadata: Metadata = {
   title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL("https://tx.silknodes.io"),
   alternates: {
-    canonical: "/tx-silknodes/",
+    canonical: "/",
   },
   icons: {
     icon: `${basePath}/tx-icon.png`,
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
     description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
-    url: "https://tx.silknodes.io/tx-silknodes/",
+    url: "https://tx.silknodes.io/",
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
@@ -159,7 +160,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Silk Nodes",
               url: "https://silknodes.io",
-              logo: "https://tx.silknodes.io/tx-silknodes/silk-nodes-logo.png",
+              logo: "https://tx.silknodes.io/silk-nodes-logo.png",
               description: "Professional blockchain validator and infrastructure provider. Active on Coreum (TX) with 5% commission, 99.98% uptime, and zero slashing events.",
               sameAs: [
                 "https://x.com/silk_nodes",
