@@ -21,7 +21,11 @@
 
 import { NextResponse } from "next/server";
 import { Op } from "sequelize";
-import { StakingEvent, Validator } from "@/lib/db/models";
+import {
+  PendingUndelegation,
+  StakingEvent,
+  Validator,
+} from "@/lib/db/models";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -67,21 +71,31 @@ export async function GET(req: Request) {
     const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
     const sinceDate = new Date(sinceMs);
 
-    // Fire all three queries in parallel. Postgres handles the fanout
-    // fine and we halve total latency vs sequential awaits.
-    const [rows, validatorRows, latestInsertRow] = await Promise.all([
-      StakingEvent.findAll({
-        where: {
-          amount: { [Op.gte]: MIN_AMOUNT_TX },
-          timestamp: { [Op.gte]: sinceDate },
-        },
-        order: [["timestamp", "DESC"]],
-        limit,
-        raw: true,
-      }),
-      Validator.findAll({ raw: true }),
-      StakingEvent.max<Date, StakingEvent>("inserted_at"),
-    ]);
+    // Fire the queries in parallel. Postgres handles the fanout fine
+    // and we halve total latency vs sequential awaits.
+    //
+    // The two "heartbeat" aggregates feed updatedAt — we pick the
+    // latest of them so the stale-feed banner tracks "collector alive"
+    // rather than "latest on-chain event". A quiet chain period (no
+    // staking events for >60 min) used to be misread as a stuck
+    // pipeline; pending_undelegations is refreshed every 15 min
+    // regardless of chain activity, so its updated_at is a reliable
+    // liveness signal.
+    const [rows, validatorRows, latestInsertRow, latestPendingRow] =
+      await Promise.all([
+        StakingEvent.findAll({
+          where: {
+            amount: { [Op.gte]: MIN_AMOUNT_TX },
+            timestamp: { [Op.gte]: sinceDate },
+          },
+          order: [["timestamp", "DESC"]],
+          limit,
+          raw: true,
+        }),
+        Validator.findAll({ raw: true }),
+        StakingEvent.max<Date, StakingEvent>("inserted_at"),
+        PendingUndelegation.max<Date, PendingUndelegation>("updated_at"),
+      ]);
 
     // Map DB row shape -> the JS shape the frontend already uses.
     // NUMERIC columns arrive as strings (Sequelize preserves precision);
@@ -103,13 +117,18 @@ export async function GET(req: Request) {
     const validators: Record<string, string> = {};
     for (const v of validatorRows) validators[v.operator_address] = v.moniker;
 
-    // Fall back to "now" if the table is empty on a fresh deploy so the
-    // hook's isStale check doesn't immediately flag. Shouldn't happen
-    // in practice because the collectors have been dual-writing for
-    // weeks by the time the frontend migrates, but cheap insurance.
+    // updatedAt = the freshest "collector is alive" signal we have.
+    // MAX(staking_events.inserted_at) reflects actual chain activity;
+    // MAX(pending_undelegations.updated_at) reflects the 15-min
+    // collector refresh cycle and keeps updatedAt moving even during
+    // quiet chain periods. Fall back to "now" on a fresh deploy with
+    // both tables empty.
+    const heartbeat = [latestInsertRow, latestPendingRow].filter(
+      (d): d is Date => d instanceof Date,
+    );
     const updatedAt =
-      latestInsertRow instanceof Date
-        ? latestInsertRow.toISOString()
+      heartbeat.length > 0
+        ? new Date(Math.max(...heartbeat.map((d) => d.getTime()))).toISOString()
         : new Date().toISOString();
 
     return NextResponse.json(
