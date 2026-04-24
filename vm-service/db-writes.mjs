@@ -216,6 +216,44 @@ export async function writeWhaleChanges(changes, rankThreshold, stakeThresholdTX
   return 1;
 }
 
+// ─── daily_metrics ───────────────────────────────────────────────────────
+//
+// One wide row per UTC day. The collector writes one column at a time
+// (e.g. "transactions" for day D, then "active_addresses" for day D, …),
+// so we UPSERT touching only the column being updated. The other columns
+// already on disk are preserved by ON CONFLICT DO UPDATE setting just one.
+//
+// Column name MUST be inlined into SQL (parameterised values can't be
+// column names). We validate against ALLOWED_DAILY_COLUMNS so a malformed
+// caller can never inject SQL via the column argument.
+const ALLOWED_DAILY_COLUMNS = new Set([
+  "transactions",
+  "active_addresses",
+  "total_stake",
+  "staking_apr",
+  "staked_pct",
+  "total_supply",
+  "circulating_supply",
+  "price_usd",
+]);
+
+export async function writeDailyMetric(date, columnName, value) {
+  if (!ALLOWED_DAILY_COLUMNS.has(columnName)) {
+    throw new Error(`writeDailyMetric: unknown column "${columnName}"`);
+  }
+  // Safe to inline columnName here because of the allowlist above; no
+  // user input ever reaches this string.
+  await query(
+    `INSERT INTO daily_metrics (date, ${columnName}, computed_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (date) DO UPDATE SET
+       ${columnName} = EXCLUDED.${columnName},
+       computed_at   = NOW()`,
+    [date, value],
+  );
+  return 1;
+}
+
 // ─── known_entities ──────────────────────────────────────────────────────
 //
 // payload mirrors known-entities.json shape: {updatedAt, entries: {address: {label, type, verified, source}}}.
