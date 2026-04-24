@@ -3,13 +3,20 @@
 import { useEffect, useState } from "react";
 import type { StakingEvent, StakingEventsData } from "@/lib/staking-events";
 
-const BASE_PATH = process.env.NODE_ENV === "production" ? "/tx-silknodes" : "";
+// Phase 2.1: fetches /api/staking-feed (Postgres-backed via Sequelize)
+// instead of the legacy /analytics/staking-events.json. Wire shape is
+// identical (see src/app/api/staking-feed/route.ts) so this hook only
+// needs a URL swap — no downstream component changes.
+//
+// The Pages-style basePath is gone because the app is now served from
+// its own origin (tx.silknodes.io) without the /tx-silknodes/ prefix.
+const FEED_URL = "/api/staking-feed";
 const POLL_INTERVAL_MS = 60_000; // 60s: match the vm-service poll cadence
 const TICK_INTERVAL_MS = 30_000; // 30s: refresh relative timestamps
-// The collector pushes a heartbeat every 30 min even with no new events, so
-// any updatedAt older than this means the collector is wedged or the deploy
-// pipeline is broken. Threshold is 2x the heartbeat interval to absorb
-// GitHub Pages rebuild lag without false positives.
+// updatedAt on the new API is MAX(inserted_at) from staking_events — the
+// last time the collector successfully dual-wrote an event. If the chain
+// is genuinely quiet for more than an hour we'll false-positive here;
+// threshold bumped from 30 min (heartbeat era) to absorb that.
 const STALE_THRESHOLD_MS = 60 * 60_000; // 60 min
 
 export function useStakingFeed() {
@@ -32,7 +39,7 @@ export function useStakingFeed() {
 
     const load = async () => {
       try {
-        const res = await fetch(`${BASE_PATH}/analytics/staking-events.json?t=${Date.now()}`, {
+        const res = await fetch(`${FEED_URL}?t=${Date.now()}`, {
           cache: "no-store",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
