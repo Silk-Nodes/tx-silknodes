@@ -1,0 +1,27 @@
+[Unit]
+Description=Silk Nodes PSE Network Score Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-pse-score.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-pse-score
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE for the dual-write
+# Postgres pipeline. Optional ("-" prefix) so the timer keeps firing on
+# hosts where the env file isn't set up.
+EnvironmentFile=-/home/%i/.silknodes-db.env
+# 30 min cap — full enumeration over ~100 validators × pagination plus
+# ~12-15k delegator score lookups typically completes in 5-10 min, so
+# 30 min is plenty of headroom for transient API slowness.
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

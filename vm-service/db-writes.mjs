@@ -254,6 +254,26 @@ export async function writeDailyMetric(date, columnName, value) {
   return 1;
 }
 
+// ─── pse_score ───────────────────────────────────────────────────────────
+//
+// Time-series append. PRIMARY KEY is computed_at (TIMESTAMPTZ) so unique
+// computations never collide; the script takes several seconds and now()
+// resolves to microseconds, so collisions are effectively impossible. We
+// still ON CONFLICT DO NOTHING to be defensive against same-tick re-runs.
+//
+// `score` is NUMERIC because the network total is a large bigint stored
+// as a string by the script (exceeds 2^53). Postgres parses the string
+// directly into NUMERIC with arbitrary precision.
+export async function writePseScore(computedAt, score, payload) {
+  await query(
+    `INSERT INTO pse_score (computed_at, score, payload)
+     VALUES ($1::timestamptz, $2::numeric, $3::jsonb)
+     ON CONFLICT (computed_at) DO NOTHING`,
+    [computedAt, score, JSON.stringify(payload ?? {})],
+  );
+  return 1;
+}
+
 // ─── known_entities ──────────────────────────────────────────────────────
 //
 // payload mirrors known-entities.json shape: {updatedAt, entries: {address: {label, type, verified, source}}}.
