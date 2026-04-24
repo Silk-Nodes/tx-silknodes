@@ -11,15 +11,19 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 DAILY_SERVICE_NAME="silknodes-daily-analytics"
 DAILY_SERVICE_FILE="/etc/systemd/system/${DAILY_SERVICE_NAME}.service"
 DAILY_TIMER_FILE="/etc/systemd/system/${DAILY_SERVICE_NAME}.timer"
+PSE_SERVICE_NAME="silknodes-pse-score"
+PSE_SERVICE_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.service"
+PSE_TIMER_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.timer"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
 echo "Repo path: $REPO_PATH"
 echo "User: $CURRENT_USER"
 echo
-echo "This installs two units:"
+echo "This installs three units:"
 echo "  1. $SERVICE_NAME (systemd service, always running) — staking events feed"
 echo "  2. $DAILY_SERVICE_NAME (systemd timer, daily) — historical analytics metrics"
+echo "  3. $PSE_SERVICE_NAME (systemd timer, every 6 h) — PSE network score"
 echo
 
 # Check Node.js
@@ -97,6 +101,11 @@ echo "Installing $DAILY_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-daily-analytics.service" "$DAILY_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-daily-analytics.timer" "$DAILY_TIMER_FILE"
 
+# Install the PSE network score collector service + timer (fires every 6 h)
+echo "Installing $PSE_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-pse-score.service" "$PSE_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-pse-score.timer" "$PSE_TIMER_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -117,6 +126,8 @@ sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl start "$SERVICE_NAME"
 sudo systemctl enable "${DAILY_SERVICE_NAME}.timer"
 sudo systemctl start "${DAILY_SERVICE_NAME}.timer"
+sudo systemctl enable "${PSE_SERVICE_NAME}.timer"
+sudo systemctl start "${PSE_SERVICE_NAME}.timer"
 
 sleep 2
 echo

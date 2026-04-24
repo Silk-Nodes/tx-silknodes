@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Silk Nodes PSE Network Score Collector every 6 hours
+Requires=silknodes-pse-score.service
+
+[Timer]
+# Match the previous GitHub Actions cron "0 */6 * * *" — fire at 00:00,
+# 06:00, 12:00, 18:00 UTC. Persistent so a reboot doesn't lose a run.
+OnCalendar=*-*-* 00,06,12,18:00:00 UTC
+Persistent=true
+Unit=silknodes-pse-score.service
+
+[Install]
+WantedBy=timers.target
