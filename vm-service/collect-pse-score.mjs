@@ -32,6 +32,10 @@ const OUTPUT_PATH = join(REPO_PATH, "public", "pse-network-score.json");
 // Phase 1 dual-write toggle. If PGUSER isn't set in env, runs JSON-only.
 const DB_WRITES_ENABLED = !!process.env.PGUSER;
 
+// Step 7 kill-switch. Defaults OFF — DB is the sole source of truth for
+// PSE score. Set JSON_WRITES=true to re-enable the legacy JSON file.
+const JSON_WRITES_ENABLED = process.env.JSON_WRITES === "true";
+
 const API = "https://api.silknodes.io/coreum";
 const GRAPHQL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const PAGE_LIMIT = 500;
@@ -193,6 +197,11 @@ async function main() {
       ? `DB_WRITES: enabled (dual-writing to ${process.env.PGDATABASE}@${process.env.PGHOST || "localhost"})`
       : "DB_WRITES: disabled (set PGUSER/PGPASSWORD/PGDATABASE to enable)",
   );
+  console.log(
+    JSON_WRITES_ENABLED
+      ? "JSON_WRITES: enabled (legacy — writing public/pse-network-score.json)"
+      : "JSON_WRITES: disabled (DB is authoritative; no file write)",
+  );
 
   const start = Date.now();
 
@@ -210,11 +219,16 @@ async function main() {
     updatedAtTimestamp: Math.floor(Date.now() / 1000),
   };
 
-  // 1. Write JSON (Phase 1: source of truth, still consumed by frontend)
-  writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2) + "\n");
+  // 1. Legacy JSON write. Step 7 gates this off by default — the
+  //    frontend reads from /api/pse-score (Postgres) and nothing else
+  //    consumes the file now.
+  if (JSON_WRITES_ENABLED) {
+    writeFileSync(OUTPUT_PATH, JSON.stringify(result, null, 2) + "\n");
+    console.log(`Saved to ${OUTPUT_PATH}`);
+  }
 
-  // 2. Dual-write to Postgres (non-fatal — JSON is the safety net during
-  //    Phase 1). Time-series row keyed on computed_at.
+  // 2. Dual-write to Postgres (now the authoritative source).
+  //    Time-series row keyed on computed_at.
   if (DB_WRITES_ENABLED) {
     try {
       await writePseScore(result.updatedAt, result.networkTotalScore, result);
@@ -227,7 +241,6 @@ async function main() {
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   console.log("\nResult:");
   console.log(JSON.stringify(result, null, 2));
-  console.log(`\nSaved to ${OUTPUT_PATH}`);
   console.log(`Completed in ${elapsed}s`);
 }
 

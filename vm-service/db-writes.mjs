@@ -254,6 +254,23 @@ export async function writeDailyMetric(date, columnName, value) {
   return 1;
 }
 
+/** Return the latest `date` in daily_metrics where the given column is
+ *  non-null, as a YYYY-MM-DD string, or null if no matching row exists.
+ *  Used by the daily collector to skip already-backfilled days now that
+ *  JSON files (the prior source of truth) may be frozen behind the DB. */
+export async function getLastDailyMetricDate(columnName) {
+  if (!ALLOWED_DAILY_COLUMNS.has(columnName)) {
+    throw new Error(`getLastDailyMetricDate: unknown column "${columnName}"`);
+  }
+  const { rows } = await query(
+    `SELECT MAX(date) AS date FROM daily_metrics WHERE ${columnName} IS NOT NULL`,
+  );
+  const d = rows[0]?.date;
+  if (!d) return null;
+  // pg returns DATE as a JS Date at UTC midnight; slice to YYYY-MM-DD.
+  return d instanceof Date ? d.toISOString().slice(0, 10) : String(d);
+}
+
 // ─── pse_score ───────────────────────────────────────────────────────────
 //
 // Time-series append. PRIMARY KEY is computed_at (TIMESTAMPTZ) so unique

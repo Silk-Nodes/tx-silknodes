@@ -74,6 +74,17 @@ const WHALE_HISTORY_FILE_REL = "public/analytics/whale-history.json";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 
+// Step 7 kill-switch: whether the collector still writes the legacy JSON
+// files under public/analytics/ (and therefore still has something to
+// git-push). Phase 2 migrated the frontend fully to API routes that read
+// from Postgres, so JSON files are no longer consumed by anyone; keeping
+// them written would just keep the collector generating ~150 git commits
+// per day forever. Defaults to OFF. Set JSON_WRITES=true in the env file
+// to re-enable (e.g. for a one-off backfill or emergency rollback to the
+// Pages site). When OFF, writeFileSync + the git commit/push pipeline
+// are both skipped; only the Postgres dual-write keeps running.
+const JSON_WRITES_ENABLED = process.env.JSON_WRITES === "true";
+
 // ═══ CONFIG ═══
 const RPC = "https://rpc-coreum.ecostake.com";
 const LCD = "https://rest-coreum.ecostake.com";
@@ -202,20 +213,23 @@ function loadExistingData() {
 }
 
 function saveData() {
-  const dir = dirname(DATA_FILE);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
   const payload = {
     updatedAt: new Date().toISOString(),
     validators: validatorMonikers,
     events: events.slice(0, MAX_EVENTS),
   };
-  writeFileSync(DATA_FILE, JSON.stringify(payload, null, null));
-  log("debug", `Saved ${events.length} events to ${DATA_FILE}`);
 
-  // Dual-write to Postgres. Fire-and-forget — saveData is sync (called
-  // from the poll loop) and we don't want to block the JSON write on a
-  // DB round-trip. Errors are logged inside safeDbWrite.
+  // Legacy JSON write (Step 7: gated OFF by default, DB is authoritative).
+  if (JSON_WRITES_ENABLED) {
+    const dir = dirname(DATA_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(DATA_FILE, JSON.stringify(payload, null, null));
+    log("debug", `Saved ${events.length} events to ${DATA_FILE}`);
+  }
+
+  // Postgres dual-write always runs. Fire-and-forget — saveData is sync
+  // (called from the poll loop) and we don't want to block on a DB
+  // round-trip. Errors are logged inside safeDbWrite.
   // Idempotent INSERT: ON CONFLICT DO NOTHING dedupes against rows
   // already in the table, so passing the full events buffer is safe.
   safeDbWrite("staking_events", () => writeStakingEvents(payload.events));
@@ -410,14 +424,16 @@ async function fetchPendingUndelegations() {
 }
 
 function savePending(entries) {
-  const dir = dirname(PENDING_FILE);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    entries,
-  };
-  writeFileSync(PENDING_FILE, JSON.stringify(payload, null, null));
-  log("debug", `Saved ${entries.length} pending-undelegations entries`);
+  if (JSON_WRITES_ENABLED) {
+    const dir = dirname(PENDING_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const payload = {
+      updatedAt: new Date().toISOString(),
+      entries,
+    };
+    writeFileSync(PENDING_FILE, JSON.stringify(payload, null, null));
+    log("debug", `Saved ${entries.length} pending-undelegations entries`);
+  }
 
   // Dual-write: TRUNCATE + INSERT in a transaction so a partial failure
   // can't leave the table empty.
@@ -575,21 +591,25 @@ function readJsonFile(path) {
 }
 
 function saveTopDelegators(entries) {
-  const dir = dirname(TOP_DELEGATORS_FILE);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    TOP_DELEGATORS_FILE,
-    JSON.stringify({ updatedAt: new Date().toISOString(), entries }, null, null),
-  );
+  if (JSON_WRITES_ENABLED) {
+    const dir = dirname(TOP_DELEGATORS_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      TOP_DELEGATORS_FILE,
+      JSON.stringify({ updatedAt: new Date().toISOString(), entries }, null, null),
+    );
+  }
 
   // Dual-write: TRUNCATE + bulk INSERT 500 rows in a transaction.
   safeDbWrite("top_delegators", () => writeTopDelegators(entries));
 }
 
 function saveKnownEntities(payload) {
-  const dir = dirname(KNOWN_ENTITIES_FILE);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(KNOWN_ENTITIES_FILE, JSON.stringify(payload, null, null));
+  if (JSON_WRITES_ENABLED) {
+    const dir = dirname(KNOWN_ENTITIES_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(KNOWN_ENTITIES_FILE, JSON.stringify(payload, null, null));
+  }
 
   // Dual-write: per-row UPSERT on address. Few hundred entries.
   safeDbWrite("known_entities", () => writeKnownEntities(payload));
@@ -668,15 +688,17 @@ function computeWhaleChanges(prevEntries, newEntries) {
 }
 
 function saveWhaleChanges(changes) {
-  const dir = dirname(WHALE_CHANGES_FILE);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    rankThreshold: RANK_MOVER_THRESHOLD,
-    stakeThresholdTX: STAKE_MOVER_THRESHOLD_UCORE / 1_000_000,
-    ...changes,
-  };
-  writeFileSync(WHALE_CHANGES_FILE, JSON.stringify(payload, null, null));
+  if (JSON_WRITES_ENABLED) {
+    const dir = dirname(WHALE_CHANGES_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const payload = {
+      updatedAt: new Date().toISOString(),
+      rankThreshold: RANK_MOVER_THRESHOLD,
+      stakeThresholdTX: STAKE_MOVER_THRESHOLD_UCORE / 1_000_000,
+      ...changes,
+    };
+    writeFileSync(WHALE_CHANGES_FILE, JSON.stringify(payload, null, null));
+  }
 
   // Dual-write: singleton UPSERT (id = 1).
   safeDbWrite("whale_changes", () =>
@@ -695,13 +717,6 @@ function todayUTC() {
 
 function maybeAppendDailyHistory(entries) {
   const today = todayUTC();
-  const existing = readJsonFile(WHALE_HISTORY_FILE);
-  const snapshots = Array.isArray(existing?.snapshots) ? existing.snapshots : [];
-
-  // If we've already snapshotted today, nothing to do.
-  if (snapshots.length > 0 && snapshots[snapshots.length - 1].date === today) {
-    return;
-  }
 
   // Strip label text to save bytes — for history we only need the type so
   // UI can style a label pill. Skip verification/source metadata.
@@ -712,9 +727,24 @@ function maybeAppendDailyHistory(entries) {
     labelType: e.label?.type ?? null,
   }));
 
-  snapshots.push({ date: today, entries: compactTop });
+  // Always attempt the DB insert — PRIMARY KEY (date, address) makes
+  // it idempotent via ON CONFLICT DO NOTHING, so calling it multiple
+  // times per day is cheap and harmless. This is also how we dedupe
+  // now that the JSON file dedupe path is gated off.
+  safeDbWrite("top_delegators_history", () =>
+    writeTopDelegatorsHistory(today, compactTop),
+  );
 
-  // Prune snapshots older than HISTORY_RETENTION_DAYS.
+  if (!JSON_WRITES_ENABLED) return;
+
+  // Legacy JSON path: read the existing file, skip if today already
+  // snapshotted, append + prune to HISTORY_RETENTION_DAYS, write back.
+  const existing = readJsonFile(WHALE_HISTORY_FILE);
+  const snapshots = Array.isArray(existing?.snapshots) ? existing.snapshots : [];
+  if (snapshots.length > 0 && snapshots[snapshots.length - 1].date === today) {
+    return;
+  }
+  snapshots.push({ date: today, entries: compactTop });
   const cutoffMs = Date.now() - HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const kept = snapshots.filter((s) => new Date(s.date + "T00:00:00Z").getTime() >= cutoffMs);
 
@@ -725,12 +755,6 @@ function maybeAppendDailyHistory(entries) {
     JSON.stringify({ updatedAt: new Date().toISOString(), snapshots: kept }, null, null),
   );
   log("info", `Whale history: appended ${today} snapshot (${compactTop.length} entries, ${kept.length} days retained)`);
-
-  // Dual-write: insert today's snapshot. PRIMARY KEY (date, address) makes
-  // this idempotent — re-running on the same UTC day is a no-op.
-  safeDbWrite("top_delegators_history", () =>
-    writeTopDelegatorsHistory(today, compactTop),
-  );
 }
 
 async function refreshTopDelegators() {
@@ -899,6 +923,17 @@ function gitCommitAndPush({ heartbeat = false } = {}) {
     log("debug", "Git push disabled via env");
     return;
   }
+  // Step 7: when JSON writes are off, there's nothing to commit (no
+  // files change). Skip the whole pull/commit/push pipeline — saves
+  // ~3 seconds per cycle and avoids useless git traffic.
+  if (!JSON_WRITES_ENABLED) {
+    log("debug", "JSON writes disabled — skipping git push cycle");
+    // Treat as a successful no-op so the failure tracker doesn't
+    // accumulate as if pushes were broken.
+    consecutivePushFailures = 0;
+    lastSuccessfulPush = Date.now();
+    return;
+  }
   try {
     execSync(`cd ${REPO_PATH} && git pull --rebase --autostash origin main`, { stdio: "pipe" });
 
@@ -963,6 +998,12 @@ async function main() {
     DB_WRITES_ENABLED
       ? `DB_WRITES: enabled (dual-writing to ${process.env.PGDATABASE}@${process.env.PGHOST || "localhost"})`
       : `DB_WRITES: disabled (set PGUSER/PGPASSWORD/PGDATABASE to enable)`,
+  );
+  log(
+    "info",
+    JSON_WRITES_ENABLED
+      ? "JSON_WRITES: enabled (legacy — writing public/analytics/*.json and pushing to git)"
+      : "JSON_WRITES: disabled (DB is authoritative; no file writes, no git push)",
   );
 
   loadExistingData();
