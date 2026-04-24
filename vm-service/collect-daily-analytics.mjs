@@ -41,9 +41,32 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+import { writeDailyMetric } from "./db-writes.mjs";
+import { closePool } from "./db.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
+
+// Phase 1 dual-write toggle. If PGUSER isn't set, the daily collector
+// runs JSON-only with one info log explaining how to enable. Same
+// pattern as collect-staking-events.mjs.
+const DB_WRITES_ENABLED = !!process.env.PGUSER;
+
+// JSON filename → daily_metrics column. The DB collapses 8 separate
+// daily JSONs into one wide row per UTC day; this map drives the
+// dual-write inside appendDataPoint(). Keys MUST match the .json
+// names appendDataPoint is called with; values MUST match the
+// ALLOWED_DAILY_COLUMNS allowlist in db-writes.mjs.
+const FILENAME_TO_COLUMN = {
+  "transactions.json": "transactions",
+  "active-addresses.json": "active_addresses",
+  "total-stake.json": "total_stake",
+  "staking-apr.json": "staking_apr",
+  "staked-pct.json": "staked_pct",
+  "total-supply.json": "total_supply",
+  "circulating-supply.json": "circulating_supply",
+  "price-usd.json": "price_usd",
+};
 // Files live in public/analytics so the Next.js export ships them as static
 // assets the browser can fetch at runtime. Static imports (src/data/analytics)
 // bake into the JS bundle and require a Pages rebuild + browser hard-refresh
@@ -73,6 +96,20 @@ function log(level, ...args) {
   if (levels[level] < currentLevel) return;
   const ts = new Date().toISOString();
   console.log(`[${ts}] [${level.toUpperCase()}]`, ...args);
+}
+
+// Wrap a Postgres write so any error is logged but never escapes — the
+// JSON pipeline is the source of truth during Phase 1 dual-write.
+async function safeDbWrite(label, fn) {
+  if (!DB_WRITES_ENABLED) return false;
+  try {
+    await fn();
+    log("debug", `db: ${label} ok`);
+    return true;
+  } catch (e) {
+    log("error", `db: ${label} FAILED: ${e.message}`);
+    return false;
+  }
 }
 
 // ═══ HELPERS ═══
@@ -295,6 +332,14 @@ function appendDataPoint(filename, date, value) {
     log("info", `  [${filename}] ${date} = ${value} (appended)`);
   }
   writeData(filename, data);
+
+  // Dual-write to Postgres. Each filename maps to one column on the wide
+  // daily_metrics table; UPSERT touches only that column so other metrics
+  // already written for the same date are preserved.
+  const column = FILENAME_TO_COLUMN[filename];
+  if (column) {
+    safeDbWrite(`daily_metrics.${column}`, () => writeDailyMetric(date, column, value));
+  }
 }
 
 // Compute missing dates for a file: from the day after its last entry up
@@ -366,6 +411,12 @@ async function main() {
   log("info", `REPO_PATH: ${REPO_PATH}`);
   log("info", `DATA_DIR: ${DATA_DIR}`);
   log("info", `GIT_PUSH: ${GIT_PUSH_ENABLED}`);
+  log(
+    "info",
+    DB_WRITES_ENABLED
+      ? `DB_WRITES: enabled (dual-writing to ${process.env.PGDATABASE}@${process.env.PGHOST || "localhost"})`
+      : `DB_WRITES: disabled (set PGUSER/PGPASSWORD/PGDATABASE to enable)`,
+  );
 
   const todayDate = todayUTC();
   let errors = 0;
@@ -470,10 +521,16 @@ async function main() {
   }
 
   log("info", `Done. errors=${errors}`);
-  if (errors > 0) process.exit(1);
+  // Use exitCode (not process.exit) so the outer .finally() can still
+  // drain the pg pool before the process actually exits.
+  if (errors > 0) process.exitCode = 1;
 }
 
-main().catch((e) => {
-  log("error", `Fatal error: ${e.stack || e.message}`);
-  process.exit(2);
-});
+main()
+  .catch((e) => {
+    log("error", `Fatal error: ${e.stack || e.message}`);
+    process.exitCode = 2;
+  })
+  // Drain the pg pool so the systemd-triggered process exits instead of
+  // hanging on idle DB sockets. Wraps both success and failure paths.
+  .finally(() => closePool().catch(() => {}));

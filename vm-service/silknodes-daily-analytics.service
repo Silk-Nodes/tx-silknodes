@@ -14,6 +14,10 @@ SyslogIdentifier=silknodes-daily-analytics
 Environment=NODE_ENV=production
 Environment=REPO_PATH=__REPO_PATH__
 Environment=LOG_LEVEL=info
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE for the dual-write
+# Postgres pipeline. The "-" prefix makes it optional so the timer keeps
+# firing on hosts where the DB env file isn't set up yet.
+EnvironmentFile=-/home/%i/.silknodes-db.env
 TimeoutStartSec=45min
 
 [Install]
