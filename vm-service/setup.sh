@@ -14,16 +14,19 @@ DAILY_TIMER_FILE="/etc/systemd/system/${DAILY_SERVICE_NAME}.timer"
 PSE_SERVICE_NAME="silknodes-pse-score"
 PSE_SERVICE_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.service"
 PSE_TIMER_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.timer"
+WEB_SERVICE_NAME="silknodes-web"
+WEB_SERVICE_FILE="/etc/systemd/system/${WEB_SERVICE_NAME}.service"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
 echo "Repo path: $REPO_PATH"
 echo "User: $CURRENT_USER"
 echo
-echo "This installs three units:"
+echo "This installs four units:"
 echo "  1. $SERVICE_NAME (systemd service, always running) — staking events feed"
 echo "  2. $DAILY_SERVICE_NAME (systemd timer, daily) — historical analytics metrics"
 echo "  3. $PSE_SERVICE_NAME (systemd timer, every 6 h) — PSE network score"
+echo "  4. $WEB_SERVICE_NAME (systemd service, always running) — Next.js web app on port 3002"
 echo
 
 # Check Node.js
@@ -79,6 +82,21 @@ echo "Installing vm-service npm dependencies..."
   echo "may not appear until this succeeds. Proceed with setup anyway."
 }
 
+# Install + build the Next.js web app (silknodes-web.service needs a
+# pre-built .next/ tree on startup). Skip gracefully if the build fails
+# so the collector still installs — operators can fix the build and
+# `sudo systemctl start silknodes-web` on their own.
+echo
+echo "Installing root npm dependencies + building Next.js..."
+if (cd "$REPO_PATH" && npm install --no-audit --no-fund && npm run build); then
+  echo "Next.js build succeeded."
+else
+  echo "WARNING: root npm install or build failed. silknodes-web.service"
+  echo "will not start until the build is fixed. Run manually with:"
+  echo "  cd $REPO_PATH && npm install && npm run build"
+  echo "  sudo systemctl start silknodes-web"
+fi
+
 # Helper: substitute template placeholders and install a systemd unit file
 install_unit() {
   local src="$1"
@@ -106,6 +124,10 @@ echo "Installing $PSE_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-pse-score.service" "$PSE_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-pse-score.timer" "$PSE_TIMER_FILE"
 
+# Install the Next.js web app service (always running on port 3002)
+echo "Installing $WEB_SERVICE_NAME.service..."
+install_unit "$SCRIPT_DIR/silknodes-web.service" "$WEB_SERVICE_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -128,6 +150,8 @@ sudo systemctl enable "${DAILY_SERVICE_NAME}.timer"
 sudo systemctl start "${DAILY_SERVICE_NAME}.timer"
 sudo systemctl enable "${PSE_SERVICE_NAME}.timer"
 sudo systemctl start "${PSE_SERVICE_NAME}.timer"
+sudo systemctl enable "$WEB_SERVICE_NAME"
+sudo systemctl start "$WEB_SERVICE_NAME"
 
 sleep 2
 echo
