@@ -16,6 +16,11 @@ SyslogIdentifier=silknodes-collector
 Environment=NODE_ENV=production
 Environment=REPO_PATH=__REPO_PATH__
 Environment=LOG_LEVEL=info
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE for the dual-write
+# Postgres pipeline. The file lives outside the repo (created from
+# vm-service/silknodes-db.env.example). When the file is absent the
+# collector still runs JSON-only — see DB_WRITES_ENABLED in the script.
+EnvironmentFile=-/home/%i/.silknodes-db.env
 
 [Install]
 WantedBy=multi-user.target
