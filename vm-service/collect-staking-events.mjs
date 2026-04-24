@@ -18,9 +18,26 @@ import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { bech32 } from "bech32";
+import {
+  writeStakingEvents,
+  writeValidators,
+  writePendingUndelegations,
+  writeTopDelegators,
+  writeTopDelegatorsHistory,
+  writeWhaleChanges,
+  writeKnownEntities,
+} from "./db-writes.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_PATH = process.env.REPO_PATH || resolve(__dirname, "..");
+
+// Phase 1 dual-write toggle. If PGUSER isn't set in env we run JSON-only
+// (preserves the old behavior on hosts that haven't set up the DB yet).
+// When enabled, every JSON write is followed by a parallel DB write
+// wrapped in safeDbWrite() so any DB hiccup logs an error but never
+// breaks the JSON pipeline. Once parity is verified the JSON writes
+// will be removed (Step 7) and this toggle becomes mandatory.
+const DB_WRITES_ENABLED = !!process.env.PGUSER;
 const DATA_FILE = join(REPO_PATH, "public", "analytics", "staking-events.json");
 const DATA_FILE_REL = "public/analytics/staking-events.json";
 // Pending undelegations is a "current-state snapshot" (list of unbonding
@@ -106,6 +123,22 @@ function log(level, ...args) {
   console.log(`[${ts}] [${level.toUpperCase()}]`, ...args);
 }
 
+// Wrap a Postgres write so any error is logged but never escapes — the
+// JSON pipeline is the source of truth during Phase 1 dual-write, and
+// transient DB issues (broken socket, lock timeout, schema drift) must
+// not be allowed to break it. Returns true on success, false on failure.
+async function safeDbWrite(label, fn) {
+  if (!DB_WRITES_ENABLED) return false;
+  try {
+    const n = await fn();
+    log("debug", `db: ${label} ok (${n ?? "?"})`);
+    return true;
+  } catch (e) {
+    log("error", `db: ${label} FAILED: ${e.message}`);
+    return false;
+  }
+}
+
 // ═══ HELPERS ═══
 function toDisplay(amount) {
   return Number(amount) / Math.pow(10, DECIMALS);
@@ -179,6 +212,14 @@ function saveData() {
   };
   writeFileSync(DATA_FILE, JSON.stringify(payload, null, null));
   log("debug", `Saved ${events.length} events to ${DATA_FILE}`);
+
+  // Dual-write to Postgres. Fire-and-forget — saveData is sync (called
+  // from the poll loop) and we don't want to block the JSON write on a
+  // DB round-trip. Errors are logged inside safeDbWrite.
+  // Idempotent INSERT: ON CONFLICT DO NOTHING dedupes against rows
+  // already in the table, so passing the full events buffer is safe.
+  safeDbWrite("staking_events", () => writeStakingEvents(payload.events));
+  safeDbWrite("validators", () => writeValidators(payload.validators));
 }
 
 // ═══ VALIDATOR CACHE ═══
@@ -377,6 +418,10 @@ function savePending(entries) {
   };
   writeFileSync(PENDING_FILE, JSON.stringify(payload, null, null));
   log("debug", `Saved ${entries.length} pending-undelegations entries`);
+
+  // Dual-write: TRUNCATE + INSERT in a transaction so a partial failure
+  // can't leave the table empty.
+  safeDbWrite("pending_undelegations", () => writePendingUndelegations(entries));
 }
 
 async function refreshPendingUndelegations() {
@@ -536,12 +581,18 @@ function saveTopDelegators(entries) {
     TOP_DELEGATORS_FILE,
     JSON.stringify({ updatedAt: new Date().toISOString(), entries }, null, null),
   );
+
+  // Dual-write: TRUNCATE + bulk INSERT 500 rows in a transaction.
+  safeDbWrite("top_delegators", () => writeTopDelegators(entries));
 }
 
 function saveKnownEntities(payload) {
   const dir = dirname(KNOWN_ENTITIES_FILE);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(KNOWN_ENTITIES_FILE, JSON.stringify(payload, null, null));
+
+  // Dual-write: per-row UPSERT on address. Few hundred entries.
+  safeDbWrite("known_entities", () => writeKnownEntities(payload));
 }
 
 // ─── Whale changes (diff between current and previous refresh) ───────────
@@ -626,6 +677,15 @@ function saveWhaleChanges(changes) {
     ...changes,
   };
   writeFileSync(WHALE_CHANGES_FILE, JSON.stringify(payload, null, null));
+
+  // Dual-write: singleton UPSERT (id = 1).
+  safeDbWrite("whale_changes", () =>
+    writeWhaleChanges(
+      changes,
+      RANK_MOVER_THRESHOLD,
+      STAKE_MOVER_THRESHOLD_UCORE / 1_000_000,
+    ),
+  );
 }
 
 // ─── Whale history (daily top-100 snapshot, 90-day rolling window) ───────
@@ -665,6 +725,12 @@ function maybeAppendDailyHistory(entries) {
     JSON.stringify({ updatedAt: new Date().toISOString(), snapshots: kept }, null, null),
   );
   log("info", `Whale history: appended ${today} snapshot (${compactTop.length} entries, ${kept.length} days retained)`);
+
+  // Dual-write: insert today's snapshot. PRIMARY KEY (date, address) makes
+  // this idempotent — re-running on the same UTC day is a no-op.
+  safeDbWrite("top_delegators_history", () =>
+    writeTopDelegatorsHistory(today, compactTop),
+  );
 }
 
 async function refreshTopDelegators() {
@@ -892,6 +958,12 @@ async function main() {
   log("info", `REPO_PATH: ${REPO_PATH}`);
   log("info", `DATA_FILE: ${DATA_FILE}`);
   log("info", `GIT_PUSH: ${GIT_PUSH_ENABLED}`);
+  log(
+    "info",
+    DB_WRITES_ENABLED
+      ? `DB_WRITES: enabled (dual-writing to ${process.env.PGDATABASE}@${process.env.PGHOST || "localhost"})`
+      : `DB_WRITES: disabled (set PGUSER/PGPASSWORD/PGDATABASE to enable)`,
+  );
 
   loadExistingData();
   await refreshValidators();
