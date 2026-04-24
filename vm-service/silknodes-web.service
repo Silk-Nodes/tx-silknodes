@@ -1,0 +1,33 @@
+[Unit]
+Description=Silk Nodes TX — Next.js web app
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=__REPO_PATH__
+# Runs the pre-built Next.js server. The build step is NOT invoked here
+# because it takes ~22 s and we don't want restarts to block for that
+# long. Deploy flow (manual):
+#   cd __REPO_PATH__ && git pull && npm install && npm run build \
+#     && sudo systemctl restart silknodes-web
+ExecStart=__NODE_PATH__ __REPO_PATH__/node_modules/next/dist/bin/next start --port 3002
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-web
+Environment=NODE_ENV=production
+# Port is here too so the Next.js runtime sees it via process.env as a
+# fallback, even though --port in ExecStart is what actually binds.
+Environment=PORT=3002
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE for Sequelize. The
+# "-" prefix keeps the unit loadable even if the env file isn't present
+# yet (the Next.js code uses placeholder credentials in that case and
+# Postgres will reject auth with a clear error at request time).
+EnvironmentFile=-/home/%i/.silknodes-db.env
+
+[Install]
+WantedBy=multi-user.target
