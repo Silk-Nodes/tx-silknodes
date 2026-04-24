@@ -41,7 +41,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
-import { writeDailyMetric } from "./db-writes.mjs";
+import { writeDailyMetric, getLastDailyMetricDate } from "./db-writes.mjs";
 import { closePool } from "./db.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,12 @@ const DATA_DIR = join(REPO_PATH, "public", "analytics");
 const DATA_DIR_REL = "public/analytics";
 const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
+
+// Step 7 kill-switch — see collect-staking-events.mjs for the full
+// rationale. Defaults OFF: daily metrics land in Postgres only, no
+// public/analytics/*.json, no git push. Set JSON_WRITES=true in env
+// to re-enable.
+const JSON_WRITES_ENABLED = process.env.JSON_WRITES === "true";
 
 // ═══ CONFIG ═══
 const RPC = "https://rpc-coreum.ecostake.com";
@@ -321,6 +327,21 @@ function writeData(filename, data) {
 }
 
 function appendDataPoint(filename, date, value) {
+  // Always dual-write to Postgres (authoritative source). Each
+  // filename maps to one column on the wide daily_metrics table;
+  // UPSERT touches only that column so other metrics already
+  // written for the same date are preserved.
+  const column = FILENAME_TO_COLUMN[filename];
+  if (column) {
+    safeDbWrite(`daily_metrics.${column}`, () => writeDailyMetric(date, column, value));
+  }
+
+  if (!JSON_WRITES_ENABLED) {
+    log("info", `  [daily_metrics.${column ?? "?"}] ${date} = ${value}`);
+    return;
+  }
+
+  // Legacy JSON path: read + upsert the entry + write back.
   const data = readData(filename);
   const existing = data.findIndex((d) => d.date === date);
   if (existing >= 0) {
@@ -332,21 +353,31 @@ function appendDataPoint(filename, date, value) {
     log("info", `  [${filename}] ${date} = ${value} (appended)`);
   }
   writeData(filename, data);
-
-  // Dual-write to Postgres. Each filename maps to one column on the wide
-  // daily_metrics table; UPSERT touches only that column so other metrics
-  // already written for the same date are preserved.
-  const column = FILENAME_TO_COLUMN[filename];
-  if (column) {
-    safeDbWrite(`daily_metrics.${column}`, () => writeDailyMetric(date, column, value));
-  }
 }
 
 // Compute missing dates for a file: from the day after its last entry up
 // through YESTERDAY. Never fills today — day isn't complete yet.
-function findMissingDays(filename) {
-  const data = readData(filename);
-  const last = data.length > 0 ? data[data.length - 1].date : null;
+//
+// Looks at both the legacy JSON file AND the Postgres daily_metrics row
+// for the corresponding column, and picks the more-recent of the two.
+// Important once JSON_WRITES is off: without the DB lookup, frozen JSON
+// files would make us re-fetch (and re-write) every day since the freeze.
+async function findMissingDays(filename) {
+  let last = null;
+  if (JSON_WRITES_ENABLED) {
+    const data = readData(filename);
+    if (data.length > 0) last = data[data.length - 1].date;
+  }
+  const column = FILENAME_TO_COLUMN[filename];
+  if (column) {
+    try {
+      const dbLast = await getLastDailyMetricDate(column);
+      if (dbLast && (!last || dbLast > last)) last = dbLast;
+    } catch (e) {
+      log("warn", `db: getLastDailyMetricDate(${column}) failed: ${e.message}`);
+    }
+  }
+
   const yesterday = yesterdayUTC();
   const startDate = last ? addDay(last, 1) : yesterday;
 
@@ -363,6 +394,10 @@ function findMissingDays(filename) {
 function gitCommitAndPush() {
   if (!GIT_PUSH_ENABLED) {
     log("debug", "Git push disabled via env");
+    return;
+  }
+  if (!JSON_WRITES_ENABLED) {
+    log("info", "JSON writes disabled — skipping git push (no files changed)");
     return;
   }
 
@@ -417,6 +452,12 @@ async function main() {
       ? `DB_WRITES: enabled (dual-writing to ${process.env.PGDATABASE}@${process.env.PGHOST || "localhost"})`
       : `DB_WRITES: disabled (set PGUSER/PGPASSWORD/PGDATABASE to enable)`,
   );
+  log(
+    "info",
+    JSON_WRITES_ENABLED
+      ? "JSON_WRITES: enabled (legacy — writing public/analytics/*.json and pushing to git)"
+      : "JSON_WRITES: disabled (DB is authoritative; no file writes, no git push)",
+  );
 
   const todayDate = todayUTC();
   let errors = 0;
@@ -425,7 +466,7 @@ async function main() {
   // ─── 1. Backfill per-day tx count + active addresses for all missing days ───
   // transactions.json is the master file for these two metrics. Both files
   // stay in lockstep so reading either one tells us what to backfill.
-  const missingDays = findMissingDays("transactions.json");
+  const missingDays = await findMissingDays("transactions.json");
   if (missingDays.length === 0) {
     log("info", "No missing days for transactions + active addresses");
   } else {
