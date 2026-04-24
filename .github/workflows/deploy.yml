@@ -1,8 +1,13 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (DISABLED — Phase 2 migration)
 
+# As of Phase 2 of the DB migration the frontend runs on the VM
+# (Caddy + Next.js with API routes on port 3002) instead of GitHub
+# Pages. The repo's next.config.ts no longer emits a static `/out`
+# directory, so this workflow would fail if it ran — we've removed
+# the `push` trigger. The file is kept (not deleted) so it remains
+# available as a break-glass rollback: revert next.config.ts to the
+# export variant and trigger this manually via workflow_dispatch.
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
