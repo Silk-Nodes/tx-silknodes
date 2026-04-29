@@ -4909,3 +4909,102 @@ input[type="range"]::-moz-range-thumb {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
+
+/* ── Recent flows magnitude filter + pagination ── */
+.flows-feed-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.flows-feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-feed-chip:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-dark);
+}
+.flows-feed-chip.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+.flows-feed-chip-count {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.66rem;
+}
+.flows-feed-chip.active .flows-feed-chip-count {
+  opacity: 0.85;
+}
+.flows-feed-chip:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.flows-feed-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.flows-feed-pager-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-dark);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-feed-pager-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+}
+.flows-feed-pager-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.flows-feed-pager-status {
+  color: var(--text-light);
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme="dark"] .flows-feed-chip {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .flows-feed-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+:root[data-theme="dark"] .flows-feed-chip.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .flows-feed-pager-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .flows-feed-pager-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .flows-feed-pager-status {
+  color: rgba(255, 255, 255, 0.5);
+}

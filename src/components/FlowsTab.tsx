@@ -83,7 +83,9 @@ export default function FlowsTab() {
         const [tRes, hRes, rRes] = await Promise.all([
           fetch(`/api/flows?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-history?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`/api/flows-recent?window=${windowKey}&limit=50&t=${Date.now()}`, { cache: "no-store" }),
+          // 200 = enough to power the client-side magnitude filter +
+          // pagination without round-tripping for every page change.
+          fetch(`/api/flows-recent?window=${windowKey}&limit=200&t=${Date.now()}`, { cache: "no-store" }),
         ]);
         if (!tRes.ok || !hRes.ok || !rRes.ok) throw new Error("HTTP error");
         const [t, h, r] = (await Promise.all([
@@ -253,7 +255,12 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
             />
             <ReferenceLine y={0} stroke="rgba(0,0,0,0.15)" />
             <RechartsTooltip
-              cursor={{ fill: "rgba(177,252,3,0.08)" }}
+              // Neutral darken-on-hover. The previous neon-green overlay
+              // (rgba(177,252,3,0.08)) tinted small bars so they
+              // visually disappeared in light mode. A subtle grey tints
+              // the background area without washing out the column
+              // colour underneath, in either theme.
+              cursor={{ fill: "rgba(0,0,0,0.05)" }}
               contentStyle={{
                 background: "rgba(15, 27, 7, 0.94)",
                 color: "#f4f1eb",
@@ -287,29 +294,121 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
 }
 
 // ─── RecentFlowsFeed ──────────────────────────────────────────────────
-// Last N flows ordered newest-first. Whale tag = top_delegators rank
-// when the counterparty is in the top 500.
+// Last N flows ordered newest-first. Filterable by magnitude bucket,
+// paginated 10 per page client-side. Whale tag (Top #N) = top_delegators
+// rank when the counterparty is in the top 500.
+
+type AmountBucket = "all" | "small" | "mid" | "large" | "whale";
+
+const AMOUNT_BUCKETS: { key: AmountBucket; label: string; min: number; max: number }[] = [
+  { key: "all",   label: "All",         min: 0,         max: Infinity },
+  { key: "small", label: "0–10K",       min: 0,         max: 10_000 },
+  { key: "mid",   label: "10K–100K",    min: 10_000,    max: 100_000 },
+  { key: "large", label: "100K–1M",     min: 100_000,   max: 1_000_000 },
+  { key: "whale", label: "1M+",         min: 1_000_000, max: Infinity },
+];
+
+const PAGE_SIZE = 10;
 
 function RecentFlowsFeed({ flows }: { flows: RecentFlowRow[] }) {
-  if (flows.length === 0) {
-    return (
-      <div className="flows-feed-card flows-feed-empty">
-        <div className="flows-chart-title">Recent Flows</div>
-        <div className="flows-feed-empty-text">No flows in this window yet.</div>
-      </div>
-    );
-  }
+  const [bucket, setBucket] = useState<AmountBucket>("all");
+  const [page, setPage] = useState(0);
+
+  // Recompute the filtered + paged slice whenever input changes. Clamp
+  // the page down if the user was on a higher page than the new filter
+  // can support (otherwise switching filters could leave us on an
+  // empty page).
+  const filtered = useMemo(() => {
+    const b = AMOUNT_BUCKETS.find((x) => x.key === bucket)!;
+    return flows.filter((f) => {
+      const a = Math.abs(f.amount);
+      return a >= b.min && a < b.max;
+    });
+  }, [flows, bucket]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageFlows = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+  // Counts per bucket so the chip labels can show "0–10K (37)" etc.
+  // Pre-computed once per `flows` change so chip clicks don't recount.
+  const counts = useMemo(() => {
+    const c: Record<AmountBucket, number> = {
+      all: flows.length, small: 0, mid: 0, large: 0, whale: 0,
+    };
+    for (const f of flows) {
+      const a = Math.abs(f.amount);
+      if (a < 10_000) c.small++;
+      else if (a < 100_000) c.mid++;
+      else if (a < 1_000_000) c.large++;
+      else c.whale++;
+    }
+    return c;
+  }, [flows]);
+
   return (
     <div className="flows-feed-card">
       <div className="flows-feed-header">
         <span className="flows-chart-title">Recent Flows</span>
-        <span className="flows-feed-count">{flows.length} shown</span>
+        <span className="flows-feed-count">
+          {filtered.length} of {flows.length}
+        </span>
       </div>
-      <div className="flows-feed-list">
-        {flows.map((f, i) => (
-          <FeedRow key={`${f.txHash}-${i}`} flow={f} />
+
+      {/* Magnitude filter chips */}
+      <div className="flows-feed-filter" role="radiogroup" aria-label="Filter by amount">
+        {AMOUNT_BUCKETS.map((b) => (
+          <button
+            key={b.key}
+            type="button"
+            role="radio"
+            aria-checked={bucket === b.key}
+            className={`flows-feed-chip ${bucket === b.key ? "active" : ""}`}
+            onClick={() => {
+              setBucket(b.key);
+              setPage(0); // reset to page 1 on filter change
+            }}
+          >
+            {b.label} <span className="flows-feed-chip-count">{counts[b.key]}</span>
+          </button>
         ))}
       </div>
+
+      {pageFlows.length === 0 ? (
+        <div className="flows-feed-empty-text">No flows match this filter.</div>
+      ) : (
+        <div className="flows-feed-list">
+          {pageFlows.map((f, i) => (
+            <FeedRow key={`${f.txHash}-${safePage}-${i}`} flow={f} />
+          ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flows-feed-pager" aria-label="Pagination">
+          <button
+            type="button"
+            className="flows-feed-pager-btn"
+            disabled={safePage === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            aria-label="Previous page"
+          >
+            ‹ Prev
+          </button>
+          <span className="flows-feed-pager-status">
+            Page {safePage + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="flows-feed-pager-btn"
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            aria-label="Next page"
+          >
+            Next ›
+          </button>
+        </div>
+      )}
     </div>
   );
 }
