@@ -1,21 +1,23 @@
 // GET /api/flows-history?window=30d
 //
-// Per-day inflow/outflow rollup for the Flows tab chart. One row per UTC
-// day in the window, with totals for inflow and outflow across all
-// tracked exchange addresses combined.
+// Per-day inflow/outflow rollup + the day's TX/USD price, for the Flows
+// tab chart. One row per UTC day in the window.
 //
 // Response:
 //   {
 //     window: "24h" | "7d" | "30d" | "90d" | "all",
 //     points: [
-//       { date: "2026-04-12", inflow: 102345.6, outflow: 87654.3 },
+//       { date: "2026-04-12", inflow: 102345.6, outflow: 87654.3, price: 0.0091 },
 //       ...
 //     ],
 //     updatedAt: ISO string
 //   }
 //
-// Inflow/outflow are positive numbers in TX. Net is computed client-side
-// (so the chart can stack inflow above zero and outflow below zero).
+// Inflow/outflow are positive numbers in TX. Price is the daily snapshot
+// from daily_metrics (null for days the metrics collector hasn't covered
+// yet — the chart skips those points on the price line). Net flow is
+// computed client-side so the chart can stack inflow above zero and
+// outflow below zero with the price line on a secondary axis.
 //
 // 24h window resolution: still grouped per-UTC-day. With sub-day data
 // the chart degenerates to one or two bars; that's expected and the
@@ -46,34 +48,46 @@ export async function GET(req: Request) {
     const lookback = WINDOWS[windowKey];
     const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
-    // Group by UTC date + direction. Casting timestamp to a UTC date
-    // keeps days stable across the user's local time zone. Sequelize's
-    // model-level group/raw API mixes badly with `literal()` in
-    // TypeScript, so we drop to a raw query — simpler and safer for a
-    // one-off aggregation.
-    const rows = (await sequelize.query<{
-      day: Date | string;
-      direction: "inflow" | "outflow";
-      total: string;
-    }>(
-      `
-      SELECT (timestamp at time zone 'UTC')::date AS day,
-             direction,
-             COALESCE(SUM(amount), 0) AS total
-      FROM exchange_flows
-      ${sinceDate ? "WHERE timestamp >= :sinceDate" : ""}
-      GROUP BY day, direction
-      ORDER BY day ASC
-      `,
-      {
-        type: QueryTypes.SELECT,
-        replacements: sinceDate ? { sinceDate } : {},
-      },
-    )) as unknown as Array<{
-      day: Date | string;
-      direction: "inflow" | "outflow";
-      total: string;
-    }>;
+    // Two queries fan out in parallel: flows aggregation + price series
+    // from daily_metrics. Merging client-side is simpler than a single
+    // SQL with conditional aggregation, especially with the LEFT-OUTER
+    // semantics required (price-only days, flow-only days both possible).
+    const [rows, priceRows] = (await Promise.all([
+      sequelize.query<{
+        day: Date | string;
+        direction: "inflow" | "outflow";
+        total: string;
+      }>(
+        `
+        SELECT (timestamp at time zone 'UTC')::date AS day,
+               direction,
+               COALESCE(SUM(amount), 0) AS total
+        FROM exchange_flows
+        ${sinceDate ? "WHERE timestamp >= :sinceDate" : ""}
+        GROUP BY day, direction
+        ORDER BY day ASC
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: sinceDate ? { sinceDate } : {},
+        },
+      ),
+      sequelize.query<{ date: Date | string; price_usd: string }>(
+        `
+        SELECT date, price_usd
+        FROM daily_metrics
+        WHERE price_usd IS NOT NULL
+          ${sinceDate ? "AND date >= :sinceDate::date" : ""}
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: sinceDate ? { sinceDate } : {},
+        },
+      ),
+    ])) as unknown as [
+      Array<{ day: Date | string; direction: "inflow" | "outflow"; total: string }>,
+      Array<{ date: Date | string; price_usd: string }>,
+    ];
 
     // Pivot rows -> one entry per day with both directions populated.
     const byDay = new Map<string, { inflow: number; outflow: number }>();
@@ -89,8 +103,26 @@ export async function GET(req: Request) {
       byDay.set(day, cur);
     }
 
+    // Build price lookup map. daily_metrics.date is a DATEONLY column
+    // so it may surface as a JS Date or as a YYYY-MM-DD string depending
+    // on the pg-types config; normalise both.
+    const priceByDay = new Map<string, number>();
+    for (const r of priceRows) {
+      const day =
+        typeof r.date === "string"
+          ? r.date.slice(0, 10)
+          : new Date(r.date).toISOString().slice(0, 10);
+      const v = Number(r.price_usd);
+      if (Number.isFinite(v)) priceByDay.set(day, v);
+    }
+
     const points = Array.from(byDay.entries())
-      .map(([date, v]) => ({ date, inflow: v.inflow, outflow: v.outflow }))
+      .map(([date, v]) => ({
+        date,
+        inflow: v.inflow,
+        outflow: v.outflow,
+        price: priceByDay.get(date) ?? null,
+      }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json(

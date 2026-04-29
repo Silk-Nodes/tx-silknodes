@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -32,7 +33,31 @@ interface FlowsResponse {
 }
 interface FlowsHistoryResponse {
   window: WindowKey;
-  points: Array<{ date: string; inflow: number; outflow: number }>;
+  points: Array<{ date: string; inflow: number; outflow: number; price: number | null }>;
+  updatedAt: string;
+}
+interface DestinationsResponse {
+  window: WindowKey;
+  totalOutflow: number;
+  buckets: Array<{
+    category: "staked" | "other_exchange" | "private";
+    amount: number;
+    txCount: number;
+    pct: number;
+  }>;
+  updatedAt: string;
+}
+interface CounterpartyRow {
+  address: string;
+  label: string | null;
+  rank: number | null;
+  totalAmount: number;
+  txCount: number;
+}
+interface CounterpartiesResponse {
+  window: WindowKey;
+  depositors: CounterpartyRow[];
+  withdrawers: CounterpartyRow[];
   updatedAt: string;
 }
 interface RecentFlowRow {
@@ -71,32 +96,47 @@ export default function FlowsTab() {
   const [totals, setTotals] = useState<FlowsResponse | null>(null);
   const [history, setHistory] = useState<FlowsHistoryResponse | null>(null);
   const [recent, setRecent] = useState<FlowsRecentResponse | null>(null);
+  const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
+  const [counterparties, setCounterparties] = useState<CounterpartiesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Single fetch effect that pulls all 3 endpoints in parallel. Keeps
-  // them on the same poll cadence so the chart, cards, and feed all
-  // refresh in lockstep.
+  // Single fetch effect that pulls every Flows endpoint in parallel
+  // so the chart, cards, destinations breakdown, leaderboard, and
+  // feed all refresh in lockstep.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [tRes, hRes, rRes] = await Promise.all([
+        const [tRes, hRes, rRes, dRes, cRes] = await Promise.all([
           fetch(`/api/flows?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-history?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           // 200 = enough to power the client-side magnitude filter +
           // pagination without round-tripping for every page change.
           fetch(`/api/flows-recent?window=${windowKey}&limit=200&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-destinations?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-counterparties?window=${windowKey}&limit=10&t=${Date.now()}`, { cache: "no-store" }),
         ]);
-        if (!tRes.ok || !hRes.ok || !rRes.ok) throw new Error("HTTP error");
-        const [t, h, r] = (await Promise.all([
+        if (!tRes.ok || !hRes.ok || !rRes.ok || !dRes.ok || !cRes.ok)
+          throw new Error("HTTP error");
+        const [t, h, r, d, c] = (await Promise.all([
           tRes.json(),
           hRes.json(),
           rRes.json(),
-        ])) as [FlowsResponse, FlowsHistoryResponse, FlowsRecentResponse];
+          dRes.json(),
+          cRes.json(),
+        ])) as [
+          FlowsResponse,
+          FlowsHistoryResponse,
+          FlowsRecentResponse,
+          DestinationsResponse,
+          CounterpartiesResponse,
+        ];
         if (cancelled) return;
         setTotals(t);
         setHistory(h);
         setRecent(r);
+        setDestinations(d);
+        setCounterparties(c);
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -160,8 +200,13 @@ export default function FlowsTab() {
         </div>
       )}
 
-      {/* ─── Daily flow chart ─── */}
+      {/* ─── Daily flow chart with price overlay ─── */}
       {history && history.points.length > 0 && <FlowsChart points={history.points} />}
+
+      {/* ─── Withdrawal destinations breakdown ─── */}
+      {destinations && destinations.totalOutflow > 0 && (
+        <DestinationsSection data={destinations} />
+      )}
 
       {/* ─── Total card (full width, prominent) ─── */}
       {totals && (
@@ -192,6 +237,14 @@ export default function FlowsTab() {
         </div>
       )}
 
+      {/* ─── Top counterparties leaderboard ─── */}
+      {counterparties && (
+        <CounterpartiesSection
+          depositors={counterparties.depositors}
+          withdrawers={counterparties.withdrawers}
+        />
+      )}
+
       {/* ─── Recent flows feed ─── */}
       {recent && <RecentFlowsFeed flows={recent.flows} />}
 
@@ -208,7 +261,11 @@ export default function FlowsTab() {
 // net is the visible difference between the two — green-leaning days =
 // outflow dominant = bullish; red-leaning = inflow dominant = bearish.
 
-function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; outflow: number }> }) {
+function FlowsChart({
+  points,
+}: {
+  points: Array<{ date: string; inflow: number; outflow: number; price: number | null }>;
+}) {
   // Recharts wants negative values to render below zero. We negate
   // outflow on the way in, then re-positive it on the way out for the
   // tooltip so users see the absolute number, not "-1.2M".
@@ -216,6 +273,10 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
     () => points.map((p) => ({ ...p, outflowNeg: -p.outflow })),
     [points],
   );
+  // Whether we have any price data at all in this window — if not, we
+  // skip rendering the price line + secondary axis so the chart
+  // doesn't show an empty "USD" axis.
+  const hasPrice = useMemo(() => points.some((p) => p.price != null), [points]);
 
   // Recharts' cursor highlight needs a theme-aware fill: a black tint
   // is invisible on dark mode (black-on-dark) and a neon tint washes
@@ -236,7 +297,7 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
   return (
     <div className="flows-chart-card">
       <div className="flows-chart-header">
-        <span className="flows-chart-title">Daily Flow</span>
+        <span className="flows-chart-title">Daily Flow {hasPrice ? "+ Price" : ""}</span>
         <span className="flows-chart-legend">
           <span className="flows-chart-legend-item">
             <span className="flows-chart-legend-swatch flows-chart-legend-in" /> Inflow
@@ -244,11 +305,16 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
           <span className="flows-chart-legend-item">
             <span className="flows-chart-legend-swatch flows-chart-legend-out" /> Outflow
           </span>
+          {hasPrice && (
+            <span className="flows-chart-legend-item">
+              <span className="flows-chart-legend-swatch flows-chart-legend-price" /> Price (USD)
+            </span>
+          )}
         </span>
       </div>
       <div style={{ width: "100%", height: 280 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }} stackOffset="sign">
+          <ComposedChart data={chartData} margin={{ top: 12, right: hasPrice ? 56 : 12, bottom: 4, left: 0 }} stackOffset="sign">
             <CartesianGrid strokeDasharray="4 4" stroke="rgba(59,45,38,0.06)" vertical={false} />
             <XAxis
               dataKey="date"
@@ -262,14 +328,31 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
               interval={Math.max(0, Math.floor(chartData.length / 8))}
               dy={6}
             />
+            {/* Primary axis: inflow/outflow volume in TX */}
             <YAxis
+              yAxisId="flow"
               tickFormatter={(v: number) => formatLargeNumber(Math.abs(v))}
               tick={{ fill: "rgba(106,90,81,0.4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
               axisLine={false}
               tickLine={false}
               width={55}
             />
-            <ReferenceLine y={0} stroke="rgba(0,0,0,0.15)" />
+            {/* Secondary axis: TX price in USD. Only mount when we
+                actually have price data so the axis labels don't
+                appear on empty windows. */}
+            {hasPrice && (
+              <YAxis
+                yAxisId="price"
+                orientation="right"
+                domain={["auto", "auto"]}
+                tickFormatter={(v: number) => `$${v.toFixed(4)}`}
+                tick={{ fill: "rgba(177,252,3,0.7)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+                axisLine={false}
+                tickLine={false}
+                width={50}
+              />
+            )}
+            <ReferenceLine yAxisId="flow" y={0} stroke="rgba(0,0,0,0.15)" />
             <RechartsTooltip
               // Theme-aware cursor highlight: black-tint on light mode
               // (subtle darken without colour bleed), neon-tint on dark
@@ -289,18 +372,29 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
                 return dt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
               }}
               formatter={(value: number, name: string) => {
-                if (name === "Inflow") {
-                  return [`${formatLargeNumber(value)} TX`, "Inflow"];
-                }
-                if (name === "Outflow") {
-                  return [`${formatLargeNumber(Math.abs(value))} TX`, "Outflow"];
-                }
+                if (name === "Inflow") return [`${formatLargeNumber(value)} TX`, "Inflow"];
+                if (name === "Outflow") return [`${formatLargeNumber(Math.abs(value))} TX`, "Outflow"];
+                if (name === "Price") return [`$${value.toFixed(4)}`, "Price"];
                 return [value, name];
               }}
             />
-            <Bar dataKey="inflow"    name="Inflow"  stackId="flow" fill="#c45a4a" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="outflowNeg" name="Outflow" stackId="flow" fill="#4a7a1a" radius={[0, 0, 3, 3]} />
-          </BarChart>
+            <Bar yAxisId="flow" dataKey="inflow"     name="Inflow"  stackId="flow" fill="#c45a4a" radius={[3, 3, 0, 0]} />
+            <Bar yAxisId="flow" dataKey="outflowNeg" name="Outflow" stackId="flow" fill="#4a7a1a" radius={[0, 0, 3, 3]} />
+            {hasPrice && (
+              <Line
+                yAxisId="price"
+                type="monotone"
+                dataKey="price"
+                name="Price"
+                stroke="#B1FC03"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: "#B1FC03", stroke: "#0f1b07", strokeWidth: 2 }}
+                isAnimationActive={false}
+                connectNulls
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -452,6 +546,135 @@ function FeedRow({ flow }: { flow: RecentFlowRow }) {
           <span className="flows-feed-whale-tag">Top #{flow.counterpartyRank}</span>
         )}
       </span>
+    </div>
+  );
+}
+
+// ─── DestinationsSection ──────────────────────────────────────────────
+// "Where do withdrawals go?" — three cards split by destination type.
+// Total is always the sum of the three so percentages add up to 100.
+
+const DESTINATION_META: Record<
+  "staked" | "other_exchange" | "private",
+  { label: string; tone: "good" | "neutral" | "warn"; description: string }
+> = {
+  staked: {
+    label: "Staked",
+    tone: "good",
+    description: "Outflow to wallets that staked within 7 days — bullish signal",
+  },
+  other_exchange: {
+    label: "Other Exchange",
+    tone: "neutral",
+    description: "Rotation between exchanges — neither bullish nor bearish",
+  },
+  private: {
+    label: "Private Wallet",
+    tone: "neutral",
+    description: "Cold storage / personal wallets / unidentified destinations",
+  },
+};
+
+function DestinationsSection({ data }: { data: DestinationsResponse }) {
+  return (
+    <div className="flows-destinations">
+      <div className="flows-destinations-header">
+        <span className="flows-chart-title">Where Withdrawals Go</span>
+        <span className="flows-feed-count">
+          {formatLargeNumber(data.totalOutflow)} TX over {data.window.toUpperCase()}
+        </span>
+      </div>
+      <div className="flows-destinations-grid">
+        {data.buckets.map((b) => {
+          const meta = DESTINATION_META[b.category];
+          return (
+            <div key={b.category} className={`flows-destination-card flows-destination-${meta.tone}`}>
+              <div className="flows-destination-label">{meta.label}</div>
+              <div className="flows-destination-pct">{b.pct.toFixed(1)}%</div>
+              <div className="flows-destination-amount">
+                {formatLargeNumber(b.amount)} TX · {b.txCount.toLocaleString()} tx
+              </div>
+              <div className="flows-destination-desc">{meta.description}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── CounterpartiesSection ────────────────────────────────────────────
+// Top-N depositors and withdrawers side-by-side. Each row shows the
+// counterparty's known label (when available), top_delegators rank
+// (whale tag), aggregate amount and tx count.
+
+function CounterpartiesSection({
+  depositors,
+  withdrawers,
+}: {
+  depositors: CounterpartyRow[];
+  withdrawers: CounterpartyRow[];
+}) {
+  if (depositors.length === 0 && withdrawers.length === 0) return null;
+  return (
+    <div className="flows-counterparties">
+      <CounterpartyList
+        title="Top Depositors"
+        subtitle="largest senders TO exchanges"
+        rows={depositors}
+        direction="inflow"
+      />
+      <CounterpartyList
+        title="Top Withdrawers"
+        subtitle="largest receivers FROM exchanges"
+        rows={withdrawers}
+        direction="outflow"
+      />
+    </div>
+  );
+}
+
+function CounterpartyList({
+  title,
+  subtitle,
+  rows,
+  direction,
+}: {
+  title: string;
+  subtitle: string;
+  rows: CounterpartyRow[];
+  direction: "inflow" | "outflow";
+}) {
+  const directionClass = direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
+  return (
+    <div className="flows-counterparty-card">
+      <div className="flows-counterparty-header">
+        <span className="flows-chart-title">{title}</span>
+        <span className="flows-feed-count">{subtitle}</span>
+      </div>
+      {rows.length === 0 ? (
+        <div className="flows-feed-empty-text">No data in this window.</div>
+      ) : (
+        <ol className="flows-counterparty-list">
+          {rows.map((r, i) => (
+            <li key={r.address} className="flows-counterparty-row">
+              <span className="flows-counterparty-rank">#{i + 1}</span>
+              <span className="flows-counterparty-name" title={r.address}>
+                {r.label ?? truncate(r.address)}
+                {r.rank != null && (
+                  <span className="flows-feed-whale-tag">Top #{r.rank}</span>
+                )}
+              </span>
+              <span className={`flows-counterparty-amount ${directionClass}`}>
+                {formatLargeNumber(r.totalAmount)} TX
+              </span>
+              <span className="flows-counterparty-count">
+                {r.txCount.toLocaleString()} tx
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

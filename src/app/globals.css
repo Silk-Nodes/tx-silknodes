@@ -5008,3 +5008,155 @@ input[type="range"]::-moz-range-thumb {
 :root[data-theme="dark"] .flows-feed-pager-status {
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* ── Destinations breakdown ── */
+.flows-destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-destinations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 4px;
+}
+.flows-destinations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.flows-destination-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 4px solid var(--glass-border);
+}
+.flows-destination-good    { border-left-color: #4a7a1a; }
+.flows-destination-neutral { border-left-color: var(--text-light); }
+.flows-destination-warn    { border-left-color: #e6a800; }
+.flows-destination-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-medium);
+}
+.flows-destination-pct {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.flows-destination-amount {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-medium);
+}
+.flows-destination-desc {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--text-light);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .flows-destination-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-destination-label  { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-destination-pct    { color: #fff; }
+:root[data-theme="dark"] .flows-destination-amount { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flows-destination-desc   { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flows-destination-good    { border-left-color: var(--tx-neon); }
+:root[data-theme="dark"] .flows-destination-neutral { border-left-color: rgba(255, 255, 255, 0.25); }
+:root[data-theme="dark"] .flows-destination-warn    { border-left-color: #f0b95a; }
+
+/* ── Top counterparties leaderboard ── */
+.flows-counterparties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+.flows-counterparty-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-counterparty-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flows-counterparty-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.flows-counterparty-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.flows-counterparty-row:first-child { border-top: none; }
+.flows-counterparty-rank {
+  color: var(--text-light);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.flows-counterparty-name {
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flows-counterparty-amount {
+  font-weight: 700;
+  text-align: right;
+}
+.flows-counterparty-count {
+  color: var(--text-light);
+  font-size: 0.66rem;
+  text-align: right;
+}
+
+:root[data-theme="dark"] .flows-counterparty-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-counterparty-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-counterparty-rank,
+:root[data-theme="dark"] .flows-counterparty-count {
+  color: rgba(255, 255, 255, 0.5);
+}
+:root[data-theme="dark"] .flows-counterparty-name { color: #fff; }
+
+/* ── Chart legend swatch for the price line ── */
+.flows-chart-legend-price { background: var(--tx-neon); }
