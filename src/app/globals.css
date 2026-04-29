@@ -5168,7 +5168,8 @@ input[type="range"]::-moz-range-thumb {
 :root[data-theme="dark"] .flows-counterparty-name { color: #fff; }
 
 /* ── Chart legend swatch for the price line ── */
-.flows-chart-legend-price { background: var(--tx-neon); }
+.flows-chart-legend-price { background: #3f6212; }
+:root[data-theme="dark"] .flows-chart-legend-price { background: var(--tx-neon); }
 
 /* ── Clickable counterparty rows + feed counterparty button ── */
 .flows-counterparty-row-clickable {
