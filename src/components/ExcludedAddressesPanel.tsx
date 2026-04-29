@@ -25,10 +25,13 @@ const formatNumber = (n: number) => {
 const truncateAddr = (addr: string, head = 10, tail = 8) =>
   addr.length > head + tail + 3 ? `${addr.slice(0, head)}…${addr.slice(-tail)}` : addr;
 
-const CATEGORY_LABELS: Record<ExcludedCategory, { label: string; emoji: string; color: string }> = {
-  module:     { label: "PSE Module Account",      emoji: "🏛️", color: "var(--tx-neon)" },
-  foundation: { label: "Foundation Staking Pool", emoji: "🏦", color: "#f0b95a" },
-  other:      { label: "Others",                  emoji: "📜", color: "#7ec4ff" },
+// Tag is a short text token shown next to the category label. Replaces
+// the previous emoji-based decoration since the project no longer uses
+// emojis in user-facing UI.
+const CATEGORY_LABELS: Record<ExcludedCategory, { label: string; tag: string; color: string }> = {
+  module:     { label: "PSE Module Account",      tag: "MOD",  color: "var(--tx-neon)" },
+  foundation: { label: "Foundation Staking Pool", tag: "FND",  color: "#f0b95a" },
+  other:      { label: "Others",                  tag: "OTH",  color: "#7ec4ff" },
 };
 
 export default function ExcludedAddressesPanel({ addresses }: Props) {
@@ -133,7 +136,6 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: "1rem" }}>📋</span>
             <div>
               <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>
                 {addresses.length} addresses excluded from PSE
@@ -166,7 +168,11 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
                     textTransform: "uppercase", letterSpacing: "0.06em",
                     color: meta.color,
                   }}>
-                    <span>{meta.emoji}</span>
+                    <span style={{
+                      fontSize: "0.55rem", padding: "2px 6px",
+                      borderRadius: 4, background: meta.color,
+                      color: "#0f1b07", letterSpacing: "0.05em",
+                    }}>{meta.tag}</span>
                     <span>{meta.label}</span>
                     <span style={{ color: "var(--text-light)", fontWeight: 400 }}>· {items.length}</span>
                   </div>
@@ -248,7 +254,11 @@ export default function ExcludedAddressesPanel({ addresses }: Props) {
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "1.3rem" }}>{CATEGORY_LABELS[drawerAddr.category].emoji}</span>
+                <span style={{
+                  fontSize: "0.62rem", padding: "3px 8px",
+                  borderRadius: 4, background: CATEGORY_LABELS[drawerAddr.category].color,
+                  color: "#0f1b07", fontWeight: 700, letterSpacing: "0.05em",
+                }}>{CATEGORY_LABELS[drawerAddr.category].tag}</span>
                 <div>
                   <div style={{ fontSize: "0.62rem", textTransform: "uppercase", color: CATEGORY_LABELS[drawerAddr.category].color, fontWeight: 700, letterSpacing: "0.05em" }}>
                     {CATEGORY_LABELS[drawerAddr.category].label}

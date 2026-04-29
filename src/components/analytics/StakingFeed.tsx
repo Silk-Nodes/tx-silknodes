@@ -131,7 +131,7 @@ export default function StakingFeed() {
 
         {(isStale || fetchError) && (
           <div className="staking-feed-stale-banner" role="status">
-            <span className="staking-feed-stale-icon">⚠️</span>
+            <span className="staking-feed-stale-icon" aria-hidden="true">!</span>
             <span>
               {fetchError
                 ? "Cannot reach the feed. Retrying every minute..."

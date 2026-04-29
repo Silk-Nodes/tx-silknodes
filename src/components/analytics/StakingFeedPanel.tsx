@@ -22,12 +22,13 @@ const TYPE_LABELS: Record<StakingEvent["type"], string> = {
   redelegate: "Redelegation",
 };
 
-// Event type icons — colored dots that mirror the row-border color scheme
-// used on the activity feed.
-const TYPE_ICON: Record<StakingEvent["type"], string> = {
-  delegate: "🟢",
-  undelegate: "🔴",
-  redelegate: "🟡",
+// Per-event-type accent colour, used as a CSS dot rendered next to the
+// rank pill. Replaces the old 🟢/🔴/🟡 emoji icons since the project
+// no longer uses emojis in the UI.
+const TYPE_DOT_COLOR: Record<StakingEvent["type"], string> = {
+  delegate: "#4a7a1a",   // green — same as the row border on the feed
+  undelegate: "#c45a4a", // red
+  redelegate: "#e6a800", // amber
 };
 
 const AMOUNT_PREFIX: Record<StakingEvent["type"], string> = {
@@ -101,7 +102,7 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
 
   if (!event) return null;
 
-  const icon = TYPE_ICON[event.type];
+  const dotColor = TYPE_DOT_COLOR[event.type];
   const label = TYPE_LABELS[event.type];
   const prefix = AMOUNT_PREFIX[event.type];
   const pillClass = TYPE_PILL_CLASS[event.type];
@@ -119,7 +120,19 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
         {/* ─── Header: 3 rows, mirrors DelegatorPanel exactly ─── */}
         <div className="delegator-panel-header">
           <div className="delegator-panel-rank">
-            <span className="delegator-panel-rank-icon">{icon}</span>
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: dotColor,
+                marginRight: 6,
+                verticalAlign: "middle",
+              }}
+            />
+
             <span className="delegator-panel-rank-text">{label}</span>
           </div>
           {/* Row 2: prominent mono identifier — tx hash here, full address
@@ -137,9 +150,9 @@ export default function StakingFeedPanel({ event, validators, onClose }: Staking
             <CopyButton text={event.txHash} />
           </div>
           {/* Row 3: timestamp rendered as a label pill, matching the
-              "🏛 Validator (self)" style pill on the whale panel. */}
+              same pill style as the whale panel header label. */}
           <div className={`delegator-panel-label ${pillClass}`}>
-            🕒 {formatFullTimestamp(event.timestamp)}
+            {formatFullTimestamp(event.timestamp)}
           </div>
         </div>
 

@@ -49,15 +49,6 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function labelIcon(type: string | undefined): string {
-  if (!type) return "🐋";
-  if (type.startsWith("validator")) return "🏛";
-  if (type === "pse-excluded" || type === "validator+pse") return "⚙️";
-  if (type === "cex") return "🏦";
-  if (type === "individual") return "👤";
-  return "🐋";
-}
-
 function mintscanAddress(address: string): string {
   return `https://www.mintscan.io/coreum/address/${address}`;
 }
@@ -140,7 +131,6 @@ export default function DelegatorPanel({
     ? delegations.reduce((sum, d) => sum + d.stakeTX, 0)
     : entry.totalStake;
   const totalUnbondingTX = unbondings ? unbondings.reduce((sum, u) => sum + u.balanceTX, 0) : 0;
-  const icon = labelIcon(entry.label?.type);
 
   return (
     <>
@@ -158,7 +148,6 @@ export default function DelegatorPanel({
         {/* ─── Header: rank + address + label ─── */}
         <div className="delegator-panel-header">
           <div className="delegator-panel-rank">
-            <span className="delegator-panel-rank-icon">{icon}</span>
             <span className="delegator-panel-rank-text">RANK #{entry.rank}</span>
           </div>
           <div className="delegator-panel-address-row">
@@ -175,7 +164,7 @@ export default function DelegatorPanel({
           </div>
           {entry.label && (
             <div className={`delegator-panel-label whale-label-${entry.label.type.replace("+", "-")}`}>
-              {icon} {entry.label.text}
+              {entry.label.text}
             </div>
           )}
         </div>

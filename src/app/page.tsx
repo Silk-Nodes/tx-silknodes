@@ -34,6 +34,7 @@ import {
 import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
 import AnalyticsTab from "@/components/AnalyticsTab";
+import FlowsTab from "@/components/FlowsTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -59,11 +60,12 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "overview" | "analytics" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio";
+type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio";
 
 const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "overview", label: "Overview" },
   { id: "analytics", label: "Analytics" },
+  { id: "flows", label: "Flows" },
   { id: "portfolio", label: "Portfolio", walletOnly: true },
   { id: "pse", label: "PSE" },
   { id: "calculator", label: "Calculator" },
@@ -339,7 +341,7 @@ export default function HomePage() {
                     display: "flex", alignItems: "center", gap: 3,
                   }}
                 >
-                  {addrCopied ? "✓" : "📋"}
+                  {addrCopied ? "✓" : "Copy"}
                 </button>
                 {(addrHover || addrCopied) && (
                   <div
@@ -534,6 +536,7 @@ export default function HomePage() {
       {/* ════════ TAB CONTENT ════════ */}
       <div className="tab-content">
         {activeTab === "analytics" && <AnalyticsTab />}
+        {activeTab === "flows" && <FlowsTab />}
         {activeTab === "overview" && (
           <OverviewTab
             price={price}
@@ -1452,9 +1455,9 @@ function PSETab({
               : pseLookup.error.includes("temporarily") ? "#e6a800"
               : "#ff6b6b",
           }}>
-            {pseLookup.error === "excluded" ? "ℹ️ Excluded Address"
-              : pseLookup.error.includes("temporarily") ? "⚠️ PSE Score Temporarily Unavailable"
-              : "⚠️ Error"}
+            {pseLookup.error === "excluded" ? "Excluded Address"
+              : pseLookup.error.includes("temporarily") ? "PSE Score Temporarily Unavailable"
+              : "Error"}
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-dark)", lineHeight: 1.5, opacity: 0.8 }}>
             {pseLookup.error === "excluded"
@@ -3085,7 +3088,6 @@ function PortfolioTab({
             {/* Header */}
             <div style={{ padding: "20px 24px 14px", borderBottom: "1px solid var(--glass-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: "1.3rem" }}>↩️</span>
                 <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-dark)" }}>
                   Cancel Unbonding
                 </div>
@@ -3123,7 +3125,6 @@ function PortfolioTab({
                 marginBottom: 6,
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <span style={{ fontSize: "0.95rem", lineHeight: 1 }}>✨</span>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-medium)", lineHeight: 1.55 }}>
                     Your stake will be restored to <strong>{cancelTarget.validatorMoniker}</strong> and your accumulated <strong style={{ color: "var(--accent-olive)" }}>PSE score will be preserved</strong>. The unbonding entry will be removed.
                   </div>

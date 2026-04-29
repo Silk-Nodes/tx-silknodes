@@ -240,7 +240,7 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-/* Whale label pills: re-tint so the "unlabeled 🕊" and similar
+/* Whale label pills: re-tint the unlabeled / individual / validator
    light-colored pills match the dark palette. */
 :root[data-theme="dark"] .whale-label-unlabeled {
   background: rgba(255, 255, 255, 0.06);
@@ -2270,6 +2270,15 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 4px 20px rgba(15, 27, 7, 0.06);
   animation: sticky-fade-in 0.2s ease;
+}
+
+/* Dark-mode floating pill: tinted dark backdrop with a neon ring so
+   it pops against the page without bleeding light-mode whites onto
+   the dark surface. */
+:root[data-theme="dark"] .sticky-pills-bar {
+  background: rgba(15, 27, 7, 0.78);
+  border-color: rgba(177, 252, 3, 0.18);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes sticky-fade-in {
@@ -4561,4 +4570,827 @@ input[type="range"]::-moz-range-thumb {
 }
 :root[data-theme="dark"] .wallet-connect-prompt-cta {
   color: var(--tx-neon);
+}
+
+/* ═══ FLOWS TAB ═══════════════════════════════════════════════════════
+   Exchange in/out flow dashboard. Cards show net flow with a colour
+   tied to the trader signal:
+     net > 0  (exchange accumulating)  → red, potential sell pressure
+     net < 0  (exchange releasing)     → green, potential bullish
+     near 0                            → neutral grey
+   Total card sits at the top, full-width, with the summed signal.
+*/
+
+.flows-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.flows-window-pills {
+  display: flex;
+  gap: 4px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+}
+.flows-window-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-window-pill:hover { color: var(--text-dark); }
+.flows-window-pill.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+.flows-window-pill:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.flows-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.flow-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Direction is conveyed by an accent border-left so the card glance
+     reads green/red/grey before the user even reads numbers. */
+  border-left: 4px solid var(--glass-border);
+}
+.flow-card-in    { border-left-color: #c45a4a; }
+.flow-card-out   { border-left-color: #4a7a1a; }
+.flow-card-neutral { border-left-color: var(--text-light); }
+
+.flow-card-total {
+  /* Bigger, more prominent than the per-exchange grid */
+  padding: 22px 24px;
+}
+.flow-card-total .flow-card-net {
+  font-size: 2.4rem;
+}
+
+.flow-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flow-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-medium);
+}
+.flow-card-tx-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-light);
+}
+.flow-card-net {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.flow-card-net-in    { color: #c45a4a; }
+.flow-card-net-out   { color: #4a7a1a; }
+.flow-card-net-neutral { color: var(--text-medium); }
+
+.flow-card-direction {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.flow-card-breakdown {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-medium);
+}
+.flow-card-in    { } /* see border-left rule above */
+.flow-card-in   .flow-card-in   { color: #c45a4a; }
+.flow-card-out  .flow-card-out  { color: #4a7a1a; }
+/* Always-on tinting for the directional spans so people can read the
+   in/out line independent of card-level state. */
+.flow-card-breakdown .flow-card-in,
+.flow-card-breakdown .flow-card-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-card-latest {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-light);
+  margin-top: 4px;
+}
+
+.flows-error {
+  background: rgba(196, 90, 74, 0.1);
+  color: #c45a4a;
+  border: 1px solid rgba(196, 90, 74, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.flows-loading {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+}
+
+/* Dark mode: glass cards need a slightly lighter inset background +
+   adjusted text colours to read against the dark page background. */
+:root[data-theme="dark"] .flow-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flow-card-name { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flow-card-tx-count,
+:root[data-theme="dark"] .flow-card-direction,
+:root[data-theme="dark"] .flow-card-latest { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flow-card-breakdown { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flow-card-net-neutral { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flow-card-net-in  { color: #ff8a78; }
+:root[data-theme="dark"] .flow-card-net-out { color: var(--tx-neon); }
+:root[data-theme="dark"] .flow-card-in   { border-left-color: #ff8a78; }
+:root[data-theme="dark"] .flow-card-out  { border-left-color: var(--tx-neon); }
+:root[data-theme="dark"] .flow-card-neutral { border-left-color: rgba(255, 255, 255, 0.2); }
+:root[data-theme="dark"] .flows-window-pills {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .flows-window-pill { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-window-pill:hover { color: #fff; }
+:root[data-theme="dark"] .flows-window-pill.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .flows-loading { color: rgba(255, 255, 255, 0.55); }
+
+/* ── Daily Flow chart card ── */
+.flows-chart-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.flows-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.flows-chart-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-medium);
+}
+.flows-chart-legend {
+  display: flex;
+  gap: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-light);
+}
+.flows-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flows-chart-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.flows-chart-legend-in  { background: #c45a4a; }
+.flows-chart-legend-out { background: #4a7a1a; }
+
+:root[data-theme="dark"] .flows-chart-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-chart-title { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-chart-legend { color: rgba(255, 255, 255, 0.55); }
+:root[data-theme="dark"] .flows-chart-legend-in  { background: #ff8a78; }
+:root[data-theme="dark"] .flows-chart-legend-out { background: var(--tx-neon); }
+
+/* ── Recent flows feed ── */
+.flows-feed-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flows-feed-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-light);
+}
+.flows-feed-list {
+  display: flex;
+  flex-direction: column;
+}
+.flows-feed-row {
+  display: grid;
+  grid-template-columns: 80px 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+.flows-feed-row:first-child { border-top: none; }
+.flows-feed-time {
+  color: var(--text-light);
+  font-size: 0.66rem;
+}
+.flows-feed-amount {
+  font-weight: 700;
+  text-align: right;
+}
+.flows-feed-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flows-feed-exchange {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.flows-feed-arrow {
+  color: var(--text-light);
+}
+.flows-feed-counterparty {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flows-feed-whale-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.flows-feed-empty-text {
+  padding: 16px 0 6px;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+:root[data-theme="dark"] .flows-feed-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-feed-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .flows-feed-time,
+:root[data-theme="dark"] .flows-feed-arrow,
+:root[data-theme="dark"] .flows-feed-count,
+:root[data-theme="dark"] .flows-feed-empty-text { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flows-feed-route { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flows-feed-exchange,
+:root[data-theme="dark"] .flows-feed-counterparty { color: #fff; }
+:root[data-theme="dark"] .flows-feed-whale-tag {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+
+/* ── Recent flows magnitude filter + pagination ── */
+.flows-feed-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.flows-feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-feed-chip:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-dark);
+}
+.flows-feed-chip.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+.flows-feed-chip-count {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.66rem;
+}
+.flows-feed-chip.active .flows-feed-chip-count {
+  opacity: 0.85;
+}
+.flows-feed-chip:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.flows-feed-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.flows-feed-pager-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-dark);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-feed-pager-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+}
+.flows-feed-pager-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.flows-feed-pager-status {
+  color: var(--text-light);
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme="dark"] .flows-feed-chip {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+:root[data-theme="dark"] .flows-feed-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+:root[data-theme="dark"] .flows-feed-chip.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .flows-feed-pager-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .flows-feed-pager-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .flows-feed-pager-status {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Destinations breakdown ── */
+.flows-destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-destinations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 4px;
+}
+.flows-destinations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.flows-destination-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 4px solid var(--glass-border);
+}
+.flows-destination-good    { border-left-color: #4a7a1a; }
+.flows-destination-neutral { border-left-color: var(--text-light); }
+.flows-destination-warn    { border-left-color: #e6a800; }
+.flows-destination-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-medium);
+}
+.flows-destination-pct {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.flows-destination-amount {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-medium);
+}
+.flows-destination-desc {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--text-light);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .flows-destination-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-destination-label  { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-destination-pct    { color: #fff; }
+:root[data-theme="dark"] .flows-destination-amount { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flows-destination-desc   { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flows-destination-good    { border-left-color: var(--tx-neon); }
+:root[data-theme="dark"] .flows-destination-neutral { border-left-color: rgba(255, 255, 255, 0.25); }
+:root[data-theme="dark"] .flows-destination-warn    { border-left-color: #f0b95a; }
+
+/* ── Top counterparties leaderboard ── */
+.flows-counterparties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+.flows-counterparty-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-counterparty-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flows-counterparty-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.flows-counterparty-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.flows-counterparty-row:first-child { border-top: none; }
+.flows-counterparty-rank {
+  color: var(--text-light);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.flows-counterparty-name {
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flows-counterparty-amount {
+  font-weight: 700;
+  text-align: right;
+}
+.flows-counterparty-count {
+  color: var(--text-light);
+  font-size: 0.66rem;
+  text-align: right;
+}
+
+:root[data-theme="dark"] .flows-counterparty-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-counterparty-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-counterparty-rank,
+:root[data-theme="dark"] .flows-counterparty-count {
+  color: rgba(255, 255, 255, 0.5);
+}
+:root[data-theme="dark"] .flows-counterparty-name { color: #fff; }
+
+/* ── Chart legend swatch for the price line ── */
+.flows-chart-legend-price { background: var(--tx-neon); }
+
+/* ── Clickable counterparty rows + feed counterparty button ── */
+.flows-counterparty-row-clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 -6px;
+  padding-left: 6px;
+  padding-right: 6px;
+  transition: background 0.12s ease;
+}
+.flows-counterparty-row-clickable:hover {
+  background: rgba(177, 252, 3, 0.06);
+}
+.flows-counterparty-row-clickable:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 1px;
+}
+.flows-feed-counterparty-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+.flows-feed-counterparty-button:hover {
+  color: var(--tx-dark-green);
+  text-decoration: underline;
+}
+.flows-feed-counterparty-button:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:root[data-theme="dark"] .flows-counterparty-row-clickable:hover {
+  background: rgba(177, 252, 3, 0.08);
+}
+:root[data-theme="dark"] .flows-feed-counterparty-button:hover {
+  color: var(--tx-neon);
+}
+
+/* ── AddressFlowPanel — slide-in side panel ── */
+/* Reuses the .staking-feed-panel shell (480px width, slide-in animation,
+   close button) and the .delegator-panel-* header classes for visual
+   parity with the Whale Tracker side-panel. The bits below are the
+   panel-specific extras. */
+
+.address-flow-panel-loading {
+  margin-top: 24px;
+  padding: 30px 12px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.address-flow-panel-whale-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+:root[data-theme="dark"] .address-flow-panel-whale-tag {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+
+.address-flow-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.address-flow-summary-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.address-flow-summary-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-medium);
+}
+.address-flow-summary-value {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+:root[data-theme="dark"] .address-flow-summary-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .address-flow-summary-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Per-exchange breakdown rows inside the panel */
+.address-flow-per-exchange {
+  display: flex;
+  flex-direction: column;
+}
+.address-flow-per-exchange-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+.address-flow-per-exchange-row:first-child { border-top: none; }
+.address-flow-per-exchange-name {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.address-flow-per-exchange-detail {
+  color: var(--text-medium);
+  font-size: 0.7rem;
+}
+.address-flow-per-exchange-net {
+  font-weight: 700;
+  text-align: right;
+}
+:root[data-theme="dark"] .address-flow-per-exchange-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .address-flow-per-exchange-name { color: #fff; }
+:root[data-theme="dark"] .address-flow-per-exchange-detail { color: rgba(255, 255, 255, 0.75); }
+
+/* Recent transfers list inside the panel */
+.address-flow-recent {
+  display: flex;
+  flex-direction: column;
+}
+.address-flow-recent-row {
+  display: grid;
+  grid-template-columns: 70px 110px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.address-flow-recent-row:first-child { border-top: none; }
+.address-flow-recent-time {
+  color: var(--text-light);
+  font-size: 0.66rem;
+}
+.address-flow-recent-amount {
+  font-weight: 700;
+  text-align: right;
+}
+.address-flow-recent-direction {
+  color: var(--text-medium);
+}
+:root[data-theme="dark"] .address-flow-recent-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .address-flow-recent-time {
+  color: rgba(255, 255, 255, 0.5);
+}
+:root[data-theme="dark"] .address-flow-recent-direction {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.address-flow-staking-button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.address-flow-staking-button:hover {
+  opacity: 0.92;
+}
+:root[data-theme="dark"] .address-flow-staking-button {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+
+.address-flow-empty {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+:root[data-theme="dark"] .address-flow-empty {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.55);
 }

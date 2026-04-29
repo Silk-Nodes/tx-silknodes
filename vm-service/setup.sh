@@ -16,6 +16,8 @@ PSE_SERVICE_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.service"
 PSE_TIMER_FILE="/etc/systemd/system/${PSE_SERVICE_NAME}.timer"
 WEB_SERVICE_NAME="silknodes-web"
 WEB_SERVICE_FILE="/etc/systemd/system/${WEB_SERVICE_NAME}.service"
+FLOWS_SERVICE_NAME="silknodes-exchange-flows"
+FLOWS_SERVICE_FILE="/etc/systemd/system/${FLOWS_SERVICE_NAME}.service"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
@@ -128,6 +130,10 @@ install_unit "$SCRIPT_DIR/silknodes-pse-score.timer" "$PSE_TIMER_FILE"
 echo "Installing $WEB_SERVICE_NAME.service..."
 install_unit "$SCRIPT_DIR/silknodes-web.service" "$WEB_SERVICE_FILE"
 
+# Install the exchange flows collector (always running, polls every 5 min)
+echo "Installing $FLOWS_SERVICE_NAME.service..."
+install_unit "$SCRIPT_DIR/silknodes-exchange-flows.service" "$FLOWS_SERVICE_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -152,6 +158,8 @@ sudo systemctl enable "${PSE_SERVICE_NAME}.timer"
 sudo systemctl start "${PSE_SERVICE_NAME}.timer"
 sudo systemctl enable "$WEB_SERVICE_NAME"
 sudo systemctl start "$WEB_SERVICE_NAME"
+sudo systemctl enable "$FLOWS_SERVICE_NAME"
+sudo systemctl start "$FLOWS_SERVICE_NAME"
 
 sleep 2
 echo

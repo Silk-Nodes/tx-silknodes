@@ -104,24 +104,12 @@ function buildPageList(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
-// Type → display prefix. We show labels as concise tokens so the rank row
-// stays scannable even with long monikers.
-function labelIcon(type: string | undefined): string {
-  if (!type) return "🐋";
-  if (type.startsWith("validator")) return "🏛";
-  if (type === "pse-excluded" || type === "validator+pse") return "⚙️";
-  if (type === "cex") return "🏦";
-  if (type === "individual") return "👤";
-  return "🐋";
-}
-
 function LabelBadge({ label }: { label: TopDelegatorLabel | null }) {
   if (!label) {
-    return <span className="whale-label whale-label-unlabeled">🐋 unlabeled</span>;
+    return <span className="whale-label whale-label-unlabeled">unlabeled</span>;
   }
   return (
     <span className={`whale-label whale-label-${label.type.replace("+", "-")}`} title={label.text}>
-      <span className="whale-label-icon">{labelIcon(label.type)}</span>
       <span className="whale-label-text">{label.text}</span>
     </span>
   );
@@ -243,7 +231,6 @@ export default function WhaleTracker({
   if (topDelegators.length === 0) {
     return (
       <div className="whale-empty">
-        <div className="whale-empty-icon">🐋</div>
         <div className="whale-empty-text">Top delegators data is not available yet.</div>
         <div className="whale-empty-sub">
           The VM refreshes this every 6 hours. First write happens on the next collector restart.
@@ -270,7 +257,7 @@ export default function WhaleTracker({
             chip numbers stay stable as the user narrows. */}
         <div className="whale-filter-bar">
           <div className="whale-search">
-            <span className="whale-search-icon" aria-hidden="true">🔍</span>
+            <span className="whale-search-icon" aria-hidden="true">⌕</span>
             <input
               type="text"
               className="whale-search-input"
@@ -568,7 +555,7 @@ export default function WhaleTracker({
               {rankMovers.length > 0 && (
                 <div className="whale-movers-card">
                   <div className="whale-movers-card-title">
-                    🚀 Rank Movers <span className="whale-movers-count">{rankMovers.length}</span>
+                    Rank Movers <span className="whale-movers-count">{rankMovers.length}</span>
                   </div>
                   {rankMovers.slice(0, MOVERS_PER_LIST).map((m) => {
                     const up = m.rankDelta > 0;
@@ -604,7 +591,7 @@ export default function WhaleTracker({
               {stakeMovers.length > 0 && (
                 <div className="whale-movers-card">
                   <div className="whale-movers-card-title">
-                    💰 Stake Movers <span className="whale-movers-count">{stakeMovers.length}</span>
+                    Stake Movers <span className="whale-movers-count">{stakeMovers.length}</span>
                   </div>
                   {stakeMovers.slice(0, MOVERS_PER_LIST).map((m) => {
                     const up = m.stakeDelta > 0;
@@ -638,7 +625,7 @@ export default function WhaleTracker({
               {arrivals.length > 0 && (
                 <div className="whale-movers-card">
                   <div className="whale-movers-card-title">
-                    🆕 New Arrivals <span className="whale-movers-count">{arrivals.length}</span>
+                    New Arrivals <span className="whale-movers-count">{arrivals.length}</span>
                   </div>
                   {arrivals.slice(0, MOVERS_PER_LIST).map((a) => (
                     <div
@@ -669,7 +656,7 @@ export default function WhaleTracker({
               {exits.length > 0 && (
                 <div className="whale-movers-card">
                   <div className="whale-movers-card-title">
-                    👋 Exits <span className="whale-movers-count">{exits.length}</span>
+                    Exits <span className="whale-movers-count">{exits.length}</span>
                   </div>
                   {exits.slice(0, MOVERS_PER_LIST).map((x) => (
                     <div

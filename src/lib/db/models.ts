@@ -226,6 +226,66 @@ KnownEntity.init(
   { sequelize, tableName: "known_entities", timestamps: false, underscored: true },
 );
 
+// ─── exchange_addresses ──────────────────────────────────────────────────
+export class ExchangeAddress extends Model<
+  InferAttributes<ExchangeAddress>,
+  InferCreationAttributes<ExchangeAddress>
+> {
+  declare address: string;
+  declare exchange_name: string;
+  declare added_at: Date;
+  declare notes: string | null;
+}
+ExchangeAddress.init(
+  {
+    address: { type: DataTypes.TEXT, primaryKey: true },
+    exchange_name: { type: DataTypes.TEXT, allowNull: false },
+    added_at: { type: DataTypes.DATE, allowNull: false },
+    notes: { type: DataTypes.TEXT },
+  },
+  {
+    sequelize,
+    tableName: "exchange_addresses",
+    timestamps: false,
+    underscored: true,
+  },
+);
+
+// ─── exchange_flows ──────────────────────────────────────────────────────
+export class ExchangeFlow extends Model<
+  InferAttributes<ExchangeFlow>,
+  InferCreationAttributes<ExchangeFlow>
+> {
+  declare id: number;
+  declare tx_hash: string;
+  declare height: number;
+  declare timestamp: Date;
+  declare exchange_address: string;
+  declare direction: "inflow" | "outflow";
+  declare counterparty: string;
+  declare amount: string; // NUMERIC -> string for precision
+  declare inserted_at: Date;
+}
+ExchangeFlow.init(
+  {
+    id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+    tx_hash: { type: DataTypes.TEXT, allowNull: false },
+    height: { type: DataTypes.BIGINT, allowNull: false },
+    timestamp: { type: DataTypes.DATE, allowNull: false },
+    exchange_address: { type: DataTypes.TEXT, allowNull: false },
+    direction: { type: DataTypes.TEXT, allowNull: false },
+    counterparty: { type: DataTypes.TEXT, allowNull: false },
+    amount: { type: DataTypes.DECIMAL, allowNull: false },
+    inserted_at: { type: DataTypes.DATE, allowNull: false },
+  },
+  {
+    sequelize,
+    tableName: "exchange_flows",
+    timestamps: false,
+    underscored: true,
+  },
+);
+
 // ─── pse_score ───────────────────────────────────────────────────────────
 export class PseScore extends Model<
   InferAttributes<PseScore>,
