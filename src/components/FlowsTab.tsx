@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -100,6 +100,23 @@ export default function FlowsTab() {
   const [counterparties, setCounterparties] = useState<CounterpartiesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Sticky window pills — same pattern as the Analytics tab. The
+  // header-level pill row carries the ref; once it scrolls out of
+  // view the sticky-pills-bar copy appears pinned beneath the top
+  // nav. Both pill rows drive the same windowKey state.
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const [isSticky, setIsSticky] = useState(false);
+  useEffect(() => {
+    const el = pillsRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-60px 0px 0px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Single fetch effect that pulls every Flows endpoint in parallel
   // so the chart, cards, destinations breakdown, leaderboard, and
   // feed all refresh in lockstep.
@@ -159,8 +176,36 @@ export default function FlowsTab() {
     [totals?.exchanges],
   );
 
+  // Reusable window pill row — rendered both inside the header and
+  // again as the sticky-on-scroll copy. Same buttons, same handler.
+  const renderWindowPills = (extraClass = "") => (
+    <div
+      className={`flows-window-pills ${extraClass}`.trim()}
+      role="radiogroup"
+      aria-label="Window"
+    >
+      {WINDOWS.map((w) => (
+        <button
+          key={w}
+          type="button"
+          role="radio"
+          aria-checked={windowKey === w}
+          className={`flows-window-pill ${windowKey === w ? "active" : ""}`}
+          onClick={() => setWindowKey(w)}
+        >
+          {WINDOW_LABELS[w]}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flows-tab">
+      {/* Sticky-on-scroll copy of the window selector. Mounts only
+          while the header-level pills are out of view, mirroring the
+          Analytics tab pattern (.sticky-pills-bar position: fixed). */}
+      {isSticky && <div className="sticky-pills-bar">{renderWindowPills()}</div>}
+
       {/* ─── Header + window selector ─── */}
       <div
         className="section-head"
@@ -178,20 +223,7 @@ export default function FlowsTab() {
             Net &gt; 0 = exchange accumulating (sell pressure). Net &lt; 0 = exchange releasing (accumulation).
           </span>
         </div>
-        <div className="flows-window-pills" role="radiogroup" aria-label="Window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w}
-              type="button"
-              role="radio"
-              aria-checked={windowKey === w}
-              className={`flows-window-pill ${windowKey === w ? "active" : ""}`}
-              onClick={() => setWindowKey(w)}
-            >
-              {WINDOW_LABELS[w]}
-            </button>
-          ))}
-        </div>
+        <div ref={pillsRef}>{renderWindowPills()}</div>
       </div>
 
       {error && (
