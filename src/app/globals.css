@@ -4688,6 +4688,65 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 6px;
 }
 
+/* ── Direction tooltip: hoverable word + visible (?) icon ── */
+.flow-card-direction-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: help;
+  outline: none;
+}
+.flow-card-direction-label {
+  border-bottom: 1px dotted currentColor;
+}
+.flow-card-direction-tip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.62rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+.flow-card-direction-tip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(15, 27, 7, 0.96);
+  color: #f4f1eb;
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.flow-card-direction-tip:hover .flow-card-direction-tip-bubble,
+.flow-card-direction-tip:focus-visible .flow-card-direction-tip-bubble,
+.flow-card-direction-tip:focus-within .flow-card-direction-tip-bubble {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+:root[data-theme="dark"] .flow-card-direction-tip-bubble {
+  background: rgba(8, 16, 4, 0.98);
+  border-color: rgba(177, 252, 3, 0.35);
+}
+
 .flow-card-breakdown {
   display: flex;
   gap: 16px;
