@@ -483,17 +483,29 @@
   padding: 0;
   color: #fff;
 }
+
+/* Inset card look in dark mode — slightly darker than the .whale-tracker
+   parent background (#44624c) so each container reads as its own panel.
+   Light mode already gets natural separation from the table/moves border
+   styles; dark mode used to flatten everything by setting these to
+   transparent which made the 3 sections (Top Delegators / Whales on the
+   Move / Recent Whale Moves) and the 4 mover cards inside Whales on the
+   Move all bleed together visually. */
 :root[data-theme="dark"] .whale-tracker .whale-table {
-  background: transparent !important;
-  border-color: transparent !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--radius-md);
 }
 :root[data-theme="dark"] .whale-tracker .whale-movers-card {
-  background: transparent !important;
-  border-color: transparent !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
 }
 :root[data-theme="dark"] .whale-tracker .whale-moves {
-  background: transparent !important;
-  border-color: transparent !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--radius-md);
 }
 :root[data-theme="dark"] .whale-tracker .whale-move {
   color: #fff !important;
