@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+} from "recharts";
 import { formatLargeNumber } from "@/lib/analytics-utils";
 
-// /api/flows response shape (kept inline rather than imported so the
-// component is self-contained and easy to reason about). Numbers are
-// already in TX (not ucore) — converted server-side.
+// ─── Types mirror the API response shapes ─────────────────────────────
+
 interface ExchangeFlowRow {
   name: string;
   address: string;
@@ -21,34 +30,71 @@ interface FlowsResponse {
   exchanges: ExchangeFlowRow[];
   updatedAt: string;
 }
+interface FlowsHistoryResponse {
+  window: WindowKey;
+  points: Array<{ date: string; inflow: number; outflow: number }>;
+  updatedAt: string;
+}
+interface RecentFlowRow {
+  txHash: string;
+  timestamp: string;
+  exchange: string;
+  exchangeAddress: string;
+  direction: "inflow" | "outflow";
+  counterparty: string;
+  counterpartyLabel: string | null;
+  counterpartyRank: number | null;
+  amount: number;
+}
+interface FlowsRecentResponse {
+  window: WindowKey;
+  flows: RecentFlowRow[];
+  updatedAt: string;
+}
 
-const WINDOWS = ["24h", "7d", "30d", "90d"] as const;
+const WINDOWS = ["24h", "7d", "30d", "90d", "all"] as const;
 type WindowKey = (typeof WINDOWS)[number];
 const WINDOW_LABELS: Record<WindowKey, string> = {
   "24h": "24H",
   "7d": "7D",
   "30d": "30D",
   "90d": "90D",
+  all: "ALL",
 };
 
 const POLL_INTERVAL_MS = 60_000;
 
+// ─── Component ────────────────────────────────────────────────────────
+
 export default function FlowsTab() {
   const [windowKey, setWindowKey] = useState<WindowKey>("24h");
-  const [data, setData] = useState<FlowsResponse | null>(null);
+  const [totals, setTotals] = useState<FlowsResponse | null>(null);
+  const [history, setHistory] = useState<FlowsHistoryResponse | null>(null);
+  const [recent, setRecent] = useState<FlowsRecentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Single fetch effect that pulls all 3 endpoints in parallel. Keeps
+  // them on the same poll cadence so the chart, cards, and feed all
+  // refresh in lockstep.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/flows?window=${windowKey}&t=${Date.now()}`, {
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = (await res.json()) as FlowsResponse;
+        const [tRes, hRes, rRes] = await Promise.all([
+          fetch(`/api/flows?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-history?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-recent?window=${windowKey}&limit=50&t=${Date.now()}`, { cache: "no-store" }),
+        ]);
+        if (!tRes.ok || !hRes.ok || !rRes.ok) throw new Error("HTTP error");
+        const [t, h, r] = (await Promise.all([
+          tRes.json(),
+          hRes.json(),
+          rRes.json(),
+        ])) as [FlowsResponse, FlowsHistoryResponse, FlowsRecentResponse];
         if (cancelled) return;
-        setData(json);
+        setTotals(t);
+        setHistory(h);
+        setRecent(r);
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -62,27 +108,33 @@ export default function FlowsTab() {
     };
   }, [windowKey]);
 
-  // Sort exchanges by net flow magnitude descending so the biggest
-  // signal lands at the top. Stable for ties.
+  // Sort exchanges by |net| descending so the biggest signal is on top.
   const sortedExchanges = useMemo(
     () =>
-      data?.exchanges
+      totals?.exchanges
         ?.slice()
         .sort((a, b) => Math.abs(b.net) - Math.abs(a.net)) ?? [],
-    [data?.exchanges],
+    [totals?.exchanges],
   );
 
   return (
     <div className="flows-tab">
       {/* ─── Header + window selector ─── */}
-      <div className="section-head">
+      <div
+        className="section-head"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
         <div>
-          <h2 className="page-title">Exchange Flows</h2>
-          <p className="page-sub">
-            TX moving in and out of known centralized exchange wallets.
-            Net &gt; 0 = exchange is accumulating (potential sell pressure);
-            net &lt; 0 = exchange is releasing (potential accumulation).
-          </p>
+          <h1 className="page-title">Exchange Flows</h1>
+          <span className="section-sub" style={{ fontSize: "0.8rem", opacity: 0.6 }}>
+            Net &gt; 0 = exchange accumulating (sell pressure). Net &lt; 0 = exchange releasing (accumulation).
+          </span>
         </div>
         <div className="flows-window-pills" role="radiogroup" aria-label="Window">
           {WINDOWS.map((w) => (
@@ -106,20 +158,23 @@ export default function FlowsTab() {
         </div>
       )}
 
+      {/* ─── Daily flow chart ─── */}
+      {history && history.points.length > 0 && <FlowsChart points={history.points} />}
+
       {/* ─── Total card (full width, prominent) ─── */}
-      {data && (
+      {totals && (
         <FlowCard
           name="Total"
           isTotal
-          inflow={data.totals.inflow}
-          outflow={data.totals.outflow}
-          net={data.totals.net}
-          txCount={data.totals.txCount}
+          inflow={totals.totals.inflow}
+          outflow={totals.totals.outflow}
+          net={totals.totals.net}
+          txCount={totals.totals.txCount}
         />
       )}
 
       {/* ─── Per-exchange grid ─── */}
-      {data && (
+      {totals && (
         <div className="flows-grid">
           {sortedExchanges.map((e) => (
             <FlowCard
@@ -135,18 +190,175 @@ export default function FlowsTab() {
         </div>
       )}
 
-      {!data && !error && (
+      {/* ─── Recent flows feed ─── */}
+      {recent && <RecentFlowsFeed flows={recent.flows} />}
+
+      {!totals && !error && (
         <div className="flows-loading">Loading flows…</div>
       )}
     </div>
   );
 }
 
+// ─── FlowsChart ────────────────────────────────────────────────────────
+// Daily stacked bar chart. Inflow is rendered as a positive (red) bar
+// above zero, outflow as a negative (green) bar below zero. The implicit
+// net is the visible difference between the two — green-leaning days =
+// outflow dominant = bullish; red-leaning = inflow dominant = bearish.
+
+function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; outflow: number }> }) {
+  // Recharts wants negative values to render below zero. We negate
+  // outflow on the way in, then re-positive it on the way out for the
+  // tooltip so users see the absolute number, not "-1.2M".
+  const chartData = useMemo(
+    () => points.map((p) => ({ ...p, outflowNeg: -p.outflow })),
+    [points],
+  );
+
+  return (
+    <div className="flows-chart-card">
+      <div className="flows-chart-header">
+        <span className="flows-chart-title">Daily Flow</span>
+        <span className="flows-chart-legend">
+          <span className="flows-chart-legend-item">
+            <span className="flows-chart-legend-swatch flows-chart-legend-in" /> Inflow
+          </span>
+          <span className="flows-chart-legend-item">
+            <span className="flows-chart-legend-swatch flows-chart-legend-out" /> Outflow
+          </span>
+        </span>
+      </div>
+      <div style={{ width: "100%", height: 280 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }} stackOffset="sign">
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(59,45,38,0.06)" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(d: string) => {
+                const dt = new Date(d + "T00:00:00");
+                return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()]} ${dt.getDate()}`;
+              }}
+              tick={{ fill: "rgba(106,90,81,0.5)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              axisLine={false}
+              tickLine={false}
+              interval={Math.max(0, Math.floor(chartData.length / 8))}
+              dy={6}
+            />
+            <YAxis
+              tickFormatter={(v: number) => formatLargeNumber(Math.abs(v))}
+              tick={{ fill: "rgba(106,90,81,0.4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              axisLine={false}
+              tickLine={false}
+              width={55}
+            />
+            <ReferenceLine y={0} stroke="rgba(0,0,0,0.15)" />
+            <RechartsTooltip
+              cursor={{ fill: "rgba(177,252,3,0.08)" }}
+              contentStyle={{
+                background: "rgba(15, 27, 7, 0.94)",
+                color: "#f4f1eb",
+                border: "1px solid rgba(177, 252, 3, 0.2)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.72rem",
+              }}
+              labelFormatter={(d: string) => {
+                const dt = new Date(d + "T00:00:00");
+                return dt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+              }}
+              formatter={(value: number, name: string) => {
+                if (name === "Inflow") {
+                  return [`${formatLargeNumber(value)} TX`, "Inflow"];
+                }
+                if (name === "Outflow") {
+                  return [`${formatLargeNumber(Math.abs(value))} TX`, "Outflow"];
+                }
+                return [value, name];
+              }}
+            />
+            <Bar dataKey="inflow"    name="Inflow"  stackId="flow" fill="#c45a4a" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="outflowNeg" name="Outflow" stackId="flow" fill="#4a7a1a" radius={[0, 0, 3, 3]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// ─── RecentFlowsFeed ──────────────────────────────────────────────────
+// Last N flows ordered newest-first. Whale tag = top_delegators rank
+// when the counterparty is in the top 500.
+
+function RecentFlowsFeed({ flows }: { flows: RecentFlowRow[] }) {
+  if (flows.length === 0) {
+    return (
+      <div className="flows-feed-card flows-feed-empty">
+        <div className="flows-chart-title">Recent Flows</div>
+        <div className="flows-feed-empty-text">No flows in this window yet.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="flows-feed-card">
+      <div className="flows-feed-header">
+        <span className="flows-chart-title">Recent Flows</span>
+        <span className="flows-feed-count">{flows.length} shown</span>
+      </div>
+      <div className="flows-feed-list">
+        {flows.map((f, i) => (
+          <FeedRow key={`${f.txHash}-${i}`} flow={f} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeedRow({ flow }: { flow: RecentFlowRow }) {
+  const sign = flow.direction === "inflow" ? "+" : "−";
+  const directionClass = flow.direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
+  const arrow = flow.direction === "inflow" ? "→" : "←";
+  const cpDisplay = flow.counterpartyLabel
+    ? flow.counterpartyLabel
+    : truncate(flow.counterparty);
+
+  return (
+    <div className="flows-feed-row">
+      <span className="flows-feed-time">{relativeTime(flow.timestamp)}</span>
+      <span className={`flows-feed-amount ${directionClass}`}>
+        {sign}
+        {formatLargeNumber(Math.abs(flow.amount))} TX
+      </span>
+      <span className="flows-feed-route">
+        <span className="flows-feed-exchange">{flow.exchange}</span>
+        <span className="flows-feed-arrow">{arrow}</span>
+        <span className="flows-feed-counterparty" title={flow.counterparty}>
+          {cpDisplay}
+        </span>
+        {flow.counterpartyRank != null && (
+          <span className="flows-feed-whale-tag">Top #{flow.counterpartyRank}</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function truncate(addr: string): string {
+  if (!addr) return "";
+  if (addr.length <= 16) return addr;
+  return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
+}
+
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return "just now";
+  if (ms < 60 * 60_000) return `${Math.floor(ms / 60_000)}m ago`;
+  if (ms < 24 * 60 * 60_000) return `${Math.floor(ms / (60 * 60_000))}h ago`;
+  return `${Math.floor(ms / (24 * 60 * 60_000))}d ago`;
+}
+
 // ─── FlowCard ──────────────────────────────────────────────────────────
-// One card per exchange (and one for the aggregate Total). The headline
-// is the NET number with a green/red sign so the trader signal is
-// readable in a glance; in/out are shown on a second line as supporting
-// detail.
+
 function FlowCard({
   name,
   inflow,
@@ -164,9 +376,9 @@ function FlowCard({
   latestAt?: string | null;
   isTotal?: boolean;
 }) {
-  // Direction: "accumulating" (net > 0) is bearish on price, so red.
-  // "distributing" (net < 0) is bullish, so green. Magnitude breaks
-  // a near-zero quiet window into a neutral state instead of flickering.
+  // Direction colour: net > 0 (accumulating) → bearish → red.
+  // net < 0 (distributing) → bullish → green. Near-zero is neutral so
+  // a balanced quiet window doesn't flicker.
   const NEAR_ZERO_TX = 1000;
   const direction =
     Math.abs(net) < NEAR_ZERO_TX ? "neutral" : net > 0 ? "in" : "out";
@@ -178,7 +390,17 @@ function FlowCard({
         : "balanced";
 
   const sign = net > 0 ? "+" : net < 0 ? "−" : "";
+
+  // Total card needs higher precision so users see the actual delta —
+  // when both inflow and outflow round to the same M-figure, the net
+  // looks like a fluke. Per-exchange cards stick to compact format
+  // because their absolute numbers are smaller and don't suffer from
+  // this rounding collision.
   const fmt = (n: number) => formatLargeNumber(Math.abs(n));
+  const fmtPrecise = (n: number) =>
+    isTotal && Math.abs(n) >= 1_000_000
+      ? `${(Math.abs(n) / 1_000_000).toFixed(2)}M`
+      : formatLargeNumber(Math.abs(n));
 
   return (
     <div className={`flow-card ${isTotal ? "flow-card-total" : ""} flow-card-${direction}`}>
@@ -192,8 +414,8 @@ function FlowCard({
       </div>
       <div className="flow-card-direction">{directionLabel}</div>
       <div className="flow-card-breakdown">
-        <span className="flow-card-in">↓ {fmt(inflow)} in</span>
-        <span className="flow-card-out">↑ {fmt(outflow)} out</span>
+        <span className="flow-card-in">↓ {fmtPrecise(inflow)} in</span>
+        <span className="flow-card-out">↑ {fmtPrecise(outflow)} out</span>
       </div>
       {latestAt && (
         <div className="flow-card-latest">

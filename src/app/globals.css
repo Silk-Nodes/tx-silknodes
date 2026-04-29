@@ -240,7 +240,7 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-/* Whale label pills: re-tint so the "unlabeled 🕊" and similar
+/* Whale label pills: re-tint the unlabeled / individual / validator
    light-colored pills match the dark palette. */
 :root[data-theme="dark"] .whale-label-unlabeled {
   background: rgba(255, 255, 255, 0.06);
@@ -4751,3 +4751,161 @@ input[type="range"]::-moz-range-thumb {
   color: var(--tx-dark-green);
 }
 :root[data-theme="dark"] .flows-loading { color: rgba(255, 255, 255, 0.55); }
+
+/* ── Daily Flow chart card ── */
+.flows-chart-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.flows-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.flows-chart-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-medium);
+}
+.flows-chart-legend {
+  display: flex;
+  gap: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-light);
+}
+.flows-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flows-chart-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.flows-chart-legend-in  { background: #c45a4a; }
+.flows-chart-legend-out { background: #4a7a1a; }
+
+:root[data-theme="dark"] .flows-chart-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-chart-title { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-chart-legend { color: rgba(255, 255, 255, 0.55); }
+:root[data-theme="dark"] .flows-chart-legend-in  { background: #ff8a78; }
+:root[data-theme="dark"] .flows-chart-legend-out { background: var(--tx-neon); }
+
+/* ── Recent flows feed ── */
+.flows-feed-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flows-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flows-feed-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-light);
+}
+.flows-feed-list {
+  display: flex;
+  flex-direction: column;
+}
+.flows-feed-row {
+  display: grid;
+  grid-template-columns: 80px 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+.flows-feed-row:first-child { border-top: none; }
+.flows-feed-time {
+  color: var(--text-light);
+  font-size: 0.66rem;
+}
+.flows-feed-amount {
+  font-weight: 700;
+  text-align: right;
+}
+.flows-feed-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flows-feed-exchange {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.flows-feed-arrow {
+  color: var(--text-light);
+}
+.flows-feed-counterparty {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flows-feed-whale-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.flows-feed-empty-text {
+  padding: 16px 0 6px;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+:root[data-theme="dark"] .flows-feed-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flows-feed-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="dark"] .flows-feed-time,
+:root[data-theme="dark"] .flows-feed-arrow,
+:root[data-theme="dark"] .flows-feed-count,
+:root[data-theme="dark"] .flows-feed-empty-text { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flows-feed-route { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flows-feed-exchange,
+:root[data-theme="dark"] .flows-feed-counterparty { color: #fff; }
+:root[data-theme="dark"] .flows-feed-whale-tag {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}

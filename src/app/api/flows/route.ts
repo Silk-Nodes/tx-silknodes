@@ -25,21 +25,25 @@ import { ExchangeAddress, ExchangeFlow } from "@/lib/db/models";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const WINDOWS: Record<string, number> = {
+// Window key -> milliseconds lookback. "all" omits the time filter so
+// the aggregation runs over the entire exchange_flows table.
+const WINDOWS: Record<string, number | null> = {
   "24h": 24 * 60 * 60 * 1000,
-  "7d": 7 * 24 * 60 * 60 * 1000,
+  "7d":  7 * 24 * 60 * 60 * 1000,
   "30d": 30 * 24 * 60 * 60 * 1000,
   "90d": 90 * 24 * 60 * 60 * 1000,
+  "all": null,
 };
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const windowKey = WINDOWS[url.searchParams.get("window") ?? "24h"]
-      ? (url.searchParams.get("window") as keyof typeof WINDOWS)
-      : "24h";
-    const sinceMs = Date.now() - WINDOWS[windowKey];
-    const sinceDate = new Date(sinceMs);
+    const requested = url.searchParams.get("window") ?? "24h";
+    const windowKey = (Object.prototype.hasOwnProperty.call(WINDOWS, requested)
+      ? requested
+      : "24h") as keyof typeof WINDOWS;
+    const lookback = WINDOWS[windowKey];
+    const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
     const [exchanges, aggRows] = await Promise.all([
       ExchangeAddress.findAll({ raw: true, order: [["exchange_name", "ASC"]] }),
@@ -53,7 +57,7 @@ export async function GET(req: Request) {
           [fn("COUNT", literal("*")), "tx_count"],
           [fn("MAX", col("timestamp")), "latest_at"],
         ],
-        where: { timestamp: { [Op.gte]: sinceDate } },
+        where: sinceDate ? { timestamp: { [Op.gte]: sinceDate } } : {},
         group: ["exchange_address", "direction"],
         raw: true,
       }) as unknown as Promise<

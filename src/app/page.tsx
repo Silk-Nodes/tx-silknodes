@@ -341,7 +341,7 @@ export default function HomePage() {
                     display: "flex", alignItems: "center", gap: 3,
                   }}
                 >
-                  {addrCopied ? "✓" : "📋"}
+                  {addrCopied ? "✓" : "Copy"}
                 </button>
                 {(addrHover || addrCopied) && (
                   <div
@@ -1455,9 +1455,9 @@ function PSETab({
               : pseLookup.error.includes("temporarily") ? "#e6a800"
               : "#ff6b6b",
           }}>
-            {pseLookup.error === "excluded" ? "ℹ️ Excluded Address"
-              : pseLookup.error.includes("temporarily") ? "⚠️ PSE Score Temporarily Unavailable"
-              : "⚠️ Error"}
+            {pseLookup.error === "excluded" ? "Excluded Address"
+              : pseLookup.error.includes("temporarily") ? "PSE Score Temporarily Unavailable"
+              : "Error"}
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-dark)", lineHeight: 1.5, opacity: 0.8 }}>
             {pseLookup.error === "excluded"
@@ -3088,7 +3088,6 @@ function PortfolioTab({
             {/* Header */}
             <div style={{ padding: "20px 24px 14px", borderBottom: "1px solid var(--glass-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: "1.3rem" }}>↩️</span>
                 <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-dark)" }}>
                   Cancel Unbonding
                 </div>
@@ -3126,7 +3125,6 @@ function PortfolioTab({
                 marginBottom: 6,
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <span style={{ fontSize: "0.95rem", lineHeight: 1 }}>✨</span>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-medium)", lineHeight: 1.55 }}>
                     Your stake will be restored to <strong>{cancelTarget.validatorMoniker}</strong> and your accumulated <strong style={{ color: "var(--accent-olive)" }}>PSE score will be preserved</strong>. The unbonding entry will be removed.
                   </div>
