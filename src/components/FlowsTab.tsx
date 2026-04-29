@@ -217,6 +217,22 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
     [points],
   );
 
+  // Recharts' cursor highlight needs a theme-aware fill: a black tint
+  // is invisible on dark mode (black-on-dark) and a neon tint washes
+  // out small bars on light mode. Track the data-theme attribute so we
+  // can switch live when the user toggles theme.
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = typeof document !== "undefined" ? document.documentElement : null;
+    if (!root) return;
+    const update = () => setIsDark(root.getAttribute("data-theme") === "dark");
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  const cursorFill = isDark ? "rgba(177, 252, 3, 0.18)" : "rgba(0, 0, 0, 0.05)";
+
   return (
     <div className="flows-chart-card">
       <div className="flows-chart-header">
@@ -255,12 +271,10 @@ function FlowsChart({ points }: { points: Array<{ date: string; inflow: number; 
             />
             <ReferenceLine y={0} stroke="rgba(0,0,0,0.15)" />
             <RechartsTooltip
-              // Neutral darken-on-hover. The previous neon-green overlay
-              // (rgba(177,252,3,0.08)) tinted small bars so they
-              // visually disappeared in light mode. A subtle grey tints
-              // the background area without washing out the column
-              // colour underneath, in either theme.
-              cursor={{ fill: "rgba(0,0,0,0.05)" }}
+              // Theme-aware cursor highlight: black-tint on light mode
+              // (subtle darken without colour bleed), neon-tint on dark
+              // mode where black-on-dark would be invisible.
+              cursor={{ fill: cursorFill }}
               contentStyle={{
                 background: "rgba(15, 27, 7, 0.94)",
                 color: "#f4f1eb",
