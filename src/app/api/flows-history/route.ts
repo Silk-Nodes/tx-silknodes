@@ -116,6 +116,48 @@ export async function GET(req: Request) {
       if (Number.isFinite(v)) priceByDay.set(day, v);
     }
 
+    // daily_metrics.price_usd lags by 1–4 days because the metrics
+    // collector backfills on its own cadence. That left the chart with
+    // a stub price line covering only the first few days of each
+    // window. Fall back to CoinGecko's daily market_chart for any day
+    // that has flow data but is missing a price snapshot. Failures
+    // are non-fatal — we just leave the price as null and the chart
+    // skips the segment, matching the prior behaviour.
+    const allDays = Array.from(byDay.keys());
+    const missingDays = allDays.filter((d) => !priceByDay.has(d));
+    if (missingDays.length > 0 && allDays.length > 0) {
+      try {
+        const earliest = allDays.reduce((a, b) => (a < b ? a : b));
+        const earliestMs = new Date(earliest + "T00:00:00Z").getTime();
+        const spanDays = Math.max(
+          1,
+          Math.ceil((Date.now() - earliestMs) / (24 * 60 * 60 * 1000)),
+        );
+        // CoinGecko returns `prices: [[ms, usd], ...]` — daily granularity
+        // is enforced automatically when days >= 2 on the public endpoint.
+        const cgUrl = `https://api.coingecko.com/api/v3/coins/tx/market_chart?vs_currency=usd&days=${Math.min(spanDays + 1, 365)}&interval=daily`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch(cgUrl, {
+          signal: ctrl.signal,
+          headers: { accept: "application/json" },
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const cg = (await res.json()) as { prices?: Array<[number, number]> };
+          for (const [ms, usd] of cg.prices ?? []) {
+            const day = new Date(ms).toISOString().slice(0, 10);
+            // Only fill gaps; never overwrite the canonical daily_metrics value.
+            if (!priceByDay.has(day) && Number.isFinite(usd)) {
+              priceByDay.set(day, usd);
+            }
+          }
+        }
+      } catch {
+        // swallow — null prices on missing days is the prior contract.
+      }
+    }
+
     const points = Array.from(byDay.entries())
       .map(([date, v]) => ({
         date,
