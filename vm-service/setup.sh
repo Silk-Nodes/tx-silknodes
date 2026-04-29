@@ -18,6 +18,9 @@ WEB_SERVICE_NAME="silknodes-web"
 WEB_SERVICE_FILE="/etc/systemd/system/${WEB_SERVICE_NAME}.service"
 FLOWS_SERVICE_NAME="silknodes-exchange-flows"
 FLOWS_SERVICE_FILE="/etc/systemd/system/${FLOWS_SERVICE_NAME}.service"
+FLOWS_PRUNE_SERVICE_NAME="silknodes-prune-exchange-flows"
+FLOWS_PRUNE_SERVICE_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.service"
+FLOWS_PRUNE_TIMER_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.timer"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
@@ -134,6 +137,11 @@ install_unit "$SCRIPT_DIR/silknodes-web.service" "$WEB_SERVICE_FILE"
 echo "Installing $FLOWS_SERVICE_NAME.service..."
 install_unit "$SCRIPT_DIR/silknodes-exchange-flows.service" "$FLOWS_SERVICE_FILE"
 
+# Install the exchange flows retention pruner (one-shot + daily timer at 03:30 UTC)
+echo "Installing $FLOWS_PRUNE_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-prune-exchange-flows.service" "$FLOWS_PRUNE_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-prune-exchange-flows.timer" "$FLOWS_PRUNE_TIMER_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -160,6 +168,8 @@ sudo systemctl enable "$WEB_SERVICE_NAME"
 sudo systemctl start "$WEB_SERVICE_NAME"
 sudo systemctl enable "$FLOWS_SERVICE_NAME"
 sudo systemctl start "$FLOWS_SERVICE_NAME"
+sudo systemctl enable "${FLOWS_PRUNE_SERVICE_NAME}.timer"
+sudo systemctl start "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 
 sleep 2
 echo

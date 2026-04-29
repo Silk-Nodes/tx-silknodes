@@ -1,0 +1,28 @@
+[Unit]
+Description=Silk Nodes Exchange Flows Retention Pruner
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/prune-exchange-flows.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-prune-exchange-flows
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+# Retention window. Override here if 12 months ever needs to change
+# without redeploying the script. Min enforced at 30 days inside the
+# pruner so a typo can't wipe the table.
+Environment=FLOWS_RETENTION_DAYS=365
+EnvironmentFile=-/home/%i/.silknodes-db.env
+# DELETE + VACUUM ANALYZE on a year of rows finishes in seconds even on
+# a busy table; 15 min is generous headroom for transient lock waits.
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Silk Nodes Exchange Flows retention pruner daily
+Requires=silknodes-prune-exchange-flows.service
+
+[Timer]
+# 03:30 UTC daily, well after the 02:00 daily-analytics run so the two
+# collectors never contend on the same shared tables.
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+Unit=silknodes-prune-exchange-flows.service
+
+[Install]
+WantedBy=timers.target

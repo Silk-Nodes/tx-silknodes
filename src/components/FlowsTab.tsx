@@ -223,7 +223,7 @@ export default function FlowsTab() {
         <div>
           <h1 className="page-title">Exchange Flows</h1>
           <span className="section-sub" style={{ fontSize: "0.8rem", opacity: 0.6 }}>
-            Net &gt; 0 = exchange accumulating (sell pressure). Net &lt; 0 = exchange releasing (accumulation).
+            Net &gt; 0 = exchange accumulating (sell pressure). Net &lt; 0 = exchange releasing (accumulation). Data retained for 12 months.
           </span>
         </div>
         <div ref={pillsRef}>{renderWindowPills()}</div>
