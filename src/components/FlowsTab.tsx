@@ -13,6 +13,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { formatLargeNumber } from "@/lib/analytics-utils";
+import AddressFlowPanel from "./AddressFlowPanel";
 
 // ─── Types mirror the API response shapes ─────────────────────────────
 
@@ -99,6 +100,8 @@ export default function FlowsTab() {
   const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
   const [counterparties, setCounterparties] = useState<CounterpartiesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Selected address drives the slide-in side panel. Clear on close.
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
 
   // Sticky window pills — same pattern as the Analytics tab. The
   // header-level pill row carries the ref; once it scrolls out of
@@ -274,11 +277,19 @@ export default function FlowsTab() {
         <CounterpartiesSection
           depositors={counterparties.depositors}
           withdrawers={counterparties.withdrawers}
+          onAddressClick={setSelectedAddress}
         />
       )}
 
       {/* ─── Recent flows feed ─── */}
-      {recent && <RecentFlowsFeed flows={recent.flows} />}
+      {recent && <RecentFlowsFeed flows={recent.flows} onAddressClick={setSelectedAddress} />}
+
+      {/* ─── Address details panel (slides in from right) ─── */}
+      <AddressFlowPanel
+        address={selectedAddress}
+        windowKey={windowKey}
+        onClose={() => setSelectedAddress(null)}
+      />
 
       {!totals && !error && (
         <div className="flows-loading">Loading flows…</div>
@@ -450,7 +461,13 @@ const AMOUNT_BUCKETS: { key: AmountBucket; label: string; min: number; max: numb
 
 const PAGE_SIZE = 10;
 
-function RecentFlowsFeed({ flows }: { flows: RecentFlowRow[] }) {
+function RecentFlowsFeed({
+  flows,
+  onAddressClick,
+}: {
+  flows: RecentFlowRow[];
+  onAddressClick: (address: string) => void;
+}) {
   const [bucket, setBucket] = useState<AmountBucket>("all");
   const [page, setPage] = useState(0);
 
@@ -519,7 +536,11 @@ function RecentFlowsFeed({ flows }: { flows: RecentFlowRow[] }) {
       ) : (
         <div className="flows-feed-list">
           {pageFlows.map((f, i) => (
-            <FeedRow key={`${f.txHash}-${safePage}-${i}`} flow={f} />
+            <FeedRow
+              key={`${f.txHash}-${safePage}-${i}`}
+              flow={f}
+              onAddressClick={onAddressClick}
+            />
           ))}
         </div>
       )}
@@ -553,7 +574,13 @@ function RecentFlowsFeed({ flows }: { flows: RecentFlowRow[] }) {
   );
 }
 
-function FeedRow({ flow }: { flow: RecentFlowRow }) {
+function FeedRow({
+  flow,
+  onAddressClick,
+}: {
+  flow: RecentFlowRow;
+  onAddressClick: (address: string) => void;
+}) {
   const sign = flow.direction === "inflow" ? "+" : "−";
   const directionClass = flow.direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
   const arrow = flow.direction === "inflow" ? "→" : "←";
@@ -571,9 +598,17 @@ function FeedRow({ flow }: { flow: RecentFlowRow }) {
       <span className="flows-feed-route">
         <span className="flows-feed-exchange">{flow.exchange}</span>
         <span className="flows-feed-arrow">{arrow}</span>
-        <span className="flows-feed-counterparty" title={flow.counterparty}>
+        {/* Counterparty is the only clickable cell — that's the
+            interesting target. Exchange names stay non-interactive
+            in v1 (they have cards above already). */}
+        <button
+          type="button"
+          className="flows-feed-counterparty flows-feed-counterparty-button"
+          onClick={() => onAddressClick(flow.counterparty)}
+          title={flow.counterparty}
+        >
           {cpDisplay}
-        </span>
+        </button>
         {flow.counterpartyRank != null && (
           <span className="flows-feed-whale-tag">Top #{flow.counterpartyRank}</span>
         )}
@@ -643,9 +678,11 @@ function DestinationsSection({ data }: { data: DestinationsResponse }) {
 function CounterpartiesSection({
   depositors,
   withdrawers,
+  onAddressClick,
 }: {
   depositors: CounterpartyRow[];
   withdrawers: CounterpartyRow[];
+  onAddressClick: (address: string) => void;
 }) {
   if (depositors.length === 0 && withdrawers.length === 0) return null;
   return (
@@ -655,12 +692,14 @@ function CounterpartiesSection({
         subtitle="largest senders TO exchanges"
         rows={depositors}
         direction="inflow"
+        onAddressClick={onAddressClick}
       />
       <CounterpartyList
         title="Top Withdrawers"
         subtitle="largest receivers FROM exchanges"
         rows={withdrawers}
         direction="outflow"
+        onAddressClick={onAddressClick}
       />
     </div>
   );
@@ -671,11 +710,13 @@ function CounterpartyList({
   subtitle,
   rows,
   direction,
+  onAddressClick,
 }: {
   title: string;
   subtitle: string;
   rows: CounterpartyRow[];
   direction: "inflow" | "outflow";
+  onAddressClick: (address: string) => void;
 }) {
   const directionClass = direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
   return (
@@ -689,9 +730,23 @@ function CounterpartyList({
       ) : (
         <ol className="flows-counterparty-list">
           {rows.map((r, i) => (
-            <li key={r.address} className="flows-counterparty-row">
+            <li
+              key={r.address}
+              className="flows-counterparty-row flows-counterparty-row-clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => onAddressClick(r.address)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onAddressClick(r.address);
+                }
+              }}
+              title={r.address}
+              aria-label={`Open details for ${r.label ?? r.address}`}
+            >
               <span className="flows-counterparty-rank">#{i + 1}</span>
-              <span className="flows-counterparty-name" title={r.address}>
+              <span className="flows-counterparty-name">
                 {r.label ?? truncate(r.address)}
                 {r.rank != null && (
                   <span className="flows-feed-whale-tag">Top #{r.rank}</span>
