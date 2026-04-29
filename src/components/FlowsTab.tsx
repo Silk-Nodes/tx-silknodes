@@ -857,12 +857,22 @@ function FlowCard({
   const NEAR_ZERO_TX = 1000;
   const direction =
     Math.abs(net) < NEAR_ZERO_TX ? "neutral" : net > 0 ? "in" : "out";
+  // Plain English labels. The previous "accumulating / distributing"
+  // wording read as finance jargon and several users got the polarity
+  // backwards (distributing reads like "selling" in TradFi, but here
+  // it means coins LEAVING the exchange, which is bullish).
   const directionLabel =
     direction === "in"
-      ? "accumulating"
+      ? "more coins going IN"
       : direction === "out"
-        ? "distributing"
-        : "balanced";
+        ? "more coins going OUT"
+        : "roughly even";
+  const directionTooltip =
+    direction === "in"
+      ? "More coins going IN than out of exchanges in this window. Often interpreted as sell pressure. Users are moving TX onto exchanges, typically to sell."
+      : direction === "out"
+        ? "More coins going OUT than in from exchanges in this window. Often interpreted as bullish. Users are moving TX off exchanges, typically to hold or stake."
+        : "Inflow and outflow are roughly equal in this window. No clear directional signal.";
 
   const sign = net > 0 ? "+" : net < 0 ? "−" : "";
 
@@ -887,7 +897,24 @@ function FlowCard({
         {sign}
         {fmt(net)} TX
       </div>
-      <div className="flow-card-direction">{directionLabel}</div>
+      <div className="flow-card-direction">
+        {/* Hoverable wrapper + visible (?) icon. Both the word and the
+            icon trigger the same tooltip so desktop users get hover
+            and mobile users see something tappable. tabIndex makes
+            the bubble keyboard-focusable. */}
+        <span
+          className="flow-card-direction-tip"
+          tabIndex={0}
+          role="button"
+          aria-label={`${directionLabel}. ${directionTooltip}`}
+        >
+          <span className="flow-card-direction-label">{directionLabel}</span>
+          <span className="flow-card-direction-tip-icon" aria-hidden="true">?</span>
+          <span className="flow-card-direction-tip-bubble" role="tooltip">
+            {directionTooltip}
+          </span>
+        </span>
+      </div>
       <div className="flow-card-breakdown">
         <span className="flow-card-in">↓ {fmtPrecise(inflow)} in</span>
         <span className="flow-card-out">↑ {fmtPrecise(outflow)} out</span>
