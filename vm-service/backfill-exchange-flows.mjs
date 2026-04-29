@@ -4,19 +4,22 @@
  * One-shot historical backfill for the Flows tab.
  *
  * The continuous daemon (collect-exchange-flows.mjs) only scans forward
- * from the current chain tip. This script does the opposite: starts
- * from height 0 and walks the chain forward through every Bank Send
- * touching the tracked exchange addresses, populating exchange_flows
- * with all of history.
+ * from the current chain tip. This script does the opposite: walks the
+ * full chain history for each tracked exchange address and fills the
+ * exchange_flows table with everything since genesis.
  *
- * Run it ONCE on the VM after the migration applies:
+ * Run ONCE on the VM after migration 002 applies:
  *
  *   set -a; source ~/.silknodes-db.env; set +a
  *   node vm-service/backfill-exchange-flows.mjs
  *
- * Idempotent — re-running is safe; existing rows are skipped via the
- * UNIQUE constraint. Cursors are also updated, so the continuous
- * daemon won't re-scan the same range afterwards.
+ * Idempotent — safe to re-run; existing rows are skipped via the UNIQUE
+ * constraint. Cursors are also updated, so the continuous daemon won't
+ * re-scan the same range afterwards.
+ *
+ * Uses Tendermint RPC tx_search (same endpoint pattern as the staking
+ * collector) because the LCD's tx query endpoint returns 500s on this
+ * network.
  */
 
 import {
@@ -27,8 +30,8 @@ import {
 } from "./db-writes.mjs";
 import { closePool } from "./db.mjs";
 
-const LCD = process.env.LCD || "https://rest-coreum.ecostake.com";
-const PAGE_LIMIT = 100;
+const RPC = process.env.RPC || "https://rpc-coreum.ecostake.com";
+const PER_PAGE = 100;
 const MIN_FLOW_UCORE = 1_000_000n;
 const NATIVE_DENOM = "ucore";
 const DECIMALS = 6;
@@ -43,6 +46,28 @@ async function fetchWithRetry(url, attempt = 1) {
     await new Promise((r) => setTimeout(r, 500 * attempt));
     return fetchWithRetry(url, attempt + 1);
   }
+}
+
+const blockTimestampCache = new Map();
+async function getBlockTime(height) {
+  if (blockTimestampCache.has(height)) return blockTimestampCache.get(height);
+  try {
+    const data = await fetchWithRetry(`${RPC}/block?height=${height}`);
+    const time = data?.result?.block?.header?.time;
+    if (time) {
+      blockTimestampCache.set(height, time);
+      // Backfill cache can grow larger — we may process tens of thousands
+      // of blocks. 5000 entries ~= 1 MB, fine for a one-shot script.
+      if (blockTimestampCache.size > 5000) {
+        const firstKey = blockTimestampCache.keys().next().value;
+        blockTimestampCache.delete(firstKey);
+      }
+      return time;
+    }
+  } catch {
+    // swallow — we just skip rows we can't timestamp
+  }
+  return null;
 }
 
 function parseUcoreAmount(amountStr) {
@@ -84,51 +109,50 @@ function extractTransfers(events, address, direction) {
   return matches;
 }
 
-async function backfillDirection(address, exchangeName, direction) {
-  const eventQuery =
+function buildQuery(address, direction) {
+  const eventClause =
     direction === "inflow"
       ? `transfer.recipient='${address}'`
       : `transfer.sender='${address}'`;
+  return `"${eventClause}"`;
+}
 
-  let nextKey = null;
+async function backfillDirection(address, exchangeName, direction) {
+  let page = 1;
   let inserted = 0;
   let maxHeight = 0;
-  let pages = 0;
-  // Hard upper bound to keep a runaway script from blowing through the
-  // LCD rate limits. 500 pages × 100 = 50 000 txs per direction is plenty
-  // for any realistic exchange address since Coreum genesis.
+  let processed = 0;
+  let totalCount = Infinity;
+  // 50k txs = 500 pages × 100/page; well past anything realistic for
+  // one address since chain genesis. Keeps a runaway from blowing the
+  // RPC budget.
   const MAX_PAGES = 500;
 
-  do {
-    pages++;
-    if (pages > MAX_PAGES) {
-      console.log(`  [${exchangeName} ${direction}] hit MAX_PAGES — stopping`);
-      break;
-    }
-    const keyParam = nextKey
-      ? `&pagination.key=${encodeURIComponent(nextKey)}`
-      : "";
-    const url =
-      `${LCD}/cosmos/tx/v1beta1/txs` +
-      `?events=${encodeURIComponent(eventQuery)}` +
-      `&pagination.limit=${PAGE_LIMIT}` +
-      `&order_by=ORDER_BY_ASC` +
-      keyParam;
-
+  while (processed < totalCount && page <= MAX_PAGES) {
+    const q = encodeURIComponent(buildQuery(address, direction));
+    const url = `${RPC}/tx_search?query=${q}&page=${page}&per_page=${PER_PAGE}&order_by=%22asc%22`;
     const data = await fetchWithRetry(url);
-    const responses = Array.isArray(data?.tx_responses) ? data.tx_responses : [];
 
-    for (const r of responses) {
-      const height = parseInt(r.height, 10);
+    totalCount = parseInt(data?.result?.total_count || "0", 10);
+    const txs = data?.result?.txs || [];
+    if (txs.length === 0) break;
+
+    for (const tx of txs) {
+      const height = parseInt(tx.height, 10);
       if (Number.isFinite(height) && height > maxHeight) maxHeight = height;
-      const transfers = extractTransfers(r.events, address, direction);
+      const events = tx?.tx_result?.events || [];
+      const transfers = extractTransfers(events, address, direction);
+      processed++;
       if (transfers.length === 0) continue;
+
+      const timestamp = await getBlockTime(height);
+      if (!timestamp) continue;
       for (const t of transfers) {
         const amountTx = Number(t.amountUcore) / 10 ** DECIMALS;
         inserted += await writeExchangeFlow({
-          tx_hash: r.txhash,
+          tx_hash: tx.hash,
           height,
-          timestamp: r.timestamp,
+          timestamp,
           exchange_address: address,
           direction,
           counterparty: t.counterparty,
@@ -136,22 +160,22 @@ async function backfillDirection(address, exchangeName, direction) {
         });
       }
     }
-    nextKey = data?.pagination?.next_key ?? null;
-    if (pages % 10 === 0) {
-      process.stdout.write(
-        `\r  [${exchangeName} ${direction}] page ${pages}, height ~${maxHeight}, ${inserted} inserted   `,
-      );
-    }
-  } while (nextKey);
+    page++;
+    process.stdout.write(
+      `\r  [${exchangeName} ${direction}] page ${page - 1}/${Math.ceil(
+        totalCount / PER_PAGE,
+      )} · processed=${processed}/${totalCount} · inserted=${inserted} · height=${maxHeight}   `,
+    );
+  }
 
   console.log(
-    `\n  [${exchangeName} ${direction}] DONE — ${pages} pages, max height ${maxHeight}, ${inserted} rows inserted`,
+    `\n  [${exchangeName} ${direction}] DONE — pages=${page - 1}, processed=${processed}/${totalCount}, max height=${maxHeight}, inserted=${inserted}`,
   );
   return { maxHeight, inserted };
 }
 
 async function main() {
-  console.log(`Backfilling exchange flows from ${LCD}\n`);
+  console.log(`Backfilling exchange flows from ${RPC}\n`);
   const start = Date.now();
 
   const addresses = await listExchangeAddresses();
