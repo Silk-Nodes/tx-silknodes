@@ -4902,13 +4902,64 @@ input[type="range"]::-moz-range-thumb {
 }
 .flows-feed-row {
   display: grid;
-  grid-template-columns: 80px 110px 1fr;
+  grid-template-columns: 70px 102px 110px 1fr;
   align-items: center;
   gap: 12px;
   padding: 8px 0;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   font-family: var(--font-mono);
   font-size: 0.74rem;
+}
+
+/* Direction pill: DEPOSIT (red) / WITHDRAWAL (green). Sits between
+   the timestamp and the amount so the row reads at a glance. */
+.flows-feed-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  width: 100%;
+}
+.flows-feed-pill-in {
+  background: rgba(196, 90, 74, 0.15);
+  color: #c45a4a;
+  border: 1px solid rgba(196, 90, 74, 0.35);
+}
+.flows-feed-pill-out {
+  background: rgba(74, 122, 26, 0.15);
+  color: #4a7a1a;
+  border: 1px solid rgba(74, 122, 26, 0.35);
+}
+:root[data-theme="dark"] .flows-feed-pill-in {
+  background: rgba(255, 138, 120, 0.16);
+  color: #ff8a78;
+  border-color: rgba(255, 138, 120, 0.4);
+}
+:root[data-theme="dark"] .flows-feed-pill-out {
+  background: rgba(177, 252, 3, 0.14);
+  color: var(--tx-neon);
+  border-color: rgba(177, 252, 3, 0.4);
+}
+
+@media (max-width: 640px) {
+  .flows-feed-row {
+    grid-template-columns: 60px 92px 1fr;
+    grid-template-areas:
+      "time   pill   amount"
+      "route  route  route";
+    row-gap: 4px;
+  }
+  .flows-feed-time   { grid-area: time; }
+  .flows-feed-pill   { grid-area: pill; }
+  .flows-feed-amount { grid-area: amount; }
+  .flows-feed-route  { grid-area: route; }
 }
 .flows-feed-row:first-child { border-top: none; }
 .flows-feed-time {

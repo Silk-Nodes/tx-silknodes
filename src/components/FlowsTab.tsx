@@ -643,34 +643,46 @@ function FeedRow({
   flow: RecentFlowRow;
   onAddressClick: (address: string) => void;
 }) {
-  const sign = flow.direction === "inflow" ? "+" : "−";
-  const directionClass = flow.direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
-  const arrow = flow.direction === "inflow" ? "→" : "←";
+  const isDeposit = flow.direction === "inflow";
+  const sign = isDeposit ? "+" : "−";
+  const directionClass = isDeposit ? "flow-card-net-in" : "flow-card-net-out";
+  const pillLabel = isDeposit ? "DEPOSIT" : "WITHDRAWAL";
+  const pillClass = isDeposit ? "flows-feed-pill-in" : "flows-feed-pill-out";
   const cpDisplay = flow.counterpartyLabel
     ? flow.counterpartyLabel
     : truncate(flow.counterparty);
 
+  // Always render source -> destination so the row reads naturally
+  // left to right and the arrow direction is consistent. Deposits
+  // flow counterparty -> exchange; withdrawals flow exchange ->
+  // counterparty. The leading pill carries the semantic label so the
+  // user doesn't have to parse direction from the arrow alone.
+  const counterpartyButton = (
+    <button
+      type="button"
+      className="flows-feed-counterparty flows-feed-counterparty-button"
+      onClick={() => onAddressClick(flow.counterparty)}
+      title={flow.counterparty}
+    >
+      {cpDisplay}
+    </button>
+  );
+  const exchangeNode = <span className="flows-feed-exchange">{flow.exchange}</span>;
+  const sourceNode = isDeposit ? counterpartyButton : exchangeNode;
+  const destNode = isDeposit ? exchangeNode : counterpartyButton;
+
   return (
     <div className="flows-feed-row">
       <span className="flows-feed-time">{relativeTime(flow.timestamp)}</span>
+      <span className={`flows-feed-pill ${pillClass}`}>{pillLabel}</span>
       <span className={`flows-feed-amount ${directionClass}`}>
         {sign}
         {formatLargeNumber(Math.abs(flow.amount))} TX
       </span>
       <span className="flows-feed-route">
-        <span className="flows-feed-exchange">{flow.exchange}</span>
-        <span className="flows-feed-arrow">{arrow}</span>
-        {/* Counterparty is the only clickable cell — that's the
-            interesting target. Exchange names stay non-interactive
-            in v1 (they have cards above already). */}
-        <button
-          type="button"
-          className="flows-feed-counterparty flows-feed-counterparty-button"
-          onClick={() => onAddressClick(flow.counterparty)}
-          title={flow.counterparty}
-        >
-          {cpDisplay}
-        </button>
+        {sourceNode}
+        <span className="flows-feed-arrow">→</span>
+        {destNode}
         {flow.counterpartyRank != null && (
           <span className="flows-feed-whale-tag">Top #{flow.counterpartyRank}</span>
         )}
