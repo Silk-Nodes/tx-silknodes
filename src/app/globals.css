@@ -2272,6 +2272,15 @@ input[type="range"]::-moz-range-thumb {
   animation: sticky-fade-in 0.2s ease;
 }
 
+/* Dark-mode floating pill: tinted dark backdrop with a neon ring so
+   it pops against the page without bleeding light-mode whites onto
+   the dark surface. */
+:root[data-theme="dark"] .sticky-pills-bar {
+  background: rgba(15, 27, 7, 0.78);
+  border-color: rgba(177, 252, 3, 0.18);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
 @keyframes sticky-fade-in {
   from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
