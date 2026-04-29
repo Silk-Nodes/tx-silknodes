@@ -4562,3 +4562,192 @@ input[type="range"]::-moz-range-thumb {
 :root[data-theme="dark"] .wallet-connect-prompt-cta {
   color: var(--tx-neon);
 }
+
+/* ═══ FLOWS TAB ═══════════════════════════════════════════════════════
+   Exchange in/out flow dashboard. Cards show net flow with a colour
+   tied to the trader signal:
+     net > 0  (exchange accumulating)  → red, potential sell pressure
+     net < 0  (exchange releasing)     → green, potential bullish
+     near 0                            → neutral grey
+   Total card sits at the top, full-width, with the summed signal.
+*/
+
+.flows-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.flows-window-pills {
+  display: flex;
+  gap: 4px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+}
+.flows-window-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.flows-window-pill:hover { color: var(--text-dark); }
+.flows-window-pill.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+.flows-window-pill:focus-visible {
+  outline: 2px solid var(--tx-neon);
+  outline-offset: 2px;
+}
+
+.flows-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.flow-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Direction is conveyed by an accent border-left so the card glance
+     reads green/red/grey before the user even reads numbers. */
+  border-left: 4px solid var(--glass-border);
+}
+.flow-card-in    { border-left-color: #c45a4a; }
+.flow-card-out   { border-left-color: #4a7a1a; }
+.flow-card-neutral { border-left-color: var(--text-light); }
+
+.flow-card-total {
+  /* Bigger, more prominent than the per-exchange grid */
+  padding: 22px 24px;
+}
+.flow-card-total .flow-card-net {
+  font-size: 2.4rem;
+}
+
+.flow-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.flow-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-medium);
+}
+.flow-card-tx-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-light);
+}
+.flow-card-net {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.flow-card-net-in    { color: #c45a4a; }
+.flow-card-net-out   { color: #4a7a1a; }
+.flow-card-net-neutral { color: var(--text-medium); }
+
+.flow-card-direction {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.flow-card-breakdown {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-medium);
+}
+.flow-card-in    { } /* see border-left rule above */
+.flow-card-in   .flow-card-in   { color: #c45a4a; }
+.flow-card-out  .flow-card-out  { color: #4a7a1a; }
+/* Always-on tinting for the directional spans so people can read the
+   in/out line independent of card-level state. */
+.flow-card-breakdown .flow-card-in,
+.flow-card-breakdown .flow-card-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-card-latest {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-light);
+  margin-top: 4px;
+}
+
+.flows-error {
+  background: rgba(196, 90, 74, 0.1);
+  color: #c45a4a;
+  border: 1px solid rgba(196, 90, 74, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.flows-loading {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+}
+
+/* Dark mode: glass cards need a slightly lighter inset background +
+   adjusted text colours to read against the dark page background. */
+:root[data-theme="dark"] .flow-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .flow-card-name { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flow-card-tx-count,
+:root[data-theme="dark"] .flow-card-direction,
+:root[data-theme="dark"] .flow-card-latest { color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="dark"] .flow-card-breakdown { color: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] .flow-card-net-neutral { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flow-card-net-in  { color: #ff8a78; }
+:root[data-theme="dark"] .flow-card-net-out { color: var(--tx-neon); }
+:root[data-theme="dark"] .flow-card-in   { border-left-color: #ff8a78; }
+:root[data-theme="dark"] .flow-card-out  { border-left-color: var(--tx-neon); }
+:root[data-theme="dark"] .flow-card-neutral { border-left-color: rgba(255, 255, 255, 0.2); }
+:root[data-theme="dark"] .flows-window-pills {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .flows-window-pill { color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] .flows-window-pill:hover { color: #fff; }
+:root[data-theme="dark"] .flows-window-pill.active {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root[data-theme="dark"] .flows-loading { color: rgba(255, 255, 255, 0.55); }

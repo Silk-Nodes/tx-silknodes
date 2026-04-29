@@ -271,6 +271,66 @@ export async function getLastDailyMetricDate(columnName) {
   return d instanceof Date ? d.toISOString().slice(0, 10) : String(d);
 }
 
+// ─── exchange_flows ──────────────────────────────────────────────────────
+//
+// Helpers for the Flows tab pipeline. The collector inserts one row per
+// detected Bank Send touching a tracked exchange address; the cursor
+// table tracks the last block height we processed per address so we
+// don't re-scan the whole chain on every poll.
+
+/** List of currently-tracked exchange addresses with their display names.
+ *  Read by both the collector and the API layer. */
+export async function listExchangeAddresses() {
+  const { rows } = await query(
+    `SELECT address, exchange_name FROM exchange_addresses ORDER BY exchange_name`,
+  );
+  return rows;
+}
+
+/** Insert one detected Bank Send. Idempotent via the UNIQUE constraint
+ *  on (tx_hash, exchange_address, direction, counterparty, amount). */
+export async function writeExchangeFlow(row) {
+  const res = await query(
+    `INSERT INTO exchange_flows
+       (tx_hash, height, timestamp, exchange_address,
+        direction, counterparty, amount)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT DO NOTHING`,
+    [
+      row.tx_hash,
+      row.height,
+      row.timestamp,
+      row.exchange_address,
+      row.direction,
+      row.counterparty,
+      row.amount,
+    ],
+  );
+  return res.rowCount;
+}
+
+/** Get the last block height we processed for an exchange address. Returns
+ *  0 if we've never seen it before (fresh address or wiped state). */
+export async function getExchangeFlowsCursor(exchangeAddress) {
+  const { rows } = await query(
+    `SELECT last_scanned_height FROM exchange_flows_state WHERE exchange_address = $1`,
+    [exchangeAddress],
+  );
+  return rows[0]?.last_scanned_height ?? 0;
+}
+
+/** Persist the cursor. UPSERT keeps a single row per address. */
+export async function setExchangeFlowsCursor(exchangeAddress, height) {
+  await query(
+    `INSERT INTO exchange_flows_state (exchange_address, last_scanned_height, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (exchange_address) DO UPDATE SET
+       last_scanned_height = GREATEST(exchange_flows_state.last_scanned_height, EXCLUDED.last_scanned_height),
+       updated_at = NOW()`,
+    [exchangeAddress, height],
+  );
+}
+
 // ─── pse_score ───────────────────────────────────────────────────────────
 //
 // Time-series append. PRIMARY KEY is computed_at (TIMESTAMPTZ) so unique

@@ -1,0 +1,25 @@
+[Unit]
+Description=Silk Nodes Exchange Flows Collector
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-exchange-flows.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-exchange-flows
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+# DB credentials — same env file as the other collectors. Optional ("-"
+# prefix) so the unit loads even before the file is created.
+EnvironmentFile=-/home/%i/.silknodes-db.env
+
+[Install]
+WantedBy=multi-user.target
