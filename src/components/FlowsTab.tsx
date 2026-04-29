@@ -380,6 +380,16 @@ function FlowsChart({
   }, []);
   const cursorFill = isDark ? "rgba(177, 252, 3, 0.18)" : "rgba(0, 0, 0, 0.05)";
 
+  // Neon (#B1FC03) is the brand colour but it washes out badly on
+  // the cream light-mode background. The price line and right-axis
+  // ticks need a darker olive in light mode while keeping the neon
+  // on dark mode where it sings against the deep green background.
+  const priceStroke = isDark ? "#B1FC03" : "#3f6212";
+  const priceDotStroke = isDark ? "#0f1b07" : "#FAFFE4";
+  const priceTickFill = isDark ? "rgba(177,252,3,0.7)" : "#3f6212";
+  const flowTickFill = isDark ? "rgba(244,241,235,0.55)" : "rgba(59,45,38,0.65)";
+  const xTickFill = isDark ? "rgba(244,241,235,0.55)" : "rgba(59,45,38,0.65)";
+
   return (
     <div className="flows-chart-card">
       <div className="flows-chart-header">
@@ -408,7 +418,7 @@ function FlowsChart({
                 const dt = new Date(d + "T00:00:00");
                 return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()]} ${dt.getDate()}`;
               }}
-              tick={{ fill: "rgba(106,90,81,0.5)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              tick={{ fill: xTickFill, fontSize: 10, fontFamily: "var(--font-mono)" }}
               axisLine={false}
               tickLine={false}
               interval={Math.max(0, Math.floor(chartData.length / 8))}
@@ -418,7 +428,7 @@ function FlowsChart({
             <YAxis
               yAxisId="flow"
               tickFormatter={(v: number) => formatLargeNumber(Math.abs(v))}
-              tick={{ fill: "rgba(106,90,81,0.4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              tick={{ fill: flowTickFill, fontSize: 10, fontFamily: "var(--font-mono)" }}
               axisLine={false}
               tickLine={false}
               width={55}
@@ -433,7 +443,7 @@ function FlowsChart({
                 domain={priceDomain}
                 allowDataOverflow={false}
                 tickFormatter={priceTickFormatter}
-                tick={{ fill: "rgba(177,252,3,0.7)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+                tick={{ fill: priceTickFill, fontSize: 10, fontFamily: "var(--font-mono)" }}
                 axisLine={false}
                 tickLine={false}
                 width={64}
@@ -479,12 +489,12 @@ function FlowsChart({
                 type="linear"
                 dataKey="price"
                 name="Price"
-                stroke="#B1FC03"
+                stroke={priceStroke}
                 strokeWidth={2}
                 // Dots make sparse data points readable at a glance,
                 // and the activeDot still appears bigger on hover.
-                dot={{ r: 2.5, fill: "#B1FC03", stroke: "#0f1b07", strokeWidth: 1 }}
-                activeDot={{ r: 4, fill: "#B1FC03", stroke: "#0f1b07", strokeWidth: 2 }}
+                dot={{ r: 2.5, fill: priceStroke, stroke: priceDotStroke, strokeWidth: 1 }}
+                activeDot={{ r: 4, fill: priceStroke, stroke: priceDotStroke, strokeWidth: 2 }}
                 isAnimationActive={false}
                 connectNulls
               />
