@@ -321,6 +321,49 @@ function FlowsChart({
   // doesn't show an empty "USD" axis.
   const hasPrice = useMemo(() => points.some((p) => p.price != null), [points]);
 
+  // Manual price-axis domain + tick formatter. Recharts' `auto` domain
+  // hugs the data tightly, which combined with `monotone` smoothing
+  // makes the line balloon way outside the visible plot area on
+  // sparse windows (a 7D view with 4 price points was showing the
+  // line above the top tick). We compute min/max ourselves and add
+  // 8% padding so the line stays inside the panel; tick decimals
+  // scale with the range so we don't render '$0.0091 / $0.0091 /
+  // $0.0091' duplicate labels when the spread is narrow.
+  const { priceDomain, priceTickFormatter, priceTooltipFormatter } = useMemo(() => {
+    const prices = points
+      .map((p) => p.price)
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    if (prices.length === 0) {
+      return {
+        priceDomain: ["auto", "auto"] as [number | string, number | string],
+        priceTickFormatter: (v: number) => `$${v.toFixed(4)}`,
+        priceTooltipFormatter: (v: number) => `$${v.toFixed(4)}`,
+      };
+    }
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const span = max - min;
+    // Padding scales with the span. Tiny spreads (sub-cent stable
+    // coins) get a relative 8% pad on top of the value itself; bigger
+    // spreads just use 8% of the span.
+    const pad = span > 0 ? span * 0.08 : Math.max(max * 0.005, 0.0001);
+    const lo = Math.max(0, min - pad);
+    const hi = max + pad;
+
+    // Decimals: pick enough to actually distinguish neighbouring
+    // ticks. log10 of the span gives the order of magnitude; 2 extra
+    // digits below that keeps adjacent ticks readable.
+    const decimals = span > 0
+      ? Math.min(8, Math.max(2, Math.ceil(-Math.log10(span)) + 1))
+      : 5;
+    const fmt = (v: number) => `$${v.toFixed(decimals)}`;
+    return {
+      priceDomain: [lo, hi] as [number, number],
+      priceTickFormatter: fmt,
+      priceTooltipFormatter: fmt,
+    };
+  }, [points]);
+
   // Recharts' cursor highlight needs a theme-aware fill: a black tint
   // is invisible on dark mode (black-on-dark) and a neon tint washes
   // out small bars on light mode. Track the data-theme attribute so we
@@ -387,12 +430,13 @@ function FlowsChart({
               <YAxis
                 yAxisId="price"
                 orientation="right"
-                domain={["auto", "auto"]}
-                tickFormatter={(v: number) => `$${v.toFixed(4)}`}
+                domain={priceDomain}
+                allowDataOverflow={false}
+                tickFormatter={priceTickFormatter}
                 tick={{ fill: "rgba(177,252,3,0.7)", fontSize: 10, fontFamily: "var(--font-mono)" }}
                 axisLine={false}
                 tickLine={false}
-                width={50}
+                width={64}
               />
             )}
             <ReferenceLine yAxisId="flow" y={0} stroke="rgba(0,0,0,0.15)" />
@@ -417,7 +461,7 @@ function FlowsChart({
               formatter={(value: number, name: string) => {
                 if (name === "Inflow") return [`${formatLargeNumber(value)} TX`, "Inflow"];
                 if (name === "Outflow") return [`${formatLargeNumber(Math.abs(value))} TX`, "Outflow"];
-                if (name === "Price") return [`$${value.toFixed(4)}`, "Price"];
+                if (name === "Price") return [priceTooltipFormatter(value), "Price"];
                 return [value, name];
               }}
             />
@@ -426,12 +470,20 @@ function FlowsChart({
             {hasPrice && (
               <Line
                 yAxisId="price"
-                type="monotone"
+                // Linear (sharp polyline) instead of monotone Bezier.
+                // Bezier interpolation overshoots dramatically with
+                // sparse data — a 7-day window with 4 price points
+                // was producing curves that ballooned far above the
+                // visible axis. Linear segments stay inside the
+                // computed domain.
+                type="linear"
                 dataKey="price"
                 name="Price"
                 stroke="#B1FC03"
                 strokeWidth={2}
-                dot={false}
+                // Dots make sparse data points readable at a glance,
+                // and the activeDot still appears bigger on hover.
+                dot={{ r: 2.5, fill: "#B1FC03", stroke: "#0f1b07", strokeWidth: 1 }}
                 activeDot={{ r: 4, fill: "#B1FC03", stroke: "#0f1b07", strokeWidth: 2 }}
                 isAnimationActive={false}
                 connectNulls
