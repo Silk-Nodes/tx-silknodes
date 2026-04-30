@@ -545,12 +545,25 @@ function RecentFlowsFeed({
   const [bucket, setBucket] = useState<AmountBucket>("all");
   const [page, setPage] = useState(0);
   // Used to scroll the feed top into view on filter change so users
-  // don't have to manually scroll up to find the new list. Sticky
-  // pills bar pushes the desired stop point ~64px below the top of
-  // the viewport, so we use scrollMarginTop on the card.
+  // don't have to manually scroll up to find the new list.
+  //
+  // We use window.scrollTo with a manually computed Y instead of
+  // element.scrollIntoView because the latter is unreliable across
+  // browsers when the target is already partially visible or when a
+  // smooth-scroll is interrupted mid-animation. The manual version
+  // always fires, always lands at the same offset, and the
+  // requestAnimationFrame defers the call until React has committed
+  // the new filter's layout so we measure post-render coordinates.
   const cardRef = useRef<HTMLDivElement>(null);
+  const STICKY_OFFSET = 72;
   const scrollToTop = () => {
-    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      const el = cardRef.current;
+      if (!el) return;
+      const targetY =
+        el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET;
+      window.scrollTo({ top: targetY, behavior: "smooth" });
+    });
   };
 
   // Recompute the filtered + paged slice whenever input changes. Clamp
