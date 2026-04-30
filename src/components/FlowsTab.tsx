@@ -544,6 +544,27 @@ function RecentFlowsFeed({
 }) {
   const [bucket, setBucket] = useState<AmountBucket>("all");
   const [page, setPage] = useState(0);
+  // Used to scroll the feed top into view on filter change so users
+  // don't have to manually scroll up to find the new list.
+  //
+  // We use window.scrollTo with a manually computed Y instead of
+  // element.scrollIntoView because the latter is unreliable across
+  // browsers when the target is already partially visible or when a
+  // smooth-scroll is interrupted mid-animation. The manual version
+  // always fires, always lands at the same offset, and the
+  // requestAnimationFrame defers the call until React has committed
+  // the new filter's layout so we measure post-render coordinates.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const STICKY_OFFSET = 72;
+  const scrollToTop = () => {
+    requestAnimationFrame(() => {
+      const el = cardRef.current;
+      if (!el) return;
+      const targetY =
+        el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET;
+      window.scrollTo({ top: targetY, behavior: "smooth" });
+    });
+  };
 
   // Recompute the filtered + paged slice whenever input changes. Clamp
   // the page down if the user was on a higher page than the new filter
@@ -578,7 +599,7 @@ function RecentFlowsFeed({
   }, [flows]);
 
   return (
-    <div className="flows-feed-card">
+    <div className="flows-feed-card" ref={cardRef}>
       <div className="flows-feed-header">
         <span className="flows-chart-title">Recent Flows</span>
         <span className="flows-feed-count">
@@ -598,6 +619,7 @@ function RecentFlowsFeed({
             onClick={() => {
               setBucket(b.key);
               setPage(0); // reset to page 1 on filter change
+              scrollToTop();
             }}
           >
             {b.label} <span className="flows-feed-chip-count">{counts[b.key]}</span>
