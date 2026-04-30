@@ -4830,6 +4830,63 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   gap: 12px;
 }
+
+/* ── Auto generated narrative summary at the top of the Flows page ── */
+.flows-summary {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.flows-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.flows-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.flows-summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.flows-summary-headline {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--text-dark);
+  font-weight: 600;
+}
+.flows-summary-line {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-medium);
+}
+.flows-summary-disclaimer {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-light);
+  letter-spacing: 0.02em;
+}
+:root[data-theme="dark"] .flows-summary-headline { color: #fff; }
+:root[data-theme="dark"] .flows-summary-line { color: rgba(255, 255, 255, 0.78); }
+:root[data-theme="dark"] .flows-summary-disclaimer { color: rgba(255, 255, 255, 0.5); }
 .flows-chart-header {
   display: flex;
   justify-content: space-between;
