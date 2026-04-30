@@ -235,6 +235,18 @@ export default function FlowsTab() {
         </div>
       )}
 
+      {/* ─── Auto generated narrative summary ─── */}
+      {totals && destinations && counterparties && (
+        <FlowsSummary
+          windowKey={windowKey}
+          totals={totals.totals}
+          exchanges={totals.exchanges}
+          destinations={destinations}
+          topWithdrawer={counterparties.withdrawers[0] ?? null}
+          topDepositor={counterparties.depositors[0] ?? null}
+        />
+      )}
+
       {/* ─── Daily flow chart with price overlay ─── */}
       {history && history.points.length > 0 && <FlowsChart points={history.points} />}
 
@@ -687,6 +699,147 @@ function FeedRow({
           <span className="flows-feed-whale-tag">Top #{flow.counterpartyRank}</span>
         )}
       </span>
+    </div>
+  );
+}
+
+// ─── FlowsSummary ─────────────────────────────────────────────────────
+// Auto generated 2 to 3 sentence narrative built entirely from the data
+// already loaded for the page. No external API, no LLM — just templates
+// fed by the same /api/flows + /api/flows-destinations + /api/flows-
+// counterparties responses the rest of the page renders. The text
+// updates the moment the user changes the window, so it always matches
+// what they're looking at.
+//
+// Tone is descriptive with a light interpretation hook ("suggests
+// accumulation", "typical of holders moving to cold storage") and never
+// makes predictive claims.
+
+const WINDOW_PHRASE: Record<WindowKey, string> = {
+  "24h": "Past 24 hours",
+  "7d":  "Past 7 days",
+  "30d": "Past 30 days",
+  "90d": "Past 90 days",
+  all:   "All time",
+};
+
+function FlowsSummary({
+  windowKey,
+  totals,
+  exchanges,
+  destinations,
+  topWithdrawer,
+  topDepositor,
+}: {
+  windowKey: WindowKey;
+  totals: { inflow: number; outflow: number; net: number; txCount: number };
+  exchanges: ExchangeFlowRow[];
+  destinations: DestinationsResponse;
+  topWithdrawer: CounterpartyRow | null;
+  topDepositor: CounterpartyRow | null;
+}) {
+  // Three thresholds keep the headline honest: balanced means net is
+  // small relative to gross flow, so we don't call a quiet window
+  // "accumulation". 5% of gross is the cut off where direction
+  // actually means something.
+  const gross = totals.inflow + totals.outflow;
+  const netPctOfGross = gross > 0 ? Math.abs(totals.net) / gross : 0;
+  const direction =
+    netPctOfGross < 0.05
+      ? "balanced"
+      : totals.net > 0
+        ? "inflow"
+        : "outflow";
+
+  const headline = (() => {
+    const out = formatLargeNumber(totals.outflow);
+    const inn = formatLargeNumber(totals.inflow);
+    const net = formatLargeNumber(Math.abs(totals.net));
+    if (direction === "balanced") {
+      return `${WINDOW_PHRASE[windowKey]}: inflow and outflow are roughly balanced (${inn} TX in, ${out} TX out). No clear directional pressure.`;
+    }
+    if (direction === "outflow") {
+      return `${WINDOW_PHRASE[windowKey]}: ${out} TX left exchanges, ${inn} TX came in (net ${net} TX out, suggesting accumulation off platform).`;
+    }
+    return `${WINDOW_PHRASE[windowKey]}: ${inn} TX moved onto exchanges, ${out} TX moved out (net ${net} TX in, suggesting potential sell pressure).`;
+  })();
+
+  // Driver line: name the single exchange responsible for the biggest
+  // slice of net flow in the dominant direction. For balanced windows
+  // we still surface the largest gross flow so the line isn't empty.
+  const driverLine = (() => {
+    if (exchanges.length === 0) return null;
+    if (direction === "outflow") {
+      const top = exchanges
+        .slice()
+        .sort((a, b) => b.outflow - a.outflow)[0];
+      if (!top || top.outflow <= 0) return null;
+      return `${top.name} drove the largest outflow at ${formatLargeNumber(top.outflow)} TX across ${top.txCount.toLocaleString()} transactions.`;
+    }
+    if (direction === "inflow") {
+      const top = exchanges
+        .slice()
+        .sort((a, b) => b.inflow - a.inflow)[0];
+      if (!top || top.inflow <= 0) return null;
+      return `${top.name} took in the largest deposits at ${formatLargeNumber(top.inflow)} TX across ${top.txCount.toLocaleString()} transactions.`;
+    }
+    const top = exchanges
+      .slice()
+      .sort((a, b) => b.inflow + b.outflow - (a.inflow + a.outflow))[0];
+    if (!top) return null;
+    return `${top.name} saw the most activity (${formatLargeNumber(top.inflow + top.outflow)} TX gross across ${top.txCount.toLocaleString()} transactions).`;
+  })();
+
+  // Destinations line: only show if outflow exists and one bucket
+  // dominates the breakdown. Skip when destinations are evenly split,
+  // because the flat distribution isn't a story.
+  const destLine = (() => {
+    if (destinations.totalOutflow <= 0) return null;
+    const sorted = destinations.buckets.slice().sort((a, b) => b.pct - a.pct);
+    const top = sorted[0];
+    if (!top || top.pct < 40) return null;
+    if (top.category === "staked") {
+      return `${top.pct.toFixed(0)}% of withdrawals went to wallets that staked within 7 days, often a bullish signal.`;
+    }
+    if (top.category === "other_exchange") {
+      return `${top.pct.toFixed(0)}% of withdrawals rotated to other exchanges, neither bullish nor bearish.`;
+    }
+    return `${top.pct.toFixed(0)}% of withdrawals went to private wallets, typical of holders moving to cold storage.`;
+  })();
+
+  // Whale line: highlight the single biggest counterparty in the
+  // dominant direction, only when the amount is large enough to be
+  // interesting (>= 1% of gross flow).
+  const whaleLine = (() => {
+    const minSignificant = gross * 0.01;
+    const cp = direction === "inflow" ? topDepositor : topWithdrawer;
+    if (!cp || cp.totalAmount < minSignificant) return null;
+    const role = direction === "inflow" ? "depositor" : "withdrawer";
+    const action = direction === "inflow" ? "deposited" : "withdrew";
+    const display = cp.label ?? truncate(cp.address);
+    return `Top ${role} ${display}${cp.rank != null ? ` (Top #${cp.rank})` : ""} ${action} ${formatLargeNumber(cp.totalAmount)} TX across ${cp.txCount.toLocaleString()} transactions.`;
+  })();
+
+  const lines = [headline, driverLine, destLine, whaleLine].filter(
+    (l): l is string => Boolean(l),
+  );
+
+  return (
+    <div className="flows-summary">
+      <div className="flows-summary-header">
+        <span className="flows-chart-title">Quick Read</span>
+        <span className="flows-summary-badge">AUTO</span>
+      </div>
+      <div className="flows-summary-body">
+        {lines.map((line, i) => (
+          <p key={i} className={i === 0 ? "flows-summary-headline" : "flows-summary-line"}>
+            {line}
+          </p>
+        ))}
+      </div>
+      <div className="flows-summary-disclaimer">
+        Observational summary generated from on chain data. Not financial advice.
+      </div>
     </div>
   );
 }
