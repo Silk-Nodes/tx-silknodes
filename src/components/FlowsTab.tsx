@@ -544,6 +544,14 @@ function RecentFlowsFeed({
 }) {
   const [bucket, setBucket] = useState<AmountBucket>("all");
   const [page, setPage] = useState(0);
+  // Used to scroll the feed top into view on filter change so users
+  // don't have to manually scroll up to find the new list. Sticky
+  // pills bar pushes the desired stop point ~64px below the top of
+  // the viewport, so we use scrollMarginTop on the card.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const scrollToTop = () => {
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Recompute the filtered + paged slice whenever input changes. Clamp
   // the page down if the user was on a higher page than the new filter
@@ -578,7 +586,7 @@ function RecentFlowsFeed({
   }, [flows]);
 
   return (
-    <div className="flows-feed-card">
+    <div className="flows-feed-card" ref={cardRef}>
       <div className="flows-feed-header">
         <span className="flows-chart-title">Recent Flows</span>
         <span className="flows-feed-count">
@@ -598,6 +606,7 @@ function RecentFlowsFeed({
             onClick={() => {
               setBucket(b.key);
               setPage(0); // reset to page 1 on filter change
+              scrollToTop();
             }}
           >
             {b.label} <span className="flows-feed-chip-count">{counts[b.key]}</span>
