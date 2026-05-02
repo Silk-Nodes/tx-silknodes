@@ -5827,9 +5827,74 @@ input[type="range"]::-moz-range-thumb {
   align-self: center;
 }
 .flows-heatmap-cell {
+  position: relative;
   height: 28px;
   border-radius: 3px;
   cursor: help;
+  outline: none;
+}
+.flows-heatmap-cell:hover,
+.flows-heatmap-cell:focus-visible {
+  /* Subtle ring on hover so the user can see which cell triggers
+     the bubble — useful when many cells are similarly coloured. */
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.6);
+}
+.flows-heatmap-cell-bubble {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(15, 27, 7, 0.96);
+  color: #f4f1eb;
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease, transform 100ms ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.flows-heatmap-cell:hover .flows-heatmap-cell-bubble,
+.flows-heatmap-cell:focus-visible .flows-heatmap-cell-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.flows-heatmap-cell-bubble-title {
+  font-weight: 700;
+  color: #fff;
+}
+.flows-heatmap-cell-bubble-title span {
+  font-weight: 400;
+  color: rgba(244, 241, 235, 0.6);
+}
+.flows-heatmap-cell-bubble-body {
+  color: rgba(244, 241, 235, 0.85);
+}
+.flows-heatmap-cell-bubble-net {
+  font-weight: 700;
+}
+.flows-heatmap-cell-bubble-tag {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(244, 241, 235, 0.6);
+  font-weight: 400;
+}
+:root[data-theme="dark"] .flows-heatmap-cell-bubble {
+  background: rgba(8, 16, 4, 0.98);
+  border-color: rgba(177, 252, 3, 0.35);
 }
 :root[data-theme="dark"] .flows-heatmap { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
 :root[data-theme="dark"] .flows-heatmap-row-label { color: #fff; }

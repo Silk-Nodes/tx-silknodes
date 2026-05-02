@@ -1693,23 +1693,66 @@ function FlowsHeatmapRow({
   heatmap: NonNullable<FlowsHistoryResponse["heatmap"]>;
   cellColour: (net: number) => string;
 }) {
+  // Custom hover bubble instead of native title= because:
+  //   1. native tooltips have a ~1 second delay (the user reported
+  //      the cursor showing "?" but no info appearing).
+  //   2. native tooltips strip newlines on most browsers, so the
+  //      multi-line summary collapses into one unreadable run.
+  // The bubble lives inside each cell and shows on hover/focus via
+  // CSS, mirroring the pattern used on the FlowCard direction tip.
+  const formatDay = (d: string) => {
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
   return (
     <>
       <div className="flows-heatmap-row-label">{exchange.name}</div>
       {heatmap.map((d) => {
         const cell = d.cells.find((c) => c.address === exchange.address);
         const net = cell?.net ?? 0;
-        const tooltip =
-          cell && (cell.inflow > 0 || cell.outflow > 0)
-            ? `${exchange.name} on ${d.date}\n+${formatLargeNumber(cell.inflow)} in / -${formatLargeNumber(cell.outflow)} out\nnet ${net > 0 ? "+" : ""}${formatLargeNumber(net)} TX`
-            : `${exchange.name} on ${d.date}: no flows`;
+        const hasFlow = cell && (cell.inflow > 0 || cell.outflow > 0);
         return (
           <div
             key={`${exchange.address}-${d.date}`}
             className="flows-heatmap-cell"
             style={{ background: cellColour(net) }}
-            title={tooltip}
-          />
+            tabIndex={0}
+            role="button"
+            aria-label={
+              hasFlow
+                ? `${exchange.name} on ${formatDay(d.date)}: ${formatLargeNumber(cell!.inflow)} TX in, ${formatLargeNumber(cell!.outflow)} TX out, net ${net > 0 ? "+" : ""}${formatLargeNumber(net)} TX`
+                : `${exchange.name} on ${formatDay(d.date)}: no flows`
+            }
+          >
+            <div className="flows-heatmap-cell-bubble" role="tooltip">
+              <div className="flows-heatmap-cell-bubble-title">
+                {exchange.name} <span>· {formatDay(d.date)}</span>
+              </div>
+              {hasFlow ? (
+                <div className="flows-heatmap-cell-bubble-body">
+                  <div>
+                    <span className="flow-card-net-in">+{formatLargeNumber(cell!.inflow)}</span> in
+                    {" / "}
+                    <span className="flow-card-net-out">−{formatLargeNumber(cell!.outflow)}</span> out
+                  </div>
+                  <div className="flows-heatmap-cell-bubble-net">
+                    net {net > 0 ? "+" : net < 0 ? "−" : ""}
+                    {formatLargeNumber(Math.abs(net))} TX
+                    {" · "}
+                    <span className="flows-heatmap-cell-bubble-tag">
+                      {net > 0 ? "accumulation" : net < 0 ? "releasing" : "balanced"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flows-heatmap-cell-bubble-body">no flows</div>
+              )}
+            </div>
+          </div>
         );
       })}
     </>
