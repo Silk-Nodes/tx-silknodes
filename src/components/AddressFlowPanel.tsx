@@ -66,19 +66,38 @@ interface Props {
 // two panels read as a family.
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    // Try the modern Clipboard API first. It requires a secure
+    // context (https or localhost); on plain http the browser
+    // throws and we fall back to the legacy textarea + execCommand
+    // path so users on http previews can still copy.
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.setAttribute("readonly", "");
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.warn(
+        `[CopyButton] copy failed: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+  };
   return (
     <button
       type="button"
       className="staking-panel-copy"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch {
-          // browser permission denied — silently ignore
-        }
-      }}
+      onClick={copy}
       title="Copy to clipboard"
       aria-label="Copy"
     >

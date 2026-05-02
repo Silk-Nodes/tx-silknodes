@@ -6004,15 +6004,24 @@ input[type="range"]::-moz-range-thumb {
   gap: 4px;
 }
 .flows-private-audit-row {
-  display: grid;
-  grid-template-columns: 36px 1fr auto auto auto;
+  /* Flexbox not grid: row has variable children (rank, address, optional
+     type tag, optional pending badge, amount, count, suggest button)
+     and we'd rather have everything wrap than have CSS hide buttons
+     when the column count doesn't match. */
+  display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   padding: 6px 0;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   font-family: var(--font-mono);
   font-size: 0.74rem;
   color: var(--text-medium);
+}
+.flows-private-audit-cp {
+  /* Take remaining width so amount + count + button push to the right. */
+  flex: 1 1 200px;
+  min-width: 0;
 }
 .flows-private-audit-row:first-child { border-top: none; }
 .flows-private-audit-rank {
@@ -6059,20 +6068,8 @@ input[type="range"]::-moz-range-thumb {
 :root[data-theme="dark"] .flows-private-audit-cp,
 :root[data-theme="dark"] .flows-private-audit-amount { color: #fff; }
 
-@media (max-width: 720px) {
-  .flows-private-audit-row {
-    grid-template-columns: 28px 1fr auto;
-    grid-template-areas:
-      "rank cp     amount"
-      ".    tag    count";
-    row-gap: 2px;
-  }
-  .flows-private-audit-rank   { grid-area: rank; }
-  .flows-private-audit-cp     { grid-area: cp; }
-  .flows-private-audit-tag    { grid-area: tag; justify-self: start; }
-  .flows-private-audit-amount { grid-area: amount; }
-  .flows-private-audit-count  { grid-area: count; justify-self: end; }
-}
+/* The flex row above wraps naturally on narrow viewports, so the
+   former mobile grid-areas override is no longer needed. */
 
 /* ── Audit panel: per-row Suggest label form ── */
 .flows-private-audit-row-wrap {
@@ -6083,7 +6080,6 @@ input[type="range"]::-moz-range-thumb {
 .flows-private-audit-row-wrap:first-child { border-top: none; }
 .flows-private-audit-row-wrap > .flows-private-audit-row {
   border-top: none;
-  grid-template-columns: 36px 1fr auto auto auto auto auto;
 }
 .flows-private-audit-pending {
   font-size: 0.62rem;
@@ -6228,3 +6224,21 @@ input[type="range"]::-moz-range-thumb {
   padding-left: 6px;
 }
 :root[data-theme="dark"] .flows-search-error { color: #ff8a78; }
+
+/* ── AddressFlowPanel: make addresses selectable ──
+   The address element is rendered as an <a>, which lets browsers
+   start a link-drag instead of a text selection on mousedown. Force
+   text selection so users can manually highlight + Cmd/Ctrl+C even
+   if they ignore the dedicated copy button. */
+.delegator-panel-address {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -webkit-user-drag: none;
+  cursor: text;
+}
+.delegator-panel-address-row,
+.address-flow-panel,
+.staking-feed-panel {
+  user-select: text;
+  -webkit-user-select: text;
+}
