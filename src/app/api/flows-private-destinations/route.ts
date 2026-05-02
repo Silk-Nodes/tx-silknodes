@@ -101,9 +101,16 @@ export async function GET(req: Request) {
              r.total_amount,
              r.tx_count,
              ke.label,
-             ke.type
+             ke.type,
+             COALESCE(ps.pending_count, 0) AS pending_count
       FROM ranked r
       LEFT JOIN known_entities ke ON ke.address = r.counterparty
+      LEFT JOIN (
+        SELECT address, COUNT(*) AS pending_count
+        FROM entity_submissions
+        WHERE status = 'pending'
+        GROUP BY address
+      ) ps ON ps.address = r.counterparty
       ORDER BY r.total_amount DESC;
     `;
 
@@ -113,6 +120,7 @@ export async function GET(req: Request) {
       tx_count: string;
       label: string | null;
       type: string | null;
+      pending_count: string | number;
     }>(sql, {
       type: QueryTypes.SELECT,
       replacements: {
@@ -125,6 +133,7 @@ export async function GET(req: Request) {
       tx_count: string;
       label: string | null;
       type: string | null;
+      pending_count: string | number;
     }>;
 
     return NextResponse.json(
@@ -137,6 +146,7 @@ export async function GET(req: Request) {
           txCount: Number(r.tx_count),
           label: r.label,
           type: r.type,
+          pendingCount: Number(r.pending_count),
         })),
         updatedAt: new Date().toISOString(),
       },

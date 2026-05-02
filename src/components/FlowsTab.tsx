@@ -66,6 +66,9 @@ interface PrivateDestination {
   txCount: number;
   label: string | null;
   type: string | null;
+  // Number of community-submitted labels currently awaiting team
+  // review for this address. Drives the "Pending review" badge.
+  pendingCount: number;
 }
 interface PrivateDestinationsResponse {
   window: WindowKey;
@@ -1783,41 +1786,204 @@ function PrivateDestinationsAudit({
       {open && (
         <>
           <p className="flows-private-audit-help">
-            These are the largest counterparties currently sitting in the
-            Private Wallet bucket. Recognise an exchange, bridge, or DEX
-            below? Add it to <code>known_entities</code> with the right
-            type and the next refresh will move it to the matching
-            bucket. Click any address to inspect its full flow history.
+            These are the biggest unidentified addresses receiving TX
+            from exchanges in this window. If you recognise one as a
+            different exchange (Bybit, KuCoin, OKX, etc.), a bridge,
+            or a DEX, hit <strong>Suggest label</strong> to send it
+            for review. Approved labels get applied to the page so
+            everyone sees a more accurate breakdown.
           </p>
           <ol className="flows-private-audit-list">
-            {data.destinations.map((d, i) => {
-              const display = d.label ?? truncate(d.address);
-              return (
-                <li key={d.address} className="flows-private-audit-row">
-                  <span className="flows-private-audit-rank">#{i + 1}</span>
-                  <button
-                    type="button"
-                    className="flows-private-audit-cp"
-                    onClick={() => onAddressClick(d.address)}
-                    title={d.address}
-                  >
-                    {display}
-                  </button>
-                  {d.type && (
-                    <span className="flows-private-audit-tag">type: {d.type}</span>
-                  )}
-                  <span className="flows-private-audit-amount">
-                    {formatLargeNumber(d.totalAmount)} TX
-                  </span>
-                  <span className="flows-private-audit-count">
-                    {d.txCount.toLocaleString()} tx
-                  </span>
-                </li>
-              );
-            })}
+            {data.destinations.map((d, i) => (
+              <PrivateDestinationRow
+                key={d.address}
+                index={i}
+                destination={d}
+                onAddressClick={onAddressClick}
+              />
+            ))}
           </ol>
         </>
       )}
     </div>
+  );
+}
+
+// One row of the audit panel. Encapsulates the per-row "Suggest
+// label" form so opening the form on one row doesn't re-render the
+// other 19, and form state stays scoped.
+
+function PrivateDestinationRow({
+  index,
+  destination,
+  onAddressClick,
+}: {
+  index: number;
+  destination: PrivateDestination;
+  onAddressClick: (address: string) => void;
+}) {
+  const display = destination.label ?? truncate(destination.address);
+  const [formOpen, setFormOpen] = useState(false);
+  // Local "I already submitted" state so the user gets immediate
+  // feedback before the next API poll surfaces the new pendingCount.
+  const [justSubmitted, setJustSubmitted] = useState(false);
+  const showsPending = destination.pendingCount > 0 || justSubmitted;
+
+  return (
+    <li className="flows-private-audit-row-wrap">
+      <div className="flows-private-audit-row">
+        <span className="flows-private-audit-rank">#{index + 1}</span>
+        <button
+          type="button"
+          className="flows-private-audit-cp"
+          onClick={() => onAddressClick(destination.address)}
+          title={destination.address}
+        >
+          {display}
+        </button>
+        {destination.type && (
+          <span className="flows-private-audit-tag">type: {destination.type}</span>
+        )}
+        {showsPending && (
+          <span className="flows-private-audit-pending" title="Awaiting team review">
+            Pending review
+          </span>
+        )}
+        <span className="flows-private-audit-amount">
+          {formatLargeNumber(destination.totalAmount)} TX
+        </span>
+        <span className="flows-private-audit-count">
+          {destination.txCount.toLocaleString()} tx
+        </span>
+        <button
+          type="button"
+          className="flows-private-audit-suggest-btn"
+          onClick={() => setFormOpen((o) => !o)}
+          aria-expanded={formOpen}
+        >
+          {formOpen ? "Cancel" : "Suggest label"}
+        </button>
+      </div>
+      {formOpen && (
+        <SuggestLabelForm
+          address={destination.address}
+          onCancel={() => setFormOpen(false)}
+          onSubmitted={() => {
+            setJustSubmitted(true);
+            setFormOpen(false);
+          }}
+        />
+      )}
+    </li>
+  );
+}
+
+const SUGGEST_TYPES: Array<{ value: string; label: string }> = [
+  { value: "cex",        label: "Centralised exchange" },
+  { value: "bridge",     label: "Cross-chain bridge" },
+  { value: "ibc",        label: "IBC channel / module" },
+  { value: "dex",        label: "DEX or liquidity pool" },
+  { value: "contract",   label: "Smart contract" },
+  { value: "module",     label: "Chain module" },
+  { value: "individual", label: "Individual / OTC desk" },
+];
+
+function SuggestLabelForm({
+  address,
+  onCancel,
+  onSubmitted,
+}: {
+  address: string;
+  onCancel: () => void;
+  onSubmitted: () => void;
+}) {
+  const [label, setLabel] = useState("");
+  const [type, setType] = useState("cex");
+  const [source, setSource] = useState("");
+  // Honeypot. Hidden via CSS; only bots fill it. The API silently
+  // accepts these without writing anything.
+  const [website, setWebsite] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/flows-submit-entity", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address, label, type, source, website }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(body.error ?? `submission failed (${res.status})`);
+        return;
+      }
+      onSubmitted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="flows-private-audit-form" onSubmit={submit}>
+      <input
+        type="text"
+        className="flows-private-audit-form-honeypot"
+        tabIndex={-1}
+        autoComplete="off"
+        value={website}
+        onChange={(e) => setWebsite(e.target.value)}
+        aria-hidden="true"
+      />
+      <div className="flows-private-audit-form-row">
+        <label className="flows-private-audit-form-field">
+          <span className="flows-private-audit-form-label-text">Label</span>
+          <input
+            type="text"
+            value={label}
+            maxLength={80}
+            placeholder="e.g. Bybit hot wallet"
+            onChange={(e) => setLabel(e.target.value)}
+            required
+          />
+        </label>
+        <label className="flows-private-audit-form-field">
+          <span className="flows-private-audit-form-label-text">Type</span>
+          <select value={type} onChange={(e) => setType(e.target.value)}>
+            {SUGGEST_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="flows-private-audit-form-field">
+        <span className="flows-private-audit-form-label-text">Source (optional)</span>
+        <input
+          type="text"
+          value={source}
+          maxLength={240}
+          placeholder="Link to tweet, exchange docs, or short note"
+          onChange={(e) => setSource(e.target.value)}
+        />
+      </label>
+      {error && <div className="flows-private-audit-form-error">{error}</div>}
+      <div className="flows-private-audit-form-actions">
+        <button type="button" className="flows-private-audit-form-cancel" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="flows-private-audit-form-submit"
+          disabled={submitting || label.trim().length === 0}
+        >
+          {submitting ? "Submitting…" : "Submit for review"}
+        </button>
+      </div>
+    </form>
   );
 }

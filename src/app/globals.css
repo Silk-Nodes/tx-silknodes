@@ -6073,3 +6073,148 @@ input[type="range"]::-moz-range-thumb {
   .flows-private-audit-amount { grid-area: amount; }
   .flows-private-audit-count  { grid-area: count; justify-self: end; }
 }
+
+/* ── Audit panel: per-row Suggest label form ── */
+.flows-private-audit-row-wrap {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+.flows-private-audit-row-wrap:first-child { border-top: none; }
+.flows-private-audit-row-wrap > .flows-private-audit-row {
+  border-top: none;
+  grid-template-columns: 36px 1fr auto auto auto auto auto;
+}
+.flows-private-audit-pending {
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(177, 252, 3, 0.18);
+  color: #4a7a1a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-weight: 700;
+}
+:root[data-theme="dark"] .flows-private-audit-pending {
+  background: rgba(177, 252, 3, 0.18);
+  color: var(--tx-neon);
+}
+.flows-private-audit-suggest-btn {
+  background: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease;
+  white-space: nowrap;
+}
+.flows-private-audit-suggest-btn:hover {
+  background: rgba(177, 252, 3, 0.12);
+}
+:root[data-theme="dark"] .flows-private-audit-suggest-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.flows-private-audit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  margin: 6px 0 10px;
+  background: rgba(177, 252, 3, 0.06);
+  border: 1px dashed rgba(177, 252, 3, 0.3);
+  border-radius: var(--radius-md);
+}
+.flows-private-audit-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .flows-private-audit-form-row { grid-template-columns: 1fr; }
+}
+.flows-private-audit-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.flows-private-audit-form-label-text {
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+}
+.flows-private-audit-form-field input,
+.flows-private-audit-form-field select {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.78rem;
+  outline: none;
+}
+.flows-private-audit-form-field input:focus,
+.flows-private-audit-form-field select:focus {
+  border-color: var(--tx-neon);
+}
+:root[data-theme="dark"] .flows-private-audit-form-field input,
+:root[data-theme="dark"] .flows-private-audit-form-field select {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.flows-private-audit-form-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.flows-private-audit-form-error {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #c45a4a;
+}
+.flows-private-audit-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.flows-private-audit-form-cancel,
+.flows-private-audit-form-submit {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.flows-private-audit-form-cancel {
+  background: transparent;
+  color: var(--text-medium);
+  border-color: var(--glass-border);
+}
+.flows-private-audit-form-submit {
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  border-color: var(--tx-neon);
+  font-weight: 700;
+}
+.flows-private-audit-form-submit:disabled,
+.flows-private-audit-form-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
