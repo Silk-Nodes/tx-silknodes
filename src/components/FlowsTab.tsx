@@ -213,9 +213,18 @@ export default function FlowsTab() {
         setRecent(r as FlowsRecentResponse);
         setDestinations(d as DestinationsResponse);
         setCounterparties(c as CounterpartiesResponse);
-        setPrivateDests(pd as PrivateDestinationsResponse);
+        const pdResponse = pd as PrivateDestinationsResponse;
+        setPrivateDests(pdResponse);
         setPrevTotals(wantsPrev ? (p as FlowsResponse) : null);
         setError(null);
+        // Debug breadcrumb so we can see in the browser console that
+        // data really does arrive on every window change. Remove
+        // once the audit panel "stuck" report is confirmed gone.
+        if (typeof window !== "undefined") {
+          console.log(
+            `[flows] ${windowKey}: ${pdResponse.destinations.length} significant private dest, threshold ${pdResponse.minAmount}`,
+          );
+        }
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       }
@@ -384,9 +393,16 @@ export default function FlowsTab() {
           Collapsible. Only renders when there's at least one address
           above the API's minAmount threshold (default 1M TX) — sub-
           threshold "private" addresses are usually just regular
-          wallets, not exchange/bridge hot wallets worth labelling. */}
+          wallets, not exchange/bridge hot wallets worth labelling.
+          key={windowKey} forces a fresh mount on window change so the
+          collapsed/expanded state and any per-row form state from the
+          previous window's data don't carry over. */}
       {privateDests && (
-        <PrivateDestinationsAudit data={privateDests} onAddressClick={setSelectedAddress} />
+        <PrivateDestinationsAudit
+          key={windowKey}
+          data={privateDests}
+          onAddressClick={setSelectedAddress}
+        />
       )}
 
       {/* ─── Total card (full width, prominent). No delta — it's
