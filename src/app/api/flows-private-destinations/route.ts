@@ -101,16 +101,9 @@ export async function GET(req: Request) {
              r.total_amount,
              r.tx_count,
              ke.label,
-             ke.type,
-             COALESCE(ps.pending_count, 0) AS pending_count
+             ke.type
       FROM ranked r
       LEFT JOIN known_entities ke ON ke.address = r.counterparty
-      LEFT JOIN (
-        SELECT address, COUNT(*) AS pending_count
-        FROM entity_submissions
-        WHERE status = 'pending'
-        GROUP BY address
-      ) ps ON ps.address = r.counterparty
       ORDER BY r.total_amount DESC;
     `;
 
@@ -120,7 +113,6 @@ export async function GET(req: Request) {
       tx_count: string;
       label: string | null;
       type: string | null;
-      pending_count: string | number;
     }>(sql, {
       type: QueryTypes.SELECT,
       replacements: {
@@ -133,8 +125,40 @@ export async function GET(req: Request) {
       tx_count: string;
       label: string | null;
       type: string | null;
-      pending_count: string | number;
     }>;
+
+    // Pending submission counts per address. Fetched in a separate
+    // query and swallowed if the entity_submissions table doesn't
+    // exist yet (migration 005 not run). The audit panel still
+    // works, the "Pending review" badge just won't show until
+    // migrations are caught up.
+    const pendingByAddress = new Map<string, number>();
+    if (rows.length > 0) {
+      try {
+        const addresses = rows.map((r) => r.counterparty);
+        const pendingRows = (await sequelize.query<{
+          address: string;
+          pending_count: string;
+        }>(
+          `SELECT address, COUNT(*)::text AS pending_count
+           FROM entity_submissions
+           WHERE status = 'pending'
+             AND address IN (:addresses)
+           GROUP BY address`,
+          {
+            type: QueryTypes.SELECT,
+            replacements: { addresses },
+          },
+        )) as unknown as Array<{ address: string; pending_count: string }>;
+        for (const r of pendingRows) {
+          pendingByAddress.set(r.address, Number(r.pending_count));
+        }
+      } catch (e) {
+        console.warn(
+          `[flows-private-destinations] pending count query failed (run migration 005?): ${e instanceof Error ? e.message : e}`,
+        );
+      }
+    }
 
     return NextResponse.json(
       {
@@ -146,7 +170,7 @@ export async function GET(req: Request) {
           txCount: Number(r.tx_count),
           label: r.label,
           type: r.type,
-          pendingCount: Number(r.pending_count),
+          pendingCount: pendingByAddress.get(r.counterparty) ?? 0,
         })),
         updatedAt: new Date().toISOString(),
       },
