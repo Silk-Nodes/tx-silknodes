@@ -6218,3 +6218,13 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Address search inline error ── */
+.flows-search-error {
+  margin-top: -4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #c45a4a;
+  padding-left: 6px;
+}
+:root[data-theme="dark"] .flows-search-error { color: #ff8a78; }

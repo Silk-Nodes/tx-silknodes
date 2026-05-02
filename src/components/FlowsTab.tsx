@@ -140,8 +140,12 @@ export default function FlowsTab() {
   // Selected address drives the slide-in side panel. Clear on close.
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   // Address search input (#1). Submits to selectedAddress so the same
-  // slide-in panel handles paste-an-address lookups.
+  // slide-in panel handles paste-an-address lookups. searchError is
+  // shown inline below the input when validation fails so the user
+  // gets immediate feedback rather than wondering if the click did
+  // nothing.
   const [searchValue, setSearchValue] = useState("");
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Sticky window pills — same pattern as the Analytics tab. The
   // header-level pill row carries the ref; once it scrolls out of
@@ -279,14 +283,32 @@ export default function FlowsTab() {
         <div ref={pillsRef}>{renderWindowPills()}</div>
       </div>
 
-      {/* ─── Address search (#1). Submitting opens the slide-in
-          AddressFlowPanel for the typed/pasted address. */}
+      {/* ─── Address search (#1). Submits to selectedAddress so the
+          slide-in AddressFlowPanel handles the lookup. Validates
+          format inline so the user knows immediately whether the
+          input is acceptable. Setting selectedAddress to the same
+          value twice in a row would be a no-op for React, so we
+          briefly null it first to force the panel to re-mount and
+          re-fetch when re-submitting an identical address. */}
       <form
         className="flows-search"
         onSubmit={(e) => {
           e.preventDefault();
           const v = searchValue.trim();
-          if (v.length > 0) setSelectedAddress(v);
+          if (v.length === 0) return;
+          if (!v.startsWith("core1") || v.length < 39) {
+            setSearchError(
+              "Address must start with core1 and be the full bech32 string.",
+            );
+            return;
+          }
+          setSearchError(null);
+          // Force re-mount when the user submits the same address
+          // again, otherwise React skips the state update and the
+          // panel doesn't re-fetch.
+          setSelectedAddress(null);
+          setTimeout(() => setSelectedAddress(v), 0);
+          setSearchValue("");
         }}
         role="search"
       >
@@ -294,7 +316,10 @@ export default function FlowsTab() {
           type="text"
           className="flows-search-input"
           value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
+          onChange={(e) => {
+            setSearchValue(e.target.value);
+            if (searchError) setSearchError(null);
+          }}
           placeholder="Search any TX address (core1...) to see its flow history"
           spellCheck={false}
           autoComplete="off"
@@ -307,6 +332,7 @@ export default function FlowsTab() {
           Inspect
         </button>
       </form>
+      {searchError && <div className="flows-search-error">{searchError}</div>}
 
       {error && (
         <div className="flows-error">
