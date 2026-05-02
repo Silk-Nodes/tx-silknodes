@@ -42,8 +42,28 @@ export async function GET(req: Request) {
     const windowKey = (Object.prototype.hasOwnProperty.call(WINDOWS, requested)
       ? requested
       : "24h") as keyof typeof WINDOWS;
+    // `prev=true` shifts the window back by one full window length so
+    // the client can compare current vs previous period without a
+    // second endpoint. Powers the "this period vs last period" panel.
+    // Skipped for the "all" window (no prior period).
+    const wantPrev = url.searchParams.get("prev") === "true";
     const lookback = WINDOWS[windowKey];
-    const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
+    const now = Date.now();
+    const sinceDate =
+      lookback == null
+        ? null
+        : new Date(now - (wantPrev ? 2 * lookback : lookback));
+    const untilDate =
+      lookback == null
+        ? null
+        : new Date(now - (wantPrev ? lookback : 0));
+
+    const whereClause =
+      sinceDate && untilDate
+        ? { timestamp: { [Op.gte]: sinceDate, [Op.lt]: untilDate } }
+        : sinceDate
+          ? { timestamp: { [Op.gte]: sinceDate } }
+          : {};
 
     const [exchanges, aggRows] = await Promise.all([
       ExchangeAddress.findAll({ raw: true, order: [["exchange_name", "ASC"]] }),
@@ -57,7 +77,7 @@ export async function GET(req: Request) {
           [fn("COUNT", literal("*")), "tx_count"],
           [fn("MAX", col("timestamp")), "latest_at"],
         ],
-        where: sinceDate ? { timestamp: { [Op.gte]: sinceDate } } : {},
+        where: whereClause,
         group: ["exchange_address", "direction"],
         raw: true,
       }) as unknown as Promise<
@@ -122,6 +142,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         window: windowKey,
+        prev: wantPrev,
         totals: {
           inflow: totalIn,
           outflow: totalOut,

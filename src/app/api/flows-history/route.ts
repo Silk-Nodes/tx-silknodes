@@ -48,11 +48,12 @@ export async function GET(req: Request) {
     const lookback = WINDOWS[windowKey];
     const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
-    // Two queries fan out in parallel: flows aggregation + price series
-    // from daily_metrics. Merging client-side is simpler than a single
-    // SQL with conditional aggregation, especially with the LEFT-OUTER
-    // semantics required (price-only days, flow-only days both possible).
-    const [rows, priceRows] = (await Promise.all([
+    // Three queries fan out in parallel: aggregated flow per day,
+    // per-exchange flow per day (for the heatmap), and the daily
+    // price series. Merging client-side is simpler than one SQL
+    // pivot, and PG handles the GROUP BY cheaply on the (timestamp,
+    // exchange_address) index.
+    const [rows, perExchangeRows, priceRows, exchanges] = (await Promise.all([
       sequelize.query<{
         day: Date | string;
         direction: "inflow" | "outflow";
@@ -72,6 +73,27 @@ export async function GET(req: Request) {
           replacements: sinceDate ? { sinceDate } : {},
         },
       ),
+      sequelize.query<{
+        day: Date | string;
+        exchange_address: string;
+        direction: "inflow" | "outflow";
+        total: string;
+      }>(
+        `
+        SELECT (timestamp at time zone 'UTC')::date AS day,
+               exchange_address,
+               direction,
+               COALESCE(SUM(amount), 0) AS total
+        FROM exchange_flows
+        ${sinceDate ? "WHERE timestamp >= :sinceDate" : ""}
+        GROUP BY day, exchange_address, direction
+        ORDER BY day ASC
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: sinceDate ? { sinceDate } : {},
+        },
+      ),
       sequelize.query<{ date: Date | string; price_usd: string }>(
         `
         SELECT date, price_usd
@@ -84,9 +106,20 @@ export async function GET(req: Request) {
           replacements: sinceDate ? { sinceDate } : {},
         },
       ),
+      sequelize.query<{ address: string; exchange_name: string }>(
+        `SELECT address, exchange_name FROM exchange_addresses ORDER BY exchange_name ASC`,
+        { type: QueryTypes.SELECT },
+      ),
     ])) as unknown as [
       Array<{ day: Date | string; direction: "inflow" | "outflow"; total: string }>,
+      Array<{
+        day: Date | string;
+        exchange_address: string;
+        direction: "inflow" | "outflow";
+        total: string;
+      }>,
       Array<{ date: Date | string; price_usd: string }>,
+      Array<{ address: string; exchange_name: string }>,
     ];
 
     // Pivot rows -> one entry per day with both directions populated.
@@ -183,8 +216,51 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    // Build the per-exchange daily heatmap matrix. Each cell carries
+    // the net flow (inflow - outflow) for that exchange on that day,
+    // so the client can colour positive (red, accumulation) and
+    // negative (green, releasing) without re-aggregating.
+    const exchangeMeta = exchanges.map((e) => ({
+      address: e.address,
+      name: e.exchange_name,
+    }));
+    const heatmapByKey = new Map<string, { inflow: number; outflow: number }>();
+    for (const r of perExchangeRows) {
+      const day =
+        typeof r.day === "string"
+          ? r.day.slice(0, 10)
+          : new Date(r.day).toISOString().slice(0, 10);
+      const key = `${day}|${r.exchange_address}`;
+      const cur = heatmapByKey.get(key) ?? { inflow: 0, outflow: 0 };
+      const amount = Number(r.total);
+      if (r.direction === "inflow") cur.inflow = amount;
+      else if (r.direction === "outflow") cur.outflow = amount;
+      heatmapByKey.set(key, cur);
+    }
+    const heatmap = points.map((p) => ({
+      date: p.date,
+      cells: exchangeMeta.map((e) => {
+        const v = heatmapByKey.get(`${p.date}|${e.address}`) ?? {
+          inflow: 0,
+          outflow: 0,
+        };
+        return {
+          address: e.address,
+          inflow: v.inflow,
+          outflow: v.outflow,
+          net: v.inflow - v.outflow,
+        };
+      }),
+    }));
+
     return NextResponse.json(
-      { window: windowKey, points, updatedAt: new Date().toISOString() },
+      {
+        window: windowKey,
+        points,
+        exchanges: exchangeMeta,
+        heatmap,
+        updatedAt: new Date().toISOString(),
+      },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {

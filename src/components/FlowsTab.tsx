@@ -35,6 +35,11 @@ interface FlowsResponse {
 interface FlowsHistoryResponse {
   window: WindowKey;
   points: Array<{ date: string; inflow: number; outflow: number; price: number | null }>;
+  exchanges?: Array<{ address: string; name: string }>;
+  heatmap?: Array<{
+    date: string;
+    cells: Array<{ address: string; inflow: number; outflow: number; net: number }>;
+  }>;
   updatedAt: string;
 }
 interface DestinationsResponse {
@@ -99,9 +104,16 @@ export default function FlowsTab() {
   const [recent, setRecent] = useState<FlowsRecentResponse | null>(null);
   const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
   const [counterparties, setCounterparties] = useState<CounterpartiesResponse | null>(null);
+  // Prior-period totals power the "this period vs last period" panel
+  // and the per-exchange delta arrows. Same shape as `totals`, just
+  // fetched with prev=true so the SUMs cover the prior window.
+  const [prevTotals, setPrevTotals] = useState<FlowsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Selected address drives the slide-in side panel. Clear on close.
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  // Address search input (#1). Submits to selectedAddress so the same
+  // slide-in panel handles paste-an-address lookups.
+  const [searchValue, setSearchValue] = useState("");
 
   // Sticky window pills — same pattern as the Analytics tab. The
   // header-level pill row carries the ref; once it scrolls out of
@@ -127,7 +139,11 @@ export default function FlowsTab() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [tRes, hRes, rRes, dRes, cRes] = await Promise.all([
+        // ALL window has no prior period; skip the second flows fetch
+        // for that case. Everything else fans out in parallel so the
+        // slowest endpoint is the only thing the user waits on.
+        const wantsPrev = windowKey !== "all";
+        const fetches = [
           fetch(`/api/flows?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-history?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           // 200 = enough to power the client-side magnitude filter +
@@ -135,28 +151,34 @@ export default function FlowsTab() {
           fetch(`/api/flows-recent?window=${windowKey}&limit=200&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-destinations?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-counterparties?window=${windowKey}&limit=10&t=${Date.now()}`, { cache: "no-store" }),
-        ]);
+        ];
+        if (wantsPrev) {
+          fetches.push(
+            fetch(`/api/flows?window=${windowKey}&prev=true&t=${Date.now()}`, { cache: "no-store" }),
+          );
+        }
+        const responses = await Promise.all(fetches);
+        const [tRes, hRes, rRes, dRes, cRes, pRes] = responses;
         if (!tRes.ok || !hRes.ok || !rRes.ok || !dRes.ok || !cRes.ok)
           throw new Error("HTTP error");
-        const [t, h, r, d, c] = (await Promise.all([
+        if (wantsPrev && (!pRes || !pRes.ok)) throw new Error("HTTP error (prev)");
+        const jsonPromises = [
           tRes.json(),
           hRes.json(),
           rRes.json(),
           dRes.json(),
           cRes.json(),
-        ])) as [
-          FlowsResponse,
-          FlowsHistoryResponse,
-          FlowsRecentResponse,
-          DestinationsResponse,
-          CounterpartiesResponse,
         ];
+        if (wantsPrev && pRes) jsonPromises.push(pRes.json());
+        const parsed = await Promise.all(jsonPromises);
+        const [t, h, r, d, c, p] = parsed;
         if (cancelled) return;
-        setTotals(t);
-        setHistory(h);
-        setRecent(r);
-        setDestinations(d);
-        setCounterparties(c);
+        setTotals(t as FlowsResponse);
+        setHistory(h as FlowsHistoryResponse);
+        setRecent(r as FlowsRecentResponse);
+        setDestinations(d as DestinationsResponse);
+        setCounterparties(c as CounterpartiesResponse);
+        setPrevTotals(wantsPrev ? (p as FlowsResponse) : null);
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -226,6 +248,35 @@ export default function FlowsTab() {
         <div ref={pillsRef}>{renderWindowPills()}</div>
       </div>
 
+      {/* ─── Address search (#1). Submitting opens the slide-in
+          AddressFlowPanel for the typed/pasted address. */}
+      <form
+        className="flows-search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const v = searchValue.trim();
+          if (v.length > 0) setSelectedAddress(v);
+        }}
+        role="search"
+      >
+        <input
+          type="text"
+          className="flows-search-input"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          placeholder="Search any TX address (core1...) to see its flow history"
+          spellCheck={false}
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          className="flows-search-button"
+          disabled={searchValue.trim().length === 0}
+        >
+          Inspect
+        </button>
+      </form>
+
       {error && (
         <div className="flows-error">
           Could not load flows: {error}. Retrying every minute.
@@ -244,15 +295,35 @@ export default function FlowsTab() {
         />
       )}
 
+      {/* ─── Period vs prior period comparison (#8). Skipped for the
+          ALL window which has no prior period. */}
+      {totals && prevTotals && windowKey !== "all" && (
+        <PeriodComparison
+          windowKey={windowKey}
+          current={totals.totals}
+          previous={prevTotals.totals}
+          currentExchanges={totals.exchanges}
+          previousExchanges={prevTotals.exchanges}
+        />
+      )}
+
       {/* ─── Daily flow chart with price overlay ─── */}
       {history && history.points.length > 0 && <FlowsChart points={history.points} />}
 
-      {/* ─── Withdrawal destinations breakdown ─── */}
-      {destinations && destinations.totalOutflow > 0 && (
-        <DestinationsSection data={destinations} />
+      {/* ─── Per-exchange × day net flow heatmap (#6). Only renders
+          when there are at least 2 days in the window so the matrix
+          isn't a single column. */}
+      {history && history.heatmap && history.heatmap.length >= 2 && history.exchanges && (
+        <FlowsHeatmap heatmap={history.heatmap} exchanges={history.exchanges} />
       )}
 
-      {/* ─── Total card (full width, prominent) ─── */}
+      {/* ─── Withdrawal destinations Sankey (#5) ─── */}
+      {destinations && destinations.totalOutflow > 0 && (
+        <DestinationsSankey data={destinations} />
+      )}
+
+      {/* ─── Total card (full width, prominent). No delta — it's
+          the aggregate, the per-exchange cards carry the deltas. */}
       {totals && (
         <FlowCard
           name="Total"
@@ -264,21 +335,34 @@ export default function FlowsTab() {
         />
       )}
 
-      {/* ─── Per-exchange grid ─── */}
+      {/* ─── Per-exchange grid with delta vs prior period (#4) ─── */}
       {totals && (
         <div className="flows-grid">
-          {sortedExchanges.map((e) => (
-            <FlowCard
-              key={e.address}
-              name={e.name}
-              inflow={e.inflow}
-              outflow={e.outflow}
-              net={e.net}
-              txCount={e.txCount}
-              latestAt={e.latestAt}
-            />
-          ))}
+          {sortedExchanges.map((e) => {
+            const prev =
+              prevTotals?.exchanges.find((x) => x.address === e.address) ?? null;
+            return (
+              <FlowCard
+                key={e.address}
+                name={e.name}
+                inflow={e.inflow}
+                outflow={e.outflow}
+                net={e.net}
+                txCount={e.txCount}
+                latestAt={e.latestAt}
+                prevNet={prev?.net ?? null}
+                prevTxCount={prev?.txCount ?? null}
+              />
+            );
+          })}
         </div>
+      )}
+
+      {/* ─── Repeat counterparty patterns (#7). Surfaces addresses
+          that appear in the recent feed multiple times so users see
+          smart-money behaviour the raw feed buries. */}
+      {recent && recent.flows.length > 0 && (
+        <RepeatPatterns flows={recent.flows} onAddressClick={setSelectedAddress} />
       )}
 
       {/* ─── Top counterparties leaderboard ─── */}
@@ -288,6 +372,11 @@ export default function FlowsTab() {
           withdrawers={counterparties.withdrawers}
           onAddressClick={setSelectedAddress}
         />
+      )}
+
+      {/* ─── Biggest single tx callout (#3) above the recent feed ─── */}
+      {recent && recent.flows.length > 0 && (
+        <BiggestTxCallout flows={recent.flows} onAddressClick={setSelectedAddress} />
       )}
 
       {/* ─── Recent flows feed ─── */}
@@ -1036,6 +1125,8 @@ function FlowCard({
   txCount,
   latestAt,
   isTotal = false,
+  prevNet = null,
+  prevTxCount = null,
 }: {
   name: string;
   inflow: number;
@@ -1044,6 +1135,11 @@ function FlowCard({
   txCount: number;
   latestAt?: string | null;
   isTotal?: boolean;
+  // Optional prior-period values powering the "+42% vs prior" delta
+  // line. Null when the window has no prior period (ALL) or the
+  // exchange wasn't present in the prior fetch.
+  prevNet?: number | null;
+  prevTxCount?: number | null;
 }) {
   // Direction colour: net > 0 (accumulating) → bearish → red.
   // net < 0 (distributing) → bullish → green. Near-zero is neutral so
@@ -1113,11 +1209,478 @@ function FlowCard({
         <span className="flow-card-in">↓ {fmtPrecise(inflow)} in</span>
         <span className="flow-card-out">↑ {fmtPrecise(outflow)} out</span>
       </div>
+      {/* Delta vs prior period of equal length. We show net delta
+          only because tx count alone tells you nothing about whether
+          a period is meaningful. Skipped on the Total card and when
+          there's no comparable prior value. */}
+      {!isTotal && prevNet != null && (
+        <FlowCardDelta currentNet={net} previousNet={prevNet} prevTxCount={prevTxCount} />
+      )}
       {latestAt && (
         <div className="flow-card-latest">
           last activity {new Date(latestAt).toLocaleString()}
         </div>
       )}
+    </div>
+  );
+}
+
+function FlowCardDelta({
+  currentNet,
+  previousNet,
+  prevTxCount,
+}: {
+  currentNet: number;
+  previousNet: number;
+  prevTxCount: number | null;
+}) {
+  // No useful comparison if the prior period was empty (zero net).
+  if (previousNet === 0) {
+    if (prevTxCount === 0) {
+      return <div className="flow-card-delta flow-card-delta-neutral">new this period</div>;
+    }
+    return null;
+  }
+  // Compute % change of |net|. Sign indicates whether the magnitude
+  // grew or shrank, which is what most readers want; the directional
+  // story (in vs out) is already covered by the colour and label.
+  const curMag = Math.abs(currentNet);
+  const prevMag = Math.abs(previousNet);
+  const pct = ((curMag - prevMag) / prevMag) * 100;
+  const arrow = pct > 0 ? "▲" : pct < 0 ? "▼" : "";
+  const cls =
+    Math.abs(pct) < 5
+      ? "flow-card-delta-neutral"
+      : pct > 0
+        ? "flow-card-delta-up"
+        : "flow-card-delta-down";
+  // Direction flip is worth flagging — went from net inflow to net
+  // outflow or vice versa. That's a more meaningful signal than the
+  // raw % change.
+  const flipped =
+    Math.sign(currentNet) !== Math.sign(previousNet) &&
+    currentNet !== 0 &&
+    previousNet !== 0;
+  return (
+    <div className={`flow-card-delta ${cls}`}>
+      {arrow} {Math.abs(pct).toFixed(0)}% vs prior
+      {flipped && <span className="flow-card-delta-flip"> · direction flipped</span>}
+    </div>
+  );
+}
+
+// ─── BiggestTxCallout (#3) ────────────────────────────────────────────
+// Picks the single largest tx in the recent feed (within the current
+// window) and surfaces it as a banner above the feed. The "recent"
+// endpoint already returns up to 200 newest flows, so the largest in
+// that slice is a reasonable proxy for the most notable tx in the
+// window. Skipped silently when nothing crosses the threshold.
+
+function BiggestTxCallout({
+  flows,
+  onAddressClick,
+}: {
+  flows: RecentFlowRow[];
+  onAddressClick: (address: string) => void;
+}) {
+  const biggest = useMemo(() => {
+    let top: RecentFlowRow | null = null;
+    let topMag = 0;
+    for (const f of flows) {
+      const m = Math.abs(f.amount);
+      if (m > topMag) {
+        topMag = m;
+        top = f;
+      }
+    }
+    // Threshold: 100K TX. Below that the "biggest" isn't really a
+    // headline; on a quiet day we'd rather show nothing than highlight
+    // a 5K transfer.
+    return topMag >= 100_000 ? top : null;
+  }, [flows]);
+
+  if (!biggest) return null;
+
+  const isDeposit = biggest.direction === "inflow";
+  const amount = formatLargeNumber(Math.abs(biggest.amount));
+  const direction = isDeposit ? "deposited to" : "withdrawn from";
+  const cpDisplay = biggest.counterpartyLabel ?? truncate(biggest.counterparty);
+
+  return (
+    <div className={`flows-biggest ${isDeposit ? "flows-biggest-in" : "flows-biggest-out"}`}>
+      <span className="flows-biggest-label">Largest tx in window</span>
+      <span className="flows-biggest-body">
+        <strong>{amount} TX</strong> {direction}{" "}
+        <strong>{biggest.exchange}</strong>{" "}
+        {isDeposit ? "from" : "to"}{" "}
+        <button
+          type="button"
+          className="flows-biggest-cp"
+          onClick={() => onAddressClick(biggest.counterparty)}
+          title={biggest.counterparty}
+        >
+          {cpDisplay}
+        </button>
+        {biggest.counterpartyRank != null && (
+          <span className="flows-feed-whale-tag">Top #{biggest.counterpartyRank}</span>
+        )}
+        <span className="flows-biggest-time">{relativeTime(biggest.timestamp)}</span>
+      </span>
+    </div>
+  );
+}
+
+// ─── RepeatPatterns (#7) ──────────────────────────────────────────────
+// Buckets the recent flows by counterparty + direction and surfaces any
+// (counterparty, direction) pair that appears at least N times in the
+// window. The raw feed shows individual rows; this section pulls the
+// pattern out so users see "core1xyz deposited 5 times for 8M total"
+// without scanning. Computed entirely client-side from the existing
+// 200-row recent feed.
+
+const REPEAT_MIN_COUNT = 3;
+
+function RepeatPatterns({
+  flows,
+  onAddressClick,
+}: {
+  flows: RecentFlowRow[];
+  onAddressClick: (address: string) => void;
+}) {
+  const patterns = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        address: string;
+        label: string | null;
+        rank: number | null;
+        direction: "inflow" | "outflow";
+        exchanges: Set<string>;
+        count: number;
+        total: number;
+      }
+    >();
+    for (const f of flows) {
+      const key = `${f.counterparty}|${f.direction}`;
+      const cur = map.get(key) ?? {
+        address: f.counterparty,
+        label: f.counterpartyLabel,
+        rank: f.counterpartyRank,
+        direction: f.direction,
+        exchanges: new Set<string>(),
+        count: 0,
+        total: 0,
+      };
+      cur.count++;
+      cur.total += Math.abs(f.amount);
+      cur.exchanges.add(f.exchange);
+      map.set(key, cur);
+    }
+    return Array.from(map.values())
+      .filter((p) => p.count >= REPEAT_MIN_COUNT)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [flows]);
+
+  if (patterns.length === 0) return null;
+
+  return (
+    <div className="flows-patterns">
+      <div className="flows-patterns-header">
+        <span className="flows-chart-title">Notable Patterns</span>
+        <span className="flows-feed-count">
+          counterparties active 3+ times in this window
+        </span>
+      </div>
+      <ul className="flows-patterns-list">
+        {patterns.map((p) => {
+          const isDeposit = p.direction === "inflow";
+          const verb = isDeposit ? "deposited to" : "withdrew from";
+          const exchanges = Array.from(p.exchanges).join(", ");
+          const display = p.label ?? truncate(p.address);
+          return (
+            <li key={`${p.address}-${p.direction}`} className="flows-patterns-row">
+              <button
+                type="button"
+                className="flows-patterns-cp"
+                onClick={() => onAddressClick(p.address)}
+                title={p.address}
+              >
+                {display}
+              </button>
+              {p.rank != null && (
+                <span className="flows-feed-whale-tag">Top #{p.rank}</span>
+              )}
+              <span className="flows-patterns-text">
+                {verb} <strong>{exchanges}</strong> {p.count} times for{" "}
+                <strong className={isDeposit ? "flow-card-net-in" : "flow-card-net-out"}>
+                  {formatLargeNumber(p.total)} TX
+                </strong>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ─── PeriodComparison (#8) ────────────────────────────────────────────
+// "This 7d vs prior 7d" panel. Shows net flow, gross volume, and tx
+// count side-by-side with the % change. The prior-period values come
+// from /api/flows?prev=true so the SUMs cover the immediately preceding
+// window of the same length.
+
+const COMPARE_WINDOW_LABEL: Record<Exclude<WindowKey, "all">, string> = {
+  "24h": "Past 24h vs prior 24h",
+  "7d": "Past 7 days vs prior 7 days",
+  "30d": "Past 30 days vs prior 30 days",
+  "90d": "Past 90 days vs prior 90 days",
+};
+
+function PeriodComparison({
+  windowKey,
+  current,
+  previous,
+  currentExchanges,
+  previousExchanges,
+}: {
+  windowKey: WindowKey;
+  current: { inflow: number; outflow: number; net: number; txCount: number };
+  previous: { inflow: number; outflow: number; net: number; txCount: number };
+  currentExchanges: ExchangeFlowRow[];
+  previousExchanges: ExchangeFlowRow[];
+}) {
+  if (windowKey === "all") return null;
+  const grossCur = current.inflow + current.outflow;
+  const grossPrev = previous.inflow + previous.outflow;
+  const pct = (cur: number, prev: number) =>
+    prev === 0 ? null : ((cur - prev) / prev) * 100;
+
+  // Headline biggest mover: the exchange whose net flow changed the
+  // most in absolute TX terms vs the prior period. Helps users see
+  // which platform drove the period's story.
+  const biggestMover = useMemo(() => {
+    let best: { name: string; delta: number } | null = null;
+    for (const e of currentExchanges) {
+      const prev = previousExchanges.find((x) => x.address === e.address);
+      const prevNet = prev?.net ?? 0;
+      const delta = e.net - prevNet;
+      if (best == null || Math.abs(delta) > Math.abs(best.delta)) {
+        best = { name: e.name, delta };
+      }
+    }
+    return best;
+  }, [currentExchanges, previousExchanges]);
+
+  return (
+    <div className="flows-compare">
+      <div className="flows-compare-header">
+        <span className="flows-chart-title">{COMPARE_WINDOW_LABEL[windowKey as Exclude<WindowKey, "all">]}</span>
+      </div>
+      <div className="flows-compare-grid">
+        <ComparisonStat label="Net flow" current={current.net} previous={previous.net} mode="net" pct={pct(Math.abs(current.net), Math.abs(previous.net))} />
+        <ComparisonStat label="Gross volume" current={grossCur} previous={grossPrev} mode="gross" pct={pct(grossCur, grossPrev)} />
+        <ComparisonStat label="Transactions" current={current.txCount} previous={previous.txCount} mode="count" pct={pct(current.txCount, previous.txCount)} />
+      </div>
+      {biggestMover && Math.abs(biggestMover.delta) > 1000 && (
+        <div className="flows-compare-mover">
+          Biggest mover: <strong>{biggestMover.name}</strong> ({biggestMover.delta > 0 ? "+" : "−"}
+          {formatLargeNumber(Math.abs(biggestMover.delta))} TX net change vs prior period)
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonStat({
+  label,
+  current,
+  previous,
+  mode,
+  pct,
+}: {
+  label: string;
+  current: number;
+  previous: number;
+  mode: "net" | "gross" | "count";
+  pct: number | null;
+}) {
+  const fmt = (n: number) =>
+    mode === "count" ? n.toLocaleString() : `${formatLargeNumber(Math.abs(n))} TX`;
+  const sign = mode === "net" && current !== 0 ? (current > 0 ? "+" : "−") : "";
+  const cls =
+    pct == null
+      ? "flows-compare-pct-neutral"
+      : Math.abs(pct) < 5
+        ? "flows-compare-pct-neutral"
+        : pct > 0
+          ? "flows-compare-pct-up"
+          : "flows-compare-pct-down";
+  return (
+    <div className="flows-compare-stat">
+      <div className="flows-compare-label">{label}</div>
+      <div className="flows-compare-current">{sign}{fmt(current)}</div>
+      <div className="flows-compare-prior">prior: {fmt(previous)}</div>
+      {pct != null && (
+        <div className={`flows-compare-pct ${cls}`}>
+          {pct > 0 ? "▲" : pct < 0 ? "▼" : ""} {Math.abs(pct).toFixed(0)}%
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── FlowsHeatmap (#6) ────────────────────────────────────────────────
+// Per-exchange × day net flow grid. Each cell is coloured by net flow
+// magnitude and direction (red = accumulation, green = releasing).
+// Dates run left to right; exchanges top to bottom.
+
+function FlowsHeatmap({
+  heatmap,
+  exchanges,
+}: {
+  heatmap: NonNullable<FlowsHistoryResponse["heatmap"]>;
+  exchanges: NonNullable<FlowsHistoryResponse["exchanges"]>;
+}) {
+  // Find the max absolute net across all cells so we can scale colour
+  // intensity. Without scaling, a single big day washes everything else
+  // out visually.
+  const maxAbs = useMemo(() => {
+    let m = 0;
+    for (const day of heatmap) {
+      for (const c of day.cells) {
+        const a = Math.abs(c.net);
+        if (a > m) m = a;
+      }
+    }
+    return m || 1;
+  }, [heatmap]);
+
+  const cellColour = (net: number) => {
+    if (Math.abs(net) < 1000) return "rgba(150,150,150,0.06)";
+    const intensity = Math.min(1, Math.abs(net) / maxAbs);
+    // Red for inflow-dominant (accumulation), green for outflow.
+    if (net > 0) return `rgba(196, 90, 74, ${0.15 + intensity * 0.7})`;
+    return `rgba(74, 122, 26, ${0.15 + intensity * 0.7})`;
+  };
+
+  const formatDay = (d: string) => {
+    const dt = new Date(d + "T00:00:00");
+    return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()]} ${dt.getDate()}`;
+  };
+
+  return (
+    <div className="flows-heatmap">
+      <div className="flows-heatmap-header">
+        <span className="flows-chart-title">Daily Net Flow by Exchange</span>
+        <span className="flows-feed-count">
+          red = accumulation, green = releasing
+        </span>
+      </div>
+      <div
+        className="flows-heatmap-grid"
+        style={{
+          gridTemplateColumns: `120px repeat(${heatmap.length}, minmax(28px, 1fr))`,
+        }}
+      >
+        <div className="flows-heatmap-corner" />
+        {heatmap.map((d) => (
+          <div key={d.date} className="flows-heatmap-day-label" title={d.date}>
+            {formatDay(d.date)}
+          </div>
+        ))}
+        {exchanges.map((ex) => (
+          <FlowsHeatmapRow
+            key={ex.address}
+            exchange={ex}
+            heatmap={heatmap}
+            cellColour={cellColour}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FlowsHeatmapRow({
+  exchange,
+  heatmap,
+  cellColour,
+}: {
+  exchange: { address: string; name: string };
+  heatmap: NonNullable<FlowsHistoryResponse["heatmap"]>;
+  cellColour: (net: number) => string;
+}) {
+  return (
+    <>
+      <div className="flows-heatmap-row-label">{exchange.name}</div>
+      {heatmap.map((d) => {
+        const cell = d.cells.find((c) => c.address === exchange.address);
+        const net = cell?.net ?? 0;
+        const tooltip =
+          cell && (cell.inflow > 0 || cell.outflow > 0)
+            ? `${exchange.name} on ${d.date}\n+${formatLargeNumber(cell.inflow)} in / -${formatLargeNumber(cell.outflow)} out\nnet ${net > 0 ? "+" : ""}${formatLargeNumber(net)} TX`
+            : `${exchange.name} on ${d.date}: no flows`;
+        return (
+          <div
+            key={`${exchange.address}-${d.date}`}
+            className="flows-heatmap-cell"
+            style={{ background: cellColour(net) }}
+            title={tooltip}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ─── DestinationsSankey (#5) ──────────────────────────────────────────
+// Replaces the three-card destination breakdown with a horizontal flow
+// visual. Single source node ("Withdrawals") splits into three bars
+// proportional to bucket pct. Pure CSS rendering — no chart lib needed
+// for a 1-to-3 split, and it ends up looking better than the Recharts
+// Sankey component for this small a graph.
+
+function DestinationsSankey({ data }: { data: DestinationsResponse }) {
+  return (
+    <div className="flows-sankey">
+      <div className="flows-sankey-header">
+        <span className="flows-chart-title">Where Withdrawals Go</span>
+        <span className="flows-feed-count">
+          {formatLargeNumber(data.totalOutflow)} TX over {data.window.toUpperCase()}
+        </span>
+      </div>
+      <div className="flows-sankey-body">
+        <div className="flows-sankey-source">
+          <div className="flows-sankey-source-label">Withdrawals</div>
+          <div className="flows-sankey-source-amount">
+            {formatLargeNumber(data.totalOutflow)} TX
+          </div>
+        </div>
+        <div className="flows-sankey-bars">
+          {data.buckets.map((b) => {
+            const meta = DESTINATION_META[b.category];
+            return (
+              <div
+                key={b.category}
+                className={`flows-sankey-bar flows-sankey-bar-${meta.tone}`}
+                style={{ flexGrow: Math.max(b.pct, 1) }}
+                title={`${meta.label}: ${b.pct.toFixed(1)}%, ${formatLargeNumber(b.amount)} TX, ${b.txCount.toLocaleString()} tx`}
+              >
+                <div className="flows-sankey-bar-label">{meta.label}</div>
+                <div className="flows-sankey-bar-pct">{b.pct.toFixed(1)}%</div>
+                <div className="flows-sankey-bar-detail">
+                  {formatLargeNumber(b.amount)} TX
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="flows-sankey-desc">
+        Staked = bullish (cold storage / staking). Other Exchange = neutral rotation. Private Wallet = personal custody.
+      </div>
     </div>
   );
 }
