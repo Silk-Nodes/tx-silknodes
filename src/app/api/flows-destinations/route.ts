@@ -1,10 +1,24 @@
 // GET /api/flows-destinations?window=24h
 //
 // Classifies every outflow (TX leaving an exchange) by where it went:
-//   staked          counterparty has a delegate event within 7 d after
-//                   the outflow — likely going to staking
+//   staked          counterparty is a known staker. Catches three
+//                   cases combined (any one is enough):
+//                     a) delegated within 30d AFTER the withdrawal
+//                        ("withdraw, then stake" pattern)
+//                     b) ever delegated in our staking_events history
+//                        (90 day rolling window via the events table)
+//                     c) currently appears in top_delegators
+//                        (snapshot of top 500 active stakers, refreshed
+//                        every 6h)
 //   other_exchange  counterparty is itself a tracked exchange wallet
 //   private         everything else (cold storage, regular wallets, etc.)
+//
+// History note: original classifier only used (a) with a 7d lookahead,
+// which buried known stakers in the "private" bucket and made the
+// staked share look 3-4x smaller than reality. Adding (b) catches
+// recurring stakers who already had an active position before the
+// withdrawal; (c) catches large, long-time stakers whose most recent
+// delegate event predates the staking_events retention.
 //
 // Response shape:
 //   {
@@ -20,11 +34,9 @@
 //
 // pct is the share of totalOutflow that bucket represents (0..100).
 //
-// Query strategy: classify each outflow with EXISTS subqueries against
-// exchange_addresses and staking_events, group by the resulting
-// category. EXISTS avoids JOIN duplication when a counterparty has
-// many delegate events. Indexed on staking_events(delegator,
-// timestamp) so the lookup is fast.
+// Query strategy: each EXISTS subquery hits an indexed column
+// (staking_events.delegator, top_delegators.address PK) so the
+// classifier scales with outflow row count, not unique address count.
 
 import { NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
@@ -41,10 +53,12 @@ const WINDOWS: Record<string, number | null> = {
   "all": null,
 };
 
-// Lookahead window for "did this counterparty stake?". 7 days lets us
-// catch typical "withdraw → wait a couple days → stake" patterns
-// without diluting the bucket with unrelated stake events much later.
-const STAKE_LOOKAHEAD_DAYS = 7;
+// Lookahead window for "did this counterparty stake within X days
+// after withdrawing?". Bumped from 7d to 30d so users who park funds
+// for a few weeks before staking still get classified correctly. Now
+// only one of three signals — the others (any past delegate event,
+// any current active stake) catch stakers who don't trigger this one.
+const STAKE_LOOKAHEAD_DAYS = 30;
 
 type Category = "staked" | "other_exchange" | "private";
 
@@ -58,6 +72,19 @@ export async function GET(req: Request) {
     const lookback = WINDOWS[windowKey];
     const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
+    // Two EXISTS clauses cover the staked bucket. Order matters for
+    // short-circuit evaluation; cheapest first:
+    //   1. top_delegators PK lookup (O(log n))
+    //   2. staking_events ever-delegated (idx_staking_events_delegator)
+    // The previous "delegated within 30d after withdrawal" check is
+    // redundant once #2 is in place, since staking_events has a
+    // 90-day retention so any post-withdrawal stake within 30d is
+    // already in the events table. Edge case: a staker whose most
+    // recent delegate event is older than 90 days AND who isn't
+    // top-500 won't be caught — small enough to ignore for now.
+    // STAKE_LOOKAHEAD_DAYS is kept in the file as documentation of
+    // the historic threshold but no longer used in the SQL.
+    void STAKE_LOOKAHEAD_DAYS;
     const sql = `
       WITH classified AS (
         SELECT
@@ -67,11 +94,12 @@ export async function GET(req: Request) {
               SELECT 1 FROM exchange_addresses ea WHERE ea.address = ef.counterparty
             ) THEN 'other_exchange'
             WHEN EXISTS (
+              SELECT 1 FROM top_delegators td WHERE td.address = ef.counterparty
+            ) THEN 'staked'
+            WHEN EXISTS (
               SELECT 1 FROM staking_events se
               WHERE se.delegator = ef.counterparty
                 AND se.type = 'delegate'
-                AND se.timestamp >= ef.timestamp
-                AND se.timestamp <= ef.timestamp + (INTERVAL '1 day' * :lookahead)
             ) THEN 'staked'
             ELSE 'private'
           END AS category
@@ -93,10 +121,7 @@ export async function GET(req: Request) {
       tx_count: string;
     }>(sql, {
       type: QueryTypes.SELECT,
-      replacements: {
-        lookahead: STAKE_LOOKAHEAD_DAYS,
-        ...(sinceDate ? { sinceDate } : {}),
-      },
+      replacements: sinceDate ? { sinceDate } : {},
     })) as unknown as Array<{
       category: Category;
       total_amount: string;

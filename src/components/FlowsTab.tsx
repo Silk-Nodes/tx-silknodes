@@ -907,7 +907,7 @@ function FlowsSummary({
     const top = sorted[0];
     if (!top || top.pct < 40) return null;
     if (top.category === "staked") {
-      return `${top.pct.toFixed(0)}% of withdrawals went to wallets that staked within 7 days, often a bullish signal.`;
+      return `${top.pct.toFixed(0)}% of withdrawals went to known stakers, often a bullish signal.`;
     }
     if (top.category === "other_exchange") {
       return `${top.pct.toFixed(0)}% of withdrawals rotated to other exchanges, neither bullish nor bearish.`;
@@ -961,19 +961,20 @@ const DESTINATION_META: Record<
   { label: string; tone: "good" | "neutral" | "warn"; description: string }
 > = {
   staked: {
-    label: "Staked",
+    label: "Staked / Holder",
     tone: "good",
-    description: "Outflow to wallets that staked within 7 days — bullish signal",
+    description:
+      "Outflow to known stakers. Counterparty currently has active stake or has delegated within the last 90 days. Bullish signal.",
   },
   other_exchange: {
     label: "Other Exchange",
     tone: "neutral",
-    description: "Rotation between exchanges — neither bullish nor bearish",
+    description: "Rotation between exchanges. Neither bullish nor bearish.",
   },
   private: {
     label: "Private Wallet",
     tone: "neutral",
-    description: "Cold storage / personal wallets / unidentified destinations",
+    description: "Cold storage, personal wallets, or unidentified destinations.",
   },
 };
 
@@ -1679,7 +1680,10 @@ function DestinationsSankey({ data }: { data: DestinationsResponse }) {
         </div>
       </div>
       <div className="flows-sankey-desc">
-        Staked = bullish (cold storage / staking). Other Exchange = neutral rotation. Private Wallet = personal custody.
+        Staked / Holder = address has active stake or has delegated in
+        the last 90 days (bullish). Other Exchange = rotation between
+        platforms (neutral). Private Wallet = cold storage or
+        unclassified addresses.
       </div>
     </div>
   );
