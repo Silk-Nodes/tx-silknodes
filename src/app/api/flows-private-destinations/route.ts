@@ -45,6 +45,12 @@ const WINDOWS: Record<string, number | null> = {
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+// Minimum total TX (per counterparty across the window) for the row
+// to qualify. Addresses moving 5K or 10K aren't useful for the audit
+// workflow — those are just regular wallets, not exchange/bridge
+// hot wallets that the team needs to label. Defaults to 1M; override
+// with ?min= for analyst exploration.
+const DEFAULT_MIN_AMOUNT = 1_000_000;
 
 export async function GET(req: Request) {
   try {
@@ -60,6 +66,9 @@ export async function GET(req: Request) {
       Number.isFinite(limitParam) && limitParam > 0
         ? Math.min(Math.floor(limitParam), MAX_LIMIT)
         : DEFAULT_LIMIT;
+    const minParam = Number(url.searchParams.get("min") ?? DEFAULT_MIN_AMOUNT);
+    const minAmount =
+      Number.isFinite(minParam) && minParam >= 0 ? minParam : DEFAULT_MIN_AMOUNT;
 
     // Pull the top counterparties whose category would be "private"
     // under the same logic as flows-destinations:
@@ -88,12 +97,17 @@ export async function GET(req: Request) {
             AND se.type = 'delegate'
         )
       ),
-      ranked AS (
+      grouped AS (
         SELECT counterparty,
                SUM(amount) AS total_amount,
                COUNT(*)    AS tx_count
         FROM private_only
         GROUP BY counterparty
+        HAVING SUM(amount) >= :minAmount
+      ),
+      ranked AS (
+        SELECT *
+        FROM grouped
         ORDER BY total_amount DESC
         LIMIT :limit
       )
@@ -117,6 +131,7 @@ export async function GET(req: Request) {
       type: QueryTypes.SELECT,
       replacements: {
         limit,
+        minAmount,
         ...(sinceDate ? { sinceDate } : {}),
       },
     })) as unknown as Array<{
@@ -164,6 +179,7 @@ export async function GET(req: Request) {
       {
         window: windowKey,
         limit,
+        minAmount,
         destinations: rows.map((r) => ({
           address: r.counterparty,
           totalAmount: Number(r.total_amount),

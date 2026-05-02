@@ -73,6 +73,7 @@ interface PrivateDestination {
 interface PrivateDestinationsResponse {
   window: WindowKey;
   limit: number;
+  minAmount: number;
   destinations: PrivateDestination[];
   updatedAt: string;
 }
@@ -380,10 +381,11 @@ export default function FlowsTab() {
       )}
 
       {/* ─── Top private destinations audit panel.
-          Collapsible. Helps the team identify untracked exchanges,
-          bridges, and contracts that are inflating the Private bucket
-          so they can be added to known_entities and re-classified. */}
-      {privateDests && privateDests.destinations.length > 0 && (
+          Collapsible. Only renders when there's at least one address
+          above the API's minAmount threshold (default 1M TX) — sub-
+          threshold "private" addresses are usually just regular
+          wallets, not exchange/bridge hot wallets worth labelling. */}
+      {privateDests && (
         <PrivateDestinationsAudit data={privateDests} onAddressClick={setSelectedAddress} />
       )}
 
@@ -1837,6 +1839,17 @@ function PrivateDestinationsAudit({
     () => data.destinations.reduce((s, d) => s + d.totalAmount, 0),
     [data.destinations],
   );
+  const count = data.destinations.length;
+  const isEmpty = count === 0;
+  const threshold = formatLargeNumber(data.minAmount);
+
+  // Only one address qualifying still uses "1 address" instead of
+  // "Top 1" since the leaderboard framing reads weird at n=1.
+  const headerCount = isEmpty
+    ? `no addresses above ${threshold} TX in this window`
+    : count === 1
+      ? `1 address above ${threshold} TX, ${formatLargeNumber(total)} TX total`
+      : `${count} addresses above ${threshold} TX, ${formatLargeNumber(total)} TX combined`;
 
   return (
     <div className="flows-private-audit">
@@ -1845,22 +1858,25 @@ function PrivateDestinationsAudit({
         className="flows-private-audit-toggle"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        disabled={isEmpty}
       >
-        <span className="flows-private-audit-toggle-arrow">{open ? "▾" : "▸"}</span>
-        <span className="flows-chart-title">Top Private Destinations</span>
-        <span className="flows-feed-count">
-          {data.destinations.length} addresses, {formatLargeNumber(total)} TX combined
+        <span className="flows-private-audit-toggle-arrow">
+          {isEmpty ? "·" : open ? "▾" : "▸"}
         </span>
+        <span className="flows-chart-title">Significant Private Destinations</span>
+        <span className="flows-feed-count">{headerCount}</span>
       </button>
-      {open && (
+      {open && !isEmpty && (
         <>
           <p className="flows-private-audit-help">
             These are the biggest unidentified addresses receiving TX
-            from exchanges in this window. If you recognise one as a
-            different exchange (Bybit, KuCoin, OKX, etc.), a bridge,
-            or a DEX, hit <strong>Suggest label</strong> to send it
-            for review. Approved labels get applied to the page so
-            everyone sees a more accurate breakdown.
+            from exchanges in this window (filtered to {threshold} TX
+            and above so the list stays focused on entity-sized flows,
+            not regular wallets). If you recognise one as a different
+            exchange (Bybit, KuCoin, OKX, etc.), a bridge, or a DEX,
+            hit <strong>Suggest label</strong> to send it for review.
+            Approved labels get applied to the page so everyone sees
+            a more accurate breakdown.
           </p>
           <ol className="flows-private-audit-list">
             {data.destinations.map((d, i) => (
