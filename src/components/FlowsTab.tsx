@@ -42,15 +42,35 @@ interface FlowsHistoryResponse {
   }>;
   updatedAt: string;
 }
+type DestinationCategory =
+  | "staked"
+  | "other_exchange"
+  | "bridge"
+  | "dex"
+  | "contract"
+  | "private";
 interface DestinationsResponse {
   window: WindowKey;
   totalOutflow: number;
   buckets: Array<{
-    category: "staked" | "other_exchange" | "private";
+    category: DestinationCategory;
     amount: number;
     txCount: number;
     pct: number;
   }>;
+  updatedAt: string;
+}
+interface PrivateDestination {
+  address: string;
+  totalAmount: number;
+  txCount: number;
+  label: string | null;
+  type: string | null;
+}
+interface PrivateDestinationsResponse {
+  window: WindowKey;
+  limit: number;
+  destinations: PrivateDestination[];
   updatedAt: string;
 }
 interface CounterpartyRow {
@@ -108,6 +128,11 @@ export default function FlowsTab() {
   // and the per-exchange delta arrows. Same shape as `totals`, just
   // fetched with prev=true so the SUMs cover the prior window.
   const [prevTotals, setPrevTotals] = useState<FlowsResponse | null>(null);
+  // Top private-bucket destinations for the audit panel. Lets the
+  // team see which addresses are sitting in "Private Wallet" so they
+  // can be labelled in known_entities (Phase 2 of the classifier
+  // accuracy work).
+  const [privateDests, setPrivateDests] = useState<PrivateDestinationsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Selected address drives the slide-in side panel. Clear on close.
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
@@ -151,6 +176,7 @@ export default function FlowsTab() {
           fetch(`/api/flows-recent?window=${windowKey}&limit=200&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-destinations?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-counterparties?window=${windowKey}&limit=10&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-private-destinations?window=${windowKey}&limit=20&t=${Date.now()}`, { cache: "no-store" }),
         ];
         if (wantsPrev) {
           fetches.push(
@@ -158,8 +184,8 @@ export default function FlowsTab() {
           );
         }
         const responses = await Promise.all(fetches);
-        const [tRes, hRes, rRes, dRes, cRes, pRes] = responses;
-        if (!tRes.ok || !hRes.ok || !rRes.ok || !dRes.ok || !cRes.ok)
+        const [tRes, hRes, rRes, dRes, cRes, pdRes, pRes] = responses;
+        if (!tRes.ok || !hRes.ok || !rRes.ok || !dRes.ok || !cRes.ok || !pdRes.ok)
           throw new Error("HTTP error");
         if (wantsPrev && (!pRes || !pRes.ok)) throw new Error("HTTP error (prev)");
         const jsonPromises = [
@@ -168,16 +194,18 @@ export default function FlowsTab() {
           rRes.json(),
           dRes.json(),
           cRes.json(),
+          pdRes.json(),
         ];
         if (wantsPrev && pRes) jsonPromises.push(pRes.json());
         const parsed = await Promise.all(jsonPromises);
-        const [t, h, r, d, c, p] = parsed;
+        const [t, h, r, d, c, pd, p] = parsed;
         if (cancelled) return;
         setTotals(t as FlowsResponse);
         setHistory(h as FlowsHistoryResponse);
         setRecent(r as FlowsRecentResponse);
         setDestinations(d as DestinationsResponse);
         setCounterparties(c as CounterpartiesResponse);
+        setPrivateDests(pd as PrivateDestinationsResponse);
         setPrevTotals(wantsPrev ? (p as FlowsResponse) : null);
         setError(null);
       } catch (e) {
@@ -320,6 +348,14 @@ export default function FlowsTab() {
       {/* ─── Withdrawal destinations Sankey (#5) ─── */}
       {destinations && destinations.totalOutflow > 0 && (
         <DestinationsSankey data={destinations} />
+      )}
+
+      {/* ─── Top private destinations audit panel.
+          Collapsible. Helps the team identify untracked exchanges,
+          bridges, and contracts that are inflating the Private bucket
+          so they can be added to known_entities and re-classified. */}
+      {privateDests && privateDests.destinations.length > 0 && (
+        <PrivateDestinationsAudit data={privateDests} onAddressClick={setSelectedAddress} />
       )}
 
       {/* ─── Total card (full width, prominent). No delta — it's
@@ -957,7 +993,7 @@ function FlowsSummary({
 // Total is always the sum of the three so percentages add up to 100.
 
 const DESTINATION_META: Record<
-  "staked" | "other_exchange" | "private",
+  DestinationCategory,
   { label: string; tone: "good" | "neutral" | "warn"; description: string }
 > = {
   staked: {
@@ -970,6 +1006,21 @@ const DESTINATION_META: Record<
     label: "Other Exchange",
     tone: "neutral",
     description: "Rotation between exchanges. Neither bullish nor bearish.",
+  },
+  bridge: {
+    label: "Bridge / IBC",
+    tone: "neutral",
+    description: "Moving cross chain via Squid, Skip, or an IBC channel.",
+  },
+  dex: {
+    label: "DEX / LP",
+    tone: "neutral",
+    description: "DEX swap or liquidity pool deposit.",
+  },
+  contract: {
+    label: "Contract / Module",
+    tone: "neutral",
+    description: "Smart contract or chain module account (gov, distribution, etc.).",
   },
   private: {
     label: "Private Wallet",
@@ -1660,23 +1711,25 @@ function DestinationsSankey({ data }: { data: DestinationsResponse }) {
           </div>
         </div>
         <div className="flows-sankey-bars">
-          {data.buckets.map((b) => {
-            const meta = DESTINATION_META[b.category];
-            return (
-              <div
-                key={b.category}
-                className={`flows-sankey-bar flows-sankey-bar-${meta.tone}`}
-                style={{ flexGrow: Math.max(b.pct, 1) }}
-                title={`${meta.label}: ${b.pct.toFixed(1)}%, ${formatLargeNumber(b.amount)} TX, ${b.txCount.toLocaleString()} tx`}
-              >
-                <div className="flows-sankey-bar-label">{meta.label}</div>
-                <div className="flows-sankey-bar-pct">{b.pct.toFixed(1)}%</div>
-                <div className="flows-sankey-bar-detail">
-                  {formatLargeNumber(b.amount)} TX
+          {data.buckets
+            .filter((b) => b.amount > 0)
+            .map((b) => {
+              const meta = DESTINATION_META[b.category];
+              return (
+                <div
+                  key={b.category}
+                  className={`flows-sankey-bar flows-sankey-bar-${meta.tone}`}
+                  style={{ flexGrow: Math.max(b.pct, 1) }}
+                  title={`${meta.label}: ${b.pct.toFixed(1)}%, ${formatLargeNumber(b.amount)} TX, ${b.txCount.toLocaleString()} tx`}
+                >
+                  <div className="flows-sankey-bar-label">{meta.label}</div>
+                  <div className="flows-sankey-bar-pct">{b.pct.toFixed(1)}%</div>
+                  <div className="flows-sankey-bar-detail">
+                    {formatLargeNumber(b.amount)} TX
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
       <div className="flows-sankey-desc">
@@ -1685,6 +1738,86 @@ function DestinationsSankey({ data }: { data: DestinationsResponse }) {
         platforms (neutral). Private Wallet = cold storage or
         unclassified addresses.
       </div>
+    </div>
+  );
+}
+
+// ─── PrivateDestinationsAudit ─────────────────────────────────────────
+// Lists the top 20 counterparties currently classified as "private"
+// for the active window, sorted by total amount. The team uses this
+// to spot untracked exchanges (Bybit, KuCoin, OKX, ...), bridges
+// (Squid, Skip, IBC channels), DEX pools, and contracts so they can
+// be added to known_entities. Each labelled address moves volume out
+// of "Private Wallet" and into a more accurate bucket.
+//
+// Collapsed by default to keep the page tidy; the team only needs it
+// when curating known_entities, not on every page load.
+
+function PrivateDestinationsAudit({
+  data,
+  onAddressClick,
+}: {
+  data: PrivateDestinationsResponse;
+  onAddressClick: (address: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const total = useMemo(
+    () => data.destinations.reduce((s, d) => s + d.totalAmount, 0),
+    [data.destinations],
+  );
+
+  return (
+    <div className="flows-private-audit">
+      <button
+        type="button"
+        className="flows-private-audit-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="flows-private-audit-toggle-arrow">{open ? "▾" : "▸"}</span>
+        <span className="flows-chart-title">Top Private Destinations</span>
+        <span className="flows-feed-count">
+          {data.destinations.length} addresses, {formatLargeNumber(total)} TX combined
+        </span>
+      </button>
+      {open && (
+        <>
+          <p className="flows-private-audit-help">
+            These are the largest counterparties currently sitting in the
+            Private Wallet bucket. Recognise an exchange, bridge, or DEX
+            below? Add it to <code>known_entities</code> with the right
+            type and the next refresh will move it to the matching
+            bucket. Click any address to inspect its full flow history.
+          </p>
+          <ol className="flows-private-audit-list">
+            {data.destinations.map((d, i) => {
+              const display = d.label ?? truncate(d.address);
+              return (
+                <li key={d.address} className="flows-private-audit-row">
+                  <span className="flows-private-audit-rank">#{i + 1}</span>
+                  <button
+                    type="button"
+                    className="flows-private-audit-cp"
+                    onClick={() => onAddressClick(d.address)}
+                    title={d.address}
+                  >
+                    {display}
+                  </button>
+                  {d.type && (
+                    <span className="flows-private-audit-tag">type: {d.type}</span>
+                  )}
+                  <span className="flows-private-audit-amount">
+                    {formatLargeNumber(d.totalAmount)} TX
+                  </span>
+                  <span className="flows-private-audit-count">
+                    {d.txCount.toLocaleString()} tx
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,63 @@
+-- Extend known_entities with the entity types the destinations
+-- classifier now recognises beyond plain 'cex'. Adding rows here
+-- moves volume out of the "Private Wallet" bucket on the Flows page
+-- and into the matching destination type.
+--
+-- Schema unchanged; the type column is just text. This migration is
+-- here as documentation + a place to land community-sourced address
+-- lists incrementally.
+--
+-- Recognised types (used by /api/flows-destinations):
+--   cex          Centralised exchange (Bybit, KuCoin, OKX, etc.)
+--   bridge       Cross-chain bridge (Squid, Skip, Axelar gateway)
+--   ibc          IBC transfer module / channel escrow
+--   dex          Decentralised exchange / liquidity pool
+--   contract     Generic smart contract (CosmWasm)
+--   module       Cosmos-SDK module account (gov, distribution, mint)
+--
+-- Idempotent: ON CONFLICT updates the label/type so re-running this
+-- migration after editing the lists is safe. `verified=true` rows
+-- are not downgraded by the chain auto-detector script
+-- (vm-service/detect-entity-types.mjs).
+--
+-- ── Seed: well-known Cosmos-SDK module accounts ────────────────────
+-- Module addresses are deterministic across Cosmos-SDK chains: the
+-- bech32 of `addr(NewModuleAddress(name))` from x/auth. The script
+-- vm-service/detect-entity-types.mjs will discover them automatically
+-- on the next run, but seeding the canonical set here lets the
+-- classifier pick them up on day one without waiting for the script.
+--
+-- IMPORTANT: the addresses below are PLACEHOLDERS to be filled in
+-- after one run of detect-entity-types.mjs against your prod DB.
+-- The bech32 prefixes vary per chain (cosmos1..., osmo1..., core1...)
+-- and module names can vary slightly per fork, so we don't hardcode
+-- them blind. Run the detector once, then INSERT the real addresses
+-- it finds here so they're idempotent across DB resets.
+--
+-- Example shape (commented out; uncomment with real addresses):
+--
+-- INSERT INTO known_entities (address, label, type, verified, source) VALUES
+--   ('core1xxxxx...', 'Distribution Module',  'module', true, 'chain-detect 2026-04-30'),
+--   ('core1yyyyy...', 'Bonded Tokens Pool',   'module', true, 'chain-detect 2026-04-30'),
+--   ('core1zzzzz...', 'Fee Collector',        'module', true, 'chain-detect 2026-04-30'),
+--   ('core1aaaaa...', 'IBC Transfer',         'ibc',    true, 'chain-detect 2026-04-30')
+-- ON CONFLICT (address) DO UPDATE SET
+--   label    = EXCLUDED.label,
+--   type     = EXCLUDED.type,
+--   verified = EXCLUDED.verified,
+--   source   = EXCLUDED.source;
+
+-- ── Seed: untracked CEX / bridge addresses (community-sourced) ─────
+-- Same shape, type='cex' or 'bridge'. Add rows incrementally as the
+-- "Top Private Destinations" audit panel surfaces them.
+--
+-- INSERT INTO known_entities (address, label, type, verified, source) VALUES
+--   ('core1...', 'Bybit',          'cex',    true, 'community 2026-04-30'),
+--   ('core1...', 'KuCoin',         'cex',    true, 'community 2026-04-30'),
+--   ('core1...', 'OKX',            'cex',    true, 'community 2026-04-30'),
+--   ('core1...', 'Squid Router',   'bridge', true, 'squid docs'),
+-- ON CONFLICT (address) DO UPDATE SET
+--   label    = EXCLUDED.label,
+--   type     = EXCLUDED.type,
+--   verified = EXCLUDED.verified,
+--   source   = EXCLUDED.source;

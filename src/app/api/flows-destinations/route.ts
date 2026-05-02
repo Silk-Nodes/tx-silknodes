@@ -60,7 +60,13 @@ const WINDOWS: Record<string, number | null> = {
 // any current active stake) catch stakers who don't trigger this one.
 const STAKE_LOOKAHEAD_DAYS = 30;
 
-type Category = "staked" | "other_exchange" | "private";
+type Category =
+  | "staked"
+  | "other_exchange"
+  | "bridge"
+  | "dex"
+  | "contract"
+  | "private";
 
 export async function GET(req: Request) {
   try {
@@ -72,18 +78,24 @@ export async function GET(req: Request) {
     const lookback = WINDOWS[windowKey];
     const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
-    // Two EXISTS clauses cover the staked bucket. Order matters for
-    // short-circuit evaluation; cheapest first:
-    //   1. top_delegators PK lookup (O(log n))
-    //   2. staking_events ever-delegated (idx_staking_events_delegator)
-    // The previous "delegated within 30d after withdrawal" check is
-    // redundant once #2 is in place, since staking_events has a
-    // 90-day retention so any post-withdrawal stake within 30d is
-    // already in the events table. Edge case: a staker whose most
-    // recent delegate event is older than 90 days AND who isn't
-    // top-500 won't be caught — small enough to ignore for now.
-    // STAKE_LOOKAHEAD_DAYS is kept in the file as documentation of
-    // the historic threshold but no longer used in the SQL.
+    // Multi-source classifier. Order matters for short-circuit
+    // evaluation; cheapest checks first.
+    //
+    //   exchange_addresses          tracked exchanges only (4 hot wallets)
+    //   known_entities (cex)        all other exchanges we've labelled
+    //                                (Bybit, KuCoin, OKX, Coinbase, ...)
+    //   known_entities (bridge|ibc) Squid, Skip, IBC channel escrow accts
+    //   known_entities (dex)        DEX liquidity pools, AMM contracts
+    //   known_entities (contract|module)
+    //                                generic smart contracts and chain
+    //                                module accounts (gov, distribution,
+    //                                pse, etc.)
+    //   top_delegators              currently in top 500 stakers
+    //   staking_events delegate     ever delegated in last 90 days
+    //   else                        private
+    //
+    // STAKE_LOOKAHEAD_DAYS is no longer used in the SQL — kept as
+    // documentation of the historic threshold.
     void STAKE_LOOKAHEAD_DAYS;
     const sql = `
       WITH classified AS (
@@ -93,6 +105,22 @@ export async function GET(req: Request) {
             WHEN EXISTS (
               SELECT 1 FROM exchange_addresses ea WHERE ea.address = ef.counterparty
             ) THEN 'other_exchange'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type = 'cex'
+            ) THEN 'other_exchange'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type IN ('bridge', 'ibc')
+            ) THEN 'bridge'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type = 'dex'
+            ) THEN 'dex'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type IN ('contract', 'module')
+            ) THEN 'contract'
             WHEN EXISTS (
               SELECT 1 FROM top_delegators td WHERE td.address = ef.counterparty
             ) THEN 'staked'
@@ -129,10 +157,15 @@ export async function GET(req: Request) {
     }>;
 
     // Initialise a row for every category so the UI can render all
-    // three even when a category had zero activity in this window.
+    // categories even when one had zero activity in this window. The
+    // UI hides zero-volume buckets, so an empty category here is
+    // free.
     const totals: Record<Category, { amount: number; txCount: number }> = {
       staked:         { amount: 0, txCount: 0 },
       other_exchange: { amount: 0, txCount: 0 },
+      bridge:         { amount: 0, txCount: 0 },
+      dex:            { amount: 0, txCount: 0 },
+      contract:       { amount: 0, txCount: 0 },
       private:        { amount: 0, txCount: 0 },
     };
     for (const r of rows) {
@@ -141,17 +174,25 @@ export async function GET(req: Request) {
         txCount: Number(r.tx_count),
       };
     }
-    const totalOutflow =
-      totals.staked.amount + totals.other_exchange.amount + totals.private.amount;
-
-    const buckets = (["staked", "other_exchange", "private"] as Category[]).map(
-      (c) => ({
-        category: c,
-        amount: totals[c].amount,
-        txCount: totals[c].txCount,
-        pct: totalOutflow > 0 ? (totals[c].amount / totalOutflow) * 100 : 0,
-      }),
+    const ALL_CATEGORIES: Category[] = [
+      "staked",
+      "other_exchange",
+      "bridge",
+      "dex",
+      "contract",
+      "private",
+    ];
+    const totalOutflow = ALL_CATEGORIES.reduce(
+      (s, c) => s + totals[c].amount,
+      0,
     );
+
+    const buckets = ALL_CATEGORIES.map((c) => ({
+      category: c,
+      amount: totals[c].amount,
+      txCount: totals[c].txCount,
+      pct: totalOutflow > 0 ? (totals[c].amount / totalOutflow) * 100 : 0,
+    }));
 
     return NextResponse.json(
       {
