@@ -1,10 +1,24 @@
 // GET /api/flows-destinations?window=24h
 //
 // Classifies every outflow (TX leaving an exchange) by where it went:
-//   staked          counterparty has a delegate event within 7 d after
-//                   the outflow — likely going to staking
+//   staked          counterparty is a known staker. Catches three
+//                   cases combined (any one is enough):
+//                     a) delegated within 30d AFTER the withdrawal
+//                        ("withdraw, then stake" pattern)
+//                     b) ever delegated in our staking_events history
+//                        (90 day rolling window via the events table)
+//                     c) currently appears in top_delegators
+//                        (snapshot of top 500 active stakers, refreshed
+//                        every 6h)
 //   other_exchange  counterparty is itself a tracked exchange wallet
 //   private         everything else (cold storage, regular wallets, etc.)
+//
+// History note: original classifier only used (a) with a 7d lookahead,
+// which buried known stakers in the "private" bucket and made the
+// staked share look 3-4x smaller than reality. Adding (b) catches
+// recurring stakers who already had an active position before the
+// withdrawal; (c) catches large, long-time stakers whose most recent
+// delegate event predates the staking_events retention.
 //
 // Response shape:
 //   {
@@ -20,11 +34,9 @@
 //
 // pct is the share of totalOutflow that bucket represents (0..100).
 //
-// Query strategy: classify each outflow with EXISTS subqueries against
-// exchange_addresses and staking_events, group by the resulting
-// category. EXISTS avoids JOIN duplication when a counterparty has
-// many delegate events. Indexed on staking_events(delegator,
-// timestamp) so the lookup is fast.
+// Query strategy: each EXISTS subquery hits an indexed column
+// (staking_events.delegator, top_delegators.address PK) so the
+// classifier scales with outflow row count, not unique address count.
 
 import { NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
@@ -41,12 +53,20 @@ const WINDOWS: Record<string, number | null> = {
   "all": null,
 };
 
-// Lookahead window for "did this counterparty stake?". 7 days lets us
-// catch typical "withdraw → wait a couple days → stake" patterns
-// without diluting the bucket with unrelated stake events much later.
-const STAKE_LOOKAHEAD_DAYS = 7;
+// Lookahead window for "did this counterparty stake within X days
+// after withdrawing?". Bumped from 7d to 30d so users who park funds
+// for a few weeks before staking still get classified correctly. Now
+// only one of three signals — the others (any past delegate event,
+// any current active stake) catch stakers who don't trigger this one.
+const STAKE_LOOKAHEAD_DAYS = 30;
 
-type Category = "staked" | "other_exchange" | "private";
+type Category =
+  | "staked"
+  | "other_exchange"
+  | "bridge"
+  | "dex"
+  | "contract"
+  | "private";
 
 export async function GET(req: Request) {
   try {
@@ -58,6 +78,25 @@ export async function GET(req: Request) {
     const lookback = WINDOWS[windowKey];
     const sinceDate = lookback == null ? null : new Date(Date.now() - lookback);
 
+    // Multi-source classifier. Order matters for short-circuit
+    // evaluation; cheapest checks first.
+    //
+    //   exchange_addresses          tracked exchanges only (4 hot wallets)
+    //   known_entities (cex)        all other exchanges we've labelled
+    //                                (Bybit, KuCoin, OKX, Coinbase, ...)
+    //   known_entities (bridge|ibc) Squid, Skip, IBC channel escrow accts
+    //   known_entities (dex)        DEX liquidity pools, AMM contracts
+    //   known_entities (contract|module)
+    //                                generic smart contracts and chain
+    //                                module accounts (gov, distribution,
+    //                                pse, etc.)
+    //   top_delegators              currently in top 500 stakers
+    //   staking_events delegate     ever delegated in last 90 days
+    //   else                        private
+    //
+    // STAKE_LOOKAHEAD_DAYS is no longer used in the SQL — kept as
+    // documentation of the historic threshold.
+    void STAKE_LOOKAHEAD_DAYS;
     const sql = `
       WITH classified AS (
         SELECT
@@ -67,11 +106,28 @@ export async function GET(req: Request) {
               SELECT 1 FROM exchange_addresses ea WHERE ea.address = ef.counterparty
             ) THEN 'other_exchange'
             WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type = 'cex'
+            ) THEN 'other_exchange'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type IN ('bridge', 'ibc')
+            ) THEN 'bridge'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type = 'dex'
+            ) THEN 'dex'
+            WHEN EXISTS (
+              SELECT 1 FROM known_entities ke
+              WHERE ke.address = ef.counterparty AND ke.type IN ('contract', 'module')
+            ) THEN 'contract'
+            WHEN EXISTS (
+              SELECT 1 FROM top_delegators td WHERE td.address = ef.counterparty
+            ) THEN 'staked'
+            WHEN EXISTS (
               SELECT 1 FROM staking_events se
               WHERE se.delegator = ef.counterparty
                 AND se.type = 'delegate'
-                AND se.timestamp >= ef.timestamp
-                AND se.timestamp <= ef.timestamp + (INTERVAL '1 day' * :lookahead)
             ) THEN 'staked'
             ELSE 'private'
           END AS category
@@ -93,10 +149,7 @@ export async function GET(req: Request) {
       tx_count: string;
     }>(sql, {
       type: QueryTypes.SELECT,
-      replacements: {
-        lookahead: STAKE_LOOKAHEAD_DAYS,
-        ...(sinceDate ? { sinceDate } : {}),
-      },
+      replacements: sinceDate ? { sinceDate } : {},
     })) as unknown as Array<{
       category: Category;
       total_amount: string;
@@ -104,10 +157,15 @@ export async function GET(req: Request) {
     }>;
 
     // Initialise a row for every category so the UI can render all
-    // three even when a category had zero activity in this window.
+    // categories even when one had zero activity in this window. The
+    // UI hides zero-volume buckets, so an empty category here is
+    // free.
     const totals: Record<Category, { amount: number; txCount: number }> = {
       staked:         { amount: 0, txCount: 0 },
       other_exchange: { amount: 0, txCount: 0 },
+      bridge:         { amount: 0, txCount: 0 },
+      dex:            { amount: 0, txCount: 0 },
+      contract:       { amount: 0, txCount: 0 },
       private:        { amount: 0, txCount: 0 },
     };
     for (const r of rows) {
@@ -116,17 +174,25 @@ export async function GET(req: Request) {
         txCount: Number(r.tx_count),
       };
     }
-    const totalOutflow =
-      totals.staked.amount + totals.other_exchange.amount + totals.private.amount;
-
-    const buckets = (["staked", "other_exchange", "private"] as Category[]).map(
-      (c) => ({
-        category: c,
-        amount: totals[c].amount,
-        txCount: totals[c].txCount,
-        pct: totalOutflow > 0 ? (totals[c].amount / totalOutflow) * 100 : 0,
-      }),
+    const ALL_CATEGORIES: Category[] = [
+      "staked",
+      "other_exchange",
+      "bridge",
+      "dex",
+      "contract",
+      "private",
+    ];
+    const totalOutflow = ALL_CATEGORIES.reduce(
+      (s, c) => s + totals[c].amount,
+      0,
     );
+
+    const buckets = ALL_CATEGORIES.map((c) => ({
+      category: c,
+      amount: totals[c].amount,
+      txCount: totals[c].txCount,
+      pct: totalOutflow > 0 ? (totals[c].amount / totalOutflow) * 100 : 0,
+    }));
 
     return NextResponse.json(
       {

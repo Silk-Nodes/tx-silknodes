@@ -11,11 +11,13 @@
 // PGPASSWORD/PGDATABASE vars the VM-side collectors use, so a .env file
 // on the VM covers both processes with a single source of truth.
 
-import { Sequelize } from "sequelize";
+import { Sequelize, QueryTypes } from "sequelize";
 
 declare global {
   // eslint-disable-next-line no-var
   var __txSilknodesSequelize: Sequelize | undefined;
+  // eslint-disable-next-line no-var
+  var __txSilknodesMigrationCheckRan: boolean | undefined;
 }
 
 function createSequelize(): Sequelize {
@@ -57,4 +59,60 @@ export const sequelize: Sequelize =
 
 if (process.env.NODE_ENV !== "production") {
   globalThis.__txSilknodesSequelize = sequelize;
+}
+
+// ─── Migration drift check ────────────────────────────────────────────
+// Runs once per process on first import. Looks up pg_tables for the
+// list of tables every API route in this repo expects to exist and
+// logs a clear warning to journalctl if any are missing. Stops us
+// from ever shipping a frontend change that depends on a new table
+// without remembering to run the migration on the VM.
+//
+// Never throws and never blocks the request path — it's a fire-and-
+// forget that runs on the next event loop tick after import. If the
+// connection itself is broken the API path will surface the real
+// error normally; this just adds visibility.
+
+const REQUIRED_TABLES = [
+  // 001_initial.sql
+  "staking_events",
+  "validators",
+  "pending_undelegations",
+  "top_delegators",
+  "top_delegators_history",
+  "whale_changes",
+  "daily_metrics",
+  "known_entities",
+  "pse_score",
+  // 002_exchange_flows.sql
+  "exchange_addresses",
+  "exchange_flows",
+  "exchange_flows_state",
+  // 005_entity_submissions.sql
+  "entity_submissions",
+];
+
+if (!globalThis.__txSilknodesMigrationCheckRan && process.env.PGUSER) {
+  globalThis.__txSilknodesMigrationCheckRan = true;
+  setImmediate(async () => {
+    try {
+      const rows = (await sequelize.query<{ tablename: string }>(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
+        { type: QueryTypes.SELECT },
+      )) as unknown as Array<{ tablename: string }>;
+      const present = new Set(rows.map((r) => r.tablename));
+      const missing = REQUIRED_TABLES.filter((t) => !present.has(t));
+      if (missing.length > 0) {
+        console.warn(
+          `[db] WARNING: ${missing.length} expected table(s) missing — run vm-service/migrations to fix: ${missing.join(", ")}`,
+        );
+      } else {
+        console.log("[db] migration check OK, all expected tables present");
+      }
+    } catch (err) {
+      console.warn(
+        `[db] migration check skipped: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  });
 }
