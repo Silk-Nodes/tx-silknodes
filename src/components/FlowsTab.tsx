@@ -726,6 +726,16 @@ function RecentFlowsFeed({
   onAddressClick: (address: string) => void;
 }) {
   const [bucket, setBucket] = useState<AmountBucket>("all");
+  // Exchange filter: empty string = all exchanges. Populated from
+  // the actual flows data so the chip list reflects what's tracked.
+  const [exchange, setExchange] = useState<string>("");
+  // Direction filter: "" = all, "inflow" = deposits, "outflow" =
+  // withdrawals. Mirrors the DEPOSIT/WITHDRAWAL pills on each row.
+  const [direction, setDirection] = useState<"" | "inflow" | "outflow">("");
+  // Free-text counterparty search. Matches case-insensitive on the
+  // address OR the resolved label so users can type "kraken" or part
+  // of a core1 string.
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   // Used to scroll the feed top into view on filter change so users
   // don't have to manually scroll up to find the new list.
@@ -753,13 +763,46 @@ function RecentFlowsFeed({
   // the page down if the user was on a higher page than the new filter
   // can support (otherwise switching filters could leave us on an
   // empty page).
+  //
+  // Order of cheap-to-expensive checks: amount range, exchange,
+  // direction, then text search. Each check short-circuits .filter()
+  // so heavier checks only run on rows that already passed the
+  // cheaper ones.
   const filtered = useMemo(() => {
     const b = AMOUNT_BUCKETS.find((x) => x.key === bucket)!;
+    const q = search.trim().toLowerCase();
     return flows.filter((f) => {
       const a = Math.abs(f.amount);
-      return a >= b.min && a < b.max;
+      if (a < b.min || a >= b.max) return false;
+      if (exchange && f.exchange !== exchange) return false;
+      if (direction && f.direction !== direction) return false;
+      if (q) {
+        const haystack =
+          (f.counterpartyLabel ?? "").toLowerCase() +
+          " " +
+          f.counterparty.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
     });
-  }, [flows, bucket]);
+  }, [flows, bucket, exchange, direction, search]);
+
+  // Available exchanges in the current data so chip list adapts to
+  // whatever's being tracked (no hardcoded list to drift out of sync).
+  const availableExchanges = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of flows) set.add(f.exchange);
+    return Array.from(set).sort();
+  }, [flows]);
+
+  // Helper: every filter mutation should reset the page to 1 and
+  // smooth-scroll the feed back into view, so I don't have to repeat
+  // those two lines on every chip handler below.
+  const updateFilter = (mutate: () => void) => {
+    mutate();
+    setPage(0);
+    scrollToTop();
+  };
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -790,24 +833,109 @@ function RecentFlowsFeed({
         </span>
       </div>
 
-      {/* Magnitude filter chips */}
-      <div className="flows-feed-filter" role="radiogroup" aria-label="Filter by amount">
-        {AMOUNT_BUCKETS.map((b) => (
-          <button
-            key={b.key}
-            type="button"
-            role="radio"
-            aria-checked={bucket === b.key}
-            className={`flows-feed-chip ${bucket === b.key ? "active" : ""}`}
-            onClick={() => {
-              setBucket(b.key);
-              setPage(0); // reset to page 1 on filter change
-              scrollToTop();
-            }}
-          >
-            {b.label} <span className="flows-feed-chip-count">{counts[b.key]}</span>
-          </button>
-        ))}
+      {/* Filter rows. Each row is its own radio group; combining
+          across rows narrows the feed in AND fashion. */}
+      <div className="flows-feed-filters">
+        <div className="flows-feed-filter-row">
+          <span className="flows-feed-filter-label">Amount</span>
+          <div role="radiogroup" aria-label="Filter by amount" className="flows-feed-filter-chips">
+            {AMOUNT_BUCKETS.map((b) => (
+              <button
+                key={b.key}
+                type="button"
+                role="radio"
+                aria-checked={bucket === b.key}
+                className={`flows-feed-chip ${bucket === b.key ? "active" : ""}`}
+                onClick={() => updateFilter(() => setBucket(b.key))}
+              >
+                {b.label} <span className="flows-feed-chip-count">{counts[b.key]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flows-feed-filter-row">
+          <span className="flows-feed-filter-label">Exchange</span>
+          <div role="radiogroup" aria-label="Filter by exchange" className="flows-feed-filter-chips">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={exchange === ""}
+              className={`flows-feed-chip ${exchange === "" ? "active" : ""}`}
+              onClick={() => updateFilter(() => setExchange(""))}
+            >
+              All
+            </button>
+            {availableExchanges.map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                role="radio"
+                aria-checked={exchange === ex}
+                className={`flows-feed-chip ${exchange === ex ? "active" : ""}`}
+                onClick={() => updateFilter(() => setExchange(ex))}
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flows-feed-filter-row">
+          <span className="flows-feed-filter-label">Direction</span>
+          <div role="radiogroup" aria-label="Filter by direction" className="flows-feed-filter-chips">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={direction === ""}
+              className={`flows-feed-chip ${direction === "" ? "active" : ""}`}
+              onClick={() => updateFilter(() => setDirection(""))}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={direction === "inflow"}
+              className={`flows-feed-chip ${direction === "inflow" ? "active" : ""}`}
+              onClick={() => updateFilter(() => setDirection("inflow"))}
+            >
+              Deposits
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={direction === "outflow"}
+              className={`flows-feed-chip ${direction === "outflow" ? "active" : ""}`}
+              onClick={() => updateFilter(() => setDirection("outflow"))}
+            >
+              Withdrawals
+            </button>
+          </div>
+        </div>
+
+        <div className="flows-feed-filter-row">
+          <span className="flows-feed-filter-label">Search</span>
+          <input
+            type="text"
+            className="flows-feed-search-input"
+            value={search}
+            placeholder="Address or label substring (e.g. core1, Top #5)"
+            onChange={(e) => updateFilter(() => setSearch(e.target.value))}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          {search && (
+            <button
+              type="button"
+              className="flows-feed-search-clear"
+              onClick={() => updateFilter(() => setSearch(""))}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {pageFlows.length === 0 ? (
