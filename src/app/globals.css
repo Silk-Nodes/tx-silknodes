@@ -6308,33 +6308,38 @@ input[type="range"]::-moz-range-thumb {
   -webkit-user-select: text;
 }
 
-/* ── Recent Flows multi-row filters ── */
+/* ── Recent Flows compact two-row filters ── */
 .flows-feed-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 4px;
 }
-.flows-feed-filter-row {
+.flows-feed-chip-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
-.flows-feed-filter-label {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-light);
-  width: 76px;
-  flex-shrink: 0;
+.flows-feed-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-.flows-feed-filter-chips {
+.flows-feed-chip-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--glass-border);
+}
+:root[data-theme="dark"] .flows-feed-chip-divider {
+  background: rgba(255, 255, 255, 0.18);
+}
+.flows-feed-search-row {
   display: flex;
+  align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
-  flex: 1;
 }
 .flows-feed-search-input {
   flex: 1;
@@ -6365,6 +6370,7 @@ input[type="range"]::-moz-range-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .flows-feed-search-clear:hover {
   background: rgba(196, 90, 74, 0.12);
@@ -6377,7 +6383,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (max-width: 720px) {
-  .flows-feed-filter-label {
-    width: auto;
-  }
+  /* Drop the dividers on narrow screens — chip groups will wrap to
+     their own lines and stranded vertical lines look weird. */
+  .flows-feed-chip-divider { display: none; }
 }

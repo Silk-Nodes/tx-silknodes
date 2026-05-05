@@ -128,9 +128,9 @@ const POLL_INTERVAL_MS = 60_000;
 const RECENT_FEED_LIMIT_BY_WINDOW: Record<WindowKey, number> = {
   "24h": 200,
   "7d":  1000,
-  "30d": 3000,
-  "90d": 5000,
-  all:   5000,
+  "30d": 5000,
+  "90d": 10000,
+  all:   10000,
 };
 
 // ─── Component ────────────────────────────────────────────────────────
@@ -833,12 +833,14 @@ function RecentFlowsFeed({
         </span>
       </div>
 
-      {/* Filter rows. Each row is its own radio group; combining
-          across rows narrows the feed in AND fashion. */}
+      {/* Compact two-row filter layout: chips inline on row 1, search
+          on row 2. Chip groups are separated by thin vertical dividers
+          rather than label columns, since the chip text is self-
+          evident ("Kraken" obviously means exchange). On narrow
+          viewports each group wraps to its own line via flex-wrap. */}
       <div className="flows-feed-filters">
-        <div className="flows-feed-filter-row">
-          <span className="flows-feed-filter-label">Amount</span>
-          <div role="radiogroup" aria-label="Filter by amount" className="flows-feed-filter-chips">
+        <div className="flows-feed-chip-row">
+          <div role="radiogroup" aria-label="Filter by amount" className="flows-feed-chip-group">
             {AMOUNT_BUCKETS.map((b) => (
               <button
                 key={b.key}
@@ -852,11 +854,10 @@ function RecentFlowsFeed({
               </button>
             ))}
           </div>
-        </div>
 
-        <div className="flows-feed-filter-row">
-          <span className="flows-feed-filter-label">Exchange</span>
-          <div role="radiogroup" aria-label="Filter by exchange" className="flows-feed-filter-chips">
+          <span className="flows-feed-chip-divider" aria-hidden="true" />
+
+          <div role="radiogroup" aria-label="Filter by exchange" className="flows-feed-chip-group">
             <button
               type="button"
               role="radio"
@@ -879,11 +880,10 @@ function RecentFlowsFeed({
               </button>
             ))}
           </div>
-        </div>
 
-        <div className="flows-feed-filter-row">
-          <span className="flows-feed-filter-label">Direction</span>
-          <div role="radiogroup" aria-label="Filter by direction" className="flows-feed-filter-chips">
+          <span className="flows-feed-chip-divider" aria-hidden="true" />
+
+          <div role="radiogroup" aria-label="Filter by direction" className="flows-feed-chip-group">
             <button
               type="button"
               role="radio"
@@ -914,13 +914,12 @@ function RecentFlowsFeed({
           </div>
         </div>
 
-        <div className="flows-feed-filter-row">
-          <span className="flows-feed-filter-label">Search</span>
+        <div className="flows-feed-search-row">
           <input
             type="text"
             className="flows-feed-search-input"
             value={search}
-            placeholder="Address or label substring (e.g. core1, Top #5)"
+            placeholder="Search by address or label..."
             onChange={(e) => updateFilter(() => setSearch(e.target.value))}
             spellCheck={false}
             autoComplete="off"
