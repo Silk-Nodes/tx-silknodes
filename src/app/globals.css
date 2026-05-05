@@ -6387,3 +6387,135 @@ input[type="range"]::-moz-range-thumb {
      their own lines and stranded vertical lines look weird. */
   .flows-feed-chip-divider { display: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   MOBILE UX PASS
+   Targeted overrides for narrow viewports. Earlier media queries cover
+   the basics (nav grid, paddings, font sizes); these add the polish
+   pass for the Flows page + a few cross-page fixes that were eating
+   too much vertical space or wrapping ugly.
+   ════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* ── Flows page top: title above pills, both full width ── */
+  .flows-tab .section-head {
+    align-items: stretch;
+    gap: 8px;
+  }
+  .flows-tab .section-head > div:last-child {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .flows-window-pills {
+    width: max-content;
+    min-width: 100%;
+    justify-content: space-between;
+    padding: 3px;
+  }
+  .flows-window-pill {
+    padding: 5px 10px;
+    font-size: 0.68rem;
+  }
+
+  /* Sticky window pills bar pinned below the fixed top-nav (which is
+     ~120px tall on mobile). Without this they overlap. */
+  .sticky-pills-bar {
+    top: 116px !important;
+    padding: 6px 12px;
+  }
+
+  /* ── Flows page address search: stack input + button ── */
+  .flows-search {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .flows-search-input {
+    width: 100%;
+    font-size: 0.74rem;
+    padding: 8px 12px;
+  }
+  .flows-search-button {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  /* ── Recent Flows compact filter chips on mobile ── */
+  .flows-feed-card { padding: 12px 14px; }
+  .flows-feed-chip-row { gap: 6px; }
+  .flows-feed-chip-group { gap: 3px; }
+  .flows-feed-chip {
+    padding: 4px 8px;
+    font-size: 0.65rem;
+  }
+  /* Hide chip counts on small screens — text gets long with counts
+     ("All 5000" + 5 magnitude buckets + 5 exchanges + 3 directions =
+     too many wraps). The header still shows the global "X of Y". */
+  .flows-feed-chip-count { display: none; }
+
+  /* Flow card grid: tighter padding so the per-card stack fits more
+     of the page without horizontal overflow. */
+  .flow-card { padding: 14px 16px; }
+  .flow-card-total { padding: 16px 18px; }
+  .flow-card-net { font-size: 1.4rem; }
+  .flow-card-total .flow-card-net { font-size: 1.7rem; }
+
+  /* Period comparison stats: shrink the headline number so 3
+     stats don't break to 1 column. */
+  .flows-compare { padding: 12px 14px; }
+  .flows-compare-current { font-size: 1.05rem; }
+  .flows-compare-grid { gap: 12px; }
+
+  /* Heatmap: smaller row label so day columns get more room. */
+  .flows-heatmap { padding: 12px 14px; }
+  .flows-heatmap-grid {
+    grid-template-columns: 80px repeat(auto-fit, minmax(20px, 1fr)) !important;
+  }
+  .flows-heatmap-row-label { font-size: 0.66rem; }
+  .flows-heatmap-day-label { font-size: 0.55rem; }
+  .flows-heatmap-cell { height: 22px; }
+
+  /* Sankey: tighter typography on the source/destination blocks. */
+  .flows-sankey { padding: 12px 14px; }
+  .flows-sankey-source-amount { font-size: 1rem; }
+  .flows-sankey-bar-pct { font-size: 0.95rem; }
+
+  /* Audit panel: smaller suggest button so the row doesn't wrap. */
+  .flows-private-audit { padding: 12px 14px; }
+  .flows-private-audit-suggest-btn {
+    padding: 4px 8px;
+    font-size: 0.6rem;
+  }
+  .flows-private-audit-help { font-size: 0.66rem; }
+
+  /* Quick Read narrative summary: tighter line-height + padding. */
+  .flows-summary { padding: 12px 14px; }
+  .flows-summary-headline { font-size: 0.95rem; }
+
+  /* Patterns panel + biggest tx callout: less padding. */
+  .flows-patterns { padding: 12px 14px; }
+  .flows-biggest { padding: 10px 12px; gap: 8px; }
+  .flows-biggest-body { font-size: 0.74rem; }
+}
+
+@media (max-width: 480px) {
+  /* On phone-sized screens the chip label sometimes still wraps.
+     Drop the font another notch and shrink padding once more. */
+  .flows-window-pill { padding: 4px 8px; font-size: 0.64rem; }
+  .flows-feed-chip   { padding: 3px 7px; font-size: 0.62rem; }
+
+  /* Sticky pills bar: account for the slightly more compact nav at
+     the smaller breakpoint. */
+  .sticky-pills-bar { top: 108px !important; padding: 5px 10px; }
+
+  /* Heatmap: even smaller row label + cell so 14+ days fit. */
+  .flows-heatmap-grid {
+    grid-template-columns: 64px repeat(auto-fit, minmax(16px, 1fr)) !important;
+  }
+  .flows-heatmap-row-label { font-size: 0.62rem; }
+  .flows-heatmap-cell { height: 18px; }
+
+  /* Tighter feed row spacing so two-line wraps still feel tight. */
+  .flows-feed-row { gap: 6px 10px; }
+}
