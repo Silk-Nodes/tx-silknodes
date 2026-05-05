@@ -119,6 +119,20 @@ const WINDOW_LABELS: Record<WindowKey, string> = {
 
 const POLL_INTERVAL_MS = 60_000;
 
+// Adaptive Recent Flows page size per window. The feed paginates +
+// filters client-side off this slice, so larger windows need a fatter
+// fetch to actually cover their date range; on a busy day 200 rows
+// only covers the most recent 1-2 days, which made the 30D/90D feeds
+// look strangely truncated. The /api/flows-recent route caps at
+// MAX_LIMIT=5000 so anything bigger than that is silently clamped.
+const RECENT_FEED_LIMIT_BY_WINDOW: Record<WindowKey, number> = {
+  "24h": 200,
+  "7d":  1000,
+  "30d": 3000,
+  "90d": 5000,
+  all:   5000,
+};
+
 // ─── Component ────────────────────────────────────────────────────────
 
 export default function FlowsTab() {
@@ -181,7 +195,7 @@ export default function FlowsTab() {
           fetch(`/api/flows-history?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           // 200 = enough to power the client-side magnitude filter +
           // pagination without round-tripping for every page change.
-          fetch(`/api/flows-recent?window=${windowKey}&limit=200&t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/flows-recent?window=${windowKey}&limit=${RECENT_FEED_LIMIT_BY_WINDOW[windowKey]}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-destinations?window=${windowKey}&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-counterparties?window=${windowKey}&limit=10&t=${Date.now()}`, { cache: "no-store" }),
           fetch(`/api/flows-private-destinations?window=${windowKey}&limit=20&t=${Date.now()}`, { cache: "no-store" }),
