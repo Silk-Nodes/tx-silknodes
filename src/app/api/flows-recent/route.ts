@@ -45,7 +45,12 @@ const WINDOWS: Record<string, number | null> = {
 };
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 500;
+// Bumped from 500 to 5000 so the client can request enough rows to
+// cover 30D / 90D / ALL windows. The Recent Flows feed paginates
+// + filters client-side off this slice, so the API just needs to be
+// willing to ship enough rows. 5000 ~ 50 pages of 100 = covers a
+// busy 90D window and still gzips to well under 100 KB.
+const MAX_LIMIT = 5000;
 
 export async function GET(req: Request) {
   try {
