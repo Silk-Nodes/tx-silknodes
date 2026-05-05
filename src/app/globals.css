@@ -6397,32 +6397,53 @@ input[type="range"]::-moz-range-thumb {
    ════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
+  /* Top nav: 8 tabs in 3 rows was eating half the phone screen.
+     Switch to 4 columns so 8 tabs fit in 2 rows. */
+  .nav-tabs {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .nav-tab {
+    padding: 6px 8px !important;
+    font-size: 0.7rem !important;
+  }
+
   /* ── Flows page top: title above pills, both full width ── */
   .flows-tab .section-head {
     align-items: stretch;
     gap: 8px;
   }
+  /* Pills container: scroll horizontally if too narrow, no wrap. */
   .flows-tab .section-head > div:last-child {
     width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
   }
   .flows-window-pills {
-    width: max-content;
-    min-width: 100%;
-    justify-content: space-between;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 3px;
+    scrollbar-width: none;
   }
+  .flows-window-pills::-webkit-scrollbar { display: none; }
   .flows-window-pill {
     padding: 5px 10px;
     font-size: 0.68rem;
+    flex-shrink: 0;
   }
 
-  /* Sticky window pills bar pinned below the fixed top-nav (which is
-     ~120px tall on mobile). Without this they overlap. */
-  .sticky-pills-bar {
-    top: 116px !important;
-    padding: 6px 12px;
+  /* Sticky pills bar floats at bottom on mobile (existing behaviour
+     at line ~2671). Make sure pills inside it never wrap so the
+     bar stays as a single horizontal pill, not a huge ellipse. The
+     previous "top: 116px !important" override fought the existing
+     bottom: 100px rule and made the bar render as a giant centred
+     ellipse blocking the feed. */
+  .sticky-pills-bar .flows-window-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 92vw;
   }
 
   /* ── Flows page address search: stack input + button ── */
@@ -6505,9 +6526,11 @@ input[type="range"]::-moz-range-thumb {
   .flows-window-pill { padding: 4px 8px; font-size: 0.64rem; }
   .flows-feed-chip   { padding: 3px 7px; font-size: 0.62rem; }
 
-  /* Sticky pills bar: account for the slightly more compact nav at
-     the smaller breakpoint. */
-  .sticky-pills-bar { top: 108px !important; padding: 5px 10px; }
+  /* Phone nav: keep 4-col grid but smaller paddings so 8 tabs
+     comfortably fit in 2 rows even on a 360px screen. */
+  .nav-tabs { grid-template-columns: repeat(4, 1fr) !important; gap: 2px !important; }
+  .nav-tab { padding: 5px 6px !important; font-size: 0.66rem !important; }
+  .sticky-pills-bar { padding: 5px 10px; }
 
   /* Heatmap: even smaller row label + cell so 14+ days fit. */
   .flows-heatmap-grid {
