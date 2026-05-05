@@ -6542,3 +6542,62 @@ input[type="range"]::-moz-range-thumb {
   /* Tighter feed row spacing so two-line wraps still feel tight. */
   .flows-feed-row { gap: 6px 10px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   MOBILE NAV BANNER CLEANUP
+   The top bar was crowded on phones. Each element keeps its meaning
+   via icon-only or condensed form so the same controls are reachable
+   without text clutter eating screen width.
+   ════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Brand: the [tx] icon alone is recognisable; "All in ONE" wordmark
+     is redundant once the icon's there. Hide the text node so the
+     brand area collapses to ~36px wide instead of ~140px. */
+  .brand {
+    font-size: 0;
+    gap: 0;
+  }
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  /* Theme switcher: "match system" link is a nice-to-have for desktop
+     but a third tap target on a 30px-tall row crowds the nav. Hide
+     the link; users can still toggle dark/light via the slider. */
+  .theme-switcher-system {
+    display: none !important;
+  }
+
+  /* Live indicator: drop the "Live"/"Syncing" word, keep the pulsing
+     dot. Same meaning, half the width. */
+  .live-indicator {
+    font-size: 0;
+    padding: 0 6px;
+    gap: 0;
+  }
+  .live-indicator .live-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  /* Wallet pill: shorter padding so it doesn't dominate when other
+     elements are condensed. The text "Connect Wallet" stays since
+     that's the primary CTA and clarity matters here. */
+  .wallet-pill {
+    padding: 7px 12px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Even tighter on phone-sized screens. */
+  .top-nav {
+    padding: 6px 10px !important;
+    gap: 6px !important;
+  }
+  .brand-icon { width: 28px; height: 28px; }
+  .wallet-pill { padding: 6px 10px; font-size: 0.68rem; }
+}
