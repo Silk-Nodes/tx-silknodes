@@ -293,11 +293,93 @@ async function fetchTotalSupply() {
   return toDisplay(data.amount.amount);
 }
 
+// PSE program constants. Mirror src/lib/pse-calculator.ts so we don't
+// pull a TS file from a Node script. If these change in the protocol,
+// update both files.
+const PSE_TGE_UNIX_SEC = 1772755200; // 2026-03-06T00:00:00Z
+const PSE_TOTAL_PREMINT = 100_000_000_000;
+const PSE_TOTAL_MONTHLY = 1_190_476_190; // 100B / 84
+
+// Last-resort circulating supply: chain total supply minus PSE that's
+// still locked in the module. Uses the on-chain Hasura schedule for
+// completed-cycle count when reachable; falls back to a calendar-based
+// heuristic (one cycle per month since TGE).
+async function fetchCompletedPseCycles() {
+  // Hasura GraphQL endpoint exposes the actual scheduled timestamps.
+  // The chain removes past distributions from the schedule once
+  // executed, so completed = 84 - remaining.
+  try {
+    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{ action_pse_scheduled_distributions { scheduled_distributions { timestamp } } }`,
+      }),
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const remaining = data?.data?.action_pse_scheduled_distributions
+      ?.scheduled_distributions?.length;
+    if (Number.isFinite(remaining)) {
+      return Math.max(0, Math.min(84, 84 - remaining));
+    }
+    throw new Error("malformed Hasura response");
+  } catch (e) {
+    log("warn", `Hasura PSE schedule unreachable, using calendar heuristic: ${e.message}`);
+    // Heuristic: distributions every 30 days from TGE.
+    const now = Math.floor(Date.now() / 1000);
+    const elapsed = now - PSE_TGE_UNIX_SEC;
+    const cycles = Math.floor(elapsed / (30 * 24 * 3600));
+    return Math.max(0, Math.min(84, cycles));
+  }
+}
+
+async function fetchCirculatingFromCoingecko() {
+  const url = `${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`;
+  const data = await fetchJson(url);
+  const circ = data?.market_data?.circulating_supply;
+  if (!circ || circ <= 0) throw new Error("CoinGecko returned no circulating");
+  return circ;
+}
+
+async function fetchCirculatingFromChain() {
+  const [total, completed] = await Promise.all([
+    fetchTotalSupply(),
+    fetchCompletedPseCycles(),
+  ]);
+  const distributed = completed * PSE_TOTAL_MONTHLY;
+  const remaining = Math.max(0, PSE_TOTAL_PREMINT - distributed);
+  return total - remaining;
+}
+
+// Three-source fallback chain. Mirrors src/lib/api.ts fetchTokenData
+// so the collector never silently writes a NULL circulating row when
+// the primary endpoint flakes.
 async function fetchCirculatingSupply() {
-  const res = await fetch(`${TX_API}/circulating-supply`, { signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = await res.text();
-  return parseFloat(text.trim());
+  // 1. TX official API (most authoritative when available)
+  try {
+    const res = await fetch(`${TX_API}/circulating-supply`, {
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+    });
+    if (res.ok) {
+      const v = parseFloat((await res.text()).trim());
+      if (Number.isFinite(v) && v > 0) return v;
+    }
+    log("warn", `TX API circulating returned HTTP ${res.status}, trying CoinGecko`);
+  } catch (e) {
+    log("warn", `TX API circulating unreachable: ${e.message}, trying CoinGecko`);
+  }
+
+  // 2. CoinGecko (matches what users see on listings, usually current)
+  try {
+    return await fetchCirculatingFromCoingecko();
+  } catch (e) {
+    log("warn", `CoinGecko circulating failed: ${e.message}, computing from chain`);
+  }
+
+  // 3. Chain math (totalSupply - PSE remaining-in-module)
+  return await fetchCirculatingFromChain();
 }
 
 // Note: pending-undelegations.json is owned by vm-service/collect-staking-events.mjs
