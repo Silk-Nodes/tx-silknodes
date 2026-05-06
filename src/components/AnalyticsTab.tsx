@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { TimeRange } from "@/lib/analytics-utils";
+import { formatLargeNumber } from "@/lib/analytics-utils";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
+import { useTokenData } from "@/hooks/useTokenData";
 import TimeRangeSelector from "./analytics/TimeRangeSelector";
 import StatCard from "./analytics/StatCard";
 import AnalyticsChart from "./analytics/AnalyticsChart";
@@ -43,6 +45,44 @@ export default function AnalyticsTab() {
   const totalSupply = getDs("total-supply");
   const circulatingSupply = getDs("circulating-supply");
 
+  // Live chain overlay for headline numbers. The daily collector
+  // writes daily_metrics at 02:00 UTC, so without this overlay the
+  // "Total Staked" and "Circulating Supply" cards stay up to ~24h
+  // behind reality. Especially visible right after a PSE distribution
+  // when bonded tokens jump by hundreds of millions overnight.
+  // The historical chart still uses daily_metrics for trend points;
+  // only the latestValue label gets overridden when live data is
+  // available.
+  const { tokenData, stakingData } = useTokenData();
+  const liveBonded = stakingData?.bondedTokens ?? null;
+  const liveCirculating = tokenData?.circulatingSupply ?? null;
+  const liveTotalSupply = tokenData?.totalSupply ?? null;
+  const liveStakedPct =
+    liveBonded != null && liveCirculating != null && liveCirculating > 0
+      ? (liveBonded / liveCirculating) * 100
+      : null;
+
+  const overlayLatest = (
+    ds: typeof totalStake,
+    liveValue: number | null,
+    unit: "TX" | "%" | "" = ds.unit,
+  ) => {
+    if (liveValue == null || !Number.isFinite(liveValue)) return ds;
+    return {
+      ...ds,
+      latestRaw: liveValue,
+      latestValue:
+        unit === "%"
+          ? `${liveValue.toFixed(1)}%`
+          : `${formatLargeNumber(liveValue)} ${unit}`.trim(),
+    };
+  };
+
+  const totalStakeLive = overlayLatest(totalStake, liveBonded);
+  const circulatingSupplyLive = overlayLatest(circulatingSupply, liveCirculating);
+  const totalSupplyLive = overlayLatest(totalSupply, liveTotalSupply);
+  const stakedPctLive = overlayLatest(stakedPct, liveStakedPct, "%");
+
   return (
     <div className="analytics-tab">
       {/* ═══ STICKY TIME RANGE (appears on scroll) ═══ */}
@@ -80,12 +120,12 @@ export default function AnalyticsTab() {
           variant="olive"
         />
         <StatCard
-          label={totalStake.label}
-          value={totalStake.latestValue}
-          change={totalStake.change}
-          health={totalStake.health}
-          healthContext={totalStake.healthContext}
-          explanation={totalStake.explanation}
+          label={totalStakeLive.label}
+          value={totalStakeLive.latestValue}
+          change={totalStakeLive.change}
+          health={totalStakeLive.health}
+          healthContext={totalStakeLive.healthContext}
+          explanation={totalStakeLive.explanation}
           variant="olive"
         />
         <StatCard
@@ -106,20 +146,20 @@ export default function AnalyticsTab() {
           explanation={transactions.explanation}
         />
         <StatCard
-          label={stakedPct.label}
-          value={stakedPct.latestValue}
-          change={stakedPct.change}
-          health={stakedPct.health}
-          healthContext={stakedPct.healthContext}
-          explanation={stakedPct.explanation}
+          label={stakedPctLive.label}
+          value={stakedPctLive.latestValue}
+          change={stakedPctLive.change}
+          health={stakedPctLive.health}
+          healthContext={stakedPctLive.healthContext}
+          explanation={stakedPctLive.explanation}
         />
         <StatCard
-          label={totalSupply.label}
-          value={totalSupply.latestValue}
-          change={totalSupply.change}
-          health={totalSupply.health}
-          healthContext={totalSupply.healthContext}
-          explanation={totalSupply.explanation}
+          label={totalSupplyLive.label}
+          value={totalSupplyLive.latestValue}
+          change={totalSupplyLive.change}
+          health={totalSupplyLive.health}
+          healthContext={totalSupplyLive.healthContext}
+          explanation={totalSupplyLive.explanation}
         />
       </div>
 
@@ -191,8 +231,8 @@ export default function AnalyticsTab() {
         ) : (
           <div className="chart-card-v2 chart-card-small chart-card-placeholder">
             <div className="chart-card-v2-header">
-              <span className="chart-card-v2-title">{circulatingSupply.label}</span>
-              <span className="chart-card-v2-badge badge-neutral">{circulatingSupply.latestValue}</span>
+              <span className="chart-card-v2-title">{circulatingSupplyLive.label}</span>
+              <span className="chart-card-v2-badge badge-neutral">{circulatingSupplyLive.latestValue}</span>
             </div>
             <div className="chart-placeholder-msg">
               Chart populating as daily data builds
