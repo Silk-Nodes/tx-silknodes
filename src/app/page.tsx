@@ -605,7 +605,7 @@ export default function HomePage() {
         )}
 
         {activeTab === "validators" && (
-          <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} />
+          <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} />
         )}
 
         {activeTab === "rwa" && (
@@ -3178,7 +3178,7 @@ function PortfolioTab({
    TAB: VALIDATORS
    ═══════════════════════════════════════════════════════ */
 
-function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal }: any) {
+function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal, stakingData, tokenData }: any) {
   return (
     <>
       <div className="section-head">
@@ -3186,7 +3186,13 @@ function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal }: any) {
         <span className="section-sub">Choose where to stake &middot; Compare APR, commission &amp; voting power</span>
       </div>
 
-      <ValidatorList wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} />
+      <ValidatorList
+        wallet={wallet}
+        setActiveTab={setActiveTab}
+        setShowWalletModal={setShowWalletModal}
+        stakingData={stakingData}
+        tokenData={tokenData}
+      />
     </>
   );
 }
@@ -3240,7 +3246,11 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
   const silkVotingPower = silkValidator && stakingData?.bondedTokens
     ? ((silkValidator.tokens / stakingData.bondedTokens) * 100).toFixed(2)
     : "...";
-  const apr = stakingData?.apr || 12;
+  // Live APR from chain via stakingData. Show "..." instead of a
+  // hardcoded number while loading so users never see a fabricated
+  // value (the old `|| 12` fallback meant a brief 12% flash on every
+  // page load even when the real APR was 8-10%).
+  const apr = stakingData?.apr ?? null;
   const delegateCTA = () => { trackEvent("delegate_click", { source: "silk_nodes" }); wallet.connected ? setActiveTab("portfolio") : setShowWalletModal(true); };
 
   return (
@@ -3502,7 +3512,7 @@ function SilkNodesTab({ networkStatus, stakingData, validators, setActiveTab, wa
               padding: "12px 14px", textAlign: "center",
             }}>
               <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-light)", marginBottom: 4 }}>Without Compounding</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-medium)" }}>{(apr * 0.95).toFixed(1)}% APR</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-medium)" }}>{apr != null ? `${(apr * 0.95).toFixed(1)}% APR` : "..."}</div>
             </div>
             <div style={{
               background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.2)",
