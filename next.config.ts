@@ -25,6 +25,25 @@ const nextConfig: NextConfig = {
   // node_modules at runtime. Only matters for server-side code paths
   // (API routes, server components); no effect on the client bundle.
   serverExternalPackages: ["sequelize", "pg", "pg-hstore"],
+  // Phase 1 of the migration shipped under a /tx-silknodes/ basePath
+  // (GitHub Pages requirement). Google indexed those URLs and any
+  // existing inbound links still point there. Permanent-redirect them
+  // to the root so search engines update their index and broken
+  // bookmarks just work.
+  async redirects() {
+    return [
+      {
+        source: "/tx-silknodes",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/tx-silknodes/:path*",
+        destination: "/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

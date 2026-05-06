@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tx.silknodes.io/tx-silknodes/sitemap.xml
+Sitemap: https://tx.silknodes.io/sitemap.xml
 
 # Search Engine Crawlers
 User-agent: Googlebot
