@@ -61,6 +61,14 @@ export default function AnalyticsTab() {
     liveBonded != null && liveCirculating != null && liveCirculating > 0
       ? (liveBonded / liveCirculating) * 100
       : null;
+  // Base APR uses the same formula as fetchStakingData (and the
+  // Validators page): annualProvisions * (1 - communityTax) / bonded.
+  // Reading the live computed value off stakingData keeps the Analytics
+  // headline in lockstep with whatever Validators page shows.
+  const liveApr =
+    stakingData?.apr != null && Number.isFinite(stakingData.apr)
+      ? stakingData.apr
+      : null;
 
   const overlayLatest = (
     ds: typeof totalStake,
@@ -82,6 +90,7 @@ export default function AnalyticsTab() {
   const circulatingSupplyLive = overlayLatest(circulatingSupply, liveCirculating);
   const totalSupplyLive = overlayLatest(totalSupply, liveTotalSupply);
   const stakedPctLive = overlayLatest(stakedPct, liveStakedPct, "%");
+  const stakingAprLive = overlayLatest(stakingApr, liveApr, "%");
 
   return (
     <div className="analytics-tab">
@@ -111,12 +120,12 @@ export default function AnalyticsTab() {
       {/* ═══ SIGNAL CARDS ═══ */}
       <div className="stat-grid">
         <StatCard
-          label={stakingApr.label}
-          value={stakingApr.latestValue}
-          change={stakingApr.change}
-          health={stakingApr.health}
-          healthContext={stakingApr.healthContext}
-          explanation={stakingApr.explanation}
+          label={stakingAprLive.label}
+          value={stakingAprLive.latestValue}
+          change={stakingAprLive.change}
+          health={stakingAprLive.health}
+          healthContext={stakingAprLive.healthContext}
+          explanation={stakingAprLive.explanation}
           variant="olive"
         />
         <StatCard
