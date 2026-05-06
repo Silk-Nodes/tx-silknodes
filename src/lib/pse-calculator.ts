@@ -51,7 +51,8 @@ import type { PSEConfig } from "./types";
  * Default excluded addresses — kept in sync with on-chain tx/pse/v1/params.
  * At runtime, the app fetches the live list from the chain and uses that instead.
  * This is only a fallback if the on-chain fetch fails.
- * Last synced: 2026-04-06 (29 addresses)
+ * Last synced: 2026-05-04 against /tx/pse/v1/params after the
+ * TX Chain v7.0.0 mainnet upgrade. 29 addresses, matches chain.
  */
 export const PSE_EXCLUDED_ADDRESSES: string[] = [
   // Smart contracts & module accounts
@@ -99,14 +100,30 @@ export const PSE_CONFIG: PSEConfig = {
 // Total monthly PSE emission (before allocation split)
 const TOTAL_MONTHLY_PSE = 1_190_476_190; // 100B / 84
 
-// PSE allocation breakdown
+// PSE allocation breakdown.
+//
+// Aligned with the on-chain `clearing_account_mappings` from
+// /tx/pse/v1/params after the v7.0.0 mainnet upgrade. Each row maps
+// to a named clearing account on chain. The previous "2% unaccounted
+// may be rounding or reserve" note is gone now that the chain
+// confirmed the missing slice belongs to pse_team.
+//
+//   community           stakers securing the chain (no clearing_account,
+//                       distributed by per-address PSE score)
+//   foundation          pse_foundation (10 addresses)
+//   foundingPartners    pse_alliance (4 addresses)
+//   vcsInvestors        pse_investors (1 address)
+//   partnershipsGrowth  pse_partnership (1 address)
+//   team                pse_team (1 address) — added in v7.0.0
+//
+// All shares add to 1.00.
 export const PSE_ALLOCATION = {
-  community: 0.40, // 40% — stakers securing the chain
-  foundation: 0.30, // 30% — treasury & operations
-  foundingPartners: 0.20, // 20%
-  vcsInvestors: 0.05, // 5%
-  partnershipsGrowth: 0.03, // 3%
-  // Note: 2% unaccounted may be rounding or reserve
+  community: 0.40,           // 40% — stakers securing the chain
+  foundation: 0.30,          // 30% — treasury & operations
+  foundingPartners: 0.20,    // 20% — pse_alliance
+  vcsInvestors: 0.05,        // 5%  — pse_investors
+  partnershipsGrowth: 0.03,  // 3%  — pse_partnership
+  team: 0.02,                // 2%  — pse_team (new in v7.0.0)
 };
 
 /**
