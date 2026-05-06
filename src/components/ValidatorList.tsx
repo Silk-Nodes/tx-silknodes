@@ -32,7 +32,33 @@ type SortDir = "asc" | "desc";
 const LCD = SILK_LCD;
 const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
-export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal }: { wallet?: any; setActiveTab?: (tab: string) => void; setShowWalletModal?: (show: boolean) => void }) {
+// Optional canonical-source props. When provided, the component
+// reuses the same stakingData / tokenData that the rest of the app
+// renders, instead of running its own parallel fetches. This keeps
+// APR / total bonded numbers in lockstep with Overview, Analytics,
+// PSE, and Silk Nodes pages.
+//
+// stakingData fields used:
+//   bondedTokens, communityTax, annualProvisions, inflationRaw
+// tokenData fields used:
+//   price
+//
+// If either prop is omitted (e.g. the component is rendered on a
+// route where the parent didn't load them), the existing fallback
+// fetches still run so the table never breaks.
+export default function ValidatorList({
+  wallet,
+  setActiveTab,
+  setShowWalletModal,
+  stakingData,
+  tokenData,
+}: {
+  wallet?: any;
+  setActiveTab?: (tab: string) => void;
+  setShowWalletModal?: (show: boolean) => void;
+  stakingData?: { bondedTokens: number; communityTax: number; annualProvisions: number; inflationRaw: number } | null;
+  tokenData?: { price: number } | null;
+}) {
   const [validators, setValidators] = useState<ValidatorEntry[]>([]);
   const [economics, setEconomics] = useState<ChainEconomics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,32 +99,50 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
 
         setValidators(allVals);
 
-        const [provRes, distRes, poolRes, priceRes] = await Promise.allSettled([
-          fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
-          fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
-          fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
-          fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=tx&vs_currencies=usd"),
-        ]);
+        // Canonical source path: if the parent already loaded
+        // stakingData + tokenData, reuse those numbers verbatim and
+        // skip 5 redundant chain fetches. Guarantees this component
+        // displays the SAME APR / bonded total as the rest of the
+        // app, not an independent computation that could drift by a
+        // few seconds or hit a different LCD endpoint.
+        if (stakingData && tokenData) {
+          setEconomics({
+            annualProvisions: stakingData.annualProvisions,
+            communityTax: stakingData.communityTax,
+            totalBonded: stakingData.bondedTokens,
+            inflation: stakingData.inflationRaw,
+            txPrice: tokenData.price ?? 0,
+          });
+        } else {
+          // Fallback path for backwards compat / future callers that
+          // don't pass canonical sources. Same fetches as before.
+          const [provRes, distRes, poolRes, priceRes] = await Promise.allSettled([
+            fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
+            fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
+            fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
+            fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=tx&vs_currencies=usd"),
+          ]);
 
-        const prov = provRes.status === "fulfilled" ? await provRes.value.json() : {};
-        const dist = distRes.status === "fulfilled" ? await distRes.value.json() : {};
-        const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
-        const price = priceRes.status === "fulfilled" ? await priceRes.value.json() : {};
+          const prov = provRes.status === "fulfilled" ? await provRes.value.json() : {};
+          const dist = distRes.status === "fulfilled" ? await distRes.value.json() : {};
+          const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
+          const price = priceRes.status === "fulfilled" ? await priceRes.value.json() : {};
 
-        const annualProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
-        const communityTax = parseFloat(dist.params?.community_tax || "0.05");
-        const totalBonded = parseInt(pool.pool?.bonded_tokens || "0") / 1e6;
+          const annualProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
+          const communityTax = parseFloat(dist.params?.community_tax || "0.05");
+          const totalBonded = parseInt(pool.pool?.bonded_tokens || "0") / 1e6;
 
-        const inflRes = await fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/inflation`);
-        const infl = await inflRes.json();
+          const inflRes = await fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/inflation`);
+          const infl = await inflRes.json();
 
-        setEconomics({
-          annualProvisions,
-          communityTax,
-          totalBonded,
-          inflation: parseFloat(infl.inflation || "0"),
-          txPrice: price.tx?.usd || 0,
-        });
+          setEconomics({
+            annualProvisions,
+            communityTax,
+            totalBonded,
+            inflation: parseFloat(infl.inflation || "0"),
+            txPrice: price.tx?.usd || 0,
+          });
+        }
       } catch (err) {
         console.error("Failed to fetch validators:", err);
       } finally {
@@ -106,7 +150,12 @@ export default function ValidatorList({ wallet, setActiveTab, setShowWalletModal
       }
     }
     fetchAll();
-  }, []);
+    // Re-run when canonical sources arrive so the table doesn't show
+    // its own (possibly slightly different) values for the second or
+    // two before stakingData lands. eslint-disable for the validator
+    // list itself which doesn't change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stakingData, tokenData]);
 
   const validatorsWithIncome = useMemo(() => {
     if (!economics) return validators.map((v) => ({ ...v, monthlyIncome: 0, delegatorApr: 0, votingPowerPct: 0, monthlyIncomeUsd: 0 }));
