@@ -176,7 +176,7 @@ export default function AnalyticsTab() {
       <PriceChart />
 
       {/* ═══ STAKING ACTIVITY FEED ═══ */}
-      <StakingFeed />
+      <StakingFeed globalRange={globalRange} />
 
       {/* ═══ SECONDARY: Staking APR + Total Staked ═══ */}
       <div className="chart-grid-2">

@@ -14,7 +14,7 @@ import {
   type StakingEvent,
   type StakingEventType,
 } from "@/lib/staking-events";
-import { formatLargeNumber } from "@/lib/analytics-utils";
+import { formatLargeNumber, type TimeRange } from "@/lib/analytics-utils";
 import StakingFeedRow from "./StakingFeedRow";
 import StakingFeedPanel from "./StakingFeedPanel";
 import WhaleTracker from "./WhaleTracker";
@@ -39,7 +39,29 @@ const ALL_TYPES: ReadonlySet<StakingEventType> = new Set<StakingEventType>([
 // AnalyticsTab, but the card now presents itself as "Network Activity"
 // with two tabs: Staking Activity (original feed) and Whale Tracker
 // (ranked top delegators + recent ≥1M TX moves).
-export default function StakingFeed() {
+// Map global page TimeRange to a window in milliseconds for the
+// staking feed. The hook returns the last 3 months of events; this
+// mapping sub-selects the slice the global pill is asking for.
+// 90D / 1Y / ALL all land at "show everything we have" because the
+// feed is bounded at 3 months upstream anyway.
+function feedWindowMs(range: TimeRange): number | null {
+  switch (range) {
+    case "24H": return 24 * 60 * 60 * 1000;
+    case "7D":  return 7 * 24 * 60 * 60 * 1000;
+    case "30D": return 30 * 24 * 60 * 60 * 1000;
+    default:    return null;
+  }
+}
+function feedWindowLabel(range: TimeRange): string {
+  switch (range) {
+    case "24H": return "last 24h";
+    case "7D":  return "last 7d";
+    case "30D": return "last 30d";
+    default:    return "last 3 months";
+  }
+}
+
+export default function StakingFeed({ globalRange }: { globalRange: TimeRange }) {
   const { events, validators, updatedAt, now, isStale, fetchError } = useStakingFeed();
   const { topDelegators, whaleChanges, whaleHistory } = useWhaleData();
 
@@ -51,13 +73,8 @@ export default function StakingFeed() {
   // removes it. Picking 100K-1M + 1M+ together is the common combo.
   const [activeTiers, setActiveTiers] = useState<Set<FeedTier>>(() => new Set());
 
-  // Time window for the feed. The hook returns the last 3 months of
-  // events; this filter sub-selects the slice the user actually
-  // cares about so the Net figure means "net flow over the picked
-  // window" rather than "net flow over 3 months".
-  // Default 24h matches the most common ask ("what just happened").
-  type FeedWindow = "24h" | "7d" | "30d" | "all";
-  const [feedWindow, setFeedWindow] = useState<FeedWindow>("24h");
+  // Window comes from the page-level globalRange pill at the top of
+  // the analytics tab. One source of truth across the whole page.
   const [activeTypes, setActiveTypes] = useState<Set<StakingEventType>>(() => new Set(ALL_TYPES));
   const [selectedEvent, setSelectedEvent] = useState<StakingEvent | null>(null);
   // Selected delegator state is LIFTED here from WhaleTracker. Why? The
@@ -108,15 +125,11 @@ export default function StakingFeed() {
   const filteredEvents = useMemo(() => {
     const byTier = filterByTiers(events, activeTiers);
     const byType = byTier.filter((e) => activeTypes.has(e.type));
-    if (feedWindow === "all") return byType;
-    const windowMs = {
-      "24h": 24 * 60 * 60 * 1000,
-      "7d":  7 * 24 * 60 * 60 * 1000,
-      "30d": 30 * 24 * 60 * 60 * 1000,
-    }[feedWindow];
-    const cutoff = Date.now() - windowMs;
+    const ms = feedWindowMs(globalRange);
+    if (ms == null) return byType;
+    const cutoff = Date.now() - ms;
     return byType.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
-  }, [events, activeTiers, activeTypes, feedWindow]);
+  }, [events, activeTiers, activeTypes, globalRange]);
 
   // Net stake flow over the filtered slice (delegates positive,
   // undelegates negative, redelegates neutral). Updates as filters
@@ -235,24 +248,6 @@ export default function StakingFeed() {
               })}
             </div>
 
-            {/* Window pills. Independent from the page-level time
-                range pill at the top (which controls chart trends).
-                These scope the feed + the Net figure to a specific
-                window so the user can ask "what's been net staked
-                in the last 24h?" without affecting the rest of the
-                analytics tab. */}
-            <div className="staking-feed-tiers">
-              {(["24h", "7d", "30d", "all"] as const).map((w) => (
-                <button
-                  key={w}
-                  className={`time-pill ${feedWindow === w ? "active" : ""}`}
-                  onClick={() => setFeedWindow(w)}
-                >
-                  {w === "all" ? "All" : w.toUpperCase()}
-                </button>
-              ))}
-            </div>
-
             <div className="staking-feed-tiers">
               {FEED_TIERS.map((tier) => {
                 const isActive = tier === "all" ? showAllTiers : activeTiers.has(tier);
@@ -285,7 +280,7 @@ export default function StakingFeed() {
             </div>
 
             <div className="staking-feed-footer">
-              Showing {filteredEvents.length} of {events.length} events ({feedWindow === "all" ? "last 3 months" : `last ${feedWindow}`}, 5,000+ TX)
+              Showing {filteredEvents.length} of {events.length} events ({feedWindowLabel(globalRange)}, 5,000+ TX)
               {filteredEvents.length > 0 && (
                 <>
                   {" · "}
