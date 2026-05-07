@@ -6,13 +6,15 @@ import { useWhaleData } from "@/hooks/useWhaleData";
 import {
   FEED_TIERS,
   TIER_LABELS,
-  filterByTier,
+  filterByTiers,
+  computeNetStakeFlow,
   formatRelativeTime,
   isWhaleEvent,
   type FeedTier,
   type StakingEvent,
   type StakingEventType,
 } from "@/lib/staking-events";
+import { formatLargeNumber } from "@/lib/analytics-utils";
 import StakingFeedRow from "./StakingFeedRow";
 import StakingFeedPanel from "./StakingFeedPanel";
 import WhaleTracker from "./WhaleTracker";
@@ -42,7 +44,12 @@ export default function StakingFeed() {
   const { topDelegators, whaleChanges, whaleHistory } = useWhaleData();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("activity");
-  const [activeTier, setActiveTier] = useState<FeedTier>("all");
+  // Multi-select tier filter. Empty set OR a set containing "all"
+  // means show everything (e.g. user clicked the "All" chip). When
+  // the user clicks a specific tier, "all" toggles off and the
+  // chosen tier is added to the active set; clicking it again
+  // removes it. Picking 100K-1M + 1M+ together is the common combo.
+  const [activeTiers, setActiveTiers] = useState<Set<FeedTier>>(() => new Set());
   const [activeTypes, setActiveTypes] = useState<Set<StakingEventType>>(() => new Set(ALL_TYPES));
   const [selectedEvent, setSelectedEvent] = useState<StakingEvent | null>(null);
   // Selected delegator state is LIFTED here from WhaleTracker. Why? The
@@ -91,9 +98,30 @@ export default function StakingFeed() {
   };
 
   const filteredEvents = useMemo(() => {
-    const byTier = filterByTier(events, activeTier);
+    const byTier = filterByTiers(events, activeTiers);
     return byTier.filter((e) => activeTypes.has(e.type));
-  }, [events, activeTier, activeTypes]);
+  }, [events, activeTiers, activeTypes]);
+
+  // Net stake flow over the filtered slice (delegates positive,
+  // undelegates negative, redelegates neutral). Updates as filters
+  // change so the user sees "net of what I'm currently looking at",
+  // not net of everything.
+  const netFlow = useMemo(() => computeNetStakeFlow(filteredEvents), [filteredEvents]);
+
+  const showAllTiers = activeTiers.size === 0 || activeTiers.has("all");
+  const toggleTier = (tier: FeedTier) => {
+    setActiveTiers((prev) => {
+      // The "All" chip is a clear-all. Empty set means all events
+      // pass through filterByTiers, so nothing else needs to change.
+      if (tier === "all") return new Set<FeedTier>();
+      const next = new Set(prev);
+      // Drop a stray "all" if it was somehow set.
+      next.delete("all");
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
+      return next;
+    });
+  };
 
   const whaleMoveCount = useMemo(() => events.filter(isWhaleEvent).length, [events]);
 
@@ -192,15 +220,18 @@ export default function StakingFeed() {
             </div>
 
             <div className="staking-feed-tiers">
-              {FEED_TIERS.map((tier) => (
-                <button
-                  key={tier}
-                  className={`time-pill ${activeTier === tier ? "active" : ""}`}
-                  onClick={() => setActiveTier(tier)}
-                >
-                  {TIER_LABELS[tier]}
-                </button>
-              ))}
+              {FEED_TIERS.map((tier) => {
+                const isActive = tier === "all" ? showAllTiers : activeTiers.has(tier);
+                return (
+                  <button
+                    key={tier}
+                    className={`time-pill ${isActive ? "active" : ""}`}
+                    onClick={() => toggleTier(tier)}
+                  >
+                    {TIER_LABELS[tier]}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="staking-feed-container">
@@ -221,6 +252,14 @@ export default function StakingFeed() {
 
             <div className="staking-feed-footer">
               Showing {filteredEvents.length} of {events.length} events (last 3 months, 5,000+ TX)
+              {filteredEvents.length > 0 && (
+                <>
+                  {" · "}
+                  <span className={netFlow >= 0 ? "staking-feed-net-positive" : "staking-feed-net-negative"}>
+                    Net {netFlow >= 0 ? "+" : "−"}{formatLargeNumber(Math.abs(netFlow))} TX
+                  </span>
+                </>
+              )}
             </div>
           </>
         ) : (
