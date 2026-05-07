@@ -147,20 +147,28 @@ async function pmap(items, n, fn) {
   return out;
 }
 
-function classify(received, bondedDelta, liquidDelta) {
-  if (received <= 0) return "held_liquid";
-  const bondedPct = bondedDelta / received;
-  const liquidPct = liquidDelta / received;
-  // Order matters: net_unbonded takes precedence so we don't paint a
-  // wallet that drew down its existing stake as "compounded" or "held".
-  if (bondedPct < -0.01) return "net_unbonded";
-  if (bondedPct >= 0.25) return "compounded";
-  if (liquidPct >= 0.75) return "held_liquid";
-  return "moved_out";
+// PSE auto-bonds the reward directly into the recipient's stake at
+// distribution. So the right question is: did the recipient KEEP the
+// auto-bonded PSE staked, or unbond it within 7 days?
+//
+// bondedDelta over the 7d window includes the auto-bond. So:
+//   bondedDelta ≈ +PSE     → kept the reward bonded (default behavior)
+//   0 ≤ bondedDelta < PSE → unbonded some or all of the reward
+//   bondedDelta < 0       → unbonded MORE than the PSE (drew on existing)
+//
+// Liquid delta is a secondary signal: if a wallet unbonded its PSE,
+// did the unbonded TX stay liquid in the wallet, or leave?
+function classify(received, bondedDelta) {
+  if (received <= 0) return "kept_bonded";
+  const ratio = bondedDelta / received;
+  if (ratio < -0.01) return "net_drew_down";
+  if (ratio >= 0.75) return "kept_bonded";
+  if (ratio >= 0.25) return "partial_unbond";
+  return "fully_unbonded";
 }
 
 function emptyBuckets() {
-  return { compounded: [], held_liquid: [], moved_out: [], net_unbonded: [] };
+  return { kept_bonded: [], partial_unbond: [], fully_unbonded: [], net_drew_down: [] };
 }
 
 function aggregate(rows) {
@@ -192,8 +200,16 @@ async function analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds) {
   const beforeHeight = cycle.distributionHeight - 1;
 
   const enriched = await pmap(recipients, CONCURRENCY, async (r) => {
+    // BUGFIX vs v3-initial: PSE auto-bonds rewards directly into stake.
+    // Cycle 1 auto-bonded at distributionHeight (same block); cycle 2
+    // auto-bonded ~30 blocks later. Querying bondedBefore at
+    // distributionHeight returns post-auto-bond for cycle 1, missing the
+    // entire reward in our delta. Use beforeHeight (distributionHeight − 1)
+    // for both bonded and liquid "before" measurements — that's pre-cycle
+    // state regardless of when the auto-bond actually fires inside the
+    // distribution block range.
     const [bondedBefore, bondedAfter, liquidBefore, liquidAfter] = await Promise.all([
-      fetchBondedAt(r.address, cycle.distributionHeight),
+      fetchBondedAt(r.address, beforeHeight),
       fetchBondedAt(r.address, plus7dHeight),
       fetchLiquidAt(r.address, beforeHeight),
       fetchLiquidAt(r.address, plus7dHeight),
@@ -214,7 +230,7 @@ async function analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds) {
       liquidDeltaTX,
       bondedDeltaPctOfPSE: r.amountTX > 0 ? (bondedDeltaTX / r.amountTX) * 100 : 0,
       liquidDeltaPctOfPSE: r.amountTX > 0 ? (liquidDeltaTX / r.amountTX) * 100 : 0,
-      bucket: classify(r.amountTX, bondedDeltaTX, liquidDeltaTX),
+      bucket: classify(r.amountTX, bondedDeltaTX),
       isValidatorSelfBond: validatorSelfBonds.has(r.address),
     };
   });
@@ -225,20 +241,28 @@ async function analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds) {
   const totalReceived = valid.reduce((s, r) => s + r.amountTX, 0);
   const totalBondedDelta = valid.reduce((s, r) => s + r.bondedDeltaTX, 0);
   const totalLiquidDelta = valid.reduce((s, r) => s + r.liquidDeltaTX, 0);
-  // Of the PSE distributed to this cohort, where did it end up?
-  // We measure it as "the share that stayed in either bonded or liquid
-  // form within the original wallet." Anything else moved out.
-  const stayedTX = Math.max(0, totalBondedDelta) + Math.max(0, totalLiquidDelta);
-  const movedOutTX = Math.max(0, totalReceived - stayedTX);
+  // Headline retention metric: of the auto-bonded PSE, how much remained
+  // bonded after the window? Capped at received so we don't credit
+  // unrelated stake increases.
+  const keptBondedTX = Math.max(0, Math.min(totalReceived, totalBondedDelta));
+  const unbondedTX = Math.max(0, totalReceived - keptBondedTX);
+  // Of the unbonded TX, did it stay liquid in the wallet (kept, just off
+  // stake) or leave the wallet (sold/transferred)?
+  const liquidRetainedTX = Math.max(0, totalLiquidDelta);
+  const exitedWalletTX = Math.max(0, unbondedTX - liquidRetainedTX);
 
   return {
     cohortSize: valid.length,
     receivedTX: totalReceived,
     bondedDeltaTX: totalBondedDelta,
     liquidDeltaTX: totalLiquidDelta,
-    stayedInWalletTX: Math.min(stayedTX, totalReceived),
-    movedOutTX,
-    movedOutPct: totalReceived ? (movedOutTX / totalReceived) * 100 : 0,
+    keptBondedTX,
+    unbondedTX,
+    liquidRetainedTX,
+    exitedWalletTX,
+    keptBondedPct: totalReceived ? (keptBondedTX / totalReceived) * 100 : 0,
+    unbondedPct: totalReceived ? (unbondedTX / totalReceived) * 100 : 0,
+    exitedWalletPct: totalReceived ? (exitedWalletTX / totalReceived) * 100 : 0,
     validatorSelfBondCount: valid.filter((r) => r.isValidatorSelfBond).length,
     plus7dHeight,
     beforeHeight,
@@ -276,21 +300,10 @@ async function analyzeCycle(cycle, currentHeight, validatorSelfBonds) {
       );
     }
     console.log(
-      `    HEADLINE: ${res.movedOutPct.toFixed(1)}% moved out of recipient wallets ` +
-        `(${(res.movedOutTX / 1e6).toFixed(1)}M TX of ${(res.receivedTX / 1e6).toFixed(1)}M received)`,
+      `    HEADLINE: ${res.keptBondedPct.toFixed(1)}% kept bonded · ` +
+        `${res.unbondedPct.toFixed(1)}% unbonded (${(res.exitedWalletPct).toFixed(1)}% exited wallet, ` +
+        `${(res.unbondedPct - res.exitedWalletPct).toFixed(1)}% sitting liquid)`,
     );
-    if (res.validatorSelfBondCount > 0) {
-      const exRows = res.recipients.filter((r) => !r.isValidatorSelfBond);
-      const exReceived = exRows.reduce((s, r) => s + r.amountTX, 0);
-      const exBonded = exRows.reduce((s, r) => s + r.bondedDeltaTX, 0);
-      const exLiquid = exRows.reduce((s, r) => s + r.liquidDeltaTX, 0);
-      const exStayed = Math.max(0, exBonded) + Math.max(0, exLiquid);
-      const exMoved = Math.max(0, exReceived - exStayed);
-      const exPct = exReceived ? (exMoved / exReceived) * 100 : 0;
-      console.log(
-        `    excl. validator self-bonds: ${exPct.toFixed(1)}% moved out`,
-      );
-    }
   }
 
   const summary = {
