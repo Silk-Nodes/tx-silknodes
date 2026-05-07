@@ -3,20 +3,27 @@
 //
 // For each top-N PSE community recipient per cycle:
 //   - bonded stake at distribution height
-//   - bonded stake at distribution height + 7 days (~688k blocks)
+//   - bonded stake at min(distribution_height + 7d, current_height)
 //   - delta = stake_after - stake_before
 //   - bucket by (delta / amount_received):
-//       compounded   delta >= +25% of received  (re-staked most of it)
-//       partial      delta within (+1%, +25%)   (re-staked some)
-//       flat         delta within ±1% of received  (kept liquid, no move)
-//       drawn_down   delta <= -1% of received   (unbonded — possibly to sell)
+//       compounded   delta >= +25% of received
+//       partial      delta within (+1%, +25%)
+//       flat         delta within ±1% of received
+//       drawn_down   delta <= -1% of received
 //
-// All data comes from Hasura's action_delegation_total(address, height).
-// READ-ONLY. Writes /tmp/pse-stake-delta-cycle{N}.json + summary.
-// No PR. No production writes.
+// Two enhancements over the original script:
+//   1. Cycles whose +7d window hasn't closed yet clamp the second
+//      query to current chain height. The summary annotates
+//      windowDaysCovered so the UI can render "Day 1 of 7".
+//   2. Validator self-bonds (operator address == delegator address)
+//      are flagged so the UI can show a number with and without them
+//      — these structurally don't compound and would skew the
+//      "stakers held" narrative if mixed in.
+//
+// All data from Hasura. READ-ONLY. Writes to /tmp.
 //
 // Usage:
-//   node vm-service/explore-pse-stake-delta.mjs              # both cycles, top 100
+//   node vm-service/explore-pse-stake-delta.mjs
 //   node vm-service/explore-pse-stake-delta.mjs --top=500
 //   node vm-service/explore-pse-stake-delta.mjs --cycle=2
 
@@ -27,8 +34,7 @@ const DECIMALS = 6;
 const ucoreToTX = (s) => Number(BigInt(s)) / 10 ** DECIMALS;
 const CONCURRENCY = 8;
 
-// Cycle 1 height = 69509771, Cycle 2 height = 72461119, gap = 2,951,348
-// blocks over 30 days = 98,378 blocks/day. 7 days ≈ 688,648 blocks.
+// Cycle 1→2 height gap = 2,951,348 over exactly 30 days = 98,378 blocks/day.
 const BLOCKS_PER_DAY = 98378;
 const SEVEN_DAY_BLOCKS = BLOCKS_PER_DAY * 7;
 
@@ -52,6 +58,11 @@ async function gqlQuery(query) {
   return data.data;
 }
 
+async function fetchCurrentHeight() {
+  const data = await gqlQuery(`{ block(order_by: {height: desc}, limit: 1) { height timestamp } }`);
+  return { height: data.block[0].height, timestamp: data.block[0].timestamp };
+}
+
 async function fetchCommunityCycles() {
   const data = await gqlQuery(`{
     pse_distribution_allocation(
@@ -67,7 +78,7 @@ async function fetchCommunityCycles() {
     scheduledAt: d.scheduled_at,
     distributedAtIso: new Date(d.scheduled_at * 1000).toISOString(),
     distributionHeight: d.start_at_height,
-    plus7dHeight: d.start_at_height + SEVEN_DAY_BLOCKS,
+    fullPlus7dHeight: d.start_at_height + SEVEN_DAY_BLOCKS,
     totalDistributed: ucoreToTX(d.total_amount),
   }));
 }
@@ -90,9 +101,6 @@ async function fetchTopRecipients(distributionId, topN) {
   }));
 }
 
-// Bonded total at a specific block height. Returns ucore as bigint
-// string (or "0" if address has no delegation at that height — Hasura
-// returns coins:[] which we map to 0).
 async function fetchBondedAt(address, height) {
   const data = await gqlQuery(`{
     action_delegation_total(address: "${address}", height: ${height}) {
@@ -104,9 +112,21 @@ async function fetchBondedAt(address, height) {
   return ucore ? ucore.amount : "0";
 }
 
-// Run an async map with bounded concurrency. Avoids blasting Hasura
-// with 100 simultaneous requests (which Hasura tolerates but the
-// node-fetch socket pool doesn't).
+// Validator operator addresses (corevaloper...) → corresponding self-bond
+// account address (core...). Cosmos SDK derives both from the same
+// pubkey, so the SDK exposes a per-validator self_delegate_address.
+// We use Hasura's validator_info table to grab the mapping in one call.
+async function fetchValidatorSelfBonds() {
+  const data = await gqlQuery(`{
+    validator_info { self_delegate_address operator_address }
+  }`);
+  const set = new Set();
+  for (const v of data.validator_info || []) {
+    if (v.self_delegate_address) set.add(v.self_delegate_address);
+  }
+  return set;
+}
+
 async function pmap(items, n, fn) {
   const out = new Array(items.length);
   let i = 0;
@@ -134,98 +154,168 @@ function classify(received, deltaTX) {
   return "flat";
 }
 
-async function analyzeCycle(cycle) {
-  console.log(
-    `\n══ Cycle ${cycle.cycleNumber} — distributed at h=${cycle.distributionHeight} (${cycle.distributedAtIso}) ══`,
+function emptyBuckets() {
+  return { compounded: [], partial: [], flat: [], drawn_down: [] };
+}
+
+function aggregate(enriched) {
+  const buckets = emptyBuckets();
+  for (const r of enriched) {
+    if (r.__error) continue;
+    buckets[r.bucket].push(r);
+  }
+  const valid = enriched.filter((r) => !r.__error);
+  return Object.fromEntries(
+    Object.entries(buckets).map(([k, arr]) => [
+      k,
+      {
+        count: arr.length,
+        pct: valid.length ? (arr.length / valid.length) * 100 : 0,
+        receivedTX: arr.reduce((s, r) => s + r.amountTX, 0),
+        netDeltaTX: arr.reduce((s, r) => s + r.deltaTX, 0),
+      },
+    ]),
   );
-  console.log(`  +7d height: ${cycle.plus7dHeight} (~${(SEVEN_DAY_BLOCKS / BLOCKS_PER_DAY).toFixed(0)} days of blocks)`);
-  console.log(`  Total distributed (community): ${cycle.totalDistributed.toLocaleString()} TX`);
+}
 
-  const recipients = await fetchTopRecipients(cycle.distributionId, TOP_N);
-  console.log(`  Fetching bonded stake at 2 heights for ${recipients.length} addresses (concurrency ${CONCURRENCY})...`);
+async function analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds) {
+  const recipients = await fetchTopRecipients(cycle.distributionId, topN);
+  const plus7dHeight = Math.min(cycle.fullPlus7dHeight, currentHeight);
+  const windowDaysCovered = Math.min(
+    7,
+    (plus7dHeight - cycle.distributionHeight) / BLOCKS_PER_DAY,
+  );
+  const windowComplete = plus7dHeight === cycle.fullPlus7dHeight;
 
-  const start = Date.now();
   const enriched = await pmap(recipients, CONCURRENCY, async (r) => {
     const [beforeUcore, afterUcore] = await Promise.all([
       fetchBondedAt(r.address, cycle.distributionHeight),
-      fetchBondedAt(r.address, cycle.plus7dHeight),
+      fetchBondedAt(r.address, plus7dHeight),
     ]);
     const before = Number(BigInt(beforeUcore)) / 10 ** DECIMALS;
     const after = Number(BigInt(afterUcore)) / 10 ** DECIMALS;
     const delta = after - before;
-    const deltaPctOfReceived = r.amountTX > 0 ? (delta / r.amountTX) * 100 : 0;
+    const isValidatorSelfBond = validatorSelfBonds.has(r.address);
     return {
       ...r,
       bondedBeforeTX: before,
       bondedAfterTX: after,
       deltaTX: delta,
-      deltaPctOfReceived,
+      deltaPctOfReceived: r.amountTX > 0 ? (delta / r.amountTX) * 100 : 0,
       bucket: classify(r.amountTX, delta),
+      isValidatorSelfBond,
     };
   });
-  console.log(`  Done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 
-  // Aggregate.
-  const buckets = { compounded: [], partial: [], flat: [], drawn_down: [] };
-  for (const r of enriched) {
-    if (r.__error) continue;
-    buckets[r.bucket].push(r);
+  const validRows = enriched.filter((r) => !r.__error);
+  const ex = validRows.filter((r) => !r.isValidatorSelfBond);
+
+  const totalReceived = validRows.reduce((s, r) => s + r.amountTX, 0);
+  const totalDelta = validRows.reduce((s, r) => s + r.deltaTX, 0);
+  // "Liquid overhang" = received - net positive delta. Doesn't double-count
+  // negative deltas (those are net liquid too, but already accounted).
+  const reBondedTX = Math.max(0, totalDelta);
+  const liquidOverhangTX = Math.max(0, totalReceived - reBondedTX);
+
+  return {
+    cohortSize: validRows.length,
+    receivedTX: totalReceived,
+    netDeltaTX: totalDelta,
+    reBondedTX,
+    liquidOverhangTX,
+    reBondPct: totalReceived ? (reBondedTX / totalReceived) * 100 : 0,
+    liquidOverhangPct: totalReceived ? (liquidOverhangTX / totalReceived) * 100 : 0,
+    validatorSelfBondCount: validRows.filter((r) => r.isValidatorSelfBond).length,
+    plus7dHeight,
+    windowDaysCovered,
+    windowComplete,
+    buckets: aggregate(validRows),
+    bucketsExValidators: aggregate(ex),
+    errors: enriched.filter((r) => r.__error).length,
+    recipients: validRows,
+  };
+}
+
+async function analyzeCycle(cycle, currentHeight, validatorSelfBonds) {
+  console.log(
+    `\n══ Cycle ${cycle.cycleNumber} — distributed h=${cycle.distributionHeight} (${cycle.distributedAtIso}) ══`,
+  );
+  console.log(`  Total distributed (community): ${cycle.totalDistributed.toLocaleString()} TX`);
+
+  const cohorts = {};
+  for (const topN of [100, 500, 1000]) {
+    const start = Date.now();
+    const res = await analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds);
+    cohorts[`top${topN}`] = res;
+    console.log(
+      `\n  top ${topN} (${((Date.now() - start) / 1000).toFixed(1)}s) · ` +
+        `window: ${res.windowDaysCovered.toFixed(2)}d ${res.windowComplete ? "(closed)" : "(open, partial)"} · ` +
+        `${res.validatorSelfBondCount} validator self-bonds in cohort`,
+    );
+    for (const [name, info] of Object.entries(res.buckets)) {
+      console.log(
+        `    ${name.padEnd(11)} ${info.count.toString().padStart(4)} (${info.pct.toFixed(1).padStart(5)}%) · ` +
+          `received ${info.receivedTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(14)} TX · ` +
+          `Δ ${info.netDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(14)} TX`,
+      );
+    }
+    console.log(
+      `    HEADLINE: ${res.reBondPct.toFixed(1)}% re-bonded, ${res.liquidOverhangPct.toFixed(1)}% liquid overhang ` +
+        `(${(res.liquidOverhangTX / 1e6).toFixed(1)}M TX)`,
+    );
+    if (res.validatorSelfBondCount > 0) {
+      const exTotal = res.bucketsExValidators;
+      const exReceived = Object.values(exTotal).reduce((s, b) => s + b.receivedTX, 0);
+      const exDelta = Object.values(exTotal).reduce((s, b) => s + b.netDeltaTX, 0);
+      const exReBondPct = exReceived ? (Math.max(0, exDelta) / exReceived) * 100 : 0;
+      console.log(`    excl. validator self-bonds: ${exReBondPct.toFixed(1)}% re-bonded`);
+    }
   }
+
   const summary = {
     cycle: cycle.cycleNumber,
     distributionId: cycle.distributionId,
     distributedAtIso: cycle.distributedAtIso,
     distributionHeight: cycle.distributionHeight,
-    plus7dHeight: cycle.plus7dHeight,
-    cohortSize: enriched.filter((r) => !r.__error).length,
-    cohortReceivedTX: enriched.reduce((s, r) => s + (r.amountTX || 0), 0),
-    netCohortDeltaTX: enriched.reduce((s, r) => s + (r.deltaTX || 0), 0),
-    buckets: Object.fromEntries(
-      Object.entries(buckets).map(([k, arr]) => [
-        k,
-        {
-          count: arr.length,
-          pct: enriched.length ? (arr.length / enriched.length) * 100 : 0,
-          receivedTX: arr.reduce((s, r) => s + r.amountTX, 0),
-          netDeltaTX: arr.reduce((s, r) => s + r.deltaTX, 0),
-        },
-      ]),
+    fullPlus7dHeight: cycle.fullPlus7dHeight,
+    measuredAtHeight: currentHeight,
+    cohorts: Object.fromEntries(
+      Object.entries(cohorts).map(([k, v]) => {
+        const { recipients: _drop, ...rest } = v;
+        return [k, rest];
+      }),
     ),
   };
 
-  console.log("\n  Buckets (delta vs received PSE):");
-  for (const [name, info] of Object.entries(summary.buckets)) {
-    console.log(
-      `    ${name.padEnd(11)} ${info.count.toString().padStart(3)} addrs ` +
-        `(${info.pct.toFixed(1).padStart(5)}%) · received ` +
-        `${info.receivedTX.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX · ` +
-        `net Δ ${info.netDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX`,
-    );
-  }
-  console.log(
-    `\n  Net cohort stake change: ${summary.netCohortDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX ` +
-      `out of ${summary.cohortReceivedTX.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX received ` +
-      `(${((summary.netCohortDeltaTX / summary.cohortReceivedTX) * 100).toFixed(1)}% recompounded)`,
-  );
-
-  const errors = enriched.filter((r) => r.__error);
-  if (errors.length) {
-    console.log(`\n  ${errors.length} addresses failed (per-validator hasura issue?)`);
-  }
-
   const path = `/tmp/pse-stake-delta-cycle${cycle.cycleNumber}.json`;
-  writeFileSync(path, JSON.stringify({ summary, recipients: enriched }, null, 2));
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        summary,
+        recipientsByCohort: Object.fromEntries(
+          Object.entries(cohorts).map(([k, v]) => [k, v.recipients]),
+        ),
+      },
+      null,
+      2,
+    ),
+  );
   console.log(`  Wrote ${path}`);
-
   return summary;
 }
 
 async function main() {
-  console.log("PSE Stake Delta Analysis (Path B)");
-  console.log(`Top N: ${TOP_N}, concurrency: ${CONCURRENCY}`);
+  console.log("PSE Stake Delta Analysis (Path B, enhanced)");
 
-  const cycles = await fetchCommunityCycles();
-  console.log(`\nDiscovered ${cycles.length} community-pool cycles.`);
+  const [cycles, current, validatorSelfBonds] = await Promise.all([
+    fetchCommunityCycles(),
+    fetchCurrentHeight(),
+    fetchValidatorSelfBonds(),
+  ]);
+  console.log(`Current height: ${current.height} (${current.timestamp})`);
+  console.log(`Discovered ${cycles.length} community-pool cycles.`);
+  console.log(`Loaded ${validatorSelfBonds.size} validator self-bond addresses.`);
 
   const target = ONLY_CYCLE
     ? cycles.filter((c) => c.cycleNumber === ONLY_CYCLE)
@@ -233,11 +323,18 @@ async function main() {
 
   const summaries = [];
   for (const cycle of target) {
-    summaries.push(await analyzeCycle(cycle));
+    summaries.push(await analyzeCycle(cycle, current.height, validatorSelfBonds));
   }
 
   const path = "/tmp/pse-stake-delta-summary.json";
-  writeFileSync(path, JSON.stringify({ generatedAt: new Date().toISOString(), summaries }, null, 2));
+  writeFileSync(
+    path,
+    JSON.stringify(
+      { generatedAt: new Date().toISOString(), measuredAtHeight: current.height, summaries },
+      null,
+      2,
+    ),
+  );
   console.log(`\nSummary: ${path}`);
 }
 
