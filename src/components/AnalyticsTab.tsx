@@ -250,10 +250,14 @@ export default function AnalyticsTab() {
         )}
         <SpikeChart
           title="Next 7d Undelegations"
+          // Subtitle stays in the same 7d window as the headline so the eye
+          // doesn't bounce between two windows. We dropped the "all future"
+          // line because Coreum's unbonding period is 7 days — anything
+          // beyond day 8 is a small tail and not worth a second number.
           subtitle={
             pendingUndelegations.next7dWallets > 0
-              ? `${pendingUndelegations.next7dWallets.toLocaleString()} wallets · all future: ${pendingUndelegations.formatted} TX`
-              : `all future: ${pendingUndelegations.formatted} TX`
+              ? `${pendingUndelegations.next7dWallets.toLocaleString()} wallets exiting`
+              : undefined
           }
           data={pendingUndelegations.data}
           total={pendingUndelegations.next7dFormatted}
