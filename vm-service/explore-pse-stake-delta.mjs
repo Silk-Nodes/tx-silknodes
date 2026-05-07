@@ -1,31 +1,28 @@
 #!/usr/bin/env node
-// PSE cohort — stake delta analysis (Path B)
+// PSE cohort — stake + liquid delta analysis (Path B, v3)
+//
+// PSE rewards land LIQUID in the recipient's wallet. They don't auto-bond.
+// So the right question per recipient is: did the liquid TX stay in the
+// wallet, get re-bonded, or leave the wallet?
 //
 // For each top-N PSE community recipient per cycle:
 //   - bonded stake at distribution height
 //   - bonded stake at min(distribution_height + 7d, current_height)
-//   - delta = stake_after - stake_before
-//   - bucket by (delta / amount_received):
-//       compounded   delta >= +25% of received
-//       partial      delta within (+1%, +25%)
-//       flat         delta within ±1% of received
-//       drawn_down   delta <= -1% of received
+//   - liquid ucore balance at distribution_height − 1 (just BEFORE PSE)
+//   - liquid ucore balance at min(distribution_height + 7d, current_height)
+//   - bondedDelta = bonded_after − bonded_before
+//   - liquidDelta = liquid_after − liquid_before
 //
-// Two enhancements over the original script:
-//   1. Cycles whose +7d window hasn't closed yet clamp the second
-//      query to current chain height. The summary annotates
-//      windowDaysCovered so the UI can render "Day 1 of 7".
-//   2. Validator self-bonds (operator address == delegator address)
-//      are flagged so the UI can show a number with and without them
-//      — these structurally don't compound and would skew the
-//      "stakers held" narrative if mixed in.
+// Bucket priority (first match wins):
+//   net_unbonded   bondedDelta < −1% of PSE      (drew down EXISTING stake)
+//   compounded     bondedDelta ≥ +25% of PSE     (re-staked the reward)
+//   held_liquid    liquidDelta ≥ +75% of PSE      (still sitting in the wallet)
+//   moved_out      liquidDelta <  +75% of PSE     (left the wallet)
 //
-// All data from Hasura. READ-ONLY. Writes to /tmp.
+// Validator self-bonds are flagged so we can report buckets w/ and w/out them.
 //
-// Usage:
-//   node vm-service/explore-pse-stake-delta.mjs
-//   node vm-service/explore-pse-stake-delta.mjs --top=500
-//   node vm-service/explore-pse-stake-delta.mjs --cycle=2
+// Read-only. Writes /tmp/pse-stake-delta-cycle{N}.json + summary.json.
+// No PR. No production writes.
 
 import { writeFileSync } from "node:fs";
 
@@ -34,7 +31,7 @@ const DECIMALS = 6;
 const ucoreToTX = (s) => Number(BigInt(s)) / 10 ** DECIMALS;
 const CONCURRENCY = 8;
 
-// Cycle 1→2 height gap = 2,951,348 over exactly 30 days = 98,378 blocks/day.
+// Cycle 1→2 height gap = 2,951,348 over 30 days = 98,378 blocks/day.
 const BLOCKS_PER_DAY = 98378;
 const SEVEN_DAY_BLOCKS = BLOCKS_PER_DAY * 7;
 
@@ -101,24 +98,29 @@ async function fetchTopRecipients(distributionId, topN) {
   }));
 }
 
-async function fetchBondedAt(address, height) {
-  const data = await gqlQuery(`{
-    action_delegation_total(address: "${address}", height: ${height}) {
-      coins
-    }
-  }`);
-  const coins = data.action_delegation_total?.coins || [];
-  const ucore = coins.find((c) => c.denom === "ucore");
-  return ucore ? ucore.amount : "0";
+function ucoreFromCoins(coins) {
+  if (!coins) return "0";
+  const c = coins.find((x) => x.denom === "ucore");
+  return c ? c.amount : "0";
 }
 
-// Validator operator addresses (corevaloper...) → corresponding self-bond
-// account address (core...). Cosmos SDK derives both from the same
-// pubkey, so the SDK exposes a per-validator self_delegate_address.
-// We use Hasura's validator_info table to grab the mapping in one call.
+async function fetchBondedAt(address, height) {
+  const data = await gqlQuery(`{
+    action_delegation_total(address: "${address}", height: ${height}) { coins }
+  }`);
+  return ucoreFromCoins(data.action_delegation_total?.coins);
+}
+
+async function fetchLiquidAt(address, height) {
+  const data = await gqlQuery(`{
+    action_account_balance(address: "${address}", height: ${height}) { coins }
+  }`);
+  return ucoreFromCoins(data.action_account_balance?.coins);
+}
+
 async function fetchValidatorSelfBonds() {
   const data = await gqlQuery(`{
-    validator_info { self_delegate_address operator_address }
+    validator_info { self_delegate_address }
   }`);
   const set = new Set();
   for (const v of data.validator_info || []) {
@@ -145,34 +147,35 @@ async function pmap(items, n, fn) {
   return out;
 }
 
-function classify(received, deltaTX) {
-  if (received <= 0) return "flat";
-  const ratio = deltaTX / received;
-  if (ratio >= 0.25) return "compounded";
-  if (ratio >= 0.01) return "partial";
-  if (ratio <= -0.01) return "drawn_down";
-  return "flat";
+function classify(received, bondedDelta, liquidDelta) {
+  if (received <= 0) return "held_liquid";
+  const bondedPct = bondedDelta / received;
+  const liquidPct = liquidDelta / received;
+  // Order matters: net_unbonded takes precedence so we don't paint a
+  // wallet that drew down its existing stake as "compounded" or "held".
+  if (bondedPct < -0.01) return "net_unbonded";
+  if (bondedPct >= 0.25) return "compounded";
+  if (liquidPct >= 0.75) return "held_liquid";
+  return "moved_out";
 }
 
 function emptyBuckets() {
-  return { compounded: [], partial: [], flat: [], drawn_down: [] };
+  return { compounded: [], held_liquid: [], moved_out: [], net_unbonded: [] };
 }
 
-function aggregate(enriched) {
+function aggregate(rows) {
   const buckets = emptyBuckets();
-  for (const r of enriched) {
-    if (r.__error) continue;
-    buckets[r.bucket].push(r);
-  }
-  const valid = enriched.filter((r) => !r.__error);
+  for (const r of rows) buckets[r.bucket].push(r);
+  const total = rows.length;
   return Object.fromEntries(
     Object.entries(buckets).map(([k, arr]) => [
       k,
       {
         count: arr.length,
-        pct: valid.length ? (arr.length / valid.length) * 100 : 0,
+        pct: total ? (arr.length / total) * 100 : 0,
         receivedTX: arr.reduce((s, r) => s + r.amountTX, 0),
-        netDeltaTX: arr.reduce((s, r) => s + r.deltaTX, 0),
+        bondedDeltaTX: arr.reduce((s, r) => s + r.bondedDeltaTX, 0),
+        liquidDeltaTX: arr.reduce((s, r) => s + r.liquidDeltaTX, 0),
       },
     ]),
   );
@@ -186,53 +189,65 @@ async function analyzeCohort(cycle, topN, currentHeight, validatorSelfBonds) {
     (plus7dHeight - cycle.distributionHeight) / BLOCKS_PER_DAY,
   );
   const windowComplete = plus7dHeight === cycle.fullPlus7dHeight;
+  const beforeHeight = cycle.distributionHeight - 1;
 
   const enriched = await pmap(recipients, CONCURRENCY, async (r) => {
-    const [beforeUcore, afterUcore] = await Promise.all([
+    const [bondedBefore, bondedAfter, liquidBefore, liquidAfter] = await Promise.all([
       fetchBondedAt(r.address, cycle.distributionHeight),
       fetchBondedAt(r.address, plus7dHeight),
+      fetchLiquidAt(r.address, beforeHeight),
+      fetchLiquidAt(r.address, plus7dHeight),
     ]);
-    const before = Number(BigInt(beforeUcore)) / 10 ** DECIMALS;
-    const after = Number(BigInt(afterUcore)) / 10 ** DECIMALS;
-    const delta = after - before;
-    const isValidatorSelfBond = validatorSelfBonds.has(r.address);
+    const bondedBeforeTX = Number(BigInt(bondedBefore)) / 10 ** DECIMALS;
+    const bondedAfterTX = Number(BigInt(bondedAfter)) / 10 ** DECIMALS;
+    const liquidBeforeTX = Number(BigInt(liquidBefore)) / 10 ** DECIMALS;
+    const liquidAfterTX = Number(BigInt(liquidAfter)) / 10 ** DECIMALS;
+    const bondedDeltaTX = bondedAfterTX - bondedBeforeTX;
+    const liquidDeltaTX = liquidAfterTX - liquidBeforeTX;
     return {
       ...r,
-      bondedBeforeTX: before,
-      bondedAfterTX: after,
-      deltaTX: delta,
-      deltaPctOfReceived: r.amountTX > 0 ? (delta / r.amountTX) * 100 : 0,
-      bucket: classify(r.amountTX, delta),
-      isValidatorSelfBond,
+      bondedBeforeTX,
+      bondedAfterTX,
+      bondedDeltaTX,
+      liquidBeforeTX,
+      liquidAfterTX,
+      liquidDeltaTX,
+      bondedDeltaPctOfPSE: r.amountTX > 0 ? (bondedDeltaTX / r.amountTX) * 100 : 0,
+      liquidDeltaPctOfPSE: r.amountTX > 0 ? (liquidDeltaTX / r.amountTX) * 100 : 0,
+      bucket: classify(r.amountTX, bondedDeltaTX, liquidDeltaTX),
+      isValidatorSelfBond: validatorSelfBonds.has(r.address),
     };
   });
 
-  const validRows = enriched.filter((r) => !r.__error);
-  const ex = validRows.filter((r) => !r.isValidatorSelfBond);
+  const valid = enriched.filter((r) => !r.__error);
+  const exValidators = valid.filter((r) => !r.isValidatorSelfBond);
 
-  const totalReceived = validRows.reduce((s, r) => s + r.amountTX, 0);
-  const totalDelta = validRows.reduce((s, r) => s + r.deltaTX, 0);
-  // "Liquid overhang" = received - net positive delta. Doesn't double-count
-  // negative deltas (those are net liquid too, but already accounted).
-  const reBondedTX = Math.max(0, totalDelta);
-  const liquidOverhangTX = Math.max(0, totalReceived - reBondedTX);
+  const totalReceived = valid.reduce((s, r) => s + r.amountTX, 0);
+  const totalBondedDelta = valid.reduce((s, r) => s + r.bondedDeltaTX, 0);
+  const totalLiquidDelta = valid.reduce((s, r) => s + r.liquidDeltaTX, 0);
+  // Of the PSE distributed to this cohort, where did it end up?
+  // We measure it as "the share that stayed in either bonded or liquid
+  // form within the original wallet." Anything else moved out.
+  const stayedTX = Math.max(0, totalBondedDelta) + Math.max(0, totalLiquidDelta);
+  const movedOutTX = Math.max(0, totalReceived - stayedTX);
 
   return {
-    cohortSize: validRows.length,
+    cohortSize: valid.length,
     receivedTX: totalReceived,
-    netDeltaTX: totalDelta,
-    reBondedTX,
-    liquidOverhangTX,
-    reBondPct: totalReceived ? (reBondedTX / totalReceived) * 100 : 0,
-    liquidOverhangPct: totalReceived ? (liquidOverhangTX / totalReceived) * 100 : 0,
-    validatorSelfBondCount: validRows.filter((r) => r.isValidatorSelfBond).length,
+    bondedDeltaTX: totalBondedDelta,
+    liquidDeltaTX: totalLiquidDelta,
+    stayedInWalletTX: Math.min(stayedTX, totalReceived),
+    movedOutTX,
+    movedOutPct: totalReceived ? (movedOutTX / totalReceived) * 100 : 0,
+    validatorSelfBondCount: valid.filter((r) => r.isValidatorSelfBond).length,
     plus7dHeight,
+    beforeHeight,
     windowDaysCovered,
     windowComplete,
-    buckets: aggregate(validRows),
-    bucketsExValidators: aggregate(ex),
+    buckets: aggregate(valid),
+    bucketsExValidators: aggregate(exValidators),
     errors: enriched.filter((r) => r.__error).length,
-    recipients: validRows,
+    recipients: valid,
   };
 }
 
@@ -254,21 +269,27 @@ async function analyzeCycle(cycle, currentHeight, validatorSelfBonds) {
     );
     for (const [name, info] of Object.entries(res.buckets)) {
       console.log(
-        `    ${name.padEnd(11)} ${info.count.toString().padStart(4)} (${info.pct.toFixed(1).padStart(5)}%) · ` +
-          `received ${info.receivedTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(14)} TX · ` +
-          `Δ ${info.netDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(14)} TX`,
+        `    ${name.padEnd(13)} ${info.count.toString().padStart(4)} (${info.pct.toFixed(1).padStart(5)}%) · ` +
+          `received ${info.receivedTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(13)} TX · ` +
+          `bondedΔ ${info.bondedDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(13)} · ` +
+          `liquidΔ ${info.liquidDeltaTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(13)}`,
       );
     }
     console.log(
-      `    HEADLINE: ${res.reBondPct.toFixed(1)}% re-bonded, ${res.liquidOverhangPct.toFixed(1)}% liquid overhang ` +
-        `(${(res.liquidOverhangTX / 1e6).toFixed(1)}M TX)`,
+      `    HEADLINE: ${res.movedOutPct.toFixed(1)}% moved out of recipient wallets ` +
+        `(${(res.movedOutTX / 1e6).toFixed(1)}M TX of ${(res.receivedTX / 1e6).toFixed(1)}M received)`,
     );
     if (res.validatorSelfBondCount > 0) {
-      const exTotal = res.bucketsExValidators;
-      const exReceived = Object.values(exTotal).reduce((s, b) => s + b.receivedTX, 0);
-      const exDelta = Object.values(exTotal).reduce((s, b) => s + b.netDeltaTX, 0);
-      const exReBondPct = exReceived ? (Math.max(0, exDelta) / exReceived) * 100 : 0;
-      console.log(`    excl. validator self-bonds: ${exReBondPct.toFixed(1)}% re-bonded`);
+      const exRows = res.recipients.filter((r) => !r.isValidatorSelfBond);
+      const exReceived = exRows.reduce((s, r) => s + r.amountTX, 0);
+      const exBonded = exRows.reduce((s, r) => s + r.bondedDeltaTX, 0);
+      const exLiquid = exRows.reduce((s, r) => s + r.liquidDeltaTX, 0);
+      const exStayed = Math.max(0, exBonded) + Math.max(0, exLiquid);
+      const exMoved = Math.max(0, exReceived - exStayed);
+      const exPct = exReceived ? (exMoved / exReceived) * 100 : 0;
+      console.log(
+        `    excl. validator self-bonds: ${exPct.toFixed(1)}% moved out`,
+      );
     }
   }
 
@@ -306,7 +327,7 @@ async function analyzeCycle(cycle, currentHeight, validatorSelfBonds) {
 }
 
 async function main() {
-  console.log("PSE Stake Delta Analysis (Path B, enhanced)");
+  console.log("PSE Stake + Liquid Delta Analysis (Path B, v3)");
 
   const [cycles, current, validatorSelfBonds] = await Promise.all([
     fetchCommunityCycles(),
