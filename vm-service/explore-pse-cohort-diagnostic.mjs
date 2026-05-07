@@ -73,7 +73,7 @@ async function fetchTopRecipients(distributionId, topN) {
 // ─── 1. Exchange coverage ────────────────────────────────────────────────
 async function exchangeCoverage() {
   const exchanges = (
-    await query(`SELECT address, label FROM exchange_addresses ORDER BY label`)
+    await query(`SELECT address, exchange_name AS label FROM exchange_addresses ORDER BY exchange_name`)
   ).rows;
   const flows30d = (
     await query(`
