@@ -391,6 +391,11 @@ async function fetchPendingUndelegations() {
   const validators = await fetchAllValidatorAddresses();
   const nowMs = Date.now();
   const dailyAmounts = {};
+  // Distinct delegator addresses per completion day. A wallet that is
+  // unbonding from multiple validators on the same day counts once;
+  // that's what users intuit when they ask "how many wallets are
+  // exiting on May 13?".
+  const dailyWallets = {};
 
   // Per-validator errors are caught and swallowed so one unreachable
   // validator doesn't break the whole aggregate. A failed validator is
@@ -403,12 +408,17 @@ async function fetchPendingUndelegations() {
         2,
       );
       for (const resp of data.unbonding_responses || []) {
+        const delegator = resp.delegator_address;
         for (const entry of resp.entries || []) {
           const completionMs = new Date(entry.completion_time).getTime();
           if (completionMs <= nowMs) continue; // already released on-chain
           const dateKey = entry.completion_time.slice(0, 10);
           const amount = parseInt(entry.balance) / Math.pow(10, DECIMALS);
           dailyAmounts[dateKey] = (dailyAmounts[dateKey] || 0) + amount;
+          if (delegator) {
+            if (!dailyWallets[dateKey]) dailyWallets[dateKey] = new Set();
+            dailyWallets[dateKey].add(delegator);
+          }
         }
       }
     } catch {
@@ -417,7 +427,11 @@ async function fetchPendingUndelegations() {
   }
 
   const entries = Object.entries(dailyAmounts)
-    .map(([d, amount]) => ({ date: d, value: Math.round(amount) }))
+    .map(([d, amount]) => ({
+      date: d,
+      value: Math.round(amount),
+      walletCount: dailyWallets[d] ? dailyWallets[d].size : 0,
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return { entries, validatorCount: validators.length };

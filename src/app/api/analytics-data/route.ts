@@ -20,7 +20,7 @@
 //     },
 //     pending: {
 //       updatedAt: ISO string,
-//       entries:  [{ date, value }, ...]   // unbonding schedule
+//       entries:  [{ date, value, walletCount }, ...]   // unbonding schedule
 //     }
 //   }
 //
@@ -62,6 +62,7 @@ const DATASET_COLUMN: Record<
 };
 
 type DataPoint = { date: string; value: number };
+type PendingPoint = { date: string; value: number; walletCount: number };
 
 export async function GET() {
   try {
@@ -107,7 +108,7 @@ export async function GET() {
     // Pending undelegations: same shape as the old wrapped JSON.
     // updatedAt = most recent row's updated_at (snapshot timestamp).
     let pendingUpdatedAt: string | undefined;
-    const pendingEntries: DataPoint[] = pendingRows.map((p) => {
+    const pendingEntries: PendingPoint[] = pendingRows.map((p) => {
       const d =
         typeof p.date === "string"
           ? p.date
@@ -115,7 +116,11 @@ export async function GET() {
       if (p.updated_at && (!pendingUpdatedAt || p.updated_at.toISOString() > pendingUpdatedAt)) {
         pendingUpdatedAt = p.updated_at.toISOString();
       }
-      return { date: d, value: Number(p.value) };
+      return {
+        date: d,
+        value: Number(p.value),
+        walletCount: Number(p.wallet_count ?? 0),
+      };
     });
 
     return NextResponse.json(

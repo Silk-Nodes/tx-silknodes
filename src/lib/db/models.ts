@@ -159,12 +159,14 @@ export class PendingUndelegation extends Model<
 > {
   declare date: string;
   declare value: string;
+  declare wallet_count: number;
   declare updated_at: Date;
 }
 PendingUndelegation.init(
   {
     date: { type: DataTypes.DATEONLY, primaryKey: true },
     value: { type: DataTypes.DECIMAL, allowNull: false },
+    wallet_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     updated_at: { type: DataTypes.DATE, allowNull: false },
   },
   { sequelize, tableName: "pending_undelegations", timestamps: false, underscored: true },
