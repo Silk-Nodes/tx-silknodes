@@ -6601,3 +6601,9 @@ input[type="range"]::-moz-range-thumb {
   .brand-icon { width: 28px; height: 28px; }
   .wallet-pill { padding: 6px 10px; font-size: 0.68rem; }
 }
+
+/* ── StakingFeed net flow indicator ── */
+.staking-feed-net-positive { color: #4a7a1a; font-weight: 700; }
+.staking-feed-net-negative { color: #c45a4a; font-weight: 700; }
+:root[data-theme="dark"] .staking-feed-net-positive { color: var(--tx-neon); }
+:root[data-theme="dark"] .staking-feed-net-negative { color: #ff8a78; }

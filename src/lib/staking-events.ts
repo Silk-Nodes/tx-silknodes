@@ -43,6 +43,36 @@ export function filterByTier(events: StakingEvent[], tier: FeedTier): StakingEve
   return events.filter((e) => e.amount >= min && e.amount < max);
 }
 
+// Multi-tier variant. When the set is empty OR contains "all", every
+// event passes. Otherwise an event passes if it falls into ANY of the
+// selected tier ranges (OR semantics).
+export function filterByTiers(events: StakingEvent[], tiers: Set<FeedTier>): StakingEvent[] {
+  if (tiers.size === 0 || tiers.has("all")) {
+    const [min, max] = TIER_RANGES.all;
+    return events.filter((e) => e.amount >= min && e.amount < max);
+  }
+  return events.filter((e) => {
+    for (const t of tiers) {
+      const [min, max] = TIER_RANGES[t];
+      if (e.amount >= min && e.amount < max) return true;
+    }
+    return false;
+  });
+}
+
+// Net stake flow across the given events. Delegates count positive
+// (stake added), undelegates count negative (stake removed), and
+// redelegates are neutral (just shifted between validators, no net
+// supply change). Result is in TX (display units).
+export function computeNetStakeFlow(events: StakingEvent[]): number {
+  let net = 0;
+  for (const e of events) {
+    if (e.type === "delegate") net += e.amount;
+    else if (e.type === "undelegate") net -= e.amount;
+  }
+  return net;
+}
+
 // Amount formatting (K, M, with decimals)
 export function formatEventAmount(amount: number): string {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(2)}M`;
