@@ -12,14 +12,21 @@ import {
 import type { DataPoint } from "@/lib/analytics-utils";
 import { formatLargeNumber, formatTooltipDate } from "@/lib/analytics-utils";
 
+interface SpikePoint extends DataPoint {
+  walletCount?: number;
+}
+
 interface SpikeChartProps {
   title: string;
-  data: DataPoint[];
+  subtitle?: string;
+  data: SpikePoint[];
   total: string;
 }
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
+  const point = payload[0].payload as SpikePoint;
+  const wallets = point?.walletCount ?? 0;
   return (
     <div style={{
       background: "rgba(15, 27, 7, 0.94)",
@@ -37,17 +44,34 @@ function CustomTooltip({ active, payload, label }: any) {
       <div style={{ fontWeight: 700, color: "#e8927a", fontSize: "0.9rem" }}>
         {formatLargeNumber(payload[0].value, 1)} TX
       </div>
+      {wallets > 0 && (
+        <div style={{ color: "rgba(244,241,235,0.7)", marginTop: 3, fontSize: "0.68rem" }}>
+          {wallets.toLocaleString()} {wallets === 1 ? "wallet" : "wallets"}
+        </div>
+      )}
     </div>
   );
 }
 
-export default function SpikeChart({ title, data, total }: SpikeChartProps) {
-  const maxVal = Math.max(...data.map((d) => d.value));
+export default function SpikeChart({ title, subtitle, data, total }: SpikeChartProps) {
+  const maxVal = Math.max(...data.map((d) => d.value), 0);
 
   return (
     <div className="chart-card-v2 chart-card-small">
       <div className="chart-card-v2-header">
-        <span className="chart-card-v2-title">{title}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span className="chart-card-v2-title">{title}</span>
+          {subtitle && (
+            <span style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.62rem",
+              color: "rgba(106,90,81,0.7)",
+              letterSpacing: "0.02em",
+            }}>
+              {subtitle}
+            </span>
+          )}
+        </div>
         <span className="chart-card-v2-current" style={{ color: "#b44a3e" }}>
           {total} TX
         </span>
@@ -77,7 +101,7 @@ export default function SpikeChart({ title, data, total }: SpikeChartProps) {
             <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(180,74,62,0.04)" }} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={600}>
               {data.map((entry, i) => {
-                const intensity = entry.value / maxVal;
+                const intensity = maxVal > 0 ? entry.value / maxVal : 0;
                 const isSpike = intensity > 0.5;
                 const isMajor = intensity > 0.8;
                 return (

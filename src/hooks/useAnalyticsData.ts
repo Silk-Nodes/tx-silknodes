@@ -83,9 +83,13 @@ function formatValue(value: number, unit: "TX" | "%" | ""): string {
   return formatLargeNumber(value, 0);
 }
 
+export interface PendingUndelegationPoint extends DataPoint {
+  walletCount: number;
+}
+
 interface PendingUndelegationsPayload {
   updatedAt?: string;
-  entries: DataPoint[];
+  entries: PendingUndelegationPoint[];
 }
 
 interface AnalyticsResponse {
@@ -208,12 +212,26 @@ export function useAnalyticsData(globalRange: TimeRange) {
     // freshly-completed entry could still be in the file. This filter
     // makes stale data visually invisible regardless of server lag.
     const today = todayUTC();
-    const data = txEraOnly(pendingPayload.entries).filter((d) => d.date >= today);
+    const data = (txEraOnly(pendingPayload.entries) as PendingUndelegationPoint[])
+      .filter((d) => d.date >= today)
+      .map((d) => ({ ...d, walletCount: d.walletCount ?? 0 }));
     const total = data.reduce((sum, d) => sum + d.value, 0);
+    // Headline reads "next 7d unbonding" instead of "all future unbonding".
+    // The 7d window is what the chart actually plots, and matches what
+    // people read off the bars.
+    const sevenDayCutoff = new Date(`${today}T00:00:00Z`);
+    sevenDayCutoff.setUTCDate(sevenDayCutoff.getUTCDate() + 7);
+    const cutoffStr = sevenDayCutoff.toISOString().slice(0, 10);
+    const next7d = data.filter((d) => d.date < cutoffStr);
+    const next7dTotal = next7d.reduce((sum, d) => sum + d.value, 0);
+    const next7dWallets = next7d.reduce((sum, d) => sum + (d.walletCount ?? 0), 0);
     return {
       data,
       total,
       formatted: formatLargeNumber(total),
+      next7dTotal,
+      next7dFormatted: formatLargeNumber(next7dTotal),
+      next7dWallets,
       updatedAt: pendingPayload.updatedAt,
     };
   }, [pendingPayload]);

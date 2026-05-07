@@ -105,11 +105,11 @@ export async function writePendingUndelegations(entries) {
     if (entries?.length) {
       const flat = [];
       for (const e of entries) {
-        flat.push(e.date, e.value);
+        flat.push(e.date, e.value, e.walletCount ?? 0);
       }
       await client.query(
-        `INSERT INTO pending_undelegations (date, value)
-         VALUES ${tuples(entries.length, 2)}`,
+        `INSERT INTO pending_undelegations (date, value, wallet_count)
+         VALUES ${tuples(entries.length, 3)}`,
         flat,
       );
     }

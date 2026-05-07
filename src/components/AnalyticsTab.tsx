@@ -249,9 +249,14 @@ export default function AnalyticsTab() {
           </div>
         )}
         <SpikeChart
-          title="Pending Undelegations"
+          title="Next 7d Undelegations"
+          subtitle={
+            pendingUndelegations.next7dWallets > 0
+              ? `${pendingUndelegations.next7dWallets.toLocaleString()} wallets · all future: ${pendingUndelegations.formatted} TX`
+              : `all future: ${pendingUndelegations.formatted} TX`
+          }
           data={pendingUndelegations.data}
-          total={pendingUndelegations.formatted}
+          total={pendingUndelegations.next7dFormatted}
         />
       </div>
     </div>
