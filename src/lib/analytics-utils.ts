@@ -3,9 +3,9 @@ export interface DataPoint {
   value: number;
 }
 
-export type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
+export type TimeRange = "24H" | "7D" | "30D" | "90D" | "1Y" | "ALL";
 
-export const TIME_RANGES: TimeRange[] = ["7D", "30D", "90D", "1Y", "ALL"];
+export const TIME_RANGES: TimeRange[] = ["24H", "7D", "30D", "90D", "1Y", "ALL"];
 
 /**
  * Filter data points to a time range relative to the latest data point.
@@ -17,6 +17,15 @@ export function filterByTimeRange(data: DataPoint[], range: TimeRange): DataPoin
   let cutoff: Date;
 
   switch (range) {
+    case "24H":
+      // Daily metrics store 1 row/day; 24H reduces to "the latest 1
+      // or 2 points". Subtracting 1 day from the latest timestamp
+      // keeps yesterday + today (when both exist) so the chart can
+      // still draw a 2-point line and the StatCard delta becomes
+      // today vs yesterday.
+      cutoff = new Date(latest);
+      cutoff.setDate(cutoff.getDate() - 1);
+      break;
     case "7D":
       cutoff = new Date(latest);
       cutoff.setDate(cutoff.getDate() - 7);
@@ -64,7 +73,7 @@ export function formatChartDate(dateStr: string, range: TimeRange): string {
   const d = new Date(dateStr + "T00:00:00");
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  if (range === "7D" || range === "30D") {
+  if (range === "24H" || range === "7D" || range === "30D") {
     return `${months[d.getMonth()]} ${d.getDate()}`;
   }
   if (range === "90D") {
