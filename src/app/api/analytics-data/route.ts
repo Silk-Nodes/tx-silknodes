@@ -64,18 +64,52 @@ const DATASET_COLUMN: Record<
 type DataPoint = { date: string; value: number };
 type PendingPoint = { date: string; value: number; walletCount: number };
 
+// Pending undelegations is loaded with a defensive fallback: if the
+// `wallet_count` column is missing (migration 006 not yet applied on a
+// given environment), Sequelize would throw and Promise.all would reject
+// the whole response, blanking the analytics page. We retry without the
+// new column so the page keeps rendering with walletCount=0 until the
+// migration runs. Any other error logs and returns an empty pending
+// payload — never enough to take metrics down with it.
+async function loadPending(): Promise<{
+  rows: Array<{ date: string | Date; value: string | number; wallet_count?: number; updated_at?: Date }>;
+}> {
+  try {
+    const rows = await PendingUndelegation.findAll({
+      order: [["date", "ASC"]],
+      raw: true,
+    });
+    return { rows };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/wallet_count/i.test(msg)) {
+      try {
+        const rows = await PendingUndelegation.findAll({
+          attributes: ["date", "value", "updated_at"],
+          order: [["date", "ASC"]],
+          raw: true,
+        });
+        return { rows: rows as never };
+      } catch (err2) {
+        console.error("[analytics-data] pending fallback failed:", err2);
+        return { rows: [] };
+      }
+    }
+    console.error("[analytics-data] pending query failed:", err);
+    return { rows: [] };
+  }
+}
+
 export async function GET() {
   try {
-    const [metricRows, pendingRows] = await Promise.all([
+    const [metricRows, pendingResult] = await Promise.all([
       DailyMetric.findAll({
         order: [["date", "ASC"]],
         raw: true,
       }),
-      PendingUndelegation.findAll({
-        order: [["date", "ASC"]],
-        raw: true,
-      }),
+      loadPending(),
     ]);
+    const pendingRows = pendingResult.rows;
 
     // Pivot: one row per day with 8 numeric columns -> 8 per-dataset
     // arrays. We drop null cells (e.g. a day that was partially
