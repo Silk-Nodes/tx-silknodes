@@ -27,7 +27,14 @@ REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "==> Pulling latest main from origin..."
 cd "$REPO_PATH"
-git pull origin main
+# Force the deploy onto main. Without this, if the VM is parked on a
+# feature/exploration branch (e.g. someone ran `git checkout` while
+# debugging), `git pull origin main` tries to merge main into that
+# branch and fails with "divergent branches" — leaving the live site
+# stuck on whatever was last built. Checkout main first so the pull is
+# always a fast-forward.
+git checkout main
+git pull --ff-only origin main
 
 echo "==> Installing dependencies..."
 npm install --no-audit --no-fund
