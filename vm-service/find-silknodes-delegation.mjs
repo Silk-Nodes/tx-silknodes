@@ -118,6 +118,23 @@ async function checkDelegationProvenance(delegator, valoper) {
   return simpler;
 }
 
+// Look up CosmWasm contract info for an address. Returns null if the
+// address is not a contract. Contracts have 65-char addresses (32-byte
+// payload) vs regular wallets at 43 chars (20-byte). We probe via the
+// public LCD; a 404 means "not a contract", anything else gets logged.
+async function tryFetchContractInfo(address) {
+  if (address.length < 60) return null; // optimization — not a contract addr
+  try {
+    const r = await fetch(`${LCD}/cosmwasm/wasm/v1/contract/${address}`);
+    if (r.status === 404) return null;
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.contract_info || null;
+  } catch {
+    return null;
+  }
+}
+
 // 4. Check if the delegator received a PSE transfer (auto-bond path).
 async function checkPseTransfer(address) {
   const d = await gql(`{
@@ -156,18 +173,30 @@ async function main() {
   console.log(`\nProvenance check for delegators ≥ ${TARGET_MIN_TX.toLocaleString()} TX:`);
   const big = delegations.filter((d) => d.amountTX >= TARGET_MIN_TX);
   for (const d of big) {
-    const psetransfers = await checkPseTransfer(d.delegator);
+    const [psetransfers, contractInfo] = await Promise.all([
+      checkPseTransfer(d.delegator),
+      tryFetchContractInfo(d.delegator),
+    ]);
     const psetTotal = psetransfers.reduce(
       (s, t) => s + Number(BigInt(t.amount)) / 10 ** DECIMALS,
       0,
     );
-    const verdict = psetTotal >= d.amountTX * 0.5
-      ? `PSE auto-bond (received ${psetTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX via PSE)`
-      : psetTotal > 0
-      ? `partial PSE (${psetTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX via PSE)`
-      : `unknown — likely bank send + self-bond, authz, or module op`;
+    let verdict;
+    if (contractInfo) {
+      verdict =
+        `🤖 SMART CONTRACT — label="${contractInfo.label || "?"}", ` +
+        `code_id=${contractInfo.code_id}, ` +
+        `creator=${contractInfo.creator}, ` +
+        `admin=${contractInfo.admin || "none"}`;
+    } else if (psetTotal >= d.amountTX * 0.5) {
+      verdict = `PSE auto-bond (received ${psetTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX via PSE)`;
+    } else if (psetTotal > 0) {
+      verdict = `partial PSE (${psetTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} TX via PSE)`;
+    } else {
+      verdict = `unknown — likely bank send + self-bond, authz, or module op`;
+    }
     console.log(
-      `  ${d.amountTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(13)} TX  ${d.delegator}  →  ${verdict}`,
+      `  ${d.amountTX.toLocaleString(undefined, { maximumFractionDigits: 0 }).padStart(13)} TX  ${d.delegator}\n      →  ${verdict}`,
     );
   }
 
