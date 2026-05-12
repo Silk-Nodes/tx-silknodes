@@ -114,26 +114,39 @@ const MSG_TYPES = [
   { url: "/cosmos.staking.v1beta1.MsgBeginRedelegate", eventName: "redelegate", type: "redelegate" },
 ];
 
-// Fallback module-level search. Catches delegations triggered by a
-// smart contract (MsgExecuteContract wrapping a staking call) or an
-// authz grant (MsgExec wrapping a delegate). The chain still emits the
-// standard delegate/unbond/redelegate events with attribute
-// `module=staking`, so we search by that attribute instead of the
-// top-level message type. parseTxAllStakingEvents() then iterates the
-// tx's events looking for any of the three staking event types.
+// Per-validator fallback search. Catches delegations triggered by
+// anything that doesn't surface a top-level Msg{Delegate,Undelegate,
+// BeginRedelegate} — smart contracts via MsgExecuteContract, authz
+// grants via MsgExec, Cosmos Group multisig via MsgVote/auto-exec.
+// The staking module always emits delegate/unbond/redelegate events
+// with a `validator` attribute regardless of trigger, so we query
+// that attribute per known validator.
 //
-// Dedupe via txHashSet means a tx that's also returned by one of the
-// MSG_TYPES searches won't be double-counted.
-const STAKING_MODULE_SEARCH = {
-  query: "message.module='staking'",
-  label: "staking-module-fallback",
-};
+// (We learned the hard way: `message.module='staking'` is NOT indexed
+// on Coreum's Tendermint RPC — that query returns 504 timeouts.
+// Per-validator event-attribute queries DO work.)
+//
+// Runs less frequently than the direct searches because it issues
+// (validators × 3 event types) queries per pass. txHashSet dedupes
+// against the direct-search ingestions.
+const PER_VALIDATOR_FALLBACK_MS = 5 * 60_000; // 5 min
+const PER_VALIDATOR_CONCURRENCY = 10;
+let lastPerValidatorFallback = 0;
 
-// Event-type-to-parsed-type map, used by the fallback search.
 const STAKING_EVENT_PARSERS = [
   { eventName: "delegate", type: "delegate" },
   { eventName: "unbond", type: "undelegate" },
   { eventName: "redelegate", type: "redelegate" },
+];
+
+// Per-event-type validator-attribute key. For delegate/unbond it's
+// just `validator`; for redelegate the destination is what matters
+// because that's where new stake landed (a redelegate has a source
+// AND destination, but the unbonding is identical-amount paired).
+const PER_VALIDATOR_QUERIES = [
+  { eventName: "delegate", attr: "validator" },
+  { eventName: "unbond", attr: "validator" },
+  { eventName: "redelegate", attr: "destination_validator" },
 ];
 
 // ═══ STATE ═══
@@ -959,22 +972,45 @@ async function pollMessageType(msgType) {
   );
 }
 
-// Catch delegations triggered indirectly — by a smart contract calling
-// the staking module via MsgExecuteContract, or by an authz grant via
-// MsgExec. tx_search filters on `message.action` only return the
-// top-level message URL, so contract/authz-wrapped delegations are
-// invisible to pollMessageType. But the staking module still emits the
-// standard delegate/unbond/redelegate events with attribute
-// `module=staking`, so this search catches them.
-//
-// Dedupe is handled by the shared txHashSet — a tx returned by both
-// pollMessageType and this fallback won't be double-counted.
-async function pollStakingModuleFallback() {
-  return pollSearch(
-    STAKING_MODULE_SEARCH.query,
-    parseTxAllStakingEvents,
-    STAKING_MODULE_SEARCH.label,
-  );
+// Catch delegations the direct-message searches miss — contract calls,
+// authz wrappers, Group multisig auto-exec. We poll per validator,
+// per event type, using attribute-keyed event search (which Coreum
+// DOES index, unlike message.module).
+async function pollPerValidatorFallback() {
+  const valopers = Object.keys(validatorMonikers);
+  if (valopers.length === 0) {
+    log("debug", "per-validator fallback: no validators known yet, skip");
+    return 0;
+  }
+
+  // Build query list: validators × event types. Each item is one
+  // tx_search call.
+  const items = [];
+  for (const v of valopers) {
+    for (const eq of PER_VALIDATOR_QUERIES) {
+      items.push({
+        query: `${eq.eventName}.${eq.attr}='${v}'`,
+        label: `${eq.eventName}@${v.slice(0, 24)}…`,
+      });
+    }
+  }
+
+  let totalNew = 0;
+  let i = 0;
+  const workers = Array.from({ length: PER_VALIDATOR_CONCURRENCY }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      const item = items[idx];
+      try {
+        totalNew += await pollSearch(item.query, parseTxAllStakingEvents, item.label);
+      } catch (e) {
+        log("warn", `per-validator pass ${item.label} failed: ${e.message}`);
+      }
+    }
+  });
+  await Promise.all(workers);
+  return totalNew;
 }
 
 function pruneOldEvents() {
@@ -1000,10 +1036,20 @@ async function poll() {
   for (const msgType of MSG_TYPES) {
     totalNew += await pollMessageType(msgType);
   }
-  // Fallback for contract/authz-wrapped delegations. Runs after the
-  // direct searches so the txHashSet already contains the common-case
-  // duplicates and we minimize re-parse work for txs we just ingested.
-  totalNew += await pollStakingModuleFallback();
+  // Fallback for contract/authz/group-wrapped delegations. Runs at most
+  // every PER_VALIDATOR_FALLBACK_MS to keep the query volume bounded
+  // (validators × 3 event types). Direct searches above keep the hot
+  // path snappy; this is the wide net for unusual paths.
+  if (Date.now() - lastPerValidatorFallback >= PER_VALIDATOR_FALLBACK_MS) {
+    lastPerValidatorFallback = Date.now();
+    const start = Date.now();
+    const fallbackNew = await pollPerValidatorFallback();
+    log(
+      "info",
+      `per-validator fallback: +${fallbackNew} events in ${((Date.now() - start) / 1000).toFixed(1)}s`,
+    );
+    totalNew += fallbackNew;
+  }
 
   if (totalNew > 0) {
     // Sort by timestamp descending (newest first)
