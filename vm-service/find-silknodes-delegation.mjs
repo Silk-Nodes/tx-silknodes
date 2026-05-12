@@ -34,20 +34,34 @@ async function gql(query) {
   return d.data;
 }
 
-// 1. Find the Silk Nodes valoper via Hasura validator descriptions.
+// 1. Find the Silk Nodes valoper. `validator_description.validator_address`
+// is actually the consensus address (corevalcons1...), which LCD's
+// delegations endpoint rejects. We need the operator address
+// (corevaloper1...), which lives on validator_info. Join via the
+// `validator` PK that both tables share.
 async function findSilknodesValoper() {
   if (args.valoper) return args.valoper;
   const d = await gql(`{
     validator_description(where: { moniker: { _ilike: "%silk%nodes%" } }) {
       moniker
       validator_address
+      validator {
+        validator_infos { operator_address self_delegate_address }
+      }
     }
   }`);
   const rows = d.validator_description || [];
   if (rows.length === 0) throw new Error("No validator with 'Silk Nodes' moniker found");
+  const found = rows
+    .map((r) => {
+      const info = r.validator?.validator_infos?.[0];
+      return info ? { moniker: r.moniker, operator: info.operator_address, selfBond: info.self_delegate_address } : null;
+    })
+    .filter(Boolean);
+  if (found.length === 0) throw new Error("Could not resolve operator_address via validator_info join");
   console.log("Candidate validators:");
-  for (const r of rows) console.log(`  ${r.moniker}  ${r.validator_address}`);
-  return rows[0].validator_address;
+  for (const f of found) console.log(`  ${f.moniker}  ${f.operator}  (self-bond: ${f.selfBond})`);
+  return found[0].operator;
 }
 
 // 2. Pull every delegation to that validator. LCD endpoint paginates.
