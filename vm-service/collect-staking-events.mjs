@@ -129,8 +129,17 @@ const MSG_TYPES = [
 // Runs less frequently than the direct searches because it issues
 // (validators × 3 event types) queries per pass. txHashSet dedupes
 // against the direct-search ingestions.
-const PER_VALIDATOR_FALLBACK_MS = 5 * 60_000; // 5 min
-const PER_VALIDATOR_CONCURRENCY = 10;
+// Tuned down after the first deploy hit Coreum RPC 429s: concurrency 10
+// blew through the public node's rate limit and starved pending-
+// undelegations / top-delegators refreshes that share the same RPC.
+// Concurrency 3 + 10 min interval keeps the wide net but with civilised
+// pressure on the RPC.
+const PER_VALIDATOR_FALLBACK_MS = 10 * 60_000;
+const PER_VALIDATOR_CONCURRENCY = 3;
+// Tiny inter-query delay inside each worker to further smooth the request
+// rate. 100 ms × 3 workers ≈ 30 req/s peak — well under the public node's
+// typical 60 req/s threshold.
+const PER_VALIDATOR_INTER_QUERY_MS = 100;
 let lastPerValidatorFallback = 0;
 
 const STAKING_EVENT_PARSERS = [
@@ -1006,6 +1015,12 @@ async function pollPerValidatorFallback() {
         totalNew += await pollSearch(item.query, parseTxAllStakingEvents, item.label);
       } catch (e) {
         log("warn", `per-validator pass ${item.label} failed: ${e.message}`);
+      }
+      // Smooth the request rate so we don't starve sibling RPC consumers
+      // (pending-undelegations refresh, top-delegators refresh, etc.)
+      // sharing this Coreum node.
+      if (PER_VALIDATOR_INTER_QUERY_MS > 0) {
+        await new Promise((r) => setTimeout(r, PER_VALIDATOR_INTER_QUERY_MS));
       }
     }
   });
