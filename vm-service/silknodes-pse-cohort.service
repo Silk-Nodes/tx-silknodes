@@ -1,0 +1,23 @@
+[Unit]
+Description=Silk Nodes PSE Cohort Snapshot Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-pse-cohort.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-pse-cohort
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+EnvironmentFile=-/home/%i/.silknodes-db.env
+# Each cycle × cohort_size = ~30s of Hasura. With 2 cycles × 3 sizes
+# that's ~3 min nominal. 15 min is a generous cap for transient slowness.
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

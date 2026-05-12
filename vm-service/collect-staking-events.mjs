@@ -105,10 +105,35 @@ const VALIDATOR_REFRESH_MS = 60 * 60_000;
 const MAX_EVENTS = 5000;
 const MAX_CONSECUTIVE_FAILURES = 5; // exit (systemd restarts) after this many failures in a row
 
+// Direct-message searches. Each polls Tendermint tx_search with a
+// `message.action` filter. These catch the common case of a user
+// signing a MsgDelegate / MsgUndelegate / MsgBeginRedelegate directly.
 const MSG_TYPES = [
   { url: "/cosmos.staking.v1beta1.MsgDelegate", eventName: "delegate", type: "delegate" },
   { url: "/cosmos.staking.v1beta1.MsgUndelegate", eventName: "unbond", type: "undelegate" },
   { url: "/cosmos.staking.v1beta1.MsgBeginRedelegate", eventName: "redelegate", type: "redelegate" },
+];
+
+// Fallback module-level search. Catches delegations triggered by a
+// smart contract (MsgExecuteContract wrapping a staking call) or an
+// authz grant (MsgExec wrapping a delegate). The chain still emits the
+// standard delegate/unbond/redelegate events with attribute
+// `module=staking`, so we search by that attribute instead of the
+// top-level message type. parseTxAllStakingEvents() then iterates the
+// tx's events looking for any of the three staking event types.
+//
+// Dedupe via txHashSet means a tx that's also returned by one of the
+// MSG_TYPES searches won't be double-counted.
+const STAKING_MODULE_SEARCH = {
+  query: "message.module='staking'",
+  label: "staking-module-fallback",
+};
+
+// Event-type-to-parsed-type map, used by the fallback search.
+const STAKING_EVENT_PARSERS = [
+  { eventName: "delegate", type: "delegate" },
+  { eventName: "unbond", type: "undelegate" },
+  { eventName: "redelegate", type: "redelegate" },
 ];
 
 // ═══ STATE ═══
@@ -317,6 +342,47 @@ function extractTxSigner(events) {
   return null;
 }
 
+function parseStakingEvent(event, eventType, hash, height, txSigner) {
+  const amountStr = extractAttribute(event, "amount");
+  const amount = parseAmount(amountStr || "");
+  if (amount < MIN_AMOUNT_TX) return null;
+
+  // Prefer the delegator attribute if present, fall back to the tx signer.
+  // Redelegate events never emit a delegator attribute, so txSigner is the
+  // only way to identify who initiated the redelegation. For contract-
+  // initiated delegations, the "delegator" attribute is the CONTRACT
+  // address (not the contract caller), which is exactly what we want —
+  // that's the wallet whose stake actually moved.
+  const delegator = extractAttribute(event, "delegator") || txSigner;
+
+  let validator = extractAttribute(event, "validator");
+  let sourceValidator = null;
+  let destinationValidator = null;
+
+  if (eventType.type === "redelegate") {
+    sourceValidator = extractAttribute(event, "source_validator");
+    destinationValidator = extractAttribute(event, "destination_validator");
+    validator = destinationValidator;
+  }
+
+  if (!delegator || !validator) return null;
+
+  return {
+    type: eventType.type,
+    height,
+    delegator,
+    validator,
+    ...(sourceValidator && { sourceValidator }),
+    ...(destinationValidator && { destinationValidator }),
+    amount,
+    txHash: hash,
+  };
+}
+
+// Direct-message parser. Only looks at events of the specific type the
+// caller is searching for (e.g. for MsgDelegate search, only `delegate`
+// events). This is the existing behavior, kept for the three direct
+// message-action searches.
 function parseTx(tx, msgType) {
   const hash = tx.hash;
   const height = parseInt(tx.height);
@@ -326,38 +392,30 @@ function parseTx(tx, msgType) {
   const results = [];
   for (const event of events) {
     if (event.type !== msgType.eventName) continue;
+    const parsed = parseStakingEvent(event, msgType, hash, height, txSigner);
+    if (parsed) results.push(parsed);
+  }
+  return results;
+}
 
-    const amountStr = extractAttribute(event, "amount");
-    const amount = parseAmount(amountStr || "");
-    if (amount < MIN_AMOUNT_TX) continue;
+// Fallback parser used by the `message.module='staking'` search. Scans
+// the tx's events array for ANY of the three staking event types — that
+// way a single MsgExecuteContract or MsgExec tx that triggers multiple
+// staking operations (rare but possible) is fully captured. The event
+// type defines whether the parsed record is a delegate / undelegate /
+// redelegate; the top-level message can be anything.
+function parseTxAllStakingEvents(tx) {
+  const hash = tx.hash;
+  const height = parseInt(tx.height);
+  const events = tx.tx_result?.events || [];
+  const txSigner = extractTxSigner(events);
 
-    // Prefer the delegator attribute if present, fall back to the tx signer.
-    // Redelegate events never emit a delegator attribute, so txSigner is the
-    // only way to identify who initiated the redelegation.
-    const delegator = extractAttribute(event, "delegator") || txSigner;
-
-    let validator = extractAttribute(event, "validator");
-    let sourceValidator = null;
-    let destinationValidator = null;
-
-    if (msgType.type === "redelegate") {
-      sourceValidator = extractAttribute(event, "source_validator");
-      destinationValidator = extractAttribute(event, "destination_validator");
-      validator = destinationValidator;
-    }
-
-    if (!delegator || !validator) continue;
-
-    results.push({
-      type: msgType.type,
-      height,
-      delegator,
-      validator,
-      ...(sourceValidator && { sourceValidator }),
-      ...(destinationValidator && { destinationValidator }),
-      amount,
-      txHash: hash,
-    });
+  const results = [];
+  for (const event of events) {
+    const eventType = STAKING_EVENT_PARSERS.find((p) => p.eventName === event.type);
+    if (!eventType) continue;
+    const parsed = parseStakingEvent(event, eventType, hash, height, txSigner);
+    if (parsed) results.push(parsed);
   }
   return results;
 }
@@ -850,15 +908,17 @@ async function refreshTopDelegators() {
 }
 
 // ═══ POLLING ═══
-async function pollMessageType(msgType) {
-  const q = encodeURIComponent(`"message.action='${msgType.url}'"`);
+// Shared core: hit tx_search with `query`, parse each returned tx via
+// `parser`, ingest novel staking events. Returns count of new events.
+async function pollSearch(query, parser, label) {
+  const q = encodeURIComponent(`"${query}"`);
   const url = `${RPC}/tx_search?query=${q}&per_page=100&order_by="desc"`;
 
   let data;
   try {
     data = await fetchWithRetry(url);
   } catch (e) {
-    log("warn", `tx_search failed for ${msgType.type}:`, e.message);
+    log("warn", `tx_search failed for ${label}:`, e.message);
     return 0;
   }
 
@@ -868,7 +928,7 @@ async function pollMessageType(msgType) {
   for (const tx of txs) {
     if (txHashSet.has(tx.hash)) continue;
 
-    const parsed = parseTx(tx, msgType);
+    const parsed = parser(tx);
     if (parsed.length === 0) {
       // Still add hash to dedupe set even if no events matched, to avoid reprocessing
       txHashSet.add(tx.hash);
@@ -886,9 +946,35 @@ async function pollMessageType(msgType) {
   }
 
   if (newCount > 0) {
-    log("info", `  ${msgType.type}: +${newCount} events`);
+    log("info", `  ${label}: +${newCount} events`);
   }
   return newCount;
+}
+
+async function pollMessageType(msgType) {
+  return pollSearch(
+    `message.action='${msgType.url}'`,
+    (tx) => parseTx(tx, msgType),
+    msgType.type,
+  );
+}
+
+// Catch delegations triggered indirectly — by a smart contract calling
+// the staking module via MsgExecuteContract, or by an authz grant via
+// MsgExec. tx_search filters on `message.action` only return the
+// top-level message URL, so contract/authz-wrapped delegations are
+// invisible to pollMessageType. But the staking module still emits the
+// standard delegate/unbond/redelegate events with attribute
+// `module=staking`, so this search catches them.
+//
+// Dedupe is handled by the shared txHashSet — a tx returned by both
+// pollMessageType and this fallback won't be double-counted.
+async function pollStakingModuleFallback() {
+  return pollSearch(
+    STAKING_MODULE_SEARCH.query,
+    parseTxAllStakingEvents,
+    STAKING_MODULE_SEARCH.label,
+  );
 }
 
 function pruneOldEvents() {
@@ -914,6 +1000,10 @@ async function poll() {
   for (const msgType of MSG_TYPES) {
     totalNew += await pollMessageType(msgType);
   }
+  // Fallback for contract/authz-wrapped delegations. Runs after the
+  // direct searches so the txHashSet already contains the common-case
+  // duplicates and we minimize re-parse work for txs we just ingested.
+  totalNew += await pollStakingModuleFallback();
 
   if (totalNew > 0) {
     // Sort by timestamp descending (newest first)
