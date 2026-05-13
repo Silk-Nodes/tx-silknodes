@@ -122,14 +122,24 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
     }
   };
 
-  const filteredEvents = useMemo(() => {
+  // Events that match the tier + type chips but BEFORE the global time
+  // window is applied. We surface its count in the empty state so a
+  // user who picks "1M+ undelegations" on 24H can see at a glance that
+  // matches exist beyond their window (e.g. "23 in the last 30 days")
+  // and what to widen to. Saves the "filter is broken!" gut-reaction.
+  const filteredIgnoringWindow = useMemo(() => {
     const byTier = filterByTiers(events, activeTiers);
-    const byType = byTier.filter((e) => activeTypes.has(e.type));
+    return byTier.filter((e) => activeTypes.has(e.type));
+  }, [events, activeTiers, activeTypes]);
+
+  const filteredEvents = useMemo(() => {
     const ms = feedWindowMs(globalRange);
-    if (ms == null) return byType;
+    if (ms == null) return filteredIgnoringWindow;
     const cutoff = Date.now() - ms;
-    return byType.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
-  }, [events, activeTiers, activeTypes, globalRange]);
+    return filteredIgnoringWindow.filter(
+      (e) => new Date(e.timestamp).getTime() >= cutoff,
+    );
+  }, [filteredIgnoringWindow, globalRange]);
 
   // Net stake flow over the filtered slice (delegates positive,
   // undelegates negative, redelegates neutral). Updates as filters
@@ -265,7 +275,26 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
 
             <div className="staking-feed-container">
               {filteredEvents.length === 0 ? (
-                <div className="staking-feed-empty-tier">No events match these filters</div>
+                <div className="staking-feed-empty-tier">
+                  {(() => {
+                    // If we're already at a window where the tier+type
+                    // filters return zero, there's nothing else to suggest.
+                    // But if broadening the window would surface matches,
+                    // tell the user explicitly. 0 of 23 in 24h reads very
+                    // differently from "no events match these filters".
+                    const beyondWindow = filteredIgnoringWindow.length;
+                    if (beyondWindow === 0 || globalRange === "ALL") {
+                      return <span>No events match these filters</span>;
+                    }
+                    return (
+                      <span>
+                        No events match in <strong>{feedWindowLabel(globalRange)}</strong>.{" "}
+                        <strong>{beyondWindow.toLocaleString()}</strong>{" "}
+                        match across the last 3 months — try a wider window above.
+                      </span>
+                    );
+                  })()}
+                </div>
               ) : (
                 filteredEvents.map((event) => (
                   <StakingFeedRow
