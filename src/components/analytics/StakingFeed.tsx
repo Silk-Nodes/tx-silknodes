@@ -122,15 +122,34 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
     }
   };
 
+  // Stable string keys derived from the Set state. We use these as the
+  // useMemo deps instead of the Set objects directly. React compares
+  // deps with Object.is; Sets returned by setActiveTypes((prev) =>
+  // new Set(...)) usually change identity each call, but in production
+  // builds we've observed memos stale-caching against the old Set
+  // (Rose's bug: footer showed Filters=undelegate but filteredEvents
+  // still contained delegate rows). A primitive string key makes the
+  // dep comparison rock-solid.
+  const activeTypesKey = Array.from(activeTypes).sort().join(",");
+  const activeTiersKey = Array.from(activeTiers).sort().join(",");
+
   // Events that match the tier + type chips but BEFORE the global time
   // window is applied. We surface its count in the empty state so a
   // user who picks "1M+ undelegations" on 24H can see at a glance that
   // matches exist beyond their window (e.g. "23 in the last 30 days")
   // and what to widen to. Saves the "filter is broken!" gut-reaction.
+  //
+  // Re-derive the actual filter primitives INSIDE the memo (not closed
+  // over from the outer Set state) so the filter never sees a stale
+  // snapshot. Belt-and-braces.
   const filteredIgnoringWindow = useMemo(() => {
-    const byTier = filterByTiers(events, activeTiers);
-    return byTier.filter((e) => activeTypes.has(e.type));
-  }, [events, activeTiers, activeTypes]);
+    const activeTypeList = activeTypesKey ? activeTypesKey.split(",") : [];
+    const activeTierList = activeTiersKey ? activeTiersKey.split(",") : [];
+    const byTier = filterByTiers(events, new Set(activeTierList as FeedTier[]));
+    if (activeTypeList.length === 0) return [];
+    return byTier.filter((e) => activeTypeList.includes(e.type));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, activeTypesKey, activeTiersKey]);
 
   const filteredEvents = useMemo(() => {
     const ms = feedWindowMs(globalRange);
@@ -273,7 +292,13 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
               })}
             </div>
 
-            <div className="staking-feed-container">
+            <div
+              className="staking-feed-container"
+              data-active-types={activeTypesKey || "(none)"}
+              data-active-tiers={activeTiersKey || "(all)"}
+              data-filtered-count={filteredEvents.length}
+              data-source-count={events.length}
+            >
               {filteredEvents.length === 0 ? (
                 <div className="staking-feed-empty-tier">
                   {(() => {
@@ -321,7 +346,12 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
               {/* Belt-and-braces filter summary. The chip state is the
                   canonical control, but a textual readout means an active
                   filter can never silently hide behind a low-contrast dot
-                  state again. Surfaces tier and type combos in one line. */}
+                  state again. Surfaces tier and type combos in one line.
+                  Iterates TYPE_FILTERS / FEED_TIERS rather than the Sets so
+                  the order in the readout always matches the chip row
+                  (Sets iterate in insertion order, which drifts on
+                  toggle-off-then-back-on). Uses the user-facing labels
+                  ("Delegations") not the raw slugs ("delegate"). */}
               {(activeTypes.size < 3 || !showAllTiers) && (
                 <>
                   {" · "}
@@ -329,11 +359,15 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
                     Filters:{" "}
                     {activeTypes.size === 3
                       ? "all types"
-                      : Array.from(activeTypes).join(" + ")}
+                      : TYPE_FILTERS.filter((f) => activeTypes.has(f.type))
+                          .map((f) => f.label)
+                          .join(" + ")}
                     {!showAllTiers && (
                       <>
                         {", "}
-                        {Array.from(activeTiers).map((t) => TIER_LABELS[t]).join(" + ")}
+                        {FEED_TIERS.filter((t) => t !== "all" && activeTiers.has(t))
+                          .map((t) => TIER_LABELS[t])
+                          .join(" + ")}
                       </>
                     )}
                   </span>
