@@ -1,13 +1,20 @@
 [Unit]
 Description=Run Silk Nodes PSE Cohort Snapshot Collector daily
-Requires=silknodes-pse-cohort.service
+# Templated reference — when this timer is enabled as
+# `silknodes-pse-cohort@zoltan.timer`, %i expands to "zoltan" and points
+# at the actual templated service unit silknodes-pse-cohort@zoltan.service
+# that the service file (with User=%i) lives at. The previous form
+# `Requires=silknodes-pse-cohort.service` (no instance) silently failed:
+# the timer enabled, but systemd had nothing to fire when its trigger
+# elapsed — five days of zero snapshots before we noticed.
+Requires=silknodes-pse-cohort@%i.service
 
 [Timer]
 # 03:30 UTC daily — well after the 02:00 daily metrics window so we don't
 # fight for connection-pool slots. Persistent so a reboot doesn't miss a run.
 OnCalendar=*-*-* 03:30:00 UTC
 Persistent=true
-Unit=silknodes-pse-cohort.service
+Unit=silknodes-pse-cohort@%i.service
 
 [Install]
 WantedBy=timers.target
