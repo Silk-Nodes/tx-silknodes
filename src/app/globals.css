@@ -185,17 +185,20 @@
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-/* And in light mode, the existing white-ish active fill is fine, but
-   the dot can still get lost on its own type's color when chip+dot
-   colors match. A border around the chip in the dot's color makes
-   active state legible at a glance for every type. */
-.staking-type-chip.active {
-  position: relative;
+/* Hover-on-active must beat the generic dark-mode chip-hover rule
+   (which sets background to olive and would otherwise wipe out the
+   lime active fill on every hover-to-click). Same source position
+   would tie on specificity with the hover rule below; adding
+   `:hover` here bumps specificity by one pseudo-class so this wins. */
+:root[data-theme="dark"] .staking-type-chip.active:hover {
+  background: rgba(177, 252, 3, 0.22) !important;
 }
+
+/* Active-state legibility in both themes. The chip background and the
+   dot can share a hue (e.g. Delegations + olive accent), so we scale
+   the dot up slightly and give it a soft white halo so it always pops
+   regardless of what colour the chip itself is. */
 .staking-type-chip.active .staking-type-chip-dot {
-  /* Scale up + outer halo so the active dot pops even against a chip
-     background that happens to be the same hue. Especially helps the
-     Delegations + olive-chip-bg case. */
   width: 10px;
   height: 10px;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
