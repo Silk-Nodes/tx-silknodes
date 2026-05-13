@@ -173,8 +173,32 @@
 }
 
 :root[data-theme="dark"] .staking-type-chip.active {
-  background: rgba(40, 60, 25, 0.85) !important;
-  color: var(--text-dark) !important;
+  /* Earlier rule used rgba(40, 60, 25, 0.85) which is nearly the same
+     dark-olive as both the inactive chip background and the Delegations
+     dot color — making an active Delegations chip indistinguishable
+     from an inactive one. Bumped to a higher-contrast lime-tinted fill
+     and a brighter border so any active chip is unambiguous regardless
+     of its dot colour. */
+  background: rgba(177, 252, 3, 0.18) !important;
+  border-color: rgba(177, 252, 3, 0.55) !important;
+  color: var(--text-bright, #f1f6ec) !important;
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* And in light mode, the existing white-ish active fill is fine, but
+   the dot can still get lost on its own type's color when chip+dot
+   colors match. A border around the chip in the dot's color makes
+   active state legible at a glance for every type. */
+.staking-type-chip.active {
+  position: relative;
+}
+.staking-type-chip.active .staking-type-chip-dot {
+  /* Scale up + outer halo so the active dot pops even against a chip
+     background that happens to be the same hue. Especially helps the
+     Delegations + olive-chip-bg case. */
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
 :root[data-theme="dark"] .filter-chip:hover,
