@@ -323,7 +323,25 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
               ) : (
                 filteredEvents.map((event) => (
                   <StakingFeedRow
-                    key={event.txHash + event.type + event.height}
+                    // The old key (txHash + type + height) collides for batched
+                    // transactions — e.g. the TX Foundation Group-multisig tx
+                    // contained 60 delegate events sharing one txHash, one
+                    // height, and type='delegate'. React de-duplicates by key,
+                    // and reconciliation across filter changes can't reliably
+                    // map old DOM to new render output when keys clash, so
+                    // stale rows pile up (Rose's 111-rows-with-filtered-count-24
+                    // bug). Including delegator + validator makes every row a
+                    // distinct identity; redelegate needs source_validator too
+                    // because a wallet can redelegate from N source validators
+                    // to the same destination in one tx.
+                    key={
+                      event.txHash +
+                      "|" + event.type +
+                      "|" + event.height +
+                      "|" + event.delegator +
+                      "|" + event.validator +
+                      "|" + (event.sourceValidator || "")
+                    }
                     event={event}
                     validators={validators}
                     now={now}
