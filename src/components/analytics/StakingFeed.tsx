@@ -318,6 +318,27 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
                   </span>
                 </>
               )}
+              {/* Belt-and-braces filter summary. The chip state is the
+                  canonical control, but a textual readout means an active
+                  filter can never silently hide behind a low-contrast dot
+                  state again. Surfaces tier and type combos in one line. */}
+              {(activeTypes.size < 3 || !showAllTiers) && (
+                <>
+                  {" · "}
+                  <span style={{ opacity: 0.75 }}>
+                    Filters:{" "}
+                    {activeTypes.size === 3
+                      ? "all types"
+                      : Array.from(activeTypes).join(" + ")}
+                    {!showAllTiers && (
+                      <>
+                        {", "}
+                        {Array.from(activeTiers).map((t) => TIER_LABELS[t]).join(" + ")}
+                      </>
+                    )}
+                  </span>
+                </>
+              )}
             </div>
           </>
         ) : (
