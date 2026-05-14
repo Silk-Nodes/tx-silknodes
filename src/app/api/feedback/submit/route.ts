@@ -12,7 +12,7 @@
 import { NextResponse } from "next/server";
 import { Op } from "sequelize";
 import { FeatureRequest } from "@/lib/db/models";
-import { getOrSetVoterId, getClientIp } from "@/lib/feedback/voter-id";
+import { applyVoterCookie, getOrSetVoterId, getClientIp } from "@/lib/feedback/voter-id";
 import { verifyHcaptcha } from "@/lib/feedback/hcaptcha";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ interface SubmitBody {
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
-    const { voterId, setCookieHeader } = getOrSetVoterId(req);
+    const { voterId, isFresh } = getOrSetVoterId(req);
 
     let body: SubmitBody;
     try {
@@ -98,9 +98,7 @@ export async function POST(req: Request) {
       status: "open",
     });
 
-    const headers: Record<string, string> = { "cache-control": "no-store" };
-    if (setCookieHeader) headers["set-cookie"] = setCookieHeader;
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         id: Number(row.id),
         title: row.title,
@@ -110,8 +108,10 @@ export async function POST(req: Request) {
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
         hasVoted: false,
       },
-      { status: 201, headers },
+      { status: 201, headers: { "cache-control": "no-store" } },
     );
+    if (isFresh) applyVoterCookie(response, voterId);
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(

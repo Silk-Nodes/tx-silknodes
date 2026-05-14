@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import { Op, QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 import { FeatureRequest } from "@/lib/db/models";
-import { getOrSetVoterId } from "@/lib/feedback/voter-id";
+import { applyVoterCookie, getOrSetVoterId } from "@/lib/feedback/voter-id";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,9 +32,13 @@ export async function GET(req: Request) {
       where.status = statusFilter;
     }
 
-    // Read-only: don't mint a cookie if there isn't one yet. The voter
-    // ID is only created when someone actually votes or submits.
-    const voterId = req.headers.get("cookie")?.match(/(?:^|; )txfb_v=([^;]+)/)?.[1] ?? null;
+    // Mint the voter cookie on first list load so subsequent votes
+    // already have a stable ID to dedupe against. Without this, the very
+    // first vote click set the cookie + counted a vote in the same
+    // request, but then the response could race with the optimistic UI
+    // and the user's cookie would only stick from the second click on,
+    // making it look like votes weren't unique.
+    const { voterId, isFresh } = getOrSetVoterId(req);
 
     const order: [string, "ASC" | "DESC"][] = sort === "votes"
       ? [["vote_count", "DESC"], ["created_at", "DESC"]]
@@ -73,10 +77,12 @@ export async function GET(req: Request) {
       hasVoted: votedSet.has(Number(r.id)),
     }));
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { items, total: items.length },
       { headers: { "cache-control": "no-store" } },
     );
+    if (isFresh) applyVoterCookie(response, voterId);
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
