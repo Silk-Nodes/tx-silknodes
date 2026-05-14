@@ -146,9 +146,14 @@ export default function FeedbackTab() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Capture the form element BEFORE any await — React nulls
+    // event.currentTarget once the synchronous handler returns, so
+    // touching it after `await fetch(...)` throws
+    // "Cannot read properties of null (reading 'reset')".
+    const form = e.currentTarget;
     setSubmitState("submitting");
     setSubmitError(null);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
     const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim(),
@@ -170,7 +175,7 @@ export default function FeedbackTab() {
         return;
       }
       setSubmitState("ok");
-      e.currentTarget.reset();
+      form.reset();
       setHCaptchaToken(null);
       const w = window as unknown as { hcaptcha?: { reset: (id: string) => void } };
       if (captchaWidgetId.current && w.hcaptcha) w.hcaptcha.reset(captchaWidgetId.current);
