@@ -35,6 +35,7 @@ import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
 import AnalyticsTab from "@/components/AnalyticsTab";
 import FlowsTab from "@/components/FlowsTab";
+import FeedbackTab from "@/components/FeedbackTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -60,7 +61,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio";
+type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback";
 
 const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "overview", label: "Overview" },
@@ -72,6 +73,7 @@ const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "rwa", label: "RWA" },
   { id: "validators", label: "Validators" },
   { id: "silknodes", label: "Silk Nodes" },
+  { id: "feedback", label: "Feedback" },
 ];
 
 export default function HomePage() {
@@ -615,6 +617,8 @@ export default function HomePage() {
         {activeTab === "silknodes" && (
           <SilkNodesTab networkStatus={networkStatus} stakingData={stakingData} validators={validators} setActiveTab={setActiveTab} wallet={wallet} setShowWalletModal={setShowWalletModal} />
         )}
+
+        {activeTab === "feedback" && <FeedbackTab />}
 
         {activeTab === "portfolio" && wallet.connected && (
           <PortfolioTab
