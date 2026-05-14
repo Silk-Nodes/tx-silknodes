@@ -6903,3 +6903,38 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(180, 74, 62, 0.15);
   color: #d88378;
 }
+
+/* Soft CTA shown at the bottom of Analytics + Flows tabs */
+.feedback-soft-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 40px auto 16px;
+  padding: 14px 22px;
+  max-width: 720px;
+  border-radius: 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-medium);
+  flex-wrap: wrap;
+  text-align: center;
+}
+.feedback-soft-cta-emoji { font-size: 1.1rem; line-height: 1; }
+.feedback-soft-cta-btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(177, 252, 3, 0.18);
+  border: 1px solid rgba(177, 252, 3, 0.55);
+  color: var(--text-bright, #f4f1eb);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.feedback-soft-cta-btn:hover { background: rgba(177, 252, 3, 0.3); }

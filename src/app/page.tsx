@@ -620,6 +620,26 @@ export default function HomePage() {
 
         {activeTab === "feedback" && <FeedbackTab />}
 
+        {/* Soft CTA — only on info-heavy tabs where the user has just
+            consumed a lot of data and is most likely to think 'I wish
+            this also showed X'. Avoids cluttering Overview / Portfolio. */}
+        {(activeTab === "analytics" || activeTab === "flows") && (
+          <div className="feedback-soft-cta">
+            <span className="feedback-soft-cta-emoji">💡</span>
+            <span>Got an idea for what we should build next?</span>
+            <button
+              type="button"
+              className="feedback-soft-cta-btn"
+              onClick={() => {
+                setActiveTab("feedback");
+                trackEvent("feedback_soft_cta_click", { from_tab: activeTab });
+              }}
+            >
+              Request a feature →
+            </button>
+          </div>
+        )}
+
         {activeTab === "portfolio" && wallet.connected && (
           <PortfolioTab
             wallet={wallet}
