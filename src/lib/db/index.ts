@@ -90,6 +90,10 @@ const REQUIRED_TABLES = [
   "exchange_flows_state",
   // 005_entity_submissions.sql
   "entity_submissions",
+  // 006-007 add columns, no new tables
+  // 008_feature_requests.sql
+  "feature_requests",
+  "feature_request_votes",
 ];
 
 if (!globalThis.__txSilknodesMigrationCheckRan && process.env.PGUSER) {

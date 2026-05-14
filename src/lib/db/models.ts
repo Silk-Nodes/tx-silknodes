@@ -19,6 +19,7 @@ import {
   Model,
   type InferAttributes,
   type InferCreationAttributes,
+  type CreationOptional,
 } from "sequelize";
 import { sequelize } from "./index";
 
@@ -304,4 +305,60 @@ PseScore.init(
     payload: { type: DataTypes.JSONB },
   },
   { sequelize, tableName: "pse_score", timestamps: false, underscored: true },
+);
+
+// ─── feature_requests ────────────────────────────────────────────────────
+// Public feature-request board served at /feedback. The submitter_ip /
+// voter_ip columns exist for abuse forensics — never returned by the
+// public API.
+export type FeatureRequestStatus = "open" | "planned" | "in_progress" | "shipped" | "declined";
+
+export class FeatureRequest extends Model<
+  InferAttributes<FeatureRequest>,
+  InferCreationAttributes<FeatureRequest>
+> {
+  declare id: CreationOptional<number>;
+  declare title: string;
+  declare description: string;
+  declare status: FeatureRequestStatus;
+  declare vote_count: CreationOptional<number>;
+  declare submitter_id: string | null;
+  declare submitter_ip: string | null;
+  declare hidden: CreationOptional<boolean>;
+  declare created_at: CreationOptional<Date>;
+  declare updated_at: CreationOptional<Date>;
+}
+FeatureRequest.init(
+  {
+    id: { type: DataTypes.BIGINT, autoIncrement: true, primaryKey: true },
+    title: { type: DataTypes.TEXT, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    status: { type: DataTypes.TEXT, allowNull: false, defaultValue: "open" },
+    vote_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    submitter_id: { type: DataTypes.TEXT, allowNull: true },
+    submitter_ip: { type: DataTypes.TEXT, allowNull: true },
+    hidden: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    created_at: { type: DataTypes.DATE, allowNull: false },
+    updated_at: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize, tableName: "feature_requests", timestamps: false, underscored: true },
+);
+
+export class FeatureRequestVote extends Model<
+  InferAttributes<FeatureRequestVote>,
+  InferCreationAttributes<FeatureRequestVote>
+> {
+  declare request_id: number;
+  declare voter_id: string;
+  declare voter_ip: string | null;
+  declare created_at: CreationOptional<Date>;
+}
+FeatureRequestVote.init(
+  {
+    request_id: { type: DataTypes.BIGINT, primaryKey: true },
+    voter_id: { type: DataTypes.TEXT, primaryKey: true },
+    voter_ip: { type: DataTypes.TEXT, allowNull: true },
+    created_at: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize, tableName: "feature_request_votes", timestamps: false, underscored: true },
 );
