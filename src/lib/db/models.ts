@@ -338,8 +338,13 @@ FeatureRequest.init(
     submitter_id: { type: DataTypes.TEXT, allowNull: true },
     submitter_ip: { type: DataTypes.TEXT, allowNull: true },
     hidden: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-    created_at: { type: DataTypes.DATE, allowNull: false },
-    updated_at: { type: DataTypes.DATE, allowNull: false },
+    // The DB has DEFAULT NOW() on both, but Sequelize validates
+    // allowNull BEFORE letting Postgres apply its default — which fails
+    // a create() that doesn't pass these explicitly. Telling Sequelize
+    // about DataTypes.NOW makes it set them client-side at insert time
+    // (or honour the DB default if we ever do raw queries).
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   },
   { sequelize, tableName: "feature_requests", timestamps: false, underscored: true },
 );
@@ -358,7 +363,9 @@ FeatureRequestVote.init(
     request_id: { type: DataTypes.BIGINT, primaryKey: true },
     voter_id: { type: DataTypes.TEXT, primaryKey: true },
     voter_ip: { type: DataTypes.TEXT, allowNull: true },
-    created_at: { type: DataTypes.DATE, allowNull: false },
+    // See FeatureRequest above — DataTypes.NOW makes Sequelize set this
+    // client-side instead of failing its allowNull validation.
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   },
   { sequelize, tableName: "feature_request_votes", timestamps: false, underscored: true },
 );
