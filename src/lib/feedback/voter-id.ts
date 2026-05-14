@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { NextResponse } from "next/server";
 
 // One-year cookie that opaquely identifies a browser for vote-uniqueness
 // purposes. Cleared = revote, that's fine for v1 — vote counts are signal,
@@ -9,30 +10,34 @@ const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365;
 
 export interface VoterContext {
   voterId: string;
-  setCookieHeader: string | null; // null when the cookie already existed
+  isFresh: boolean; // true when we just minted this id (caller must persist via response.cookies)
 }
 
 export function getOrSetVoterId(req: Request): VoterContext {
   const cookieHeader = req.headers.get("cookie") || "";
   const existing = cookieHeader.match(/(?:^|; )txfb_v=([^;]+)/)?.[1];
   if (existing) {
-    return { voterId: existing, setCookieHeader: null };
+    return { voterId: existing, isFresh: false };
   }
-  const fresh = randomUUID();
-  // SameSite=Lax: voting is a state-change-on-same-origin action, no
-  // need for third-party context. HttpOnly: voter ID is server-side
-  // logic only — no client JS needs to read it. Secure on prod (the
-  // browser still sends over https; localhost dev gets non-Secure).
+  return { voterId: randomUUID(), isFresh: true };
+}
+
+// Apply the voter-id cookie to a NextResponse. Centralised here so all
+// three routes (list/submit/vote) use the same options and so we use the
+// canonical Next.js API instead of hand-rolling a Set-Cookie header
+// (which doesn't always serialise correctly in some App Router edge cases).
+export function applyVoterCookie<T>(res: NextResponse<T>, voterId: string): NextResponse<T> {
   const isProd = process.env.NODE_ENV === "production";
-  const parts = [
-    `${COOKIE_NAME}=${fresh}`,
-    "Path=/",
-    `Max-Age=${COOKIE_MAX_AGE_SEC}`,
-    "SameSite=Lax",
-    "HttpOnly",
-  ];
-  if (isProd) parts.push("Secure");
-  return { voterId: fresh, setCookieHeader: parts.join("; ") };
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: voterId,
+    path: "/",
+    maxAge: COOKIE_MAX_AGE_SEC,
+    sameSite: "lax",
+    httpOnly: true,
+    secure: isProd,
+  });
+  return res;
 }
 
 // Extract a best-effort client IP from common proxy headers. We're

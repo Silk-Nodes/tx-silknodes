@@ -73,7 +73,10 @@ export default function FeedbackTab() {
       const qs = new URLSearchParams();
       if (statusFilter !== "all") qs.set("status", statusFilter);
       qs.set("sort", sort);
-      const res = await fetch(`/api/feedback/list?${qs.toString()}`, { cache: "no-store" });
+      const res = await fetch(`/api/feedback/list?${qs.toString()}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
       const data = await res.json();
       setItems(Array.isArray(data.items) ? data.items : []);
     } finally {
