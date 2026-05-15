@@ -6659,7 +6659,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 1.6rem;
   font-weight: 700;
   margin: 0 0 6px;
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
 }
 .feedback-sub {
   font-size: 0.85rem;
@@ -6673,7 +6673,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius-pill);
   background: rgba(177, 252, 3, 0.18);
   border: 1px solid rgba(177, 252, 3, 0.55);
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 600;
@@ -6709,7 +6709,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 8px;
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.04);
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
   font-family: var(--font-sans);
   font-size: 0.9rem;
   resize: vertical;
@@ -6762,7 +6762,7 @@ input[type="range"]::-moz-range-thumb {
 .feedback-status-chip.active {
   background: rgba(177, 252, 3, 0.18);
   border-color: rgba(177, 252, 3, 0.55);
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
 }
 .feedback-sort {
   display: flex;
@@ -6783,7 +6783,7 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 .feedback-sort-btn.active {
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
   border-color: rgba(177, 252, 3, 0.4);
 }
 
@@ -6846,7 +6846,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.95rem;
   font-weight: 700;
   margin: 0;
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
 }
 .feedback-card-desc {
   margin: 0;
@@ -6929,7 +6929,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius-pill);
   background: rgba(177, 252, 3, 0.18);
   border: 1px solid rgba(177, 252, 3, 0.55);
-  color: var(--text-bright, #f4f1eb);
+  color: var(--text-dark);
   font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 600;
@@ -6938,3 +6938,86 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .feedback-soft-cta-btn:hover { background: rgba(177, 252, 3, 0.3); }
+
+/* ── Light-mode overrides for the feedback page ──
+   The default rules above use pale-lime backgrounds (rgba(177,252,3,~0.2))
+   which look fine on dark olive but wash out to near-invisible on the
+   light theme's near-white surface. Replace them with solid neon
+   accents + dark-green text, matching the pattern used by .time-pill
+   .active elsewhere — high contrast in both themes. */
+:root:not([data-theme="dark"]) .feedback-submit-btn,
+:root:not([data-theme="dark"]) .feedback-status-chip.active,
+:root:not([data-theme="dark"]) .feedback-soft-cta-btn {
+  background: var(--tx-neon);
+  border-color: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root:not([data-theme="dark"]) .feedback-submit-btn:hover,
+:root:not([data-theme="dark"]) .feedback-soft-cta-btn:hover {
+  background: var(--tx-neon-light);
+}
+:root:not([data-theme="dark"]) .feedback-vote.voted {
+  background: var(--tx-neon);
+  border-color: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root:not([data-theme="dark"]) .feedback-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(74, 122, 26, 0.18);
+}
+:root:not([data-theme="dark"]) .feedback-card:hover {
+  border-color: rgba(74, 122, 26, 0.5);
+}
+:root:not([data-theme="dark"]) .feedback-vote {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(74, 122, 26, 0.18);
+}
+:root:not([data-theme="dark"]) .feedback-vote:hover {
+  border-color: rgba(74, 122, 26, 0.5);
+}
+:root:not([data-theme="dark"]) .feedback-status-chip {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(74, 122, 26, 0.18);
+  color: var(--text-medium);
+}
+:root:not([data-theme="dark"]) .feedback-sort-btn.active {
+  background: rgba(177, 252, 3, 0.35);
+  border-color: var(--tx-neon);
+  color: var(--tx-dark-green);
+}
+:root:not([data-theme="dark"]) .feedback-form {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(74, 122, 26, 0.18);
+}
+:root:not([data-theme="dark"]) .feedback-form-row input,
+:root:not([data-theme="dark"]) .feedback-form-row textarea {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(74, 122, 26, 0.25);
+  color: var(--text-dark);
+}
+:root:not([data-theme="dark"]) .feedback-soft-cta {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(74, 122, 26, 0.18);
+}
+/* Status badges — light-mode variants need solid backgrounds to read
+   against the pale page surface. */
+:root:not([data-theme="dark"]) .feedback-status-badge.status-open {
+  background: rgba(74, 122, 26, 0.12);
+  color: var(--text-dark);
+}
+:root:not([data-theme="dark"]) .feedback-status-badge.status-planned {
+  background: rgba(74, 122, 200, 0.18);
+  color: #2a5fa6;
+}
+:root:not([data-theme="dark"]) .feedback-status-badge.status-in_progress {
+  background: rgba(216, 138, 58, 0.22);
+  color: #a55a18;
+}
+:root:not([data-theme="dark"]) .feedback-status-badge.status-shipped {
+  background: rgba(74, 122, 26, 0.22);
+  color: #2d5710;
+}
+:root:not([data-theme="dark"]) .feedback-status-badge.status-declined {
+  background: rgba(180, 74, 62, 0.18);
+  color: #8a2c20;
+}
