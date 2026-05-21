@@ -205,10 +205,15 @@ export async function GET(
     const votesByAddr = new Map<string, HasuraVote>();
     for (const v of propData.proposal_vote) votesByAddr.set(v.voter_address, v);
 
-    // Assemble per-validator vote rows. Bonded status here is approximate:
-    // status 3 = BOND_STATUS_BONDED in Cosmos SDK staking module.
+    // Assemble per-validator vote rows. We restrict to currently bonded,
+    // non-jailed validators (Cosmos SDK status 3 = BOND_STATUS_BONDED). The
+    // unbonded/unbonding/jailed set is noise on this page since they don't
+    // have voting power in the active set anyway. We still keep delegator
+    // votes from those validators' self-delegate addresses elsewhere if
+    // they cast votes, but the table itself only lists the active set.
     const validatorVotes: ValidatorVoteRow[] = [];
     for (const v of byConsensus.values()) {
+      if (v.status !== 3 || v.jailed) continue;
       const vote = v.selfDelegateAddress ? votesByAddr.get(v.selfDelegateAddress) : undefined;
       validatorVotes.push({
         ...v,
