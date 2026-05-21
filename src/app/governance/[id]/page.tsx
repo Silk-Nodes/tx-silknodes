@@ -5,6 +5,8 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useProposalDetail, type ValidatorVote } from "@/hooks/useProposalDetail";
+import { useCosmosWallet } from "@/hooks/useCosmosWallet";
+import { useUserDelegations } from "@/hooks/useUserDelegations";
 import { explainProposal, projectActiveVote } from "@/lib/governance-explainer";
 import {
   STATUS_LABELS,
@@ -21,6 +23,11 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
   const { id: idStr } = use(params);
   const id = Number(idStr);
   const { data, loading, error } = useProposalDetail(Number.isFinite(id) ? id : null);
+  // Wallet + delegations are lifted to the page so both the vote panel and
+  // the validator table can react to "YOUR VALIDATOR" highlighting without
+  // each component running its own wallet connect flow.
+  const wallet = useCosmosWallet();
+  const { delegations } = useUserDelegations(wallet.address);
 
   if (!Number.isFinite(id)) {
     return <Shell><div className="prop-page-error">Invalid proposal id.</div></Shell>;
@@ -130,8 +137,17 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
           </div>
         </section>
 
-        {/* Vote panel for active proposals */}
-        {isActive && <VotePanel proposalId={proposal.id} isActive={isActive} />}
+        {/* Vote panel for active proposals - lifted wallet so it can show
+            the user's validators' votes inline as an override summary. */}
+        {isActive && (
+          <VotePanel
+            proposalId={proposal.id}
+            isActive={isActive}
+            wallet={wallet}
+            userDelegations={delegations}
+            validators={validators}
+          />
+        )}
 
         {/* Explainer */}
         <Section title="What this proposal does" subtitle="Plain-English breakdown from on-chain content.">
@@ -161,6 +177,7 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
           <ValidatorVoteTable
             validators={validators}
             totalBonded={tally.bondedSnapshot}
+            highlightAddresses={delegations.map((d) => d.operatorAddress)}
           />
         </Section>
 

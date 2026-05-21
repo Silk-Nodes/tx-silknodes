@@ -155,6 +155,145 @@ export function explainProposal(p: Proposal): ExplainerSection {
       };
     }
 
+    case "/cosmos.gov.v1.MsgExecLegacyContent": {
+      // Wraps a v1beta1 legacy proposal. Peek inside and recurse on the
+      // inner @type so the user sees the actual change, not "MsgExecLegacyContent".
+      const inner = (c.content as Record<string, unknown>) || {};
+      const innerType = inner["@type"] as string | undefined;
+      if (innerType === "/cosmos.params.v1beta1.ParameterChangeProposal") {
+        const changes = (inner.changes as Array<{ subspace: string; key: string; value: string }>) || [];
+        return {
+          headline: `Parameter change in ${changes[0]?.subspace || "a module"}: ${changes.length} key${changes.length === 1 ? "" : "s"} updated.`,
+          bullets: [
+            ...changes.slice(0, 6).map((ch) => ({
+              label: `${ch.subspace}.${ch.key}`,
+              value: ch.value.length > 200 ? ch.value.slice(0, 200) + "…" : ch.value,
+            })),
+            ...(changes.length > 6 ? [{ label: "Note", value: `+${changes.length - 6} more keys changed (see Summary).` }] : []),
+            { label: "What happens", value: "If passed, these parameter values are applied to the listed modules at block-finalization time." },
+          ],
+        };
+      }
+      // Other legacy content types (e.g. CommunityPoolSpendProposal). Show
+      // the wrapped type so the user at least knows what it is.
+      return {
+        headline: "Legacy v1beta1 proposal.",
+        bullets: [
+          { label: "Wrapped type", value: innerType || "unknown" },
+          { label: "Wrapped title", value: (inner.title as string) || "—" },
+          { label: "What this is", value: "A legacy-format proposal carried by MsgExecLegacyContent. See Summary for the proposer's description." },
+        ],
+      };
+    }
+
+    case "/cosmos.slashing.v1beta1.MsgUpdateParams": {
+      const params = (c.params as Record<string, unknown>) || {};
+      const bullets: ExplainerBullet[] = [];
+      if (params.signed_blocks_window) {
+        bullets.push({ label: "New signed blocks window", value: `${Number(params.signed_blocks_window).toLocaleString()} blocks` });
+      }
+      if (params.min_signed_per_window) {
+        bullets.push({ label: "Min signed per window", value: `${(Number(params.min_signed_per_window) * 100).toFixed(1)}%` });
+      }
+      if (params.downtime_jail_duration) {
+        const secs = Number(String(params.downtime_jail_duration).replace("s", ""));
+        bullets.push({ label: "Downtime jail duration", value: `${(secs / 60).toFixed(0)} minutes` });
+      }
+      if (params.slash_fraction_double_sign) {
+        bullets.push({ label: "Double-sign slash", value: `${(Number(params.slash_fraction_double_sign) * 100).toFixed(2)}%` });
+      }
+      if (params.slash_fraction_downtime) {
+        bullets.push({ label: "Downtime slash", value: `${(Number(params.slash_fraction_downtime) * 100).toFixed(2)}%` });
+      }
+      return {
+        headline: "Updates slashing parameters (validator penalties for misbehavior).",
+        bullets: bullets.length > 0 ? bullets : [
+          { label: "Params changing", value: "See full content in description below." },
+        ],
+      };
+    }
+
+    case "/cosmos.staking.v1beta1.MsgUpdateParams": {
+      const params = (c.params as Record<string, unknown>) || {};
+      const bullets: ExplainerBullet[] = [];
+      if (params.unbonding_time) {
+        const secs = Number(String(params.unbonding_time).replace("s", ""));
+        bullets.push({ label: "Unbonding time", value: `${(secs / 86400).toFixed(1)} days` });
+      }
+      if (params.max_validators) bullets.push({ label: "Max validators", value: String(params.max_validators) });
+      if (params.max_entries) bullets.push({ label: "Max unbonding entries", value: String(params.max_entries) });
+      if (params.historical_entries) bullets.push({ label: "Historical entries", value: String(params.historical_entries) });
+      if (params.bond_denom) bullets.push({ label: "Bond denom", value: String(params.bond_denom) });
+      return {
+        headline: "Updates staking module parameters.",
+        bullets: bullets.length > 0 ? bullets : [
+          { label: "Params changing", value: "See full content in description below." },
+        ],
+      };
+    }
+
+    case "/cosmos.mint.v1beta1.MsgUpdateParams": {
+      const params = (c.params as Record<string, unknown>) || {};
+      const bullets: ExplainerBullet[] = [];
+      if (params.mint_denom) bullets.push({ label: "Mint denom", value: String(params.mint_denom) });
+      if (params.inflation_rate_change) bullets.push({ label: "Inflation rate change", value: `${(Number(params.inflation_rate_change) * 100).toFixed(2)}%/yr` });
+      if (params.inflation_max) bullets.push({ label: "Max inflation", value: `${(Number(params.inflation_max) * 100).toFixed(1)}%` });
+      if (params.inflation_min) bullets.push({ label: "Min inflation", value: `${(Number(params.inflation_min) * 100).toFixed(1)}%` });
+      if (params.goal_bonded) bullets.push({ label: "Target bonded ratio", value: `${(Number(params.goal_bonded) * 100).toFixed(0)}%` });
+      if (params.blocks_per_year) bullets.push({ label: "Blocks per year", value: Number(params.blocks_per_year).toLocaleString() });
+      return {
+        headline: "Updates token mint / inflation parameters.",
+        bullets: bullets.length > 0 ? bullets : [
+          { label: "Params changing", value: "See full content in description below." },
+        ],
+      };
+    }
+
+    case "/cosmwasm.wasm.v1.MsgUpdateAdmin": {
+      return {
+        headline: "Transfers admin rights on a CosmWasm smart contract.",
+        bullets: [
+          { label: "Contract", value: (c.contract as string) || "—" },
+          { label: "New admin", value: (c.new_admin as string) || "—" },
+          { label: "What happens", value: "The contract's admin (who can migrate it to new code) is reassigned." },
+        ],
+      };
+    }
+
+    case "/cosmwasm.wasm.v1.MsgMigrateContract": {
+      return {
+        headline: "Migrates a CosmWasm smart contract to a new code ID.",
+        bullets: [
+          { label: "Contract", value: (c.contract as string) || "—" },
+          { label: "New code ID", value: String(c.code_id || "—") },
+          { label: "What happens", value: "The contract's stored code is replaced with the new code. State is preserved but logic changes." },
+        ],
+      };
+    }
+
+    case "/ibc.core.client.v1.MsgRecoverClient": {
+      return {
+        headline: "Recovers a stuck/expired IBC light client.",
+        bullets: [
+          { label: "Subject client", value: (c.subject_client_id as string) || "—" },
+          { label: "Substitute client", value: (c.substitute_client_id as string) || "—" },
+          { label: "What happens", value: "If passed, the expired subject client adopts the substitute client's state, restoring the IBC channel without redeploying contracts." },
+        ],
+      };
+    }
+
+    case "/coreum.asset.ft.v1.MsgUpdateDEXUnifiedRefAmount": {
+      return {
+        headline: "Updates a fungible token's DEX unified reference amount.",
+        bullets: [
+          { label: "Sender", value: (c.sender as string) || "—" },
+          { label: "Denom", value: (c.denom as string) || "—" },
+          { label: "New ref amount", value: (c.unified_ref_amount as string) || "—" },
+          { label: "What this is", value: "Coreum's DEX uses a per-token reference amount for pricing. This proposal adjusts it for one specific token." },
+        ],
+      };
+    }
+
     default: {
       // Unrecognized type. Show what we know without making up details.
       const last = p.rawType.split(".").pop() || "Unknown";

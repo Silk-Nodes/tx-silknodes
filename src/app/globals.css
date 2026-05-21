@@ -9107,3 +9107,61 @@ input[type="range"]::-moz-range-thumb {
   .vc-grid { grid-template-columns: 1fr; }
   .gov-hero-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Override summary (inside VotePanel) ─────────────────────────── */
+.vote-override {
+  border: 1px solid rgba(177, 252, 3, 0.25);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  background: rgba(177, 252, 3, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.vote-override-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.vote-override-headline {
+  font-size: 0.94rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-dark);
+}
+.vote-override-headline strong { color: var(--tx-neon); font-weight: 700; }
+.vote-override-stake {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tx-neon);
+  white-space: nowrap;
+}
+.vote-override-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vote-override-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  font-size: 0.85rem;
+}
+.vote-override-count { color: var(--text-medium); font-weight: 500; }
+.vote-override-validators { color: var(--text-light); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vote-override-stake-small { color: var(--text-medium); font-weight: 600; font-variant-numeric: tabular-nums; }
+.vote-override-cta {
+  font-size: 0.84rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+@media (max-width: 700px) {
+  .vote-override-row { grid-template-columns: auto 1fr auto; }
+  .vote-override-validators { display: none; }
+}
