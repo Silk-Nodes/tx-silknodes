@@ -7023,29 +7023,42 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ─── What's New banner (top of page, dismissable, auto-expires) ─── */
+/* Solid brand neon background + very dark green text. Same high-contrast
+   pattern as .time-pill.active — works the same in light AND dark mode
+   (the neon hex is identical across themes, only the text/page chrome
+   flips). Previous version used a pale 18% lime tint that blended into
+   the page background. */
 .whats-new-banner {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 10px 20px;
-  background: rgba(177, 252, 3, 0.18);
-  border-bottom: 1px solid rgba(177, 252, 3, 0.45);
-  color: var(--text-dark);
+  padding: 12px 48px 12px 20px; /* extra right padding to keep the × button from overlapping text */
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-align: center;
   position: relative;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08), 0 4px 12px rgba(177, 252, 3, 0.25);
 }
-.whats-new-banner-text { max-width: 760px; line-height: 1.4; }
+.whats-new-banner-text { max-width: 760px; line-height: 1.45; }
 .whats-new-banner-link {
-  color: var(--text-dark);
-  font-weight: 700;
+  color: var(--tx-dark-green);
+  font-weight: 800;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
   cursor: pointer;
 }
-.whats-new-banner-link:hover { text-decoration: none; }
+.whats-new-banner-link:hover {
+  text-decoration: none;
+  background: rgba(15, 27, 7, 0.1);
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 4px;
+}
 .whats-new-banner-close {
   position: absolute;
   right: 14px;
@@ -7053,23 +7066,16 @@ input[type="range"]::-moz-range-thumb {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: var(--text-dark);
-  font-size: 1.25rem;
+  color: var(--tx-dark-green);
+  font-size: 1.35rem;
+  font-weight: 700;
   line-height: 1;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.75;
 }
 .whats-new-banner-close:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.05);
-}
-:root[data-theme="dark"] .whats-new-banner {
-  background: rgba(177, 252, 3, 0.12);
-  border-bottom-color: rgba(177, 252, 3, 0.35);
-  color: var(--text-dark);
-}
-:root[data-theme="dark"] .whats-new-banner-close:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 27, 7, 0.12);
 }
