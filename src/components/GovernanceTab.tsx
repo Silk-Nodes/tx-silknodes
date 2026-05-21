@@ -11,6 +11,7 @@ import {
   type Proposal,
   type ProposalStatus,
 } from "@/lib/governance";
+import { explainProposal, projectActiveVote } from "@/lib/governance-explainer";
 
 type FilterId = "all" | "active" | "passed" | "rejected";
 
@@ -280,8 +281,19 @@ function ProposalCard({
 
       {expanded && (
         <div className="governance-card-detail">
+          <ExplainerSection proposal={proposal} />
+
+          {status === "voting" && (
+            <ProjectionSection
+              proposal={proposal}
+              quorumRequired={quorumRequired}
+              yesThreshold={yesThreshold}
+              vetoThreshold={vetoThreshold}
+            />
+          )}
+
           <div className="governance-detail-section">
-            <div className="governance-detail-label">Description</div>
+            <div className="governance-detail-label">Full description</div>
             <div className="governance-detail-text">
               {proposal.description || <em>No description provided.</em>}
             </div>
@@ -432,4 +444,93 @@ function QuorumBar({
 function truncateAddr(addr: string): string {
   if (addr.length <= 16) return addr;
   return `${addr.slice(0, 10)}…${addr.slice(-6)}`;
+}
+
+function ExplainerSection({ proposal }: { proposal: Proposal }) {
+  const explainer = explainProposal(proposal);
+  return (
+    <div className="governance-explainer">
+      <div className="governance-explainer-head">
+        <span className="governance-explainer-icon" aria-hidden="true">
+          📋
+        </span>
+        <span className="governance-explainer-headline">{explainer.headline}</span>
+      </div>
+      <ul className="governance-explainer-bullets">
+        {explainer.bullets.map((b) => (
+          <li key={b.label}>
+            <span className="governance-explainer-label">{b.label}</span>
+            <span className="governance-explainer-value">{b.value}</span>
+          </li>
+        ))}
+      </ul>
+      {explainer.unrecognized && (
+        <div className="governance-explainer-fineprint">
+          We don't have a structured explainer for this proposal type yet — defaulting to the raw
+          description below.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectionSection({
+  proposal,
+  quorumRequired,
+  yesThreshold,
+  vetoThreshold,
+}: {
+  proposal: Proposal;
+  quorumRequired: number;
+  yesThreshold: number;
+  vetoThreshold: number;
+}) {
+  const projection = projectActiveVote(
+    proposal.tally,
+    quorumRequired,
+    yesThreshold,
+    vetoThreshold,
+  );
+  const klass =
+    projection.outcome === "passing"
+      ? "outcome-pass"
+      : projection.outcome === "failing-veto"
+      ? "outcome-veto"
+      : "outcome-fail";
+  const verb =
+    projection.outcome === "passing"
+      ? "Currently on track to PASS"
+      : projection.outcome === "failing-quorum"
+      ? "Currently FAILING — quorum not met"
+      : projection.outcome === "failing-veto"
+      ? "Currently FAILING — vetoed"
+      : "Currently FAILING — Yes below threshold";
+  return (
+    <div className={`governance-projection ${klass}`}>
+      <div className="governance-projection-head">
+        <span className="governance-projection-icon" aria-hidden="true">
+          ⏱
+        </span>
+        <span className="governance-projection-verb">{verb}</span>
+      </div>
+      <div className="governance-projection-reason">{projection.reason}</div>
+      {projection.unvotedStake > 0 && (
+        <div className="governance-projection-side">
+          <span className="governance-projection-label">Bonded stake not yet voted</span>
+          <span className="governance-projection-value">
+            {formatTxAmount(projection.unvotedStake)} TX (
+            {(
+              (projection.unvotedStake / proposal.tally.bondedSnapshot) *
+              100
+            ).toFixed(1)}
+            % of bonded)
+          </span>
+        </div>
+      )}
+      <div className="governance-projection-fineprint">
+        Live projection based on current tally and chain quorum / threshold params. Numbers can
+        still change until voting ends.
+      </div>
+    </div>
+  );
 }

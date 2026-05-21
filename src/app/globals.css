@@ -7588,3 +7588,147 @@ input[type="range"]::-moz-range-thumb {
 
 /* Remove old per-card tally numbers; keep the slim tally bar + quorum */
 .governance-card-tally-numbers { display: none; }
+
+/* ─── Governance: explainer + voting projection blocks ─── */
+.governance-explainer {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(74, 122, 200, 0.06);
+  border: 1px solid rgba(74, 122, 200, 0.2);
+}
+:root[data-theme="dark"] .governance-explainer {
+  background: rgba(74, 122, 200, 0.1);
+  border-color: rgba(74, 122, 200, 0.3);
+}
+.governance-explainer-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.governance-explainer-icon { font-size: 1rem; line-height: 1.2; }
+.governance-explainer-headline {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+.governance-explainer-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.governance-explainer-bullets li {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.governance-explainer-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-medium);
+}
+.governance-explainer-value {
+  color: var(--text-dark);
+  word-break: break-word;
+}
+.governance-explainer-fineprint {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-medium);
+}
+
+/* Voting projection (only on active proposals) */
+.governance-projection {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+.governance-projection.outcome-pass {
+  background: rgba(74, 122, 26, 0.1);
+  border-color: rgba(74, 122, 26, 0.35);
+}
+.governance-projection.outcome-fail {
+  background: rgba(216, 138, 58, 0.1);
+  border-color: rgba(216, 138, 58, 0.35);
+}
+.governance-projection.outcome-veto {
+  background: rgba(180, 74, 62, 0.1);
+  border-color: rgba(180, 74, 62, 0.35);
+}
+:root[data-theme="dark"] .governance-projection.outcome-pass {
+  background: rgba(74, 122, 26, 0.18);
+  border-color: rgba(177, 252, 3, 0.45);
+}
+:root[data-theme="dark"] .governance-projection.outcome-fail {
+  background: rgba(216, 138, 58, 0.18);
+  border-color: rgba(240, 164, 88, 0.45);
+}
+:root[data-theme="dark"] .governance-projection.outcome-veto {
+  background: rgba(180, 74, 62, 0.2);
+  border-color: rgba(216, 131, 120, 0.5);
+}
+.governance-projection-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.governance-projection-verb {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.governance-projection.outcome-pass .governance-projection-verb { color: #2d5710; }
+.governance-projection.outcome-fail .governance-projection-verb { color: #a55a18; }
+.governance-projection.outcome-veto .governance-projection-verb { color: #8a2c20; }
+:root[data-theme="dark"] .governance-projection.outcome-pass .governance-projection-verb { color: var(--tx-neon); }
+:root[data-theme="dark"] .governance-projection.outcome-fail .governance-projection-verb { color: #f0a458; }
+:root[data-theme="dark"] .governance-projection.outcome-veto .governance-projection-verb { color: #d88378; }
+.governance-projection-reason {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-dark);
+}
+.governance-projection-side {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.governance-projection-label {
+  color: var(--text-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+}
+.governance-projection-value {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+.governance-projection-fineprint {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-style: italic;
+  color: var(--text-medium);
+}
+
+@media (max-width: 640px) {
+  .governance-explainer-bullets li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

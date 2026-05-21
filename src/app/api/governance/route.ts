@@ -22,7 +22,7 @@ interface HasuraProposal {
   title: string;
   description: string;
   status: string;
-  content: { "@type"?: string }[] | null;
+  content: Record<string, unknown>[] | null;
   proposer_address: string | null;
   submit_time: string | null;
   voting_start_time: string | null;
@@ -115,12 +115,19 @@ export async function GET() {
       const rawType = Array.isArray(p.content) && p.content[0]?.["@type"]
         ? (p.content[0]["@type"] as string)
         : "";
+      // Pass through the first message's raw content so the explainer
+      // on the client can pull out e.g. plan.name, plan.height,
+      // amount[].amount, recipient, params, etc. without re-querying
+      // Hasura. Subsequent messages (rare multi-msg proposals) are
+      // ignored in v1.
+      const contentPayload = Array.isArray(p.content) && p.content[0] ? p.content[0] : null;
       return {
         id: p.id,
         title: p.title,
         description: p.description,
         rawStatus: p.status,
         rawType,
+        content: contentPayload,
         proposer: p.proposer_address,
         submitTime: p.submit_time,
         votingStartTime: p.voting_start_time,

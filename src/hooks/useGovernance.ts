@@ -14,6 +14,7 @@ interface ApiProposal {
   description: string;
   rawStatus: string;
   rawType: string;
+  content: Record<string, unknown> | null;
   proposer: string | null;
   submitTime: string | null;
   votingStartTime: string | null;
@@ -62,6 +63,7 @@ export function useGovernance(): UseGovernanceState {
           status: normalizeStatus(p.rawStatus),
           rawType: p.rawType,
           type: labelForType(p.rawType),
+          content: p.content,
           proposer: p.proposer,
           submitTime: p.submitTime ?? "",
           votingStartTime: p.votingStartTime,

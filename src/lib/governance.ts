@@ -27,6 +27,7 @@ export interface Proposal {
   rawStatus: string; // original PROPOSAL_STATUS_* string for tooltip
   type: string; // human-readable: "Software Upgrade", "Community Pool Spend", etc.
   rawType: string; // raw @type from content[0] for tooltip
+  content: Record<string, unknown> | null; // raw content[0] payload for the explainer
   proposer: string | null;
   submitTime: string; // ISO
   votingStartTime: string | null;
