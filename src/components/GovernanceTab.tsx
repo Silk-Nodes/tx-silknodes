@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useGovernance } from "@/hooks/useGovernance";
 import {
   STATUS_LABELS,
@@ -9,114 +10,48 @@ import {
   formatRelativeOrAbsolute,
   formatTxAmount,
   type Proposal,
-  type ProposalStatus,
 } from "@/lib/governance";
-import ProposalDetail from "./governance/ProposalDetail";
+import { projectActiveVote } from "@/lib/governance-explainer";
 
-type FilterId = "all" | "active" | "passed" | "rejected";
-
-const FILTERS: { id: FilterId; label: string; match: (p: Proposal) => boolean }[] = [
-  { id: "all", label: "All", match: () => true },
-  { id: "active", label: "Active", match: (p) => p.status === "voting" || p.status === "deposit" },
-  { id: "passed", label: "Passed", match: (p) => p.status === "passed" },
-  { id: "rejected", label: "Rejected", match: (p) => p.status === "rejected" || p.status === "failed" },
-];
-
+// Active-first landing. Active proposals are presented as big actionable
+// cards. History is collapsed behind a single link, since most visitors
+// are here to act on what's live now.
 export default function GovernanceTab() {
   const { proposals, params, loading, error } = useGovernance();
-  const [filter, setFilter] = useState<FilterId>("all");
-  const [search, setSearch] = useState("");
-  // selectedId === null → list view, number → detail view.
-  // The URL hash (e.g. #governance/44) is the source of truth so a
-  // proposal page can be shared and the back button works.
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
 
-  // Sync from URL hash on mount + when the user navigates back/forward.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const readHash = () => {
-      const m = window.location.hash.match(/governance\/(\d+)/);
-      setSelectedId(m ? Number(m[1]) : null);
-    };
-    readHash();
-    window.addEventListener("hashchange", readHash);
-    return () => window.removeEventListener("hashchange", readHash);
-  }, []);
-
-  const openProposal = (id: number) => {
-    if (typeof window !== "undefined") {
-      window.location.hash = `governance/${id}`;
-    }
-    setSelectedId(id);
-    // Scroll to top so the detail header is visible.
-    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  };
-
-  const closeProposal = () => {
-    if (typeof window !== "undefined") {
-      // Replace, not push — so back/forward isn't littered with hash changes.
-      const url = window.location.pathname + window.location.search;
-      window.history.replaceState(null, "", url);
-    }
-    setSelectedId(null);
-  };
-
-  const stats = useMemo(() => {
-    const counts = {
-      total: proposals.length,
-      active: proposals.filter((p) => p.status === "voting" || p.status === "deposit").length,
-      passed: proposals.filter((p) => p.status === "passed").length,
-      rejected: proposals.filter((p) => p.status === "rejected" || p.status === "failed").length,
-    };
-    return counts;
-  }, [proposals]);
-
-  const livePool = useMemo(
+  const active = useMemo(
     () => proposals.filter((p) => p.status === "voting" || p.status === "deposit"),
     [proposals],
   );
-
-  const filtered = useMemo(() => {
-    const matcher = FILTERS.find((f) => f.id === filter)?.match ?? (() => true);
-    const q = search.trim().toLowerCase();
-    return proposals.filter((p) => {
-      if (!matcher(p)) return false;
-      if (!q) return true;
-      return (
+  const history = useMemo(
+    () => proposals.filter((p) => p.status !== "voting" && p.status !== "deposit"),
+    [proposals],
+  );
+  const filteredHistory = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return history;
+    return history.filter(
+      (p) =>
         p.title.toLowerCase().includes(q) ||
         String(p.id).includes(q) ||
-        p.type.toLowerCase().includes(q)
-      );
-    });
-  }, [proposals, filter, search]);
-
-  // Detail mode — render after all hooks are called so hook order is stable.
-  if (selectedId !== null) {
-    const proposal = proposals.find((p) => p.id === selectedId);
-    if (!proposal) {
-      return (
-        <div className="governance-tab">
-          <button type="button" className="prop-detail-back" onClick={closeProposal}>
-            ← All proposals
-          </button>
-          <div className="governance-empty">
-            {loading ? "Loading proposal…" : `Proposal #${selectedId} not found.`}
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="governance-tab">
-        <ProposalDetail
-          proposal={proposal}
-          quorumRequired={params?.quorum ?? 0.4}
-          yesThreshold={params?.threshold ?? 0.5}
-          vetoThreshold={params?.vetoThreshold ?? 0.334}
-          onBack={closeProposal}
-        />
-      </div>
+        p.type.toLowerCase().includes(q),
     );
-  }
+  }, [history, historySearch]);
+
+  const chainStats = useMemo(() => ({
+    total: proposals.length,
+    passed: proposals.filter((p) => p.status === "passed").length,
+    rejected: proposals.filter((p) => p.status === "rejected" || p.status === "failed").length,
+    avgQuorum: proposals.length === 0
+      ? 0
+      : proposals.reduce((sum, p) => sum + calcQuorumFraction(p.tally), 0) / proposals.length,
+  }), [proposals]);
+
+  const quorum = params?.quorum ?? 0.4;
+  const yesThreshold = params?.threshold ?? 0.5;
+  const vetoThreshold = params?.vetoThreshold ?? 0.334;
 
   return (
     <div className="governance-tab">
@@ -124,319 +59,226 @@ export default function GovernanceTab() {
         <div>
           <h1 className="governance-title">Governance</h1>
           <p className="governance-sub">
-            All TX network proposals — voting status, tallies, quorum tracking. Data from chain
-            state via Hasura, refreshed every minute.
+            What&apos;s live on TX Network right now, plus the analytics to act on it.
+            Click any proposal for the full breakdown.
           </p>
         </div>
       </header>
 
-      <StatsPanel
-        total={stats.total}
-        active={stats.active}
-        passed={stats.passed}
-        rejected={stats.rejected}
-      />
+      {/* Chain-wide stats strip */}
+      <div className="gov-stats-strip">
+        <StatChip label="Live" value={String(active.length)} tone={active.length > 0 ? "ok" : "muted"} />
+        <StatChip label="Passed" value={String(chainStats.passed)} tone="ok" />
+        <StatChip label="Rejected" value={String(chainStats.rejected)} tone="warn" />
+        <StatChip label="Total" value={String(chainStats.total)} tone="muted" />
+        <StatChip
+          label="Avg turnout"
+          value={`${(chainStats.avgQuorum * 100).toFixed(0)}%`}
+          tone={chainStats.avgQuorum >= quorum ? "ok" : "warn"}
+        />
+        <StatChip label="Required quorum" value={`${(quorum * 100).toFixed(0)}%`} tone="muted" />
+      </div>
 
-      {livePool.length > 0 && (
-        <section className="governance-section">
-          <h2 className="governance-section-title">
-            Live proposals <span className="governance-section-count">{livePool.length}</span>
-          </h2>
-          <div className="governance-list">
-            {livePool.map((p) => (
-              <ProposalCard
+      {/* LIVE HERO */}
+      <section className="gov-hero">
+        <div className="gov-hero-head">
+          <h2 className="gov-hero-title">Live proposals</h2>
+          <span className="gov-hero-count">{active.length}</span>
+        </div>
+        {active.length === 0 ? (
+          <div className="gov-hero-empty">
+            <div className="gov-hero-empty-headline">No proposals are currently live.</div>
+            <div className="gov-hero-empty-sub">
+              When a new proposal enters the voting period, it&apos;ll appear here.
+              Until then, browse the history below or check back later.
+            </div>
+          </div>
+        ) : (
+          <div className="gov-hero-grid">
+            {active.map((p) => (
+              <ActiveProposalCard
                 key={p.id}
                 proposal={p}
-                quorumRequired={params?.quorum ?? 0.4}
-                yesThreshold={params?.threshold ?? 0.5}
-                vetoThreshold={params?.vetoThreshold ?? 0.334}
-                expanded={false}
-                onToggle={() => openProposal(p.id)}
-                highlight
+                quorumRequired={quorum}
+                yesThreshold={yesThreshold}
+                vetoThreshold={vetoThreshold}
               />
             ))}
           </div>
+        )}
+      </section>
+
+      {loading && proposals.length === 0 && (
+        <div className="governance-empty">Loading proposals...</div>
+      )}
+      {error && (
+        <div className="governance-empty governance-error">
+          Couldn&apos;t load governance data. Retrying every minute. ({error})
+        </div>
+      )}
+
+      {/* HISTORY (collapsed) */}
+      {history.length > 0 && (
+        <section className="gov-history">
+          <button
+            type="button"
+            className="gov-history-toggle"
+            onClick={() => setHistoryOpen((v) => !v)}
+            aria-expanded={historyOpen}
+          >
+            <span className="gov-history-toggle-label">
+              {historyOpen ? "Hide" : "View"} past proposals
+            </span>
+            <span className="gov-history-toggle-count">{history.length}</span>
+            <span className="gov-history-toggle-chev">{historyOpen ? "▴" : "▾"}</span>
+          </button>
+
+          {historyOpen && (
+            <div className="gov-history-body">
+              <input
+                type="search"
+                className="gov-history-search"
+                placeholder="Search past proposals..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+              />
+              <div className="gov-history-table">
+                {filteredHistory.length === 0 ? (
+                  <div className="governance-empty">No proposals match &ldquo;{historySearch}&rdquo;.</div>
+                ) : (
+                  filteredHistory.map((p) => <HistoryRow key={p.id} proposal={p} quorumRequired={quorum} />)
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
-      <section className="governance-section">
-        <div className="governance-section-toolbar">
-          <h2 className="governance-section-title">
-            All proposals{" "}
-            <span className="governance-section-count">{filtered.length}</span>
-          </h2>
-          <div className="governance-section-controls">
-            <div className="governance-filter-row">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`governance-filter-chip ${filter === f.id ? "active" : ""}`}
-                  onClick={() => setFilter(f.id)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              className="governance-search"
-              placeholder="Search by title, ID, or type..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {loading && proposals.length === 0 && (
-          <div className="governance-empty">Loading proposals…</div>
-        )}
-        {error && (
-          <div className="governance-empty governance-error">
-            Couldn't load governance data. Retrying every minute. ({error})
-          </div>
-        )}
-        {!loading && filtered.length === 0 && proposals.length > 0 && (
-          <div className="governance-empty">
-            {search
-              ? `No proposals match "${search}".`
-              : "No proposals match this filter."}
-          </div>
-        )}
-
-        <div className="governance-list">
-          {filtered.map((p) => (
-            <ProposalCard
-              key={p.id}
-              proposal={p}
-              quorumRequired={params?.quorum ?? 0.4}
-              yesThreshold={params?.threshold ?? 0.5}
-              vetoThreshold={params?.vetoThreshold ?? 0.334}
-              expanded={false}
-              onToggle={() => openProposal(p.id)}
-            />
-          ))}
-        </div>
-      </section>
-
       <footer className="governance-footer">
         <span>
-          Source: <code>cosmos.gov</code> via Coreum Hasura. Quorum threshold{" "}
-          {((params?.quorum ?? 0.4) * 100).toFixed(0)}%, pass threshold{" "}
-          {((params?.threshold ?? 0.5) * 100).toFixed(0)}%, veto threshold{" "}
-          {((params?.vetoThreshold ?? 0.334) * 100).toFixed(1)}%.
+          Source: <code>cosmos.gov</code> via Coreum Hasura. Quorum {(quorum * 100).toFixed(0)}%,
+          pass threshold {(yesThreshold * 100).toFixed(0)}%, veto threshold{" "}
+          {(vetoThreshold * 100).toFixed(1)}%.
         </span>
       </footer>
     </div>
   );
 }
 
-function StatsPanel({
-  total,
-  active,
-  passed,
-  rejected,
-}: {
-  total: number;
-  active: number;
-  passed: number;
-  rejected: number;
-}) {
+function StatChip({ label, value, tone }: { label: string; value: string; tone: "ok" | "warn" | "muted" }) {
   return (
-    <div className="governance-stats">
-      <div className="governance-stat">
-        <div className="governance-stat-label">Total proposals</div>
-        <div className="governance-stat-value">{total}</div>
-      </div>
-      <div className="governance-stat governance-stat-active">
-        <div className="governance-stat-label">Active</div>
-        <div className="governance-stat-value">{active}</div>
-      </div>
-      <div className="governance-stat governance-stat-passed">
-        <div className="governance-stat-label">Passed</div>
-        <div className="governance-stat-value">{passed}</div>
-      </div>
-      <div className="governance-stat governance-stat-rejected">
-        <div className="governance-stat-label">Rejected</div>
-        <div className="governance-stat-value">{rejected}</div>
-      </div>
+    <div className={`gov-chip gov-chip-${tone}`}>
+      <span className="gov-chip-value">{value}</span>
+      <span className="gov-chip-label">{label}</span>
     </div>
   );
 }
 
-interface ProposalCardProps {
-  proposal: Proposal;
-  quorumRequired: number;
-  yesThreshold: number;
-  vetoThreshold: number;
-  expanded: boolean;
-  onToggle: () => void;
-  highlight?: boolean;
-}
-
-function ProposalCard({
+// Big actionable card for ACTIVE proposals. Shows the live outcome banner
+// so a delegator can see "I need to vote on this NOW" at a glance.
+function ActiveProposalCard({
   proposal,
   quorumRequired,
   yesThreshold,
   vetoThreshold,
-  expanded,
-  onToggle,
-  highlight,
-}: ProposalCardProps) {
-  const now = Date.now();
-  const { tally, status } = proposal;
-  const { yesPct, noPct } = calcVoteFractions(tally);
-  const isActive = status === "voting" || status === "deposit";
-
-  // Compact summary: one number that tells you the outcome at a glance.
-  // For passed / rejected: the YES %. For active: lead margin or quorum status.
-  const summaryText = (() => {
-    if (tally.totalVoted <= 0) return "No votes yet";
-    if (status === "voting" || status === "deposit") {
-      return `Yes ${(yesPct * 100).toFixed(0)}% · No ${(noPct * 100).toFixed(0)}%`;
-    }
-    return `Yes ${(yesPct * 100).toFixed(0)}%`;
-  })();
-
-  return (
-    <div className={`governance-card status-${status} ${highlight ? "highlight" : ""} ${expanded ? "expanded" : ""}`}>
-      <button
-        type="button"
-        className="governance-card-row"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <span className="governance-card-id">#{proposal.id}</span>
-        <span className="governance-card-title">{proposal.title}</span>
-        <TypePill type={proposal.type} rawType={proposal.rawType} />
-        <span className="governance-card-time">
-          {proposal.votingEndTime
-            ? isActive
-              ? `ends ${formatRelativeOrAbsolute(proposal.votingEndTime, now)}`
-              : `${formatRelativeOrAbsolute(proposal.votingEndTime, now)}`
-            : ""}
-        </span>
-        <span className="governance-card-summary">{summaryText}</span>
-        <StatusBadge status={status} />
-        <span className="governance-card-chevron" aria-hidden="true">
-          {expanded ? "▾" : "▸"}
-        </span>
-      </button>
-
-    </div>
-  );
-}
-
-function VoteCard({
-  label,
-  amount,
-  pct,
-  kind,
 }: {
-  label: string;
-  amount: number;
-  pct: number;
-  kind: "yes" | "no" | "veto" | "abstain";
-}) {
-  return (
-    <div className={`governance-vote-card vote-${kind}`}>
-      <div className="governance-vote-label">{label}</div>
-      <div className="governance-vote-pct">{(pct * 100).toFixed(2)}%</div>
-      <div className="governance-vote-amount">{formatTxAmount(amount)} TX</div>
-    </div>
-  );
-}
-
-function TypePill({ type, rawType }: { type: string; rawType: string }) {
-  return (
-    <span className="governance-type-pill" title={rawType || type}>
-      {type}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: ProposalStatus }) {
-  return (
-    <span className={`governance-status-badge status-${status}`}>
-      {STATUS_LABELS[status]}
-    </span>
-  );
-}
-
-function TallyBar({
-  yes,
-  no,
-  veto,
-  abstain,
-}: {
-  yes: number;
-  no: number;
-  veto: number;
-  abstain: number;
-}) {
-  const total = yes + no + veto + abstain;
-  if (total <= 0) {
-    return <div className="governance-tally-bar empty" />;
-  }
-  const yesP = (yes / total) * 100;
-  const noP = (no / total) * 100;
-  const vetoP = (veto / total) * 100;
-  const abstainP = (abstain / total) * 100;
-  return (
-    <div className="governance-tally-bar" role="img" aria-label="Vote breakdown">
-      <div className="tb-yes" style={{ width: `${yesP}%` }} />
-      <div className="tb-no" style={{ width: `${noP}%` }} />
-      <div className="tb-veto" style={{ width: `${vetoP}%` }} />
-      <div className="tb-abstain" style={{ width: `${abstainP}%` }} />
-    </div>
-  );
-}
-
-function QuorumBar({
-  quorumPct,
-  quorumRequired,
-  met,
-  totalVoted,
-  bonded,
-}: {
-  quorumPct: number;
+  proposal: Proposal;
   quorumRequired: number;
-  met: boolean;
-  totalVoted: number;
-  bonded: number;
+  yesThreshold: number;
+  vetoThreshold: number;
 }) {
-  const pct = Math.min(100, quorumPct * 100);
-  const requiredPct = quorumRequired * 100;
+  const now = Date.now();
+  const { tally } = proposal;
+  const quorumPct = calcQuorumFraction(tally);
+  const fractions = calcVoteFractions(tally);
+  const projection = projectActiveVote(tally, quorumRequired, yesThreshold, vetoThreshold);
+
+  const projectionTone =
+    projection.outcome === "passing" ? "ok"
+    : projection.outcome === "failing-veto" ? "veto"
+    : "warn";
+  const projectionLabel =
+    projection.outcome === "passing" ? "Currently PASSING"
+    : projection.outcome === "failing-quorum" ? "FAILING - quorum"
+    : projection.outcome === "failing-veto" ? "FAILING - vetoed"
+    : "FAILING - threshold";
+
   return (
-    <div className="governance-quorum">
-      <div className="governance-quorum-bar">
-        <div
-          className={`governance-quorum-fill ${met ? "met" : "unmet"}`}
-          style={{ width: `${pct}%` }}
-        />
-        <div
-          className="governance-quorum-target"
-          style={{ left: `${requiredPct}%` }}
-          title={`Quorum required: ${requiredPct.toFixed(0)}%`}
-        />
-      </div>
-      <div className="governance-quorum-label">
-        Quorum: <strong>{(quorumPct * 100).toFixed(1)}%</strong> of bonded stake voted
-        {" — "}
-        {met ? "met" : `need ${(quorumRequired * 100).toFixed(0)}%`}
-        {" · "}
-        <span style={{ opacity: 0.65 }}>
-          {formatTxAmount(totalVoted)} / {formatTxAmount(bonded)} TX
+    <Link
+      href={`/governance/${proposal.id}`}
+      className="gov-active-card"
+    >
+      <div className="gov-active-head">
+        <span className="governance-type-pill">{proposal.type}</span>
+        <span className={`gov-active-banner banner-${projectionTone}`}>
+          {projectionLabel}
         </span>
       </div>
-    </div>
+      <div className="gov-active-title">
+        <span className="gov-active-id">#{proposal.id}</span>
+        {proposal.title}
+      </div>
+
+      <div className="gov-active-mini-bar">
+        <div className="gov-mini-yes" style={{ width: `${(fractions.yesPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-no" style={{ width: `${(fractions.noPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-veto" style={{ width: `${(fractions.vetoPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-abstain" style={{ width: `${(fractions.abstainPct * 100).toFixed(2)}%` }} />
+      </div>
+      <div className="gov-active-bar-labels">
+        <span className="gov-mini-label vote-yes">Yes {(fractions.yesPct * 100).toFixed(1)}%</span>
+        <span className="gov-mini-label vote-no">No {(fractions.noPct * 100).toFixed(1)}%</span>
+        <span className="gov-mini-label vote-veto">Veto {(fractions.vetoPct * 100).toFixed(1)}%</span>
+        <span className="gov-mini-label vote-abstain">Abs {(fractions.abstainPct * 100).toFixed(1)}%</span>
+      </div>
+
+      <div className="gov-active-footer">
+        <div className="gov-active-stat">
+          <span className="gov-active-stat-label">Quorum</span>
+          <span className={`gov-active-stat-value ${quorumPct >= quorumRequired ? "ok" : "warn"}`}>
+            {(quorumPct * 100).toFixed(1)}% / {(quorumRequired * 100).toFixed(0)}%
+          </span>
+        </div>
+        <div className="gov-active-stat">
+          <span className="gov-active-stat-label">Ends</span>
+          <span className="gov-active-stat-value">
+            {proposal.votingEndTime
+              ? formatRelativeOrAbsolute(proposal.votingEndTime, now)
+              : "TBD"}
+          </span>
+        </div>
+        <div className="gov-active-stat">
+          <span className="gov-active-stat-label">Voted</span>
+          <span className="gov-active-stat-value">{formatTxAmount(tally.totalVoted)} TX</span>
+        </div>
+        <span className="gov-active-cta">Open →</span>
+      </div>
+    </Link>
   );
 }
 
-function truncateAddr(addr: string): string {
-  if (addr.length <= 16) return addr;
-  return `${addr.slice(0, 10)}…${addr.slice(-6)}`;
+function HistoryRow({
+  proposal,
+  quorumRequired,
+}: {
+  proposal: Proposal;
+  quorumRequired: number;
+}) {
+  const fractions = calcVoteFractions(proposal.tally);
+  const quorumPct = calcQuorumFraction(proposal.tally);
+  return (
+    <Link href={`/governance/${proposal.id}`} className="gov-history-row">
+      <span className="gov-history-id">#{proposal.id}</span>
+      <span className="gov-history-title">{proposal.title}</span>
+      <span className="governance-type-pill">{proposal.type}</span>
+      <span className={`gov-history-status status-${proposal.status}`}>
+        {STATUS_LABELS[proposal.status]}
+      </span>
+      <span className="gov-history-yes">Yes {(fractions.yesPct * 100).toFixed(0)}%</span>
+      <span className={`gov-history-quorum ${quorumPct >= quorumRequired ? "ok" : "warn"}`}>
+        Q {(quorumPct * 100).toFixed(0)}%
+      </span>
+      <span className="gov-history-chev">→</span>
+    </Link>
+  );
 }
-
-// (ExplainerSection + ProjectionSection moved to governance/ProposalDetail.tsx —
-// they're rendered in the detail tab instead of inline.)
