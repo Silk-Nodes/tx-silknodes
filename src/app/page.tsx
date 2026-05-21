@@ -36,6 +36,7 @@ import ValidatorList from "@/components/ValidatorList";
 import AnalyticsTab from "@/components/AnalyticsTab";
 import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
+import WhatsNewBanner from "@/components/WhatsNewBanner";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -262,6 +263,7 @@ export default function HomePage() {
 
   return (
     <div className="app-shell">
+      <WhatsNewBanner onOpenFeedback={() => setActiveTab("feedback")} />
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand" onClick={handleBrandClick} style={{ cursor: "pointer", position: "relative" }}>
