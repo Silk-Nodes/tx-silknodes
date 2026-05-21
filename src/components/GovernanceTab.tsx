@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGovernance } from "@/hooks/useGovernance";
 import {
   STATUS_LABELS,
@@ -11,7 +11,7 @@ import {
   type Proposal,
   type ProposalStatus,
 } from "@/lib/governance";
-import { explainProposal, projectActiveVote } from "@/lib/governance-explainer";
+import ProposalDetail from "./governance/ProposalDetail";
 
 type FilterId = "all" | "active" | "passed" | "rejected";
 
@@ -26,7 +26,40 @@ export default function GovernanceTab() {
   const { proposals, params, loading, error } = useGovernance();
   const [filter, setFilter] = useState<FilterId>("all");
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  // selectedId === null → list view, number → detail view.
+  // The URL hash (e.g. #governance/44) is the source of truth so a
+  // proposal page can be shared and the back button works.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  // Sync from URL hash on mount + when the user navigates back/forward.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readHash = () => {
+      const m = window.location.hash.match(/governance\/(\d+)/);
+      setSelectedId(m ? Number(m[1]) : null);
+    };
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
+
+  const openProposal = (id: number) => {
+    if (typeof window !== "undefined") {
+      window.location.hash = `governance/${id}`;
+    }
+    setSelectedId(id);
+    // Scroll to top so the detail header is visible.
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  };
+
+  const closeProposal = () => {
+    if (typeof window !== "undefined") {
+      // Replace, not push — so back/forward isn't littered with hash changes.
+      const url = window.location.pathname + window.location.search;
+      window.history.replaceState(null, "", url);
+    }
+    setSelectedId(null);
+  };
 
   const stats = useMemo(() => {
     const counts = {
@@ -56,6 +89,34 @@ export default function GovernanceTab() {
       );
     });
   }, [proposals, filter, search]);
+
+  // Detail mode — render after all hooks are called so hook order is stable.
+  if (selectedId !== null) {
+    const proposal = proposals.find((p) => p.id === selectedId);
+    if (!proposal) {
+      return (
+        <div className="governance-tab">
+          <button type="button" className="prop-detail-back" onClick={closeProposal}>
+            ← All proposals
+          </button>
+          <div className="governance-empty">
+            {loading ? "Loading proposal…" : `Proposal #${selectedId} not found.`}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="governance-tab">
+        <ProposalDetail
+          proposal={proposal}
+          quorumRequired={params?.quorum ?? 0.4}
+          yesThreshold={params?.threshold ?? 0.5}
+          vetoThreshold={params?.vetoThreshold ?? 0.334}
+          onBack={closeProposal}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="governance-tab">
@@ -89,8 +150,8 @@ export default function GovernanceTab() {
                 quorumRequired={params?.quorum ?? 0.4}
                 yesThreshold={params?.threshold ?? 0.5}
                 vetoThreshold={params?.vetoThreshold ?? 0.334}
-                expanded={expandedId === p.id}
-                onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                expanded={false}
+                onToggle={() => openProposal(p.id)}
                 highlight
               />
             ))}
@@ -151,8 +212,8 @@ export default function GovernanceTab() {
               quorumRequired={params?.quorum ?? 0.4}
               yesThreshold={params?.threshold ?? 0.5}
               vetoThreshold={params?.vetoThreshold ?? 0.334}
-              expanded={expandedId === p.id}
-              onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+              expanded={false}
+              onToggle={() => openProposal(p.id)}
             />
           ))}
         </div>
@@ -262,78 +323,6 @@ function ProposalCard({
         </span>
       </button>
 
-      {expanded && (
-        <div className="governance-card-detail">
-          <ExplainerSection proposal={proposal} />
-
-          {status === "voting" && (
-            <ProjectionSection
-              proposal={proposal}
-              quorumRequired={quorumRequired}
-              yesThreshold={yesThreshold}
-              vetoThreshold={vetoThreshold}
-            />
-          )}
-
-          {/* Vote tally — only visible when expanded. */}
-          <div className="governance-detail-section">
-            <div className="governance-detail-label">Vote tally</div>
-            <div className="governance-vote-cards">
-              <VoteCard label="Yes" amount={tally.yes} pct={calcVoteFractions(tally).yesPct} kind="yes" />
-              <VoteCard label="No" amount={tally.no} pct={calcVoteFractions(tally).noPct} kind="no" />
-              <VoteCard label="Veto" amount={tally.noWithVeto} pct={calcVoteFractions(tally).vetoPct} kind="veto" />
-              <VoteCard label="Abstain" amount={tally.abstain} pct={calcVoteFractions(tally).abstainPct} kind="abstain" />
-            </div>
-            <TallyBar
-              yes={tally.yes}
-              no={tally.no}
-              veto={tally.noWithVeto}
-              abstain={tally.abstain}
-            />
-            <QuorumBar
-              quorumPct={calcQuorumFraction(tally)}
-              quorumRequired={quorumRequired}
-              met={calcQuorumFraction(tally) >= quorumRequired}
-              totalVoted={tally.totalVoted}
-              bonded={tally.bondedSnapshot}
-            />
-          </div>
-
-          <div className="governance-detail-section">
-            <div className="governance-detail-label">Full description</div>
-            <div className="governance-detail-text">
-              {proposal.description || <em>No description provided.</em>}
-            </div>
-          </div>
-          <div className="governance-detail-grid">
-            <div>
-              <div className="governance-detail-label">Proposer</div>
-              <div className="governance-detail-text mono">
-                {proposal.proposer ? truncateAddr(proposal.proposer) : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="governance-detail-label">Submitted</div>
-              <div className="governance-detail-text">
-                {formatRelativeOrAbsolute(proposal.submitTime, now)}
-              </div>
-            </div>
-            <div>
-              <div className="governance-detail-label">Voting period</div>
-              <div className="governance-detail-text">
-                {proposal.votingStartTime && proposal.votingEndTime
-                  ? `${proposal.votingStartTime.slice(0, 10)} → ${proposal.votingEndTime.slice(0, 10)}`
-                  : "—"}
-              </div>
-            </div>
-          </div>
-          <div className="governance-detail-fineprint">
-            Pass requires Yes ≥ {(yesThreshold * 100).toFixed(0)}% of non-abstain votes and quorum
-            ≥ {(quorumRequired * 100).toFixed(0)}% of bonded stake. Veto threshold{" "}
-            {(vetoThreshold * 100).toFixed(1)}%.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -449,91 +438,5 @@ function truncateAddr(addr: string): string {
   return `${addr.slice(0, 10)}…${addr.slice(-6)}`;
 }
 
-function ExplainerSection({ proposal }: { proposal: Proposal }) {
-  const explainer = explainProposal(proposal);
-  return (
-    <div className="governance-explainer">
-      <div className="governance-explainer-head">
-        <span className="governance-explainer-icon" aria-hidden="true">
-          📋
-        </span>
-        <span className="governance-explainer-headline">{explainer.headline}</span>
-      </div>
-      <ul className="governance-explainer-bullets">
-        {explainer.bullets.map((b) => (
-          <li key={b.label}>
-            <span className="governance-explainer-label">{b.label}</span>
-            <span className="governance-explainer-value">{b.value}</span>
-          </li>
-        ))}
-      </ul>
-      {explainer.unrecognized && (
-        <div className="governance-explainer-fineprint">
-          We don't have a structured explainer for this proposal type yet — defaulting to the raw
-          description below.
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProjectionSection({
-  proposal,
-  quorumRequired,
-  yesThreshold,
-  vetoThreshold,
-}: {
-  proposal: Proposal;
-  quorumRequired: number;
-  yesThreshold: number;
-  vetoThreshold: number;
-}) {
-  const projection = projectActiveVote(
-    proposal.tally,
-    quorumRequired,
-    yesThreshold,
-    vetoThreshold,
-  );
-  const klass =
-    projection.outcome === "passing"
-      ? "outcome-pass"
-      : projection.outcome === "failing-veto"
-      ? "outcome-veto"
-      : "outcome-fail";
-  const verb =
-    projection.outcome === "passing"
-      ? "Currently on track to PASS"
-      : projection.outcome === "failing-quorum"
-      ? "Currently FAILING — quorum not met"
-      : projection.outcome === "failing-veto"
-      ? "Currently FAILING — vetoed"
-      : "Currently FAILING — Yes below threshold";
-  return (
-    <div className={`governance-projection ${klass}`}>
-      <div className="governance-projection-head">
-        <span className="governance-projection-icon" aria-hidden="true">
-          ⏱
-        </span>
-        <span className="governance-projection-verb">{verb}</span>
-      </div>
-      <div className="governance-projection-reason">{projection.reason}</div>
-      {projection.unvotedStake > 0 && (
-        <div className="governance-projection-side">
-          <span className="governance-projection-label">Bonded stake not yet voted</span>
-          <span className="governance-projection-value">
-            {formatTxAmount(projection.unvotedStake)} TX (
-            {(
-              (projection.unvotedStake / proposal.tally.bondedSnapshot) *
-              100
-            ).toFixed(1)}
-            % of bonded)
-          </span>
-        </div>
-      )}
-      <div className="governance-projection-fineprint">
-        Live projection based on current tally and chain quorum / threshold params. Numbers can
-        still change until voting ends.
-      </div>
-    </div>
-  );
-}
+// (ExplainerSection + ProjectionSection moved to governance/ProposalDetail.tsx —
+// they're rendered in the detail tab instead of inline.)
