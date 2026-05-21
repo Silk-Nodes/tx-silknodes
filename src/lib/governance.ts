@@ -25,11 +25,43 @@ export interface Proposal {
   description: string;
   status: ProposalStatus;
   rawStatus: string; // original PROPOSAL_STATUS_* string for tooltip
+  type: string; // human-readable: "Software Upgrade", "Community Pool Spend", etc.
+  rawType: string; // raw @type from content[0] for tooltip
   proposer: string | null;
   submitTime: string; // ISO
   votingStartTime: string | null;
   votingEndTime: string | null;
   tally: ProposalTally;
+}
+
+// Map Cosmos SDK message @type URLs to friendly proposal-type names.
+// New @types as they appear can be added here; unknown types fall back
+// to a derived short label.
+const TYPE_LABELS: Record<string, string> = {
+  "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade": "Software Upgrade",
+  "/cosmos.upgrade.v1beta1.MsgCancelUpgrade": "Cancel Upgrade",
+  "/cosmos.distribution.v1beta1.MsgCommunityPoolSpend": "Community Pool Spend",
+  "/cosmos.gov.v1.MsgUpdateParams": "Update Params",
+  "/cosmos.bank.v1beta1.MsgUpdateParams": "Update Params",
+  "/cosmos.staking.v1beta1.MsgUpdateParams": "Update Params",
+  "/cosmos.slashing.v1beta1.MsgUpdateParams": "Update Params",
+  "/cosmos.mint.v1beta1.MsgUpdateParams": "Update Params",
+  "/cosmos.distribution.v1beta1.MsgUpdateParams": "Update Params",
+  "/coreum.feemodel.v1.MsgUpdateParams": "Update Params",
+  "/coreum.customparams.v1.MsgUpdateStakingParams": "Update Staking Params",
+  "/tx.pse.v1.MsgUpdateExcludedAddresses": "Update Excluded Addresses",
+  "/tx.pse.v1.MsgUpdateParams": "Update PSE Params",
+  "/cosmos.params.v1beta1.ParameterChangeProposal": "Update Params",
+};
+
+export function labelForType(rawType: string): string {
+  if (!rawType) return "Text Proposal";
+  if (TYPE_LABELS[rawType]) return TYPE_LABELS[rawType];
+  // Fallback: derive from the last path segment, strip "Msg" prefix,
+  // and add spaces between camel-case words.
+  const last = rawType.split(".").pop() ?? rawType;
+  const stripped = last.replace(/^Msg/, "");
+  return stripped.replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
 export interface GovParams {

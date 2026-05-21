@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  labelForType,
   normalizeStatus,
   type GovParams,
   type Proposal,
@@ -12,6 +13,7 @@ interface ApiProposal {
   title: string;
   description: string;
   rawStatus: string;
+  rawType: string;
   proposer: string | null;
   submitTime: string | null;
   votingStartTime: string | null;
@@ -58,6 +60,8 @@ export function useGovernance(): UseGovernanceState {
           description: p.description,
           rawStatus: p.rawStatus,
           status: normalizeStatus(p.rawStatus),
+          rawType: p.rawType,
+          type: labelForType(p.rawType),
           proposer: p.proposer,
           submitTime: p.submitTime ?? "",
           votingStartTime: p.votingStartTime,

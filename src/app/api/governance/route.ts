@@ -22,6 +22,7 @@ interface HasuraProposal {
   title: string;
   description: string;
   status: string;
+  content: { "@type"?: string }[] | null;
   proposer_address: string | null;
   submit_time: string | null;
   voting_start_time: string | null;
@@ -50,6 +51,7 @@ const QUERY = `{
     title
     description
     status
+    content
     proposer_address
     submit_time
     voting_start_time
@@ -108,11 +110,17 @@ export async function GET() {
       const no = ucoreToTX(tally?.no);
       const abstain = ucoreToTX(tally?.abstain);
       const noWithVeto = ucoreToTX(tally?.no_with_veto);
+      // First message in `content` array is the canonical proposal type.
+      // Multi-message proposals are rare; we surface the primary one.
+      const rawType = Array.isArray(p.content) && p.content[0]?.["@type"]
+        ? (p.content[0]["@type"] as string)
+        : "";
       return {
         id: p.id,
         title: p.title,
         description: p.description,
         rawStatus: p.status,
+        rawType,
         proposer: p.proposer_address,
         submitTime: p.submit_time,
         votingStartTime: p.voting_start_time,

@@ -24,17 +24,37 @@ const FILTERS: { id: FilterId; label: string; match: (p: Proposal) => boolean }[
 export default function GovernanceTab() {
   const { proposals, params, loading, error } = useGovernance();
   const [filter, setFilter] = useState<FilterId>("all");
+  const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const stats = useMemo(() => {
+    const counts = {
+      total: proposals.length,
+      active: proposals.filter((p) => p.status === "voting" || p.status === "deposit").length,
+      passed: proposals.filter((p) => p.status === "passed").length,
+      rejected: proposals.filter((p) => p.status === "rejected" || p.status === "failed").length,
+    };
+    return counts;
+  }, [proposals]);
+
+  const livePool = useMemo(
+    () => proposals.filter((p) => p.status === "voting" || p.status === "deposit"),
+    [proposals],
+  );
 
   const filtered = useMemo(() => {
     const matcher = FILTERS.find((f) => f.id === filter)?.match ?? (() => true);
-    return proposals.filter(matcher);
-  }, [proposals, filter]);
-
-  const activeCount = useMemo(
-    () => proposals.filter((p) => p.status === "voting" || p.status === "deposit").length,
-    [proposals],
-  );
+    const q = search.trim().toLowerCase();
+    return proposals.filter((p) => {
+      if (!matcher(p)) return false;
+      if (!q) return true;
+      return (
+        p.title.toLowerCase().includes(q) ||
+        String(p.id).includes(q) ||
+        p.type.toLowerCase().includes(q)
+      );
+    });
+  }, [proposals, filter, search]);
 
   return (
     <div className="governance-tab">
@@ -46,55 +66,96 @@ export default function GovernanceTab() {
             state via Hasura, refreshed every minute.
           </p>
         </div>
-        {activeCount > 0 && (
-          <div className="governance-active-pill">
-            {activeCount} active {activeCount === 1 ? "proposal" : "proposals"}
-          </div>
-        )}
       </header>
 
-      <div className="governance-filter-row">
-        {FILTERS.map((f) => {
-          const count = proposals.filter(f.match).length;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              className={`governance-filter-chip ${filter === f.id ? "active" : ""}`}
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-              <span className="governance-filter-count">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <StatsPanel
+        total={stats.total}
+        active={stats.active}
+        passed={stats.passed}
+        rejected={stats.rejected}
+      />
 
-      {loading && proposals.length === 0 && (
-        <div className="governance-empty">Loading proposals…</div>
+      {livePool.length > 0 && (
+        <section className="governance-section">
+          <h2 className="governance-section-title">
+            Live proposals <span className="governance-section-count">{livePool.length}</span>
+          </h2>
+          <div className="governance-list">
+            {livePool.map((p) => (
+              <ProposalCard
+                key={p.id}
+                proposal={p}
+                quorumRequired={params?.quorum ?? 0.4}
+                yesThreshold={params?.threshold ?? 0.5}
+                vetoThreshold={params?.vetoThreshold ?? 0.334}
+                expanded={expandedId === p.id}
+                onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                highlight
+              />
+            ))}
+          </div>
+        </section>
       )}
-      {error && (
-        <div className="governance-empty governance-error">
-          Couldn't load governance data. Retrying every minute. ({error})
+
+      <section className="governance-section">
+        <div className="governance-section-toolbar">
+          <h2 className="governance-section-title">
+            All proposals{" "}
+            <span className="governance-section-count">{filtered.length}</span>
+          </h2>
+          <div className="governance-section-controls">
+            <div className="governance-filter-row">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`governance-filter-chip ${filter === f.id ? "active" : ""}`}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              className="governance-search"
+              placeholder="Search by title, ID, or type..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
-      )}
-      {!loading && filtered.length === 0 && proposals.length > 0 && (
-        <div className="governance-empty">No proposals match this filter.</div>
-      )}
 
-      <div className="governance-list">
-        {filtered.map((p) => (
-          <ProposalRow
-            key={p.id}
-            proposal={p}
-            quorumRequired={params?.quorum ?? 0.4}
-            yesThreshold={params?.threshold ?? 0.5}
-            vetoThreshold={params?.vetoThreshold ?? 0.334}
-            expanded={expandedId === p.id}
-            onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
-          />
-        ))}
-      </div>
+        {loading && proposals.length === 0 && (
+          <div className="governance-empty">Loading proposals…</div>
+        )}
+        {error && (
+          <div className="governance-empty governance-error">
+            Couldn't load governance data. Retrying every minute. ({error})
+          </div>
+        )}
+        {!loading && filtered.length === 0 && proposals.length > 0 && (
+          <div className="governance-empty">
+            {search
+              ? `No proposals match "${search}".`
+              : "No proposals match this filter."}
+          </div>
+        )}
+
+        <div className="governance-list">
+          {filtered.map((p) => (
+            <ProposalCard
+              key={p.id}
+              proposal={p}
+              quorumRequired={params?.quorum ?? 0.4}
+              yesThreshold={params?.threshold ?? 0.5}
+              vetoThreshold={params?.vetoThreshold ?? 0.334}
+              expanded={expandedId === p.id}
+              onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+            />
+          ))}
+        </div>
+      </section>
 
       <footer className="governance-footer">
         <span>
@@ -108,23 +169,58 @@ export default function GovernanceTab() {
   );
 }
 
-interface ProposalRowProps {
+function StatsPanel({
+  total,
+  active,
+  passed,
+  rejected,
+}: {
+  total: number;
+  active: number;
+  passed: number;
+  rejected: number;
+}) {
+  return (
+    <div className="governance-stats">
+      <div className="governance-stat">
+        <div className="governance-stat-label">Total proposals</div>
+        <div className="governance-stat-value">{total}</div>
+      </div>
+      <div className="governance-stat governance-stat-active">
+        <div className="governance-stat-label">Active</div>
+        <div className="governance-stat-value">{active}</div>
+      </div>
+      <div className="governance-stat governance-stat-passed">
+        <div className="governance-stat-label">Passed</div>
+        <div className="governance-stat-value">{passed}</div>
+      </div>
+      <div className="governance-stat governance-stat-rejected">
+        <div className="governance-stat-label">Rejected</div>
+        <div className="governance-stat-value">{rejected}</div>
+      </div>
+    </div>
+  );
+}
+
+interface ProposalCardProps {
   proposal: Proposal;
   quorumRequired: number;
   yesThreshold: number;
   vetoThreshold: number;
   expanded: boolean;
   onToggle: () => void;
+  highlight?: boolean;
 }
 
-function ProposalRow({
+function ProposalCard({
   proposal,
   quorumRequired,
   yesThreshold,
   vetoThreshold,
   expanded,
   onToggle,
-}: ProposalRowProps) {
+  highlight,
+}: ProposalCardProps) {
   const now = Date.now();
   const { tally, status } = proposal;
   const quorumPct = calcQuorumFraction(tally);
@@ -132,7 +228,7 @@ function ProposalRow({
   const quorumMet = quorumPct >= quorumRequired;
 
   return (
-    <div className={`governance-card status-${status}`}>
+    <div className={`governance-card status-${status} ${highlight ? "highlight" : ""}`}>
       <button
         type="button"
         className="governance-card-head"
@@ -141,14 +237,15 @@ function ProposalRow({
       >
         <div className="governance-card-id">#{proposal.id}</div>
         <div className="governance-card-title-block">
-          <div className="governance-card-title">{proposal.title}</div>
+          <div className="governance-card-title-row">
+            <span className="governance-card-title">{proposal.title}</span>
+            <TypePill type={proposal.type} rawType={proposal.rawType} />
+          </div>
           <div className="governance-card-meta">
             {status === "voting" && proposal.votingEndTime && (
               <>Voting ends {formatRelativeOrAbsolute(proposal.votingEndTime, now)}</>
             )}
-            {status === "deposit" && (
-              <>In deposit period</>
-            )}
+            {status === "deposit" && <>In deposit period</>}
             {(status === "passed" || status === "rejected" || status === "failed") &&
               proposal.votingEndTime && (
                 <>Ended {formatRelativeOrAbsolute(proposal.votingEndTime, now)}</>
@@ -158,6 +255,13 @@ function ProposalRow({
         <StatusBadge status={status} />
       </button>
 
+      <div className="governance-vote-cards">
+        <VoteCard label="Yes" amount={tally.yes} pct={yesPct} kind="yes" />
+        <VoteCard label="No" amount={tally.no} pct={noPct} kind="no" />
+        <VoteCard label="Veto" amount={tally.noWithVeto} pct={vetoPct} kind="veto" />
+        <VoteCard label="Abstain" amount={tally.abstain} pct={abstainPct} kind="abstain" />
+      </div>
+
       <div className="governance-card-tally">
         <TallyBar
           yes={tally.yes}
@@ -165,16 +269,6 @@ function ProposalRow({
           veto={tally.noWithVeto}
           abstain={tally.abstain}
         />
-        <div className="governance-card-tally-numbers">
-          <span className="tn-yes">Yes {(yesPct * 100).toFixed(1)}%</span>
-          <span className="tn-no">No {(noPct * 100).toFixed(1)}%</span>
-          {vetoPct > 0 && (
-            <span className="tn-veto">Veto {(vetoPct * 100).toFixed(1)}%</span>
-          )}
-          {abstainPct > 0 && (
-            <span className="tn-abstain">Abstain {(abstainPct * 100).toFixed(1)}%</span>
-          )}
-        </div>
         <QuorumBar
           quorumPct={quorumPct}
           quorumRequired={quorumRequired}
@@ -193,6 +287,10 @@ function ProposalRow({
             </div>
           </div>
           <div className="governance-detail-grid">
+            <div>
+              <div className="governance-detail-label">Type</div>
+              <div className="governance-detail-text mono">{proposal.type}</div>
+            </div>
             <div>
               <div className="governance-detail-label">Proposer</div>
               <div className="governance-detail-text mono">
@@ -213,22 +311,43 @@ function ProposalRow({
                   : "—"}
               </div>
             </div>
-            <div>
-              <div className="governance-detail-label">Total voted</div>
-              <div className="governance-detail-text">
-                {formatTxAmount(tally.totalVoted)} TX of{" "}
-                {formatTxAmount(tally.bondedSnapshot)} bonded
-              </div>
-            </div>
           </div>
           <div className="governance-detail-fineprint">
-            Pass requires Yes ≥ {(yesThreshold * 100).toFixed(0)}% of non-abstain
-            votes and quorum ≥ {(quorumRequired * 100).toFixed(0)}% of bonded
-            stake. Veto threshold {(vetoThreshold * 100).toFixed(1)}%.
+            Pass requires Yes ≥ {(yesThreshold * 100).toFixed(0)}% of non-abstain votes and quorum
+            ≥ {(quorumRequired * 100).toFixed(0)}% of bonded stake. Veto threshold{" "}
+            {(vetoThreshold * 100).toFixed(1)}%.
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function VoteCard({
+  label,
+  amount,
+  pct,
+  kind,
+}: {
+  label: string;
+  amount: number;
+  pct: number;
+  kind: "yes" | "no" | "veto" | "abstain";
+}) {
+  return (
+    <div className={`governance-vote-card vote-${kind}`}>
+      <div className="governance-vote-label">{label}</div>
+      <div className="governance-vote-pct">{(pct * 100).toFixed(2)}%</div>
+      <div className="governance-vote-amount">{formatTxAmount(amount)} TX</div>
+    </div>
+  );
+}
+
+function TypePill({ type, rawType }: { type: string; rawType: string }) {
+  return (
+    <span className="governance-type-pill" title={rawType || type}>
+      {type}
+    </span>
   );
 }
 
@@ -240,7 +359,17 @@ function StatusBadge({ status }: { status: ProposalStatus }) {
   );
 }
 
-function TallyBar({ yes, no, veto, abstain }: { yes: number; no: number; veto: number; abstain: number }) {
+function TallyBar({
+  yes,
+  no,
+  veto,
+  abstain,
+}: {
+  yes: number;
+  no: number;
+  veto: number;
+  abstain: number;
+}) {
   const total = yes + no + veto + abstain;
   if (total <= 0) {
     return <div className="governance-tally-bar empty" />;

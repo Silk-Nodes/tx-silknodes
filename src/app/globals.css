@@ -7409,3 +7409,182 @@ input[type="range"]::-moz-range-thumb {
 :root[data-theme="dark"] .governance-card-head:hover {
   background: rgba(255, 255, 255, 0.04);
 }
+
+/* ─── Governance v2 redesign ─── */
+.governance-tab {
+  /* gap was 20px; bumped slightly for breathing room around stats + sections */
+  gap: 24px;
+  /* wider so 4-up stats panel + vote cards have room */
+  max-width: 1080px;
+}
+
+/* Stats panel */
+.governance-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.governance-stat {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+}
+.governance-stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-medium);
+  margin-bottom: 6px;
+}
+.governance-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.governance-stat-active .governance-stat-value { color: #d88a3a; }
+.governance-stat-passed .governance-stat-value { color: #4a7a1a; }
+.governance-stat-rejected .governance-stat-value { color: #c45a4a; }
+:root[data-theme="dark"] .governance-stat-active .governance-stat-value { color: #f0a458; }
+:root[data-theme="dark"] .governance-stat-passed .governance-stat-value { color: var(--tx-neon); }
+:root[data-theme="dark"] .governance-stat-rejected .governance-stat-value { color: #d88378; }
+
+/* Section wrapper (Live proposals, All proposals) */
+.governance-section { display: flex; flex-direction: column; gap: 12px; }
+.governance-section-title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.governance-section-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-medium);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+}
+.governance-section-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.governance-section-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.governance-search {
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  min-width: 260px;
+  outline: none;
+}
+.governance-search:focus { border-color: rgba(177, 252, 3, 0.55); }
+
+/* Card title row with inline type pill */
+.governance-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.governance-type-pill {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(74, 122, 200, 0.15);
+  color: #2a5fa6;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .governance-type-pill {
+  background: rgba(74, 122, 200, 0.22);
+  color: #8ab3e8;
+}
+
+/* Highlight ring for live proposals */
+.governance-card.highlight {
+  box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 6px 20px rgba(177, 252, 3, 0.12);
+}
+
+/* 4-up vote cards row (Mintscan-inspired but on-brand) */
+.governance-vote-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.governance-vote-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.02);
+}
+.governance-vote-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+.governance-vote-pct {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.1;
+}
+.governance-vote-amount {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-medium);
+}
+.governance-vote-card.vote-yes { border-left: 3px solid #4a7a1a; }
+.governance-vote-card.vote-yes .governance-vote-label { color: #4a7a1a; }
+.governance-vote-card.vote-no { border-left: 3px solid #c45a4a; }
+.governance-vote-card.vote-no .governance-vote-label { color: #c45a4a; }
+.governance-vote-card.vote-veto { border-left: 3px solid #8a2c20; }
+.governance-vote-card.vote-veto .governance-vote-label { color: #8a2c20; }
+.governance-vote-card.vote-abstain { border-left: 3px solid rgba(180, 170, 155, 0.5); }
+.governance-vote-card.vote-abstain .governance-vote-label { color: var(--text-medium); }
+
+:root[data-theme="dark"] .governance-vote-card {
+  background: rgba(0, 0, 0, 0.18);
+}
+:root[data-theme="dark"] .governance-vote-card.vote-yes .governance-vote-label { color: var(--tx-neon); }
+:root[data-theme="dark"] .governance-vote-card.vote-no .governance-vote-label { color: #d88378; }
+:root[data-theme="dark"] .governance-vote-card.vote-veto .governance-vote-label { color: #ef6b5d; }
+
+/* Mobile: stack the 4-up to 2-up */
+@media (max-width: 640px) {
+  .governance-vote-cards { grid-template-columns: repeat(2, 1fr); }
+  .governance-stats { grid-template-columns: repeat(2, 1fr); }
+  .governance-search { min-width: 0; flex: 1; }
+}
+
+/* Remove old per-card tally numbers; keep the slim tally bar + quorum */
+.governance-card-tally-numbers { display: none; }
