@@ -224,60 +224,43 @@ function ProposalCard({
 }: ProposalCardProps) {
   const now = Date.now();
   const { tally, status } = proposal;
-  const quorumPct = calcQuorumFraction(tally);
-  const { yesPct, noPct, vetoPct, abstainPct } = calcVoteFractions(tally);
-  const quorumMet = quorumPct >= quorumRequired;
+  const { yesPct, noPct } = calcVoteFractions(tally);
+  const isActive = status === "voting" || status === "deposit";
+
+  // Compact summary: one number that tells you the outcome at a glance.
+  // For passed / rejected: the YES %. For active: lead margin or quorum status.
+  const summaryText = (() => {
+    if (tally.totalVoted <= 0) return "No votes yet";
+    if (status === "voting" || status === "deposit") {
+      return `Yes ${(yesPct * 100).toFixed(0)}% · No ${(noPct * 100).toFixed(0)}%`;
+    }
+    return `Yes ${(yesPct * 100).toFixed(0)}%`;
+  })();
 
   return (
-    <div className={`governance-card status-${status} ${highlight ? "highlight" : ""}`}>
+    <div className={`governance-card status-${status} ${highlight ? "highlight" : ""} ${expanded ? "expanded" : ""}`}>
       <button
         type="button"
-        className="governance-card-head"
+        className="governance-card-row"
         onClick={onToggle}
         aria-expanded={expanded}
       >
-        <div className="governance-card-id">#{proposal.id}</div>
-        <div className="governance-card-title-block">
-          <div className="governance-card-title-row">
-            <span className="governance-card-title">{proposal.title}</span>
-            <TypePill type={proposal.type} rawType={proposal.rawType} />
-          </div>
-          <div className="governance-card-meta">
-            {status === "voting" && proposal.votingEndTime && (
-              <>Voting ends {formatRelativeOrAbsolute(proposal.votingEndTime, now)}</>
-            )}
-            {status === "deposit" && <>In deposit period</>}
-            {(status === "passed" || status === "rejected" || status === "failed") &&
-              proposal.votingEndTime && (
-                <>Ended {formatRelativeOrAbsolute(proposal.votingEndTime, now)}</>
-              )}
-          </div>
-        </div>
+        <span className="governance-card-id">#{proposal.id}</span>
+        <span className="governance-card-title">{proposal.title}</span>
+        <TypePill type={proposal.type} rawType={proposal.rawType} />
+        <span className="governance-card-time">
+          {proposal.votingEndTime
+            ? isActive
+              ? `ends ${formatRelativeOrAbsolute(proposal.votingEndTime, now)}`
+              : `${formatRelativeOrAbsolute(proposal.votingEndTime, now)}`
+            : ""}
+        </span>
+        <span className="governance-card-summary">{summaryText}</span>
         <StatusBadge status={status} />
+        <span className="governance-card-chevron" aria-hidden="true">
+          {expanded ? "▾" : "▸"}
+        </span>
       </button>
-
-      <div className="governance-vote-cards">
-        <VoteCard label="Yes" amount={tally.yes} pct={yesPct} kind="yes" />
-        <VoteCard label="No" amount={tally.no} pct={noPct} kind="no" />
-        <VoteCard label="Veto" amount={tally.noWithVeto} pct={vetoPct} kind="veto" />
-        <VoteCard label="Abstain" amount={tally.abstain} pct={abstainPct} kind="abstain" />
-      </div>
-
-      <div className="governance-card-tally">
-        <TallyBar
-          yes={tally.yes}
-          no={tally.no}
-          veto={tally.noWithVeto}
-          abstain={tally.abstain}
-        />
-        <QuorumBar
-          quorumPct={quorumPct}
-          quorumRequired={quorumRequired}
-          met={quorumMet}
-          totalVoted={tally.totalVoted}
-          bonded={tally.bondedSnapshot}
-        />
-      </div>
 
       {expanded && (
         <div className="governance-card-detail">
@@ -292,6 +275,30 @@ function ProposalCard({
             />
           )}
 
+          {/* Vote tally — only visible when expanded. */}
+          <div className="governance-detail-section">
+            <div className="governance-detail-label">Vote tally</div>
+            <div className="governance-vote-cards">
+              <VoteCard label="Yes" amount={tally.yes} pct={calcVoteFractions(tally).yesPct} kind="yes" />
+              <VoteCard label="No" amount={tally.no} pct={calcVoteFractions(tally).noPct} kind="no" />
+              <VoteCard label="Veto" amount={tally.noWithVeto} pct={calcVoteFractions(tally).vetoPct} kind="veto" />
+              <VoteCard label="Abstain" amount={tally.abstain} pct={calcVoteFractions(tally).abstainPct} kind="abstain" />
+            </div>
+            <TallyBar
+              yes={tally.yes}
+              no={tally.no}
+              veto={tally.noWithVeto}
+              abstain={tally.abstain}
+            />
+            <QuorumBar
+              quorumPct={calcQuorumFraction(tally)}
+              quorumRequired={quorumRequired}
+              met={calcQuorumFraction(tally) >= quorumRequired}
+              totalVoted={tally.totalVoted}
+              bonded={tally.bondedSnapshot}
+            />
+          </div>
+
           <div className="governance-detail-section">
             <div className="governance-detail-label">Full description</div>
             <div className="governance-detail-text">
@@ -299,10 +306,6 @@ function ProposalCard({
             </div>
           </div>
           <div className="governance-detail-grid">
-            <div>
-              <div className="governance-detail-label">Type</div>
-              <div className="governance-detail-text mono">{proposal.type}</div>
-            </div>
             <div>
               <div className="governance-detail-label">Proposer</div>
               <div className="governance-detail-text mono">

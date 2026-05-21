@@ -7732,3 +7732,117 @@ input[type="range"]::-moz-range-thumb {
     gap: 2px;
   }
 }
+
+/* ─── Governance v3: compact rows, expand on demand ─── */
+/* Override v2's always-visible 4-up cards + quorum bar per row. We
+   now show one compact row per proposal; the rich detail (vote cards,
+   tally bar, quorum bar, explainer, projection) only renders inside
+   .governance-card.expanded > .governance-card-detail. */
+.governance-card {
+  /* Slimmer card chrome — was 12px radius + heavy borders */
+  padding: 0;
+}
+.governance-card-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto auto auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+.governance-card-row:hover { background: rgba(177, 252, 3, 0.06); }
+.governance-card.expanded .governance-card-row { background: rgba(177, 252, 3, 0.05); }
+
+.governance-card-row .governance-card-id {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-medium);
+  min-width: 42px;
+}
+.governance-card-row .governance-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.governance-card-row .governance-type-pill {
+  /* Smaller and quieter than v2 */
+  font-size: 0.58rem;
+  padding: 2px 8px;
+}
+.governance-card-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-medium);
+  white-space: nowrap;
+}
+.governance-card-summary {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-medium);
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
+  text-align: right;
+}
+.governance-card-chevron {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-medium);
+  width: 14px;
+  text-align: center;
+}
+
+/* Detail panel inside expanded card — preserve the explainer +
+   projection + vote-tally section we built in v2, just nested now. */
+.governance-card.expanded .governance-card-detail {
+  border-top: 1px solid var(--glass-border);
+  padding: 18px 18px 22px;
+  gap: 16px;
+}
+.governance-card .governance-vote-cards {
+  /* Was full-width row across the card; now lives inside the
+     detail section padding. */
+  padding: 0;
+  margin-top: 4px;
+}
+.governance-card .governance-card-tally {
+  display: none; /* old always-visible wrapper */
+}
+
+/* Compact stats panel — make the 4-up smaller so it doesn't dominate */
+.governance-stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.governance-stat { padding: 12px 14px; }
+.governance-stat-value { font-size: 1.4rem; }
+
+/* Mobile: stack the row into two lines */
+@media (max-width: 720px) {
+  .governance-card-row {
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+      "id title status chev"
+      "id type time   chev"
+      "id summary summary chev";
+    gap: 6px 12px;
+  }
+  .governance-card-row .governance-card-id { grid-area: id; align-self: start; }
+  .governance-card-row .governance-card-title { grid-area: title; }
+  .governance-card-row .governance-type-pill { grid-area: type; justify-self: start; }
+  .governance-card-time { grid-area: time; justify-self: end; }
+  .governance-card-summary { grid-area: summary; text-align: left; }
+  .governance-card-row .governance-status-badge { grid-area: status; }
+  .governance-card-chevron { grid-area: chev; align-self: center; }
+}
