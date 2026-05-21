@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -64,9 +64,12 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
   return (
     <Shell>
       <div className="prop-page">
-        <Link href="/?tab=governance" className="prop-page-back">
-          ← Back to governance
-        </Link>
+        <div className="prop-page-top-row">
+          <Link href="/?tab=governance" className="prop-page-back">
+            ← Back to governance
+          </Link>
+          <PageWalletButton wallet={wallet} />
+        </div>
 
         {/* Header */}
         <header className="prop-page-header">
@@ -328,6 +331,39 @@ function NonVotersCallout({ validators }: { validators: ValidatorVote[] }) {
         ))}
       </div>
     </Section>
+  );
+}
+
+// Page-level wallet button shown next to the back link. Lets users connect
+// from any proposal page (not just active ones), so historical proposals
+// can also highlight YOUR VALIDATOR rows.
+function PageWalletButton({ wallet }: { wallet: ReturnType<typeof useCosmosWallet> }) {
+  const [picking, setPicking] = useState(false);
+  if (wallet.connected) {
+    return (
+      <div className="prop-page-wallet">
+        <span className="prop-page-wallet-addr">
+          {wallet.address!.slice(0, 10)}...{wallet.address!.slice(-6)}
+        </span>
+        <button type="button" className="prop-page-wallet-disconnect" onClick={wallet.disconnect}>
+          Disconnect
+        </button>
+      </div>
+    );
+  }
+  if (picking) {
+    return (
+      <div className="prop-page-wallet-picker">
+        <button type="button" className="vote-wallet-pick" onClick={() => { void wallet.connect("keplr"); setPicking(false); }}>Keplr</button>
+        <button type="button" className="vote-wallet-pick" onClick={() => { void wallet.connect("cosmostation"); setPicking(false); }}>Cosmostation</button>
+        <button type="button" className="vote-wallet-pick cancel" onClick={() => setPicking(false)}>Cancel</button>
+      </div>
+    );
+  }
+  return (
+    <button type="button" className="prop-page-wallet-connect" onClick={() => setPicking(true)}>
+      {wallet.connecting ? "Connecting..." : "Connect wallet"}
+    </button>
   );
 }
 
