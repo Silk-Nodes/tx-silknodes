@@ -25,9 +25,21 @@ export default function GovernanceTab() {
     () => proposals.filter((p) => p.status === "voting" || p.status === "deposit"),
     [proposals],
   );
+  // When nothing is live, surface the most recent proposal in its slot.
+  // Sorted by id desc; id correlates with chronological order.
+  const latest = useMemo(() => {
+    if (active.length > 0) return null;
+    return [...proposals].sort((a, b) => b.id - a.id)[0] ?? null;
+  }, [proposals, active.length]);
   const history = useMemo(
-    () => proposals.filter((p) => p.status !== "voting" && p.status !== "deposit"),
-    [proposals],
+    () => {
+      const base = proposals.filter((p) => p.status !== "voting" && p.status !== "deposit");
+      // If the latest proposal is being featured, hide it from the history
+      // table to avoid duplication.
+      if (latest) return base.filter((p) => p.id !== latest.id);
+      return base;
+    },
+    [proposals, latest],
   );
   const filteredHistory = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
@@ -82,30 +94,38 @@ export default function GovernanceTab() {
       {/* LIVE HERO */}
       <section className="gov-hero">
         <div className="gov-hero-head">
-          <h2 className="gov-hero-title">Live proposals</h2>
-          <span className="gov-hero-count">{active.length}</span>
+          <h2 className="gov-hero-title">
+            {active.length > 0 ? "Live proposals" : "Latest proposal"}
+          </h2>
+          <span className="gov-hero-count">{active.length > 0 ? active.length : 1}</span>
+          {active.length === 0 && (
+            <span className="gov-hero-note">
+              Nothing is currently live. Open the most recent proposal for full analytics.
+            </span>
+          )}
         </div>
-        {active.length === 0 ? (
-          <div className="gov-hero-empty">
-            <div className="gov-hero-empty-headline">No proposals are currently live.</div>
-            <div className="gov-hero-empty-sub">
-              When a new proposal enters the voting period, it&apos;ll appear here.
-              Until then, browse the history below or check back later.
-            </div>
-          </div>
-        ) : (
-          <div className="gov-hero-grid">
-            {active.map((p) => (
-              <ActiveProposalCard
-                key={p.id}
-                proposal={p}
-                quorumRequired={quorum}
-                yesThreshold={yesThreshold}
-                vetoThreshold={vetoThreshold}
-              />
-            ))}
-          </div>
-        )}
+        <div className="gov-hero-grid">
+          {active.length > 0
+            ? active.map((p) => (
+                <ActiveProposalCard
+                  key={p.id}
+                  proposal={p}
+                  quorumRequired={quorum}
+                  yesThreshold={yesThreshold}
+                  vetoThreshold={vetoThreshold}
+                  featured
+                />
+              ))
+            : latest && (
+                <ActiveProposalCard
+                  proposal={latest}
+                  quorumRequired={quorum}
+                  yesThreshold={yesThreshold}
+                  vetoThreshold={vetoThreshold}
+                  featured
+                />
+              )}
+        </div>
       </section>
 
       {loading && proposals.length === 0 && (
@@ -174,39 +194,54 @@ function StatChip({ label, value, tone }: { label: string; value: string; tone: 
   );
 }
 
-// Big actionable card for ACTIVE proposals. Shows the live outcome banner
-// so a delegator can see "I need to vote on this NOW" at a glance.
+// Big actionable card for ACTIVE proposals (or featured latest when nothing
+// is live). Shows the live outcome banner so a delegator can see "I need to
+// vote on this NOW" at a glance. For settled proposals, the banner shows
+// the final status instead of a projection.
 function ActiveProposalCard({
   proposal,
   quorumRequired,
   yesThreshold,
   vetoThreshold,
+  featured = false,
 }: {
   proposal: Proposal;
   quorumRequired: number;
   yesThreshold: number;
   vetoThreshold: number;
+  featured?: boolean;
 }) {
   const now = Date.now();
-  const { tally } = proposal;
+  const { tally, status } = proposal;
   const quorumPct = calcQuorumFraction(tally);
   const fractions = calcVoteFractions(tally);
-  const projection = projectActiveVote(tally, quorumRequired, yesThreshold, vetoThreshold);
+  const isLive = status === "voting" || status === "deposit";
+  const projection = isLive
+    ? projectActiveVote(tally, quorumRequired, yesThreshold, vetoThreshold)
+    : null;
 
-  const projectionTone =
-    projection.outcome === "passing" ? "ok"
-    : projection.outcome === "failing-veto" ? "veto"
-    : "warn";
-  const projectionLabel =
-    projection.outcome === "passing" ? "Currently PASSING"
-    : projection.outcome === "failing-quorum" ? "FAILING - quorum"
-    : projection.outcome === "failing-veto" ? "FAILING - vetoed"
-    : "FAILING - threshold";
+  // Banner copy + tone: live = projection, settled = final outcome.
+  const projectionTone = projection
+    ? projection.outcome === "passing" ? "ok"
+      : projection.outcome === "failing-veto" ? "veto"
+      : "warn"
+    : status === "passed" ? "ok"
+    : status === "rejected" || status === "failed" ? "warn"
+    : "neutral";
+  const projectionLabel = projection
+    ? projection.outcome === "passing" ? "Currently PASSING"
+      : projection.outcome === "failing-quorum" ? "FAILING - quorum"
+      : projection.outcome === "failing-veto" ? "FAILING - vetoed"
+      : "FAILING - threshold"
+    : status === "passed" ? "PASSED"
+    : status === "rejected" ? "REJECTED"
+    : status === "failed" ? "FAILED"
+    : status.toUpperCase();
 
   return (
     <Link
       href={`/governance/${proposal.id}`}
-      className="gov-active-card"
+      className={`gov-active-card ${featured ? "featured" : ""}`}
     >
       <div className="gov-active-head">
         <span className="governance-type-pill">{proposal.type}</span>
@@ -240,7 +275,7 @@ function ActiveProposalCard({
           </span>
         </div>
         <div className="gov-active-stat">
-          <span className="gov-active-stat-label">Ends</span>
+          <span className="gov-active-stat-label">{isLive ? "Ends" : "Ended"}</span>
           <span className="gov-active-stat-value">
             {proposal.votingEndTime
               ? formatRelativeOrAbsolute(proposal.votingEndTime, now)
