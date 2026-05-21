@@ -7033,7 +7033,10 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 12px 48px 12px 20px; /* extra right padding to keep the × button from overlapping text */
+  /* 18px top/bottom gives text room to breathe — previous 12px crammed
+     it against the top edge. 48px right keeps the × button clear of
+     long content. */
+  padding: 18px 48px 18px 20px;
   background: var(--tx-neon);
   color: var(--tx-dark-green);
   font-family: var(--font-mono);
