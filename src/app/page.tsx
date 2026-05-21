@@ -37,6 +37,7 @@ import AnalyticsTab from "@/components/AnalyticsTab";
 import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
+import GovernanceTab from "@/components/GovernanceTab";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -62,7 +63,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback";
+type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance";
 
 const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "overview", label: "Overview" },
@@ -70,6 +71,7 @@ const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "flows", label: "Flows" },
   { id: "portfolio", label: "Portfolio", walletOnly: true },
   { id: "pse", label: "PSE" },
+  { id: "governance", label: "Governance" },
   { id: "calculator", label: "Calculator" },
   { id: "rwa", label: "RWA" },
   { id: "validators", label: "Validators" },
@@ -621,6 +623,8 @@ export default function HomePage() {
         )}
 
         {activeTab === "feedback" && <FeedbackTab />}
+
+        {activeTab === "governance" && <GovernanceTab />}
 
         {/* Soft CTA — only on info-heavy tabs where the user has just
             consumed a lot of data and is most likely to think 'I wish
