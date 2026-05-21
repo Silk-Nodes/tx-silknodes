@@ -7021,3 +7021,55 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(180, 74, 62, 0.18);
   color: #8a2c20;
 }
+
+/* ─── What's New banner (top of page, dismissable, auto-expires) ─── */
+.whats-new-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: rgba(177, 252, 3, 0.18);
+  border-bottom: 1px solid rgba(177, 252, 3, 0.45);
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-align: center;
+  position: relative;
+}
+.whats-new-banner-text { max-width: 760px; line-height: 1.4; }
+.whats-new-banner-link {
+  color: var(--text-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.whats-new-banner-link:hover { text-decoration: none; }
+.whats-new-banner-close {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-dark);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.whats-new-banner-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+:root[data-theme="dark"] .whats-new-banner {
+  background: rgba(177, 252, 3, 0.12);
+  border-bottom-color: rgba(177, 252, 3, 0.35);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .whats-new-banner-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
