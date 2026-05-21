@@ -174,13 +174,6 @@ export default function GovernanceTab() {
         </section>
       )}
 
-      <footer className="governance-footer">
-        <span>
-          Source: <code>cosmos.gov</code> via Coreum Hasura. Quorum {(quorum * 100).toFixed(0)}%,
-          pass threshold {(yesThreshold * 100).toFixed(0)}%, veto threshold{" "}
-          {(vetoThreshold * 100).toFixed(1)}%.
-        </span>
-      </footer>
     </div>
   );
 }
