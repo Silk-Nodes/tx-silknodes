@@ -7023,45 +7023,46 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ─── What's New banner (top of page, dismissable, auto-expires) ─── */
-/* Solid brand neon background + very dark green text. Same high-contrast
-   pattern as .time-pill.active — works the same in light AND dark mode
-   (the neon hex is identical across themes, only the text/page chrome
-   flips). Previous version used a pale 18% lime tint that blended into
-   the page background. */
+/* Soft pale-lime tint (back from the solid-neon version) — Rose liked
+   the lighter feel. Single-line text enforced with white-space: nowrap;
+   on mobile the strip becomes horizontally scrollable so long messages
+   don't break to a second line. */
 .whats-new-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  /* 18px top/bottom gives text room to breathe — previous 12px crammed
-     it against the top edge. 48px right keeps the × button clear of
-     long content. */
-  padding: 18px 48px 18px 20px;
-  background: var(--tx-neon);
-  color: var(--tx-dark-green);
+  padding: 14px 48px 14px 20px;
+  background: rgba(177, 252, 3, 0.22);
+  border-bottom: 1px solid rgba(177, 252, 3, 0.45);
+  color: var(--text-dark);
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 500;
-  text-align: center;
   position: relative;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08), 0 4px 12px rgba(177, 252, 3, 0.25);
+  /* Horizontal scroll fallback for narrow viewports. Most desktop and
+     tablet widths fit the message; on iPhone-mini-class screens the
+     user can scroll the strip sideways rather than have the text wrap
+     to two rows. */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.whats-new-banner-text { max-width: 760px; line-height: 1.45; }
+.whats-new-banner::-webkit-scrollbar { display: none; }
+.whats-new-banner-text {
+  white-space: nowrap;
+  text-align: center;
+  /* Shrink slightly on small screens so the message fits without
+     needing horizontal scroll for most phones. */
+  font-size: clamp(0.7rem, 2.4vw, 0.85rem);
+}
 .whats-new-banner-link {
-  color: var(--tx-dark-green);
+  color: var(--text-dark);
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 1.5px;
   cursor: pointer;
 }
-.whats-new-banner-link:hover {
-  text-decoration: none;
-  background: rgba(15, 27, 7, 0.1);
-  padding: 0 4px;
-  margin: 0 -4px;
-  border-radius: 4px;
-}
+.whats-new-banner-link:hover { text-decoration: none; }
 .whats-new-banner-close {
   position: absolute;
   right: 14px;
@@ -7069,16 +7070,23 @@ input[type="range"]::-moz-range-thumb {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: var(--tx-dark-green);
-  font-size: 1.35rem;
-  font-weight: 700;
+  color: var(--text-dark);
+  font-size: 1.25rem;
   line-height: 1;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
-  opacity: 0.75;
+  opacity: 0.6;
 }
 .whats-new-banner-close:hover {
   opacity: 1;
-  background: rgba(15, 27, 7, 0.12);
+  background: rgba(0, 0, 0, 0.06);
+}
+:root[data-theme="dark"] .whats-new-banner {
+  background: rgba(177, 252, 3, 0.14);
+  border-bottom-color: rgba(177, 252, 3, 0.35);
+  color: var(--text-dark);
+}
+:root[data-theme="dark"] .whats-new-banner-close:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
