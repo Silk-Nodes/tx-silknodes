@@ -44,8 +44,10 @@ export default function WhatsNewBanner({ onOpenFeedback }: WhatsNewBannerProps) 
 
   const handleFeedbackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
+    // Open Feedback, but do NOT dismiss the banner — people who click
+    // through and come back deserve to see the announcement still up.
+    // The × button is the only way to dismiss.
     onOpenFeedback();
-    dismiss();
   };
 
   if (!visible) return null;
