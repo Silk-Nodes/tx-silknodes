@@ -72,61 +72,78 @@ export default function GovernanceTab() {
           <h1 className="governance-title">Governance</h1>
           <p className="governance-sub">
             What&apos;s live on TX Network right now, plus the analytics to act on it.
-            Click any proposal for the full breakdown.
           </p>
         </div>
       </header>
 
-      {/* Chain-wide stats strip */}
-      <div className="gov-stats-strip">
-        <StatChip label="Live" value={String(active.length)} tone={active.length > 0 ? "ok" : "muted"} />
-        <StatChip label="Passed" value={String(chainStats.passed)} tone="ok" />
-        <StatChip label="Rejected" value={String(chainStats.rejected)} tone="warn" />
-        <StatChip label="Total" value={String(chainStats.total)} tone="muted" />
-        <StatChip
-          label="Avg turnout"
-          value={`${(chainStats.avgQuorum * 100).toFixed(0)}%`}
-          tone={chainStats.avgQuorum >= quorum ? "ok" : "warn"}
-        />
-        <StatChip label="Required quorum" value={`${(quorum * 100).toFixed(0)}%`} tone="muted" />
-      </div>
-
-      {/* LIVE HERO */}
-      <section className="gov-hero">
-        <div className="gov-hero-head">
-          <h2 className="gov-hero-title">
-            {active.length > 0 ? "Live proposals" : "Latest proposal"}
-          </h2>
-          <span className="gov-hero-count">{active.length > 0 ? active.length : 1}</span>
-          {active.length === 0 && (
-            <span className="gov-hero-note">
-              Nothing is currently live. Open the most recent proposal for full analytics.
-            </span>
-          )}
-        </div>
-        <div className="gov-hero-grid">
-          {active.length > 0
-            ? active.map((p) => (
-                <ActiveProposalCard
-                  key={p.id}
-                  proposal={p}
-                  quorumRequired={quorum}
-                  yesThreshold={yesThreshold}
-                  vetoThreshold={vetoThreshold}
-                  featured
-                />
-              ))
-            : latest && (
-                <ActiveProposalCard
-                  proposal={latest}
-                  quorumRequired={quorum}
-                  yesThreshold={yesThreshold}
-                  vetoThreshold={vetoThreshold}
-                  featured
-                />
-              )}
+      {/* Proposal status group */}
+      <section className="gov-stats-group">
+        <div className="gov-stats-group-label">Proposal status</div>
+        <div className="gov-stats-row">
+          <StatChip label="Live" value={String(active.length)} tone={active.length > 0 ? "ok" : "muted"} />
+          <StatChip label="Passed" value={String(chainStats.passed)} tone="ok" />
+          <StatChip label="Rejected" value={String(chainStats.rejected)} tone="warn" />
+          <StatChip label="Total" value={String(chainStats.total)} tone="muted" />
         </div>
       </section>
+
+      {/* Governance health group - turnout vs required quorum */}
+      <section className="gov-stats-group">
+        <div className="gov-stats-group-label">Governance health</div>
+        <GovernanceHealthBar
+          avgTurnout={chainStats.avgQuorum}
+          quorumRequired={quorum}
+          proposalCount={proposals.length}
+        />
+      </section>
+
+      {/* Live proposals section - always shown so the empty state has its
+          own dedicated slot instead of competing with the latest card */}
+      <section className="gov-section">
+        <div className="gov-section-head">
+          <h2 className="gov-section-title">Live proposals</h2>
+          <span className="gov-section-count">{active.length}</span>
+        </div>
+        {active.length === 0 ? (
+          <div className="gov-section-empty">
+            No active proposals right now. New proposals appear here as soon as
+            they enter the voting period.
+          </div>
+        ) : (
+          <div className="gov-hero-grid">
+            {active.map((p) => (
+              <ActiveProposalCard
+                key={p.id}
+                proposal={p}
+                quorumRequired={quorum}
+                yesThreshold={yesThreshold}
+                vetoThreshold={vetoThreshold}
+                featured
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Latest proposal section - only when nothing live, so the empty
+          state above and this featured card stop competing visually */}
+      {active.length === 0 && latest && (
+        <section className="gov-section">
+          <div className="gov-section-head">
+            <h2 className="gov-section-title">Latest proposal</h2>
+            <span className="gov-section-sub">The most recent decision on TX Network.</span>
+          </div>
+          <div className="gov-hero-grid">
+            <ActiveProposalCard
+              proposal={latest}
+              quorumRequired={quorum}
+              yesThreshold={yesThreshold}
+              vetoThreshold={vetoThreshold}
+              featured
+            />
+          </div>
+        </section>
+      )}
 
       {loading && proposals.length === 0 && (
         <div className="governance-empty">Loading proposals...</div>
@@ -147,7 +164,7 @@ export default function GovernanceTab() {
             aria-expanded={historyOpen}
           >
             <span className="gov-history-toggle-label">
-              {historyOpen ? "Hide" : "View"} past proposals
+              {historyOpen ? "Hide" : "Browse"} past proposals
             </span>
             <span className="gov-history-toggle-count">{history.length}</span>
             <span className="gov-history-toggle-chev">{historyOpen ? "▴" : "▾"}</span>
@@ -174,6 +191,43 @@ export default function GovernanceTab() {
         </section>
       )}
 
+    </div>
+  );
+}
+
+// Single horizontal bar showing avg turnout across all proposals vs the
+// chain's required quorum. Lets a visitor see "the network usually
+// participates above quorum" without doing the math themselves.
+function GovernanceHealthBar({
+  avgTurnout, quorumRequired, proposalCount,
+}: {
+  avgTurnout: number;
+  quorumRequired: number;
+  proposalCount: number;
+}) {
+  const pct = Math.max(0, Math.min(1, avgTurnout));
+  const reqPct = Math.max(0, Math.min(1, quorumRequired));
+  const healthy = avgTurnout >= quorumRequired;
+  return (
+    <div className={`gov-health ${healthy ? "ok" : "warn"}`}>
+      <div className="gov-health-row">
+        <span className="gov-health-pct">{(pct * 100).toFixed(0)}%</span>
+        <span className="gov-health-label">Average turnout across {proposalCount} proposals</span>
+        <span className={`gov-health-status ${healthy ? "ok" : "warn"}`}>
+          {healthy ? "Healthy" : "Below quorum"}
+        </span>
+      </div>
+      <div className="gov-health-bar" role="img" aria-label={`Average turnout ${(pct * 100).toFixed(0)}%, required ${(reqPct * 100).toFixed(0)}%`}>
+        <div className="gov-health-fill" style={{ width: `${pct * 100}%` }} />
+        <div
+          className="gov-health-quorum-line"
+          style={{ left: `${reqPct * 100}%` }}
+          title={`Quorum required: ${(reqPct * 100).toFixed(0)}%`}
+        />
+      </div>
+      <div className="gov-health-footer">
+        <span className="gov-health-marker">▲ {(reqPct * 100).toFixed(0)}% quorum required</span>
+      </div>
     </div>
   );
 }
@@ -279,7 +333,7 @@ function ActiveProposalCard({
           <span className="gov-active-stat-label">Voted</span>
           <span className="gov-active-stat-value">{formatTxAmount(tally.totalVoted)} TX</span>
         </div>
-        <span className="gov-active-cta">Open →</span>
+        <span className="gov-active-cta">Full breakdown →</span>
       </div>
     </Link>
   );

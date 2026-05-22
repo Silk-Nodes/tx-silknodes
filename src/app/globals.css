@@ -7124,20 +7124,21 @@ input[type="range"]::-moz-range-thumb {
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 32px;
 }
 .governance-title {
   font-family: var(--font-mono);
   font-size: 1.6rem;
   font-weight: 700;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   color: var(--text-dark);
 }
 .governance-sub {
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: var(--text-medium);
   margin: 0;
   max-width: 640px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .governance-active-pill {
   padding: 7px 14px;
@@ -8147,13 +8148,142 @@ input[type="range"]::-moz-range-thumb {
    Uses --glass-bg, --glass-border, --tx-neon, --radius-* tokens
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── Chain stats strip ───────────────────────────────────────────── */
+/* ── Stat groups (Proposal status + Governance health) ────────────── */
+.gov-stats-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.gov-stats-group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+.gov-stats-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Legacy class kept for back-compat (used elsewhere). */
 .gov-stats-strip {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
+
+/* ── Governance health bar ───────────────────────────────────────── */
+.gov-health {
+  padding: 18px 22px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gov-health-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.gov-health-pct {
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: var(--text-dark);
+}
+.gov-health.ok .gov-health-pct { color: var(--text-accent); }
+.gov-health.warn .gov-health-pct { color: var(--accent-orange); }
+.gov-health-label { flex: 1; font-size: 0.9rem; color: var(--text-medium); }
+.gov-health-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+.gov-health-status.ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
+.gov-health-status.warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); }
+
+.gov-health-bar {
+  position: relative;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(0,0,0,0.06);
+  border: 1px solid var(--glass-border);
+  overflow: visible; /* so the quorum line tick can extend outside */
+}
+:root[data-theme="dark"] .gov-health-bar { background: rgba(255,255,255,0.06); }
+.gov-health-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text-accent);
+  transition: width 0.3s ease;
+}
+.gov-health.warn .gov-health-fill { background: var(--accent-orange); }
+.gov-health-quorum-line {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--text-dark);
+  transform: translateX(-1px);
+  opacity: 0.55;
+}
+.gov-health-footer { display: flex; justify-content: flex-start; font-size: 0.75rem; color: var(--text-light); }
+.gov-health-marker { letter-spacing: 0.02em; }
+
+/* ── Sectioned hero (Live proposals / Latest proposal) ───────────── */
+.gov-section { margin-bottom: 30px; }
+.gov-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.gov-section-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text-dark);
+}
+.gov-section-count {
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--tx-neon);
+  color: var(--tx-dark-green);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gov-section-sub { font-size: 0.85rem; color: var(--text-light); font-style: italic; }
+.gov-section-empty {
+  padding: 30px 24px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--glass-border);
+  background: rgba(255,255,255,0.02);
+  color: var(--text-light);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  max-width: 720px;
+}
+:root[data-theme="dark"] .gov-section-empty { background: rgba(255,255,255,0.025); }
+
+/* Legacy gov-hero classes kept for the inner card grid layout. */
 .gov-chip {
   display: flex;
   flex-direction: column;
@@ -8347,24 +8477,25 @@ input[type="range"]::-moz-range-thumb {
 .gov-active-card:hover .gov-active-cta { background: var(--tx-neon-light); }
 
 /* ── History (collapsed) ─────────────────────────────────────────── */
-.gov-history { margin-top: 28px; }
+.gov-history { margin-top: 36px; }
 .gov-history-toggle {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
+  gap: 14px;
+  padding: 18px 24px;
   width: 100%;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 1rem;
   cursor: pointer;
   color: var(--text-dark);
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
-.gov-history-toggle:hover { border-color: var(--text-accent); }
+.gov-history-toggle:hover { border-color: var(--text-accent); background: var(--accent-olive-light); transform: translateY(-1px); }
+.gov-history-toggle-label { font-weight: 500; }
 .gov-history-toggle-count {
   margin-left: 8px;
   padding: 2px 10px;
@@ -10028,3 +10159,26 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.5;
 }
 .dd-fineprint strong { color: var(--text-medium); font-weight: 600; font-style: normal; }
+
+/* ── Governance landing mobile tweaks ─────────────────────────────── */
+@media (max-width: 720px) {
+  .governance-header { margin-bottom: 24px; }
+  .governance-title { font-size: 1.4rem; }
+  .gov-stats-group { margin-bottom: 22px; gap: 10px; }
+  .gov-stats-row { gap: 8px; }
+  .gov-chip { min-width: 88px; padding: 12px 14px; }
+  .gov-chip-value { font-size: 1.3rem; }
+  .gov-health { padding: 16px 18px; }
+  .gov-health-pct { font-size: 1.7rem; }
+  .gov-health-label { font-size: 0.85rem; }
+  .gov-section-title { font-size: 1.2rem; }
+  .gov-section-empty { padding: 22px 18px; font-size: 0.88rem; }
+  .gov-history-toggle { padding: 14px 18px; font-size: 0.92rem; }
+}
+@media (max-width: 480px) {
+  .gov-chip { min-width: 0; flex: 1 1 calc(50% - 4px); }
+  .gov-health-row { gap: 8px; }
+  .gov-health-status { font-size: 0.65rem; }
+  .gov-active-card { padding: 18px 18px; }
+  .gov-active-title { font-size: 1rem; }
+}
