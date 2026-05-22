@@ -29,6 +29,11 @@ export interface ExplainerBullet {
 export interface ExplainerSection {
   headline: string;       // one-line summary, plain English
   bullets: ExplainerBullet[]; // structured facts, label + value
+  // Optional risk callout. Use only for non-action consequences that the
+  // reader needs to understand (e.g. "node halts if you don't upgrade").
+  // The UI renders this as a yellow-bordered callout next to the bullets,
+  // not inside them.
+  risk?: string;
   unrecognized?: boolean; // true when we hit the fallback path
 }
 
@@ -71,8 +76,9 @@ export function explainProposal(p: Proposal): ExplainerSection {
           { label: "Upgrade name", value: name || "—" },
           { label: "Trigger block", value: height ? `#${Number(height).toLocaleString()}` : "—" },
           ...(info ? [{ label: "Notes", value: info }] : []),
-          { label: "What happens", value: "Validators must update node software before the trigger block, or the chain halts for them at that height." },
+          { label: "Validator action", value: "Update node software before the trigger block." },
         ],
+        risk: "Validators that don't upgrade before the trigger block halt at that height. Their delegators lose rewards until they catch up.",
       };
     }
 
@@ -97,6 +103,9 @@ export function explainProposal(p: Proposal): ExplainerSection {
           { label: "Recipient", value: recipient ? truncateAddr(recipient) : "—" },
           { label: "What happens", value: "If passed, the community pool sends this amount directly to the recipient address." },
         ],
+        risk: amountTX >= 1_000_000
+          ? `Treasury outflow of ${formatTX(amountTX)} is irreversible once executed.`
+          : undefined,
       };
     }
 

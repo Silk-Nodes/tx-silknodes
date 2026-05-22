@@ -1,289 +1,253 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ProposalDetailData, ValidatorVote } from "@/hooks/useProposalDetail";
+import type { ProposalDetailData } from "@/hooks/useProposalDetail";
 import { explainProposal } from "@/lib/governance-explainer";
 import {
-  STATUS_LABELS,
   calcQuorumFraction,
-  calcVoteFractions,
   formatTxAmount,
 } from "@/lib/governance";
-import ValidatorVoteTable from "./ValidatorVoteTable";
-import VoteConcentration from "./VoteConcentration";
-import VelocityChart from "./VelocityChart";
+import VoteResultBar from "./VoteResultBar";
+import GovernanceInsights from "./GovernanceInsights";
+import WhoVotedCompact from "./WhoVotedCompact";
 
 interface Props {
   data: ProposalDetailData;
   highlightAddresses: string[];
 }
 
-// Layout for PASSED / REJECTED / FAILED proposals. The story is "what
-// happened and why" - no vote panel, no override summary, no live banner.
-// Sections are ordered to match how a user reads it: outcome → what it did
-// → vote totals → how this passed (velocity + concentration) → who voted →
-// details (description + raw) in tabs at the end.
+// Phase 1.5: progressive disclosure. The page now answers the simple-user
+// questions immediately (did it pass? how strongly?), pulls one-line
+// plain-English insights up next, and pushes power-user data (full
+// validator table, raw JSON, advanced charts) behind explicit clicks.
 export default function SettledLayout({ data, highlightAddresses }: Props) {
   const { proposal, params: govParams, validators, velocity, meta, delegatorVotes } = data;
   const { tally, status } = proposal;
   const quorumPct = calcQuorumFraction(tally);
-  const fractions = calcVoteFractions(tally);
   const explainer = explainProposal(proposal);
+  const outcomeWord =
+    status === "passed" ? "Passed"
+    : status === "rejected" ? "Rejected"
+    : status === "failed" ? "Failed"
+    : status;
   const outcomeTone =
     status === "passed" ? "ok"
     : status === "rejected" || status === "failed" ? "warn"
     : "neutral";
-  const outcomeHeadline =
-    status === "passed" ? "✓ PASSED"
-    : status === "rejected" ? "✗ REJECTED"
-    : status === "failed" ? "✗ FAILED"
-    : status.toUpperCase();
 
-  const durationCopy = useMemo(() => {
-    if (!proposal.votingStartTime || !proposal.votingEndTime) return null;
-    const start = new Date(proposal.votingStartTime).getTime();
-    const end = new Date(proposal.votingEndTime).getTime();
-    const days = Math.round((end - start) / 86_400_000 * 10) / 10;
-    return `${days}d`;
-  }, [proposal.votingStartTime, proposal.votingEndTime]);
-
-  // Find the dominant vote side to lead the headline.
-  const dominantSide =
-    fractions.yesPct >= fractions.noPct && fractions.yesPct >= fractions.vetoPct
-      ? "yes"
-      : fractions.noPct >= fractions.vetoPct
-      ? "no"
-      : "veto";
-  const dominantPct = dominantSide === "yes"
-    ? fractions.yesPct
-    : dominantSide === "no" ? fractions.noPct : fractions.vetoPct;
-  const dominantAmount = dominantSide === "yes"
-    ? tally.yes : dominantSide === "no" ? tally.no : tally.noWithVeto;
+  // Compact meta line under the hero title.
+  const metaParts: string[] = [proposal.type, `#${proposal.id}`];
+  if (proposal.votingStartTime && proposal.votingEndTime) {
+    const start = new Date(proposal.votingStartTime);
+    const end = new Date(proposal.votingEndTime);
+    const days = Math.round((end.getTime() - start.getTime()) / 86_400_000 * 10) / 10;
+    metaParts.push(`${formatShortDate(start)} → ${formatShortDate(end)} (${days}d)`);
+  }
+  metaParts.push(`${(quorumPct * 100).toFixed(1)}% turnout`);
+  if (tally.totalVoted > 0) {
+    metaParts.push(`${formatTxAmount(tally.totalVoted)} TX voted`);
+  }
 
   return (
-    <div className="prop-settled">
-      {/* Outcome hero - wide, single, focused */}
-      <section className={`prop-settled-outcome tone-${outcomeTone}`}>
-        <div className="prop-settled-outcome-headline">{outcomeHeadline}</div>
-        <div className="prop-settled-outcome-sub">
-          <span className={`prop-settled-dom prop-settled-dom-${dominantSide}`}>
-            {(dominantPct * 100).toFixed(1)}% {dominantSide === "yes" ? "Yes" : dominantSide === "no" ? "No" : "Veto"}
-          </span>
-          <span className="prop-settled-sep">·</span>
-          <span>{formatTxAmount(dominantAmount)} TX</span>
-          <span className="prop-settled-sep">·</span>
-          <span>{(quorumPct * 100).toFixed(2)}% turnout</span>
-          {durationCopy && (
-            <>
-              <span className="prop-settled-sep">·</span>
-              <span>Decided in {durationCopy}</span>
-            </>
+    <div className="psl">
+      {/* ─── Hero ─────────────────────────────────────────────────── */}
+      <section className={`psl-hero psl-hero-${outcomeTone}`}>
+        <div className="psl-hero-status">{outcomeWord}</div>
+        <h1 className="psl-hero-title">{proposal.title}</h1>
+        <div className="psl-hero-meta">
+          {metaParts.map((p, i) => (
+            <span key={i} className="psl-hero-meta-item">
+              {p}
+              {i < metaParts.length - 1 && <span className="psl-hero-meta-sep">·</span>}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Vote result (one big bar) ───────────────────────────── */}
+      <section className="psl-section">
+        <VoteResultBar
+          yes={tally.yes}
+          no={tally.no}
+          veto={tally.noWithVeto}
+          abstain={tally.abstain}
+          total={tally.bondedSnapshot}
+        />
+      </section>
+
+      {/* ─── What it did + Risk callout ──────────────────────────── */}
+      <section className="psl-section">
+        <div className="psl-section-label">What it did</div>
+        <div className="psl-what">
+          <div className="psl-what-main">
+            <div className="psl-what-headline">
+              {explainer.headline}
+              {explainer.unrecognized && (
+                <span className="psl-what-unrec"> (auto-explainer not yet supported)</span>
+              )}
+            </div>
+            <dl className="psl-what-list">
+              {explainer.bullets.map((b) => (
+                <div key={b.label} className="psl-what-row">
+                  <dt>{b.label}</dt>
+                  <dd>{b.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          {explainer.risk && (
+            <div className="psl-risk">
+              <div className="psl-risk-label">Risk</div>
+              <div className="psl-risk-text">{explainer.risk}</div>
+            </div>
           )}
         </div>
       </section>
 
-      {/* What it did - explainer right under outcome */}
-      <section className="prop-settled-explainer">
-        <div className="prop-settled-section-label">What it did</div>
-        <div className="prop-page-explainer">
-          <div className="prop-page-explainer-headline">
-            {explainer.headline}
-            {explainer.unrecognized && (
-              <span className="prop-page-explainer-unrec"> (auto-explainer not yet supported)</span>
-            )}
-          </div>
-          <dl className="prop-page-explainer-list">
-            {explainer.bullets.map((b) => (
-              <div key={b.label} className="prop-page-explainer-row">
-                <dt>{b.label}</dt>
-                <dd>{b.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+      {/* ─── Governance insights (3 plain-English bullets) ───────── */}
+      <section className="psl-section">
+        <div className="psl-section-label">Governance insights</div>
+        <GovernanceInsights
+          validators={validators}
+          velocity={velocity}
+          totalBonded={tally.bondedSnapshot}
+          yesThreshold={govParams.threshold}
+          quorumRequired={govParams.quorum}
+        />
       </section>
 
-      {/* Vote totals - small strip, since the outcome already led with the
-          dominant side. The other three are for context. */}
-      <section className="prop-settled-tally">
-        <MiniVoteCard label="Yes" amount={tally.yes} pct={fractions.yesPct} kind="yes" />
-        <MiniVoteCard label="No" amount={tally.no} pct={fractions.noPct} kind="no" />
-        <MiniVoteCard label="Veto" amount={tally.noWithVeto} pct={fractions.vetoPct} kind="veto" />
-        <MiniVoteCard label="Abstain" amount={tally.abstain} pct={fractions.abstainPct} kind="abstain" />
-      </section>
-
-      {/* How this passed - velocity + concentration side by side */}
-      <section className="prop-settled-twocol">
-        <div className="prop-settled-col">
-          <div className="prop-settled-section-label">Vote velocity</div>
-          <VelocityChart
-            series={velocity}
-            bondedSnapshot={tally.bondedSnapshot}
-            quorumRequired={govParams.quorum}
-          />
-        </div>
-        <div className="prop-settled-col">
-          <div className="prop-settled-section-label">Concentration</div>
-          <VoteConcentration
-            validators={validators}
-            totalBonded={tally.bondedSnapshot}
-            yesThreshold={govParams.threshold}
-            quorumRequired={govParams.quorum}
-          />
-        </div>
-      </section>
-
-      {/* Who voted - validator table */}
-      <section className="prop-settled-validators">
-        <div className="prop-settled-section-head">
-          <div className="prop-settled-section-label">Who voted</div>
-          <div className="prop-settled-section-sub">
-            {meta.votedCount} of {meta.validatorCount} active validators voted ·
-            {" "}{meta.delegatorVoteCount} non-validator override votes
+      {/* ─── Who voted ──────────────────────────────────────────── */}
+      <section className="psl-section">
+        <div className="psl-section-head">
+          <div className="psl-section-label">Who voted</div>
+          <div className="psl-section-sub">
+            {meta.votedCount} of {meta.validatorCount} active validators
+            {meta.delegatorVoteCount > 0 && ` · ${meta.delegatorVoteCount} delegator override votes`}
           </div>
         </div>
-        <ValidatorVoteTable
+        <WhoVotedCompact
           validators={validators}
           totalBonded={tally.bondedSnapshot}
           highlightAddresses={highlightAddresses}
         />
       </section>
 
-      {/* Non-voters callout (if any) */}
-      <NonVotersCallout validators={validators} />
-
-      {/* Details - tabs for description + raw + delegator votes */}
-      <DetailsTabs
+      {/* ─── Technical details (single accordion, all closed) ───── */}
+      <DetailsAccordion
         description={proposal.description}
-        proposal={proposal}
-        params={govParams}
         delegatorVotes={delegatorVotes}
+        rawPayload={{ proposal, params: govParams }}
       />
     </div>
   );
 }
 
-function MiniVoteCard({
-  label, amount, pct, kind,
-}: { label: string; amount: number; pct: number; kind: "yes" | "no" | "veto" | "abstain" }) {
-  return (
-    <div className={`prop-settled-mini vote-${kind}`}>
-      <div className="prop-settled-mini-label">{label}</div>
-      <div className="prop-settled-mini-pct">{(pct * 100).toFixed(2)}%</div>
-      <div className="prop-settled-mini-amount">{formatTxAmount(amount)} TX</div>
-    </div>
-  );
-}
-
-function NonVotersCallout({ validators }: { validators: ValidatorVote[] }) {
-  const nonVoters = useMemo(
-    () => validators
-      .filter((v) => v.voteOption === "DID_NOT_VOTE" && !v.jailed)
-      .sort((a, b) => b.bondedStakeTX - a.bondedStakeTX)
-      .slice(0, 10),
-    [validators],
-  );
-  const totalIdleStake = nonVoters.reduce((sum, v) => sum + v.bondedStakeTX, 0);
-  if (nonVoters.length === 0) return null;
-  return (
-    <section className="prop-settled-nonvoters">
-      <div className="prop-settled-section-head">
-        <div className="prop-settled-section-label">Validators that didn&apos;t vote</div>
-        <div className="prop-settled-section-sub">
-          {nonVoters.length} active validators stayed silent, holding {formatTxAmount(totalIdleStake)} TX of stake.
-        </div>
-      </div>
-      <div className="prop-page-nonvoters">
-        {nonVoters.map((v, i) => (
-          <div key={v.consensusAddress} className="prop-page-nonvoter-row">
-            <span className="prop-page-nonvoter-rank">{i + 1}</span>
-            <span className="prop-page-nonvoter-name">{v.moniker || "(unnamed)"}</span>
-            <span className="prop-page-nonvoter-stake">
-              {formatTxAmount(v.bondedStakeTX)} TX
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-type DetailTab = "description" | "raw" | "delegators";
-
-function DetailsTabs({
-  description, proposal, params, delegatorVotes,
+function DetailsAccordion({
+  description, delegatorVotes, rawPayload,
 }: {
   description: string;
-  proposal: unknown;
-  params: unknown;
   delegatorVotes: ProposalDetailData["delegatorVotes"];
+  rawPayload: unknown;
 }) {
-  // Default to whichever tab has the most useful content.
-  const initial: DetailTab = description?.trim() ? "description" : delegatorVotes.length > 0 ? "delegators" : "raw";
-  const [tab, setTab] = useState<DetailTab>(initial);
-  const tabs: { id: DetailTab; label: string; badge?: string }[] = [
-    { id: "description", label: "Description" },
-    ...(delegatorVotes.length > 0 ? [{ id: "delegators" as DetailTab, label: "Override votes", badge: String(delegatorVotes.length) }] : []),
-    { id: "raw", label: "Raw data" },
-  ];
+  const [open, setOpen] = useState<string | null>(null);
+  const toggle = (key: string) => setOpen((o) => (o === key ? null : key));
   return (
-    <section className="prop-settled-details">
-      <div className="prop-settled-section-head">
-        <div className="prop-settled-section-label">Details</div>
-      </div>
-      <nav className="prop-settled-tab-row" role="tablist">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`prop-settled-tab ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-            {t.badge && <span className="prop-settled-tab-badge">{t.badge}</span>}
-          </button>
-        ))}
-      </nav>
-      <div className="prop-settled-tab-body">
-        {tab === "description" && (
-          description?.trim() ? (
+    <section className="psl-section">
+      <div className="psl-section-label">Technical details</div>
+      <div className="psl-accordion">
+        <AccordionRow
+          id="description"
+          label="Proposer description"
+          subtext="The text submitted by the proposer."
+          open={open === "description"}
+          onToggle={() => toggle("description")}
+        >
+          {description?.trim() ? (
             <div className="prop-page-summary">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
             </div>
           ) : (
-            <div className="prop-page-empty">No description was provided by the proposer.</div>
-          )
+            <div className="psl-empty">No description provided.</div>
+          )}
+        </AccordionRow>
+        {delegatorVotes.length > 0 && (
+          <AccordionRow
+            id="overrides"
+            label={`Delegator override votes (${delegatorVotes.length})`}
+            subtext="Delegators who voted directly to override their validator."
+            open={open === "overrides"}
+            onToggle={() => toggle("overrides")}
+          >
+            <div className="prop-page-delegator-list">
+              {delegatorVotes.slice(0, 50).map((d) => (
+                <div key={d.voterAddress} className="prop-page-delegator-row">
+                  <span className="mono">{shorten(d.voterAddress)}</span>
+                  <span className={`vvt-vote-badge vvt-vote-${d.voteOption.toLowerCase()}`}>
+                    {d.voteOption.replace("_", " ").toLowerCase()}
+                  </span>
+                  <span className="prop-page-delegator-time">
+                    {new Date(d.votedAt).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              {delegatorVotes.length > 50 && (
+                <div className="psl-empty">+ {delegatorVotes.length - 50} more</div>
+              )}
+            </div>
+          </AccordionRow>
         )}
-        {tab === "delegators" && (
-          <div className="prop-page-delegator-list">
-            {delegatorVotes.slice(0, 50).map((d) => (
-              <div key={d.voterAddress} className="prop-page-delegator-row">
-                <span className="mono">{shorten(d.voterAddress)}</span>
-                <span className={`vvt-vote-badge vvt-vote-${d.voteOption.toLowerCase()}`}>
-                  {d.voteOption.replace("_", " ").toLowerCase()}
-                </span>
-                <span className="prop-page-delegator-time">
-                  {new Date(d.votedAt).toLocaleString()}
-                </span>
-              </div>
-            ))}
-            {delegatorVotes.length > 50 && (
-              <div className="prop-page-empty">+ {delegatorVotes.length - 50} more</div>
-            )}
-          </div>
-        )}
-        {tab === "raw" && (
+        <AccordionRow
+          id="raw"
+          label="Raw on-chain data"
+          subtext="The exact proposal payload returned by the indexer. For developers."
+          open={open === "raw"}
+          onToggle={() => toggle("raw")}
+        >
           <pre className="prop-page-raw">
-            <code>{JSON.stringify({ proposal, params }, null, 2)}</code>
+            <code>{JSON.stringify(rawPayload, null, 2)}</code>
           </pre>
-        )}
+        </AccordionRow>
       </div>
     </section>
   );
+}
+
+function AccordionRow({
+  id, label, subtext, open, onToggle, children,
+}: {
+  id: string;
+  label: string;
+  subtext: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`psl-acc-row ${open ? "open" : ""}`}>
+      <button
+        type="button"
+        className="psl-acc-head"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={`psl-acc-${id}`}
+      >
+        <span className="psl-acc-label">{label}</span>
+        <span className="psl-acc-sub">{subtext}</span>
+        <span className="psl-acc-chev" aria-hidden="true">{open ? "▴" : "▾"}</span>
+      </button>
+      {open && (
+        <div id={`psl-acc-${id}`} className="psl-acc-body">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatShortDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function shorten(s: string): string {

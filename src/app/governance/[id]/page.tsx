@@ -76,50 +76,50 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
           <PageWalletButton wallet={wallet} />
         </div>
 
-        {/* Header (shared across all status layouts) */}
-        <header className="prop-page-header">
-          <div className="prop-page-header-meta">
-            <span className="governance-type-pill" title={proposal.rawType}>
-              {proposal.type}
-            </span>
-            <span className={`governance-status-badge status-${status}`}>
-              {STATUS_LABELS[status]}
-            </span>
-            <span className="prop-page-id">#{proposal.id}</span>
-          </div>
-          <h1 className="prop-page-title">{proposal.title}</h1>
-          <div className="prop-page-times">
-            {proposal.votingStartTime && (
-              <span>
-                Voting period:{" "}
-                {formatAbsolute(proposal.votingStartTime)}
-                {" → "}
-                {proposal.votingEndTime ? formatAbsolute(proposal.votingEndTime) : "open"}
-              </span>
-            )}
-          </div>
-        </header>
-
-        {/* Phase 1: settled proposals get a story-first layout. Active and
-            deposit-period proposals continue using the legacy stacked
-            layout below until phases 2 and 3 land. */}
+        {/* For settled proposals, SettledLayout owns the hero (status +
+            title + meta). For active/deposit we still show the legacy
+            header here until those layouts get the same treatment. */}
         {isSettled ? (
           <SettledLayout
             data={data}
             highlightAddresses={delegations.map((d) => d.operatorAddress)}
           />
         ) : (
-          <LegacyActiveLayout
-            data={data}
-            wallet={wallet}
-            delegations={delegations}
-            isActive={isActive}
-            projection={projection}
-            fractions={fractions}
-            quorumPct={quorumPct}
-            quorumMet={quorumMet}
-            explainer={explainer}
-          />
+          <>
+            <header className="prop-page-header">
+              <div className="prop-page-header-meta">
+                <span className="governance-type-pill" title={proposal.rawType}>
+                  {proposal.type}
+                </span>
+                <span className={`governance-status-badge status-${status}`}>
+                  {STATUS_LABELS[status]}
+                </span>
+                <span className="prop-page-id">#{proposal.id}</span>
+              </div>
+              <h1 className="prop-page-title">{proposal.title}</h1>
+              <div className="prop-page-times">
+                {proposal.votingStartTime && (
+                  <span>
+                    Voting period:{" "}
+                    {formatAbsolute(proposal.votingStartTime)}
+                    {" → "}
+                    {proposal.votingEndTime ? formatAbsolute(proposal.votingEndTime) : "open"}
+                  </span>
+                )}
+              </div>
+            </header>
+            <LegacyActiveLayout
+              data={data}
+              wallet={wallet}
+              delegations={delegations}
+              isActive={isActive}
+              projection={projection}
+              fractions={fractions}
+              quorumPct={quorumPct}
+              quorumMet={quorumMet}
+              explainer={explainer}
+            />
+          </>
         )}
 
         <ProposalNav currentId={proposal.id} />
