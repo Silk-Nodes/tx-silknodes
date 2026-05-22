@@ -76,26 +76,28 @@ export default function GovernanceTab() {
         </div>
       </header>
 
-      {/* Proposal status group */}
-      <section className="gov-stats-group">
-        <div className="gov-stats-group-label">Proposal status</div>
-        <div className="gov-stats-row">
-          <StatChip label="Live" value={String(active.length)} tone={active.length > 0 ? "ok" : "muted"} />
-          <StatChip label="Passed" value={String(chainStats.passed)} tone="ok" />
-          <StatChip label="Rejected" value={String(chainStats.rejected)} tone="warn" />
-          <StatChip label="Total" value={String(chainStats.total)} tone="muted" />
-        </div>
-      </section>
+      {/* Paired stats: on wide screens the two groups sit side by side
+          so the page top reads as a dashboard, not a stack. */}
+      <div className="gov-stats-grid">
+        <section className="gov-stats-group">
+          <div className="gov-stats-group-label">Proposal status</div>
+          <div className="gov-stats-row">
+            <StatChip label="Live" value={String(active.length)} tone={active.length > 0 ? "ok" : "muted"} />
+            <StatChip label="Passed" value={String(chainStats.passed)} tone="ok" />
+            <StatChip label="Rejected" value={String(chainStats.rejected)} tone="warn" />
+            <StatChip label="Total" value={String(chainStats.total)} tone="muted" />
+          </div>
+        </section>
 
-      {/* Governance health group - turnout vs required quorum */}
-      <section className="gov-stats-group">
-        <div className="gov-stats-group-label">Governance health</div>
-        <GovernanceHealthBar
-          avgTurnout={chainStats.avgQuorum}
-          quorumRequired={quorum}
-          proposalCount={proposals.length}
-        />
-      </section>
+        <section className="gov-stats-group">
+          <div className="gov-stats-group-label">Governance health</div>
+          <GovernanceHealthBar
+            avgTurnout={chainStats.avgQuorum}
+            quorumRequired={quorum}
+            proposalCount={proposals.length}
+          />
+        </section>
+      </div>
 
       {/* Live proposals section - always shown so the empty state has its
           own dedicated slot instead of competing with the latest card */}
@@ -105,10 +107,10 @@ export default function GovernanceTab() {
           <span className="gov-section-count">{active.length}</span>
         </div>
         {active.length === 0 ? (
-          <div className="gov-section-empty">
+          <p className="gov-section-empty-inline">
             No active proposals right now. New proposals appear here as soon as
             they enter the voting period.
-          </div>
+          </p>
         ) : (
           <div className="gov-hero-grid">
             {active.map((p) => (
@@ -195,9 +197,10 @@ export default function GovernanceTab() {
   );
 }
 
-// Single horizontal bar showing avg turnout across all proposals vs the
-// chain's required quorum. Lets a visitor see "the network usually
-// participates above quorum" without doing the math themselves.
+// Single bar showing avg turnout across all proposals vs the chain's
+// required quorum. The pill sits inline with the number, the quorum
+// threshold gets a notched tick with an inline label so it's actually
+// visible (the previous version had a hairline you couldn't see).
 function GovernanceHealthBar({
   avgTurnout, quorumRequired, proposalCount,
 }: {
@@ -208,25 +211,39 @@ function GovernanceHealthBar({
   const pct = Math.max(0, Math.min(1, avgTurnout));
   const reqPct = Math.max(0, Math.min(1, quorumRequired));
   const healthy = avgTurnout >= quorumRequired;
+  const delta = Math.round((avgTurnout - quorumRequired) * 100);
   return (
     <div className={`gov-health ${healthy ? "ok" : "warn"}`}>
-      <div className="gov-health-row">
-        <span className="gov-health-pct">{(pct * 100).toFixed(0)}%</span>
-        <span className="gov-health-label">Average turnout across {proposalCount} proposals</span>
-        <span className={`gov-health-status ${healthy ? "ok" : "warn"}`}>
-          {healthy ? "Healthy" : "Below quorum"}
-        </span>
+      <div className="gov-health-top">
+        <div className="gov-health-headline">
+          <span className="gov-health-pct">{(pct * 100).toFixed(0)}%</span>
+          <span className={`gov-health-status ${healthy ? "ok" : "warn"}`}>
+            {healthy ? "Healthy" : "Below quorum"}
+          </span>
+        </div>
+        <div className="gov-health-delta">
+          {delta >= 0 ? `+${delta}` : delta} pts vs required
+        </div>
       </div>
-      <div className="gov-health-bar" role="img" aria-label={`Average turnout ${(pct * 100).toFixed(0)}%, required ${(reqPct * 100).toFixed(0)}%`}>
-        <div className="gov-health-fill" style={{ width: `${pct * 100}%` }} />
+      <div className="gov-health-label">
+        Average turnout across {proposalCount} proposals
+      </div>
+      <div className="gov-health-bar-wrap">
         <div
-          className="gov-health-quorum-line"
-          style={{ left: `${reqPct * 100}%` }}
-          title={`Quorum required: ${(reqPct * 100).toFixed(0)}%`}
-        />
-      </div>
-      <div className="gov-health-footer">
-        <span className="gov-health-marker">▲ {(reqPct * 100).toFixed(0)}% quorum required</span>
+          className="gov-health-bar"
+          role="img"
+          aria-label={`Average turnout ${(pct * 100).toFixed(0)}%, required quorum ${(reqPct * 100).toFixed(0)}%`}
+        >
+          <div className="gov-health-fill" style={{ width: `${pct * 100}%` }} />
+          <div className="gov-health-tick" style={{ left: `${reqPct * 100}%` }}>
+            <div className="gov-health-tick-label">{(reqPct * 100).toFixed(0)}% quorum</div>
+            <div className="gov-health-tick-line" />
+          </div>
+        </div>
+        <div className="gov-health-axis">
+          <span>0%</span>
+          <span>100%</span>
+        </div>
       </div>
     </div>
   );
@@ -308,10 +325,20 @@ function ActiveProposalCard({
         <div className="gov-mini-abstain" style={{ width: `${(fractions.abstainPct * 100).toFixed(2)}%` }} />
       </div>
       <div className="gov-active-bar-labels">
-        <span className="gov-mini-label vote-yes">Yes {(fractions.yesPct * 100).toFixed(1)}%</span>
-        <span className="gov-mini-label vote-no">No {(fractions.noPct * 100).toFixed(1)}%</span>
-        <span className="gov-mini-label vote-veto">Veto {(fractions.vetoPct * 100).toFixed(1)}%</span>
-        <span className="gov-mini-label vote-abstain">Abs {(fractions.abstainPct * 100).toFixed(1)}%</span>
+        {/* Hide 0% sides so unanimous outcomes don't show three "0.0%"
+            labels. We only print labels for sides that actually got votes. */}
+        {fractions.yesPct > 0 && (
+          <span className="gov-mini-label vote-yes">Yes {(fractions.yesPct * 100).toFixed(1)}%</span>
+        )}
+        {fractions.noPct > 0 && (
+          <span className="gov-mini-label vote-no">No {(fractions.noPct * 100).toFixed(1)}%</span>
+        )}
+        {fractions.vetoPct > 0 && (
+          <span className="gov-mini-label vote-veto">Veto {(fractions.vetoPct * 100).toFixed(1)}%</span>
+        )}
+        {fractions.abstainPct > 0 && (
+          <span className="gov-mini-label vote-abstain">Abs {(fractions.abstainPct * 100).toFixed(1)}%</span>
+        )}
       </div>
 
       <div className="gov-active-footer">

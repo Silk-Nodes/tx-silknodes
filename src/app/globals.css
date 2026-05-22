@@ -8176,74 +8176,56 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 24px;
 }
 
-/* ── Governance health bar ───────────────────────────────────────── */
+/* ── Stats pairing grid (Proposal status + Governance health) ────── */
+.gov-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+  margin-bottom: 32px;
+}
+.gov-stats-grid .gov-stats-group { margin-bottom: 0; }
+@media (min-width: 1100px) {
+  .gov-stats-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 24px;
+    align-items: stretch;
+  }
+  .gov-stats-grid .gov-stats-group { display: flex; flex-direction: column; }
+  .gov-stats-grid .gov-stats-row { flex: 1; align-content: stretch; }
+  .gov-stats-grid .gov-chip { flex: 1 1 calc(50% - 5px); min-width: 0; justify-content: center; }
+}
+
+/* ── Governance health bar (compact, inline pill, visible tick) ──── */
 .gov-health {
-  padding: 18px 22px;
+  padding: 18px 22px 22px;
   border-radius: var(--radius-md);
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  height: 100%;
 }
-.gov-health-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.gov-health-pct {
-  font-size: 2rem;
-  font-weight: 300;
-  letter-spacing: -0.025em;
-  line-height: 1;
-  color: var(--text-dark);
-}
+.gov-health-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.gov-health-headline { display: flex; align-items: center; gap: 12px; }
+.gov-health-pct { font-size: 2.2rem; font-weight: 300; letter-spacing: -0.025em; line-height: 1; color: var(--text-dark); font-variant-numeric: tabular-nums; }
 .gov-health.ok .gov-health-pct { color: var(--text-accent); }
 .gov-health.warn .gov-health-pct { color: var(--accent-orange); }
-.gov-health-label { flex: 1; font-size: 0.9rem; color: var(--text-medium); }
-.gov-health-status {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-}
-.gov-health-status.ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
-.gov-health-status.warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); }
-
-.gov-health-bar {
-  position: relative;
-  height: 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(0,0,0,0.06);
-  border: 1px solid var(--glass-border);
-  overflow: visible; /* so the quorum line tick can extend outside */
-}
+.gov-health-status { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px; border-radius: var(--radius-pill); }
+.gov-health-status.ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border: 1px solid rgba(177, 252, 3, 0.25); }
+.gov-health-status.warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border: 1px solid rgba(255, 176, 120, 0.25); }
+.gov-health-delta { font-size: 0.78rem; color: var(--text-light); font-variant-numeric: tabular-nums; }
+.gov-health-label { font-size: 0.85rem; color: var(--text-medium); margin-bottom: 14px; }
+.gov-health-bar-wrap { position: relative; margin-top: auto; padding-top: 28px; }
+.gov-health-bar { position: relative; height: 10px; border-radius: var(--radius-pill); background: rgba(0,0,0,0.07); border: 1px solid var(--glass-border); }
 :root[data-theme="dark"] .gov-health-bar { background: rgba(255,255,255,0.06); }
-.gov-health-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  border-radius: var(--radius-pill);
-  background: var(--text-accent);
-  transition: width 0.3s ease;
-}
+.gov-health-fill { position: absolute; top: 0; left: 0; bottom: 0; border-radius: var(--radius-pill); background: var(--text-accent); transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .gov-health.warn .gov-health-fill { background: var(--accent-orange); }
-.gov-health-quorum-line {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 2px;
-  background: var(--text-dark);
-  transform: translateX(-1px);
-  opacity: 0.55;
-}
-.gov-health-footer { display: flex; justify-content: flex-start; font-size: 0.75rem; color: var(--text-light); }
-.gov-health-marker { letter-spacing: 0.02em; }
+.gov-health-tick { position: absolute; top: -22px; bottom: -6px; width: 0; transform: translateX(-50%); pointer-events: none; }
+.gov-health-tick-label { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-medium); background: var(--bg-base); padding: 2px 8px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); white-space: nowrap; }
+.gov-health-tick-line { position: absolute; top: 22px; bottom: 0; left: 50%; width: 2px; background: var(--text-medium); transform: translateX(-1px); border-radius: 1px; opacity: 0.7; }
+.gov-health-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.72rem; color: var(--text-light); font-variant-numeric: tabular-nums; }
 
 /* ── Sectioned hero (Live proposals / Latest proposal) ───────────── */
 .gov-section { margin-bottom: 30px; }
@@ -10182,3 +10164,23 @@ input[type="range"]::-moz-range-thumb {
   .gov-active-card { padding: 18px 18px; }
   .gov-active-title { font-size: 1rem; }
 }
+
+/* ── Empty state for Live proposals (lighter, no card) ─────────────── */
+.gov-section-empty-inline {
+  margin: 6px 0 0;
+  padding: 12px 0 4px;
+  color: var(--text-light);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  font-style: italic;
+  max-width: 640px;
+}
+
+/* ── Narrower history toggle so it doesn't dominate ────────────────── */
+@media (min-width: 720px) {
+  .gov-history-toggle { max-width: 460px; }
+}
+
+/* ── Footer simplification (removed All in ONE wordmark) ──────────── */
+.site-footer .footer-brand-logo,
+.site-footer .footer-sep { display: none; }

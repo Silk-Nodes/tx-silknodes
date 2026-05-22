@@ -670,12 +670,11 @@ export default function HomePage() {
       </div>
 
       {/* ════════ FOOTER ════════ */}
+      {/* Removed the duplicate "All in ONE" wordmark since the same brand
+          is already established by the logo in the top nav. Keep the credit
+          + public-good tag, both useful and not redundant. */}
       <footer className="site-footer">
         <div className="footer-left">
-          <div className="footer-brand-logo">
-            All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
-          </div>
-          <span className="footer-sep">|</span>
           <span className="footer-built">Built by <a href="https://silknodes.io" target="_blank" rel="noopener noreferrer">Silk Nodes</a></span>
         </div>
         <div className="footer-right">
