@@ -8208,7 +8208,7 @@ input[type="range"]::-moz-range-thumb {
   height: 100%;
 }
 .gov-health-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.gov-health-headline { display: flex; align-items: center; gap: 12px; }
+.gov-health-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .gov-health-pct { font-size: 2.2rem; font-weight: 300; letter-spacing: -0.025em; line-height: 1; color: var(--text-dark); font-variant-numeric: tabular-nums; }
 .gov-health.ok .gov-health-pct { color: var(--text-accent); }
 .gov-health.warn .gov-health-pct { color: var(--accent-orange); }
@@ -8224,7 +8224,24 @@ input[type="range"]::-moz-range-thumb {
 .gov-health.warn .gov-health-fill { background: var(--accent-orange); }
 .gov-health-tick { position: absolute; top: -22px; bottom: -6px; width: 0; transform: translateX(-50%); pointer-events: none; }
 .gov-health-tick-label { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-medium); background: var(--bg-base); padding: 2px 8px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); white-space: nowrap; }
-.gov-health-tick-line { position: absolute; top: 22px; bottom: 0; left: 50%; width: 2px; background: var(--text-medium); transform: translateX(-1px); border-radius: 1px; opacity: 0.7; }
+/* Tick line crossing the bar. Uses --text-dark (high-contrast on the
+   bright neon fill) plus a subtle white outline so it stays visible on
+   either side of the fill boundary. */
+.gov-health-tick-line {
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: var(--text-dark);
+  transform: translateX(-1px);
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+:root[data-theme="dark"] .gov-health-tick-line {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
 .gov-health-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.72rem; color: var(--text-light); font-variant-numeric: tabular-nums; }
 
 /* ── Sectioned hero (Live proposals / Latest proposal) ───────────── */

@@ -220,9 +220,9 @@ function GovernanceHealthBar({
           <span className={`gov-health-status ${healthy ? "ok" : "warn"}`}>
             {healthy ? "Healthy" : "Below quorum"}
           </span>
-        </div>
-        <div className="gov-health-delta">
-          {delta >= 0 ? `+${delta}` : delta} pts vs required
+          <span className="gov-health-delta">
+            {delta >= 0 ? `+${delta}` : delta} pts vs required
+          </span>
         </div>
       </div>
       <div className="gov-health-label">
