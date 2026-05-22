@@ -12,6 +12,7 @@ import {
 import VoteResultBar from "./VoteResultBar";
 import GovernanceInsights from "./GovernanceInsights";
 import WhoVotedCompact from "./WhoVotedCompact";
+import OverridesPanel from "./OverridesPanel";
 
 interface Props {
   data: ProposalDetailData;
@@ -136,8 +137,11 @@ export default function SettledLayout({ data, highlightAddresses }: Props) {
 
       {/* ─── Technical details (single accordion, all closed) ───── */}
       <DetailsAccordion
+        proposalId={proposal.id}
         description={proposal.description}
         delegatorVotes={delegatorVotes}
+        validators={validators}
+        totalVoted={tally.totalVoted}
         rawPayload={{ proposal, params: govParams }}
       />
     </div>
@@ -145,10 +149,13 @@ export default function SettledLayout({ data, highlightAddresses }: Props) {
 }
 
 function DetailsAccordion({
-  description, delegatorVotes, rawPayload,
+  proposalId, description, delegatorVotes, validators, totalVoted, rawPayload,
 }: {
+  proposalId: number;
   description: string;
   delegatorVotes: ProposalDetailData["delegatorVotes"];
+  validators: ProposalDetailData["validators"];
+  totalVoted: number;
   rawPayload: unknown;
 }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -176,26 +183,17 @@ function DetailsAccordion({
           <AccordionRow
             id="overrides"
             label={`Delegator override votes (${delegatorVotes.length})`}
-            subtext="Delegators who voted directly to override their validator."
+            subtext="Who overrode their validators, and with how much voting power."
             open={open === "overrides"}
             onToggle={() => toggle("overrides")}
           >
-            <div className="prop-page-delegator-list">
-              {delegatorVotes.slice(0, 50).map((d) => (
-                <div key={d.voterAddress} className="prop-page-delegator-row">
-                  <span className="mono">{shorten(d.voterAddress)}</span>
-                  <span className={`vvt-vote-badge vvt-vote-${d.voteOption.toLowerCase()}`}>
-                    {d.voteOption.replace("_", " ").toLowerCase()}
-                  </span>
-                  <span className="prop-page-delegator-time">
-                    {new Date(d.votedAt).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-              {delegatorVotes.length > 50 && (
-                <div className="psl-empty">+ {delegatorVotes.length - 50} more</div>
-              )}
-            </div>
+            <OverridesPanel
+              proposalId={proposalId}
+              delegatorVotes={delegatorVotes}
+              validators={validators}
+              totalVoted={totalVoted}
+              enabled={open === "overrides"}
+            />
           </AccordionRow>
         )}
         <AccordionRow
