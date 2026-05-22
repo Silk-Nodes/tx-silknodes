@@ -29,6 +29,16 @@
   --accent-olive-light: rgba(74,122,26,0.1);
   --danger: #b44a3e;
 
+  /* Text accent used for "positive/success" headlines and labels (e.g. a
+     PASSED outcome). In light mode --tx-neon is too bright to read on the
+     cream background, so we use the darker olive. Dark mode overrides
+     this back to --tx-neon below. */
+  --text-accent: #4a7a1a;
+  /* Sticky / floating surface that needs more opacity than a regular
+     glass card so it reads cleanly over scrolling content. */
+  --strip-bg: rgba(255, 255, 255, 0.92);
+  --strip-border: rgba(74, 122, 26, 0.25);
+
   --text-dark: #0F1B07;
   --text-medium: #3a4a2a;
   --text-light: #8E8D8A;
@@ -93,6 +103,11 @@
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
   --danger: #ef6b5d;
+
+  /* In dark mode the bright neon reads cleanly; flip back from olive. */
+  --text-accent: #B1FC03;
+  --strip-bg: rgba(15, 27, 7, 0.92);
+  --strip-border: rgba(177, 252, 3, 0.25);
 
   --text-dark: #f0ece3;
   --text-medium: #c9c5b9;
@@ -8165,7 +8180,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   margin-top: 4px;
 }
-.gov-chip-ok .gov-chip-value { color: var(--tx-neon); }
+.gov-chip-ok .gov-chip-value { color: var(--text-accent); }
 .gov-chip-warn .gov-chip-value { color: var(--accent-orange); }
 
 /* ── Hero ────────────────────────────────────────────────────────── */
@@ -8221,7 +8236,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .gov-active-card:hover {
   transform: translateY(-2px);
-  border-color: var(--tx-neon);
+  border-color: var(--text-accent);
   box-shadow: 0 16px 40px rgba(0,0,0,0.12);
 }
 .gov-active-card.featured {
@@ -8239,7 +8254,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .gov-active-banner.banner-ok {
   background: rgba(177, 252, 3, 0.15);
-  color: var(--tx-neon);
+  color: var(--text-accent);
   border: 1px solid rgba(177, 252, 3, 0.3);
 }
 .gov-active-banner.banner-warn {
@@ -8291,7 +8306,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.78rem;
   flex-wrap: wrap;
 }
-.gov-mini-label.vote-yes { color: var(--tx-neon); font-weight: 600; }
+.gov-mini-label.vote-yes { color: var(--text-accent); font-weight: 600; }
 .gov-mini-label.vote-no { color: var(--accent-orange); font-weight: 600; }
 .gov-mini-label.vote-veto { color: var(--danger); font-weight: 600; }
 .gov-mini-label.vote-abstain { color: var(--text-light); }
@@ -8317,7 +8332,7 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 500;
   color: var(--text-dark);
 }
-.gov-active-stat-value.ok { color: var(--tx-neon); }
+.gov-active-stat-value.ok { color: var(--text-accent); }
 .gov-active-stat-value.warn { color: var(--accent-orange); }
 .gov-active-cta {
   align-self: end;
@@ -8349,7 +8364,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
   transition: border-color 0.15s ease;
 }
-.gov-history-toggle:hover { border-color: var(--tx-neon); }
+.gov-history-toggle:hover { border-color: var(--text-accent); }
 .gov-history-toggle-count {
   margin-left: 8px;
   padding: 2px 10px;
@@ -8374,7 +8389,7 @@ input[type="range"]::-moz-range-thumb {
 .gov-history-search::placeholder { color: var(--text-light); }
 .gov-history-search:focus {
   outline: none;
-  border-color: var(--tx-neon);
+  border-color: var(--text-accent);
 }
 .gov-history-table { display: flex; flex-direction: column; gap: 6px; }
 .gov-history-row {
@@ -8393,7 +8408,7 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .gov-history-row:hover {
-  border-color: var(--tx-neon);
+  border-color: var(--text-accent);
   background: var(--accent-olive-light);
 }
 .gov-history-id { color: var(--text-light); font-weight: 500; }
@@ -8406,14 +8421,14 @@ input[type="range"]::-moz-range-thumb {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
 }
-.gov-history-status.status-passed { background: rgba(177, 252, 3, 0.15); color: var(--tx-neon); }
+.gov-history-status.status-passed { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
 .gov-history-status.status-rejected,
 .gov-history-status.status-failed { background: rgba(239, 107, 93, 0.15); color: var(--danger); }
-.gov-history-status.status-voting { background: rgba(177, 252, 3, 0.15); color: var(--tx-neon); }
+.gov-history-status.status-voting { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
 .gov-history-status.status-deposit { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); }
 .gov-history-yes { font-size: 0.82rem; color: var(--text-light); }
 .gov-history-quorum { font-size: 0.82rem; font-weight: 600; }
-.gov-history-quorum.ok { color: var(--tx-neon); }
+.gov-history-quorum.ok { color: var(--text-accent); }
 .gov-history-quorum.warn { color: var(--accent-orange); }
 .gov-history-chev { color: var(--text-light); text-align: right; font-size: 1.1rem; }
 
@@ -8441,7 +8456,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.prop-page-back:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
+.prop-page-back:hover { border-color: var(--text-accent); background: var(--accent-olive-light); }
 .prop-page-loading, .prop-page-error {
   padding: 60px 24px;
   text-align: center;
@@ -8479,7 +8494,7 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: var(--glass-shadow);
 }
 .prop-page-banner.banner-passing { border-color: rgba(177, 252, 3, 0.35); }
-.prop-page-banner.banner-passing .prop-page-banner-headline { color: var(--tx-neon); }
+.prop-page-banner.banner-passing .prop-page-banner-headline { color: var(--text-accent); }
 .prop-page-banner.banner-failing-quorum,
 .prop-page-banner.banner-failing-threshold { border-color: rgba(255, 176, 120, 0.35); }
 .prop-page-banner.banner-failing-quorum .prop-page-banner-headline,
@@ -8535,11 +8550,11 @@ input[type="range"]::-moz-range-thumb {
 .prop-page-stat.big .prop-page-stat-value { font-size: 1.6rem; }
 .prop-page-stat-sub { font-size: 0.78rem; color: var(--text-light); margin-top: 2px; }
 .prop-page-stat.status-passed .prop-page-stat-value,
-.prop-page-stat.ok .prop-page-stat-value { color: var(--tx-neon); }
+.prop-page-stat.ok .prop-page-stat-value { color: var(--text-accent); }
 .prop-page-stat.status-rejected .prop-page-stat-value,
 .prop-page-stat.status-failed .prop-page-stat-value,
 .prop-page-stat.warn .prop-page-stat-value { color: var(--accent-orange); }
-.prop-page-stat.status-voting .prop-page-stat-value { color: var(--tx-neon); }
+.prop-page-stat.status-voting .prop-page-stat-value { color: var(--text-accent); }
 .prop-page-stat.status-deposit .prop-page-stat-value { color: var(--accent-yellow); }
 
 .prop-page-votes-row {
@@ -8561,7 +8576,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.prop-page-vote-card.vote-yes .prop-page-vote-label { color: var(--tx-neon); }
+.prop-page-vote-card.vote-yes .prop-page-vote-label { color: var(--text-accent); }
 .prop-page-vote-card.vote-no .prop-page-vote-label { color: var(--accent-orange); }
 .prop-page-vote-card.vote-veto .prop-page-vote-label { color: var(--danger); }
 .prop-page-vote-card.vote-abstain .prop-page-vote-label { color: var(--text-light); }
@@ -8664,13 +8679,13 @@ input[type="range"]::-moz-range-thumb {
 .prop-page-summary h2 { font-size: 1.25rem; }
 .prop-page-summary h3 { font-size: 1.1rem; }
 .prop-page-summary p { margin: 0.75em 0; color: var(--text-medium); }
-.prop-page-summary a { color: var(--tx-neon); text-decoration: underline; text-underline-offset: 2px; }
+.prop-page-summary a { color: var(--text-accent); text-decoration: underline; text-underline-offset: 2px; }
 .prop-page-summary code {
   background: rgba(255,255,255,0.06);
   padding: 2px 7px;
   border-radius: var(--radius-sm);
   font-size: 0.86em;
-  color: var(--tx-neon);
+  color: var(--text-accent);
 }
 .prop-page-summary pre {
   background: rgba(0,0,0,0.25);
@@ -8801,8 +8816,8 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 6px 16px rgba(0,0,0,0.1);
 }
 .vote-panel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.vote-panel-btn-yes { color: var(--tx-neon); border-color: rgba(177, 252, 3, 0.4); }
-.vote-panel-btn-yes:hover:not(:disabled) { background: rgba(177, 252, 3, 0.1); border-color: var(--tx-neon); }
+.vote-panel-btn-yes { color: var(--text-accent); border-color: rgba(177, 252, 3, 0.4); }
+.vote-panel-btn-yes:hover:not(:disabled) { background: rgba(177, 252, 3, 0.1); border-color: var(--text-accent); }
 .vote-panel-btn-no { color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.4); }
 .vote-panel-btn-no:hover:not(:disabled) { background: rgba(255, 176, 120, 0.1); border-color: var(--accent-orange); }
 .vote-panel-btn-abstain { color: var(--text-medium); border-color: var(--glass-border); }
@@ -8812,7 +8827,7 @@ input[type="range"]::-moz-range-thumb {
 .vote-panel-fineprint { font-size: 0.78rem; color: var(--text-light); }
 .vote-panel-fineprint .mono { font-family: ui-monospace, monospace; color: var(--text-medium); }
 .vote-panel-status { padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.88rem; }
-.vote-panel-status.ok { background: rgba(177, 252, 3, 0.12); color: var(--tx-neon); border: 1px solid rgba(177, 252, 3, 0.25); }
+.vote-panel-status.ok { background: rgba(177, 252, 3, 0.12); color: var(--text-accent); border: 1px solid rgba(177, 252, 3, 0.25); }
 .vote-panel-status.note { background: rgba(255, 176, 120, 0.1); color: var(--accent-orange); border: 1px solid rgba(255, 176, 120, 0.25); }
 .vote-panel-status.err { background: rgba(239, 107, 93, 0.12); color: var(--danger); border: 1px solid rgba(239, 107, 93, 0.25); }
 .vote-panel-status .mono { font-family: ui-monospace, monospace; }
@@ -8844,7 +8859,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.85rem;
   color: var(--text-dark);
 }
-.vote-wallet-pick:hover { border-color: var(--tx-neon); }
+.vote-wallet-pick:hover { border-color: var(--text-accent); }
 .vote-wallet-pick.cancel { color: var(--text-light); }
 
 /* ── Validator vote table ────────────────────────────────────────── */
@@ -8864,10 +8879,10 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .vvt-chip:hover { color: var(--text-dark); }
-.vvt-chip.active { border-color: var(--tx-neon); color: var(--text-dark); background: var(--accent-olive-light); }
+.vvt-chip.active { border-color: var(--text-accent); color: var(--text-dark); background: var(--accent-olive-light); }
 .vvt-chip-count { margin-left: 5px; font-size: 0.74rem; color: var(--text-light); }
-.vvt-chip.active .vvt-chip-count { color: var(--tx-neon); font-weight: 700; }
-.vvt-chip-yes.active { border-color: var(--tx-neon); }
+.vvt-chip.active .vvt-chip-count { color: var(--text-accent); font-weight: 700; }
+.vvt-chip-yes.active { border-color: var(--text-accent); }
 .vvt-chip-no.active { border-color: var(--accent-orange); }
 .vvt-chip-veto.active { border-color: var(--danger); }
 .vvt-chip-abstain.active, .vvt-chip-muted.active { border-color: var(--text-light); }
@@ -8883,7 +8898,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
 }
 .vvt-search::placeholder { color: var(--text-light); }
-.vvt-search:focus { outline: none; border-color: var(--tx-neon); }
+.vvt-search:focus { outline: none; border-color: var(--text-accent); }
 
 .vvt-table-wrap {
   border: 1px solid var(--glass-border);
@@ -8916,7 +8931,7 @@ input[type="range"]::-moz-range-thumb {
 .vvt-table tr:hover td { background: var(--accent-olive-light); }
 .vvt-sortable { cursor: pointer; user-select: none; }
 .vvt-sortable:hover { color: var(--text-dark); }
-.vvt-sortable.active { color: var(--tx-neon); }
+.vvt-sortable.active { color: var(--text-accent); }
 .vvt-num { text-align: right; font-variant-numeric: tabular-nums; }
 .vvt-th-rank { width: 48px; text-align: center; }
 .vvt-td-rank { text-align: center; color: var(--text-light); font-weight: 500; }
@@ -8971,7 +8986,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.vvt-vote-yes { background: rgba(177, 252, 3, 0.15); color: var(--tx-neon); border: 1px solid rgba(177, 252, 3, 0.3); }
+.vvt-vote-yes { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border: 1px solid rgba(177, 252, 3, 0.3); }
 .vvt-vote-no { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border: 1px solid rgba(255, 176, 120, 0.3); }
 .vvt-vote-no_with_veto { background: rgba(239, 107, 93, 0.15); color: var(--danger); border: 1px solid rgba(239, 107, 93, 0.3); }
 .vvt-vote-abstain { background: rgba(255,255,255,0.05); color: var(--text-medium); border: 1px solid var(--glass-border); }
@@ -9006,7 +9021,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .vc-card-sub { font-size: 0.82rem; color: var(--text-light); line-height: 1.5; }
 .vc-tone-warn .vc-card-value { color: var(--accent-orange); }
-.vc-tone-ok .vc-card-value { color: var(--tx-neon); }
+.vc-tone-ok .vc-card-value { color: var(--text-accent); }
 
 /* ── Velocity chart ──────────────────────────────────────────────── */
 .vel-wrap {
@@ -9037,7 +9052,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .vel-tooltip-time { font-weight: 600; margin-bottom: 8px; color: var(--text-dark); }
 .vel-tip-row { display: flex; justify-content: space-between; gap: 18px; padding: 3px 0; }
-.vel-tip-yes { color: var(--tx-neon); }
+.vel-tip-yes { color: var(--text-accent); }
 .vel-tip-no { color: var(--accent-orange); }
 .vel-tip-veto { color: var(--danger); }
 .vel-tip-abstain { color: var(--text-light); }
@@ -9082,10 +9097,10 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius-pill);
   text-transform: uppercase;
 }
-.governance-status-badge.status-passed { background: rgba(177, 252, 3, 0.15); color: var(--tx-neon); }
+.governance-status-badge.status-passed { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
 .governance-status-badge.status-rejected,
 .governance-status-badge.status-failed { background: rgba(239, 107, 93, 0.15); color: var(--danger); }
-.governance-status-badge.status-voting { background: rgba(177, 252, 3, 0.15); color: var(--tx-neon); }
+.governance-status-badge.status-voting { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); }
 .governance-status-badge.status-deposit { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); }
 
 /* Mobile breakpoints */
@@ -9131,11 +9146,11 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.5;
   color: var(--text-dark);
 }
-.vote-override-headline strong { color: var(--tx-neon); font-weight: 700; }
+.vote-override-headline strong { color: var(--text-accent); font-weight: 700; }
 .vote-override-stake {
   font-size: 0.88rem;
   font-weight: 600;
-  color: var(--tx-neon);
+  color: var(--text-accent);
   white-space: nowrap;
 }
 .vote-override-breakdown {
@@ -9186,7 +9201,7 @@ input[type="range"]::-moz-range-thumb {
 .prop-page-wallet-addr {
   font-size: 0.84rem;
   font-family: ui-monospace, monospace;
-  color: var(--tx-neon);
+  color: var(--text-accent);
   font-weight: 600;
 }
 .prop-page-wallet-disconnect {
@@ -9243,7 +9258,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: -0.025em;
   line-height: 1.1;
 }
-.prop-settled-outcome.tone-ok .prop-settled-outcome-headline { color: var(--tx-neon); }
+.prop-settled-outcome.tone-ok .prop-settled-outcome-headline { color: var(--text-accent); }
 .prop-settled-outcome.tone-warn .prop-settled-outcome-headline { color: var(--accent-orange); }
 .prop-settled-outcome-sub {
   font-size: 0.95rem;
@@ -9254,7 +9269,7 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
 }
 .prop-settled-dom { font-weight: 700; }
-.prop-settled-dom-yes { color: var(--tx-neon); }
+.prop-settled-dom-yes { color: var(--text-accent); }
 .prop-settled-dom-no { color: var(--accent-orange); }
 .prop-settled-dom-veto { color: var(--danger); }
 .prop-settled-sep { color: var(--text-light); }
@@ -9296,7 +9311,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.prop-settled-mini.vote-yes .prop-settled-mini-label { color: var(--tx-neon); }
+.prop-settled-mini.vote-yes .prop-settled-mini-label { color: var(--text-accent); }
 .prop-settled-mini.vote-no .prop-settled-mini-label { color: var(--accent-orange); }
 .prop-settled-mini.vote-veto .prop-settled-mini-label { color: var(--danger); }
 .prop-settled-mini.vote-abstain .prop-settled-mini-label { color: var(--text-light); }
@@ -9355,7 +9370,7 @@ input[type="range"]::-moz-range-thumb {
 .prop-settled-tab:hover { color: var(--text-medium); }
 .prop-settled-tab.active {
   color: var(--text-dark);
-  border-bottom-color: var(--tx-neon);
+  border-bottom-color: var(--text-accent);
 }
 .prop-settled-tab-badge {
   margin-left: 6px;
@@ -9394,12 +9409,15 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   gap: 14px;
   padding: 10px 18px;
-  background: rgba(15, 27, 7, 0.92);
+  background: var(--strip-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--strip-border);
   border-radius: var(--radius-pill);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 18px rgba(15, 27, 7, 0.12);
   margin-top: 10px;
+}
+:root[data-theme="dark"] .prop-sticky-strip-inner {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 .prop-sticky-id { color: var(--text-light); font-weight: 600; font-size: 0.86rem; }
 .prop-sticky-title {
@@ -9419,10 +9437,10 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius-pill);
   text-transform: uppercase;
 }
-.prop-sticky-status.status-passed { background: rgba(177, 252, 3, 0.18); color: var(--tx-neon); }
+.prop-sticky-status.status-passed { background: rgba(177, 252, 3, 0.18); color: var(--text-accent); }
 .prop-sticky-status.status-rejected,
 .prop-sticky-status.status-failed { background: rgba(239, 107, 93, 0.18); color: var(--danger); }
-.prop-sticky-status.status-voting { background: rgba(177, 252, 3, 0.18); color: var(--tx-neon); }
+.prop-sticky-status.status-voting { background: rgba(177, 252, 3, 0.18); color: var(--text-accent); }
 .prop-sticky-status.status-deposit { background: rgba(255, 176, 120, 0.18); color: var(--accent-orange); }
 .prop-sticky-quorum { font-size: 0.85rem; color: var(--text-medium); white-space: nowrap; }
 
@@ -9461,12 +9479,12 @@ input[type="range"]::-moz-range-thumb {
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 .prop-nav-link:hover {
-  border-color: var(--tx-neon);
+  border-color: var(--text-accent);
   background: var(--accent-olive-light);
   transform: translateY(-1px);
 }
 .prop-nav-link-next { flex-direction: row; }
-.prop-nav-arrow { font-size: 1.3rem; color: var(--tx-neon); flex: 0 0 auto; }
+.prop-nav-arrow { font-size: 1.3rem; color: var(--text-accent); flex: 0 0 auto; }
 .prop-nav-meta {
   display: flex;
   flex-direction: column;
