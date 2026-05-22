@@ -4,7 +4,7 @@ import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useProposalDetail, type ValidatorVote } from "@/hooks/useProposalDetail";
+import { useProposalDetail, type ValidatorVote, type ProposalDetailData } from "@/hooks/useProposalDetail";
 import { useCosmosWallet } from "@/hooks/useCosmosWallet";
 import { useUserDelegations } from "@/hooks/useUserDelegations";
 import { explainProposal, projectActiveVote } from "@/lib/governance-explainer";
@@ -18,6 +18,9 @@ import ValidatorVoteTable from "@/components/governance/ValidatorVoteTable";
 import VoteConcentration from "@/components/governance/VoteConcentration";
 import VelocityChart from "@/components/governance/VelocityChart";
 import VotePanel from "@/components/governance/VotePanel";
+import SettledLayout from "@/components/governance/SettledLayout";
+import StickyContextStrip from "@/components/governance/StickyContextStrip";
+import ProposalNav from "@/components/governance/ProposalNav";
 
 export default function ProposalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idStr } = use(params);
@@ -55,6 +58,7 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
   const fractions = calcVoteFractions(tally);
   const explainer = explainProposal(proposal);
   const isActive = status === "voting";
+  const isSettled = status === "passed" || status === "rejected" || status === "failed";
 
   // Outcome banner copy
   const projection = isActive
@@ -63,6 +67,7 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
 
   return (
     <Shell>
+      <StickyContextStrip proposal={proposal} quorumPct={quorumPct} />
       <div className="prop-page">
         <div className="prop-page-top-row">
           <Link href="/?tab=governance" className="prop-page-back">
@@ -71,7 +76,7 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
           <PageWalletButton wallet={wallet} />
         </div>
 
-        {/* Header */}
+        {/* Header (shared across all status layouts) */}
         <header className="prop-page-header">
           <div className="prop-page-header-meta">
             <span className="governance-type-pill" title={proposal.rawType}>
@@ -95,6 +100,55 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
           </div>
         </header>
 
+        {/* Phase 1: settled proposals get a story-first layout. Active and
+            deposit-period proposals continue using the legacy stacked
+            layout below until phases 2 and 3 land. */}
+        {isSettled ? (
+          <SettledLayout
+            data={data}
+            highlightAddresses={delegations.map((d) => d.operatorAddress)}
+          />
+        ) : (
+          <LegacyActiveLayout
+            data={data}
+            wallet={wallet}
+            delegations={delegations}
+            isActive={isActive}
+            projection={projection}
+            fractions={fractions}
+            quorumPct={quorumPct}
+            quorumMet={quorumMet}
+            explainer={explainer}
+          />
+        )}
+
+        <ProposalNav currentId={proposal.id} />
+      </div>
+    </Shell>
+  );
+}
+
+// LegacyActiveLayout is the original stacked layout, used as a fallback
+// for voting + deposit proposals. Phase 2 will replace this with a
+// left-right vote-panel + your-stake layout. We preserve it here so the
+// settled-proposal redesign can ship now without breaking active ones.
+function LegacyActiveLayout({
+  data, wallet, delegations, isActive, projection, fractions, quorumPct, quorumMet, explainer,
+}: {
+  data: ProposalDetailData;
+  wallet: ReturnType<typeof useCosmosWallet>;
+  delegations: { operatorAddress: string; delegatedTX: number }[];
+  isActive: boolean;
+  projection: ReturnType<typeof projectActiveVote> | null;
+  fractions: ReturnType<typeof calcVoteFractions>;
+  quorumPct: number;
+  quorumMet: boolean;
+  explainer: ReturnType<typeof explainProposal>;
+}) {
+  const { proposal, params: govParams, validators, velocity, meta, delegatorVotes } = data;
+  const { tally, status } = proposal;
+  return (
+    <>
         {/* Outcome banner for active proposals */}
         {projection && (
           <div className={`prop-page-banner banner-${projection.outcome}`}>
@@ -256,8 +310,7 @@ export default function ProposalPage({ params }: { params: Promise<{ id: string 
             <code>{JSON.stringify({ proposal, params: govParams }, null, 2)}</code>
           </pre>
         </Section>
-      </div>
-    </Shell>
+    </>
   );
 }
 
