@@ -357,9 +357,9 @@ function WhatsHappeningFeed({
     }
 
     out.sort((a, b) => b.time - a.time);
-    // Larger cap (10) so mixing governance + PSE actually lands; sort
-    // ensures the freshest events bubble up regardless of source.
-    return out.slice(0, 10);
+    // Cap at exactly 6 so the activity column matches the 6-row signal
+    // column on the left for strict visual symmetry.
+    return out.slice(0, 6);
   }, [proposals, cycle]);
 
   if (events.length === 0) {

@@ -11285,3 +11285,37 @@ input[type="range"]::-moz-range-thumb {
    already has a 'Browse proposals' CTA on its governance row, no need
    to duplicate. */
 .today-feed-footer { display: none; }
+
+/* Strict column symmetry at side-by-side widths. Both lists become
+   grids whose rows share the column height evenly (grid-auto-rows: 1fr),
+   so all 12 boxes across the two columns are exactly the same height
+   and both columns end at the same baseline. */
+@media (min-width: 1100px) {
+  .today-bottom-grid {
+    align-items: stretch !important;
+  }
+  .today-bottom-grid > section {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .today-bottom-grid .ts-list,
+  .today-bottom-grid .today-feed {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: 1fr !important;
+    gap: 8px !important;
+    flex: 1 !important;
+  }
+  /* Allow each row to take its 1fr slice without min-content blocking. */
+  .today-bottom-grid .ts-row,
+  .today-bottom-grid .today-feed-row {
+    min-height: 0;
+    align-items: center !important;
+  }
+  /* When the row is taller than its natural content (because grid 1fr
+     stretches it), keep the body block top-aligned so headlines land
+     at consistent positions across all rows. */
+  .today-bottom-grid .ts-body {
+    align-self: center;
+  }
+}
