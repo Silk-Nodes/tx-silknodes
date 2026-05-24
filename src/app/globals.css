@@ -8565,12 +8565,20 @@ input[type="range"]::-moz-range-thumb {
 /* ════════════════════════════════════════════════════════════════════
    PROPOSAL PAGE - /governance/[id]
    ════════════════════════════════════════════════════════════════════ */
+/* Legacy shell kept for any callers still wrapping their own page. */
 .prop-page-shell {
   max-width: 1280px;
   margin: 0 auto;
   padding: 24px 28px 80px;
   background: var(--bg-gradient);
   min-height: 100vh;
+}
+/* Inline variant used when ProposalDetailView is rendered inside the
+   main app shell (HomePage). No bg-gradient, no min-height, no margin
+   tricks — the parent already provides the layout container. */
+.prop-page-inline {
+  display: flex;
+  flex-direction: column;
 }
 .prop-page { display: flex; flex-direction: column; gap: 26px; }
 .prop-page-back {

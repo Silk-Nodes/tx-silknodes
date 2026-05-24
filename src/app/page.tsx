@@ -38,6 +38,8 @@ import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
+import ProposalDetailView from "@/components/governance/ProposalDetailView";
+import { usePathname, useRouter } from "next/navigation";
 import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
@@ -90,6 +92,28 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [cookieConsent, setCookieConsent] = useState<"accepted" | "declined" | null>(null);
+
+  // ─── URL-based routing for proposal detail pages ───
+  // When the user navigates to /governance/[id], we keep the entire app
+  // shell (nav, banner, footer) intact and just swap the governance tab
+  // body to show the proposal detail instead of the landing. Same shell,
+  // shareable URL, browser back/forward work natively.
+  const pathname = usePathname();
+  const router = useRouter();
+  const proposalIdFromUrl = useMemo(() => {
+    if (!pathname) return null;
+    const m = pathname.match(/^\/governance\/(\d+)\/?$/);
+    return m ? Number(m[1]) : null;
+  }, [pathname]);
+
+  // Whenever the URL points to a proposal, force the governance tab so
+  // the surrounding nav highlights the right item and the user can switch
+  // away cleanly via clicking another tab.
+  useEffect(() => {
+    if (proposalIdFromUrl !== null && activeTab !== "governance") {
+      setActiveTab("governance");
+    }
+  }, [proposalIdFromUrl, activeTab]);
 
   // ─── Cookie consent ───
   useEffect(() => {
@@ -624,7 +648,21 @@ export default function HomePage() {
 
         {activeTab === "feedback" && <FeedbackTab />}
 
-        {activeTab === "governance" && <GovernanceTab />}
+        {activeTab === "governance" && (
+          proposalIdFromUrl !== null ? (
+            <ProposalDetailView
+              id={proposalIdFromUrl}
+              onBack={() => {
+                // Navigate back to /governance landing without losing the
+                // current shell. Use router.push so the URL updates and
+                // the proposalIdFromUrl memo recomputes to null.
+                router.push("/?tab=governance");
+              }}
+            />
+          ) : (
+            <GovernanceTab />
+          )
+        )}
 
         {/* Soft CTA — only on info-heavy tabs where the user has just
             consumed a lot of data and is most likely to think 'I wish
