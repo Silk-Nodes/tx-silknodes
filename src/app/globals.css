@@ -10817,3 +10817,75 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 0 4px rgba(177, 252, 3, 0.12);
   align-self: center;
 }
+
+/* Today activity feed: time-anchored rows. Each row reads like a news
+   bullet: tag, relative time, headline. No emoji, no decoration. */
+.today-feed { display: flex; flex-direction: column; gap: 4px; }
+.today-feed-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  text-decoration: none;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.today-feed-row:hover {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+  transform: translateY(-1px);
+}
+.today-feed-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+  color: var(--text-medium);
+  border: 1px solid var(--glass-border);
+  white-space: nowrap;
+}
+.today-feed-tag.tone-ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.3); }
+.today-feed-tag.tone-warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.3); }
+.today-feed-time {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.today-feed-headline {
+  color: var(--text-dark);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.today-feed-sub-inline {
+  margin-left: 10px;
+  font-weight: 400;
+  color: var(--text-light);
+  font-size: 0.88rem;
+}
+.today-feed-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 700px) {
+  .today-feed-row { grid-template-columns: auto 1fr; padding: 11px 14px; gap: 10px; }
+  .today-feed-time { grid-column: 1 / -1; order: 99; font-size: 0.72rem; }
+  .today-feed-headline { white-space: normal; }
+  .today-feed-sub-inline { display: block; margin-left: 0; }
+}

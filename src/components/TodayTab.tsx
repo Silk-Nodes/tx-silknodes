@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
-import { formatTxAmount } from "@/lib/governance";
+import { formatTxAmount, type Proposal } from "@/lib/governance";
 import TodaySignals from "./TodaySignals";
 
 interface Props {
@@ -37,11 +37,6 @@ export default function TodayTab({
   const bondedPct = stakingData?.stakingRatio ?? 0;
   const liveProposals = useMemo(
     () => proposals.filter((p) => p.status === "voting" || p.status === "deposit"),
-    [proposals],
-  );
-  const passedProposals = useMemo(() => proposals.filter((p) => p.status === "passed").length, [proposals]);
-  const latestProposal = useMemo(
-    () => [...proposals].sort((a, b) => b.id - a.id)[0] ?? null,
     [proposals],
   );
 
@@ -248,46 +243,118 @@ export default function TodayTab({
         </section>
       )}
 
-      {/* ─── What's happening (editorial feed, no tech noise) ────────── */}
-      <section className="today-section">
-        <div className="today-section-label">What&apos;s happening</div>
-        <div className="today-happening">
-          {latestProposal && (
-            <Link href={`/governance/${latestProposal.id}`} className="today-happening-row">
-              <span className="today-happening-tag tag-gov">GOVERNANCE</span>
-              <span className="today-happening-text">
-                Latest proposal: <strong>{latestProposal.title}</strong>
-              </span>
-              <span className="today-happening-status">
-                {latestProposal.status === "passed" ? "Passed" :
-                 latestProposal.status === "rejected" ? "Rejected" :
-                 latestProposal.status === "voting" ? "In voting" :
-                 latestProposal.status === "deposit" ? "Deposit period" : latestProposal.status}
-              </span>
-            </Link>
-          )}
-          {passedProposals > 0 && (
-            <Link href="/governance" className="today-happening-row">
-              <span className="today-happening-tag tag-gov">GOVERNANCE</span>
-              <span className="today-happening-text">
-                <strong>{passedProposals}</strong> proposals have passed since TGE
-              </span>
-              <span className="today-happening-link">Browse →</span>
-            </Link>
-          )}
-          {networkStatus && (
-            <div className="today-happening-row today-happening-row-static">
-              <span className="today-happening-tag tag-chain">CHAIN</span>
-              <span className="today-happening-text">
-                Healthy at block <strong>#{networkStatus.blockHeight.toLocaleString()}</strong>
-              </span>
-              <span className="today-happening-link">Live</span>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* ─── Activity feed (time-anchored, real events) ──────────────── */}
+      <WhatsHappeningFeed proposals={proposals} />
     </div>
   );
+}
+
+// Time-anchored activity feed. Pulls recent governance events (decided
+// proposals + currently-active ones) and sorts by time. Each row reads
+// like a news bullet: tag, relative time, what happened, link.
+function WhatsHappeningFeed({ proposals }: { proposals: Proposal[] }) {
+  const events = useMemo(() => {
+    type FeedEvent = {
+      key: string;
+      tag: string;
+      tagTone?: "ok" | "warn";
+      time: number; // unix ms
+      headline: React.ReactNode;
+      href: string;
+    };
+    const out: FeedEvent[] = [];
+
+    for (const p of proposals) {
+      // Currently active or in deposit, surfaced as "in progress" events.
+      if (p.status === "voting" || p.status === "deposit") {
+        const t = p.votingStartTime ? new Date(p.votingStartTime).getTime()
+          : p.submitTime ? new Date(p.submitTime).getTime() : 0;
+        out.push({
+          key: `active-${p.id}`,
+          tag: "GOVERNANCE",
+          tagTone: "ok",
+          time: t,
+          headline: (
+            <>
+              Proposal #{p.id}{" "}
+              {p.status === "voting" ? "entered voting" : "is in deposit period"}
+              <span className="today-feed-sub-inline">{p.title}</span>
+            </>
+          ),
+          href: `/governance/${p.id}`,
+        });
+        continue;
+      }
+      // Decided proposals.
+      if (p.status === "passed" || p.status === "rejected" || p.status === "failed") {
+        const t = p.votingEndTime ? new Date(p.votingEndTime).getTime() : 0;
+        if (!t) continue;
+        const verb = p.status === "passed" ? "passed"
+          : p.status === "rejected" ? "was rejected"
+          : "failed";
+        out.push({
+          key: `decided-${p.id}`,
+          tag: "GOVERNANCE",
+          tagTone: p.status === "passed" ? "ok" : "warn",
+          time: t,
+          headline: (
+            <>
+              Proposal #{p.id} {verb}
+              <span className="today-feed-sub-inline">{p.title}</span>
+            </>
+          ),
+          href: `/governance/${p.id}`,
+        });
+      }
+    }
+
+    // Newest first, cap at 6 rows.
+    out.sort((a, b) => b.time - a.time);
+    return out.slice(0, 6);
+  }, [proposals]);
+
+  if (events.length === 0) {
+    return (
+      <section className="today-section">
+        <div className="today-section-label">What&apos;s happening</div>
+        <div className="today-feed-empty">No recent activity yet.</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="today-section">
+      <div className="today-section-label">What&apos;s happening</div>
+      <div className="today-feed">
+        {events.map((ev) => (
+          <Link key={ev.key} href={ev.href} className="today-feed-row">
+            <span className={`today-feed-tag ${ev.tagTone ? `tone-${ev.tagTone}` : ""}`}>
+              {ev.tag}
+            </span>
+            <span className="today-feed-time">{relTimeShort(ev.time)}</span>
+            <span className="today-feed-headline">{ev.headline}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function relTimeShort(ms: number): string {
+  if (!ms) return "";
+  const diff = Date.now() - ms;
+  if (diff < 0) return "scheduled";
+  const days = Math.floor(diff / 86_400_000);
+  if (days >= 30) {
+    const months = Math.floor(days / 30);
+    return `${months}mo ago`;
+  }
+  if (days > 0) return `${days}d ago`;
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours > 0) return `${hours}h ago`;
+  const mins = Math.floor(diff / 60_000);
+  if (mins > 0) return `${mins}m ago`;
+  return "just now";
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────

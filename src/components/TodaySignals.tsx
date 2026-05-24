@@ -86,9 +86,10 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
 
   // ── API-dependent signals ──────────────────────────────────────────
 
-  // Staking flow over the last 24h. /api/staking-feed returns a stream
-  // of delegate/undelegate/redelegate events; we sum the delegate vs
-  // undelegate flows from the last 24h to get a net signal.
+  // Staking flow + whale activity. Both query /api/staking-feed and
+  // can return `null` if the API is unavailable. We always render these
+  // rows so the section has consistent visual weight, falling back to
+  // calm-state copy when there's nothing notable.
   const flow = useStakingFlowSignal();
   const whale = useWhaleSignal();
 
@@ -112,43 +113,39 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
                 <strong>{decentralization.coalition} validators</strong>
               </>
             }
-            cta="Compare validators →"
+            cta="Compare validators"
           />
         )}
-        {flow && (
-          <SignalRow
-            tag="STAKING FLOW"
-            href="/flows"
-            tone={flow.net >= 0 ? "ok" : "warn"}
-            headline={
-              <>
+        <SignalRow
+          tag="STAKING FLOW"
+          href="/flows"
+          tone={flow && flow.net !== 0 ? (flow.net > 0 ? "ok" : "warn") : undefined}
+          headline={flow
+            ? <>
                 <strong>{flow.net >= 0 ? "+" : ""}{formatTX(flow.net)} TX</strong>{" "}
                 net staked over the last 24h
               </>
-            }
-            sub={
-              <>
-                {formatTX(flow.delegated)} delegated · {formatTX(flow.undelegated)} unbonded
-              </>
-            }
-            cta="See flows →"
-          />
-        )}
-        {whale && (
-          <SignalRow
-            tag="WHALE ACTIVITY"
-            href="/flows"
-            headline={
-              <>
+            : <>No notable staking flow in the last 24h</>}
+          sub={flow
+            ? <>{formatTX(flow.delegated)} delegated, {formatTX(flow.undelegated)} unbonded</>
+            : <>Track delegations and unbondings as they happen.</>}
+          cta="See flows"
+        />
+        <SignalRow
+          tag="WHALE ACTIVITY"
+          href="/flows"
+          tone={whale && whale.bigMoveCount > 0 ? "warn" : undefined}
+          headline={whale && whale.bigMoveCount > 0
+            ? <>
                 <strong>{whale.bigMoveCount}</strong> moves greater than 1M TX in the last 24h
               </>
-            }
-            sub={whale.largest
-              ? <>Largest: <strong>{formatTX(whale.largest.amount)} TX</strong> {whale.largest.type}</>
-              : <>Watch where the big stake is going.</>}
-            cta="Whale tracker →"
-          />
-        )}
+            : <>Quiet last 24h, no whale moves above 1M TX</>}
+          sub={whale && whale.largest
+            ? <>Largest: <strong>{formatTX(whale.largest.amount)} TX</strong> {whale.largest.type}</>
+            : <>Watch top delegators and the largest stake moves.</>}
+          cta="Whale tracker"
+        />
+
         {governance && (
           <SignalRow
             tag="GOVERNANCE"
@@ -162,7 +159,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
             sub={governance.daysSinceLast !== null
               ? <>Last decided <strong>{governance.daysSinceLast}d ago</strong></>
               : <>No proposals decided yet.</>}
-            cta="Browse proposals →"
+            cta="Browse proposals"
           />
         )}
         {pseMath && (
@@ -180,7 +177,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
                 <strong>{pseMath.yearsLeft}y</strong> remaining
               </>
             }
-            cta="PSE deep dive →"
+            cta="PSE deep dive"
           />
         )}
         {inflation && (
@@ -198,7 +195,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
                 decreasing over time
               </>
             }
-            cta="Supply analytics →"
+            cta="Supply analytics"
           />
         )}
       </div>
