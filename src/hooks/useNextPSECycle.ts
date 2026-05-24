@@ -7,16 +7,16 @@ export interface NextPSECycle {
   cycleNumber: number;   // 1-indexed; the upcoming cycle being awaited
   totalCycles: number;   // typically 84
   nextTimestamp: number; // unix seconds when next distribution happens
-  secondsLeft: number;   // refreshes every 30s
+  secondsLeft: number;   // refreshes every second
+  parts: { days: number; hours: number; minutes: number; seconds: number };
 }
 
-// Returns countdown info for the next PSE distribution. Fetches the
-// schedule once from Hasura via the cached helper, then ticks the
-// countdown every 30 seconds. Null while loading or if no future
-// distribution exists (post-program).
+// Returns countdown info for the next PSE distribution. Same data source
+// as the PSE tab's existing countdown so visuals match. Ticks every
+// second so the seconds digit actually counts down.
 export function useNextPSECycle(): NextPSECycle | null {
   const [schedule, setSchedule] = useState<number[] | null>(null);
-  const [nowSec, setNowSec] = useState(Math.floor(Date.now() / 1000));
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
     let cancelled = false;
@@ -27,21 +27,29 @@ export function useNextPSECycle(): NextPSECycle | null {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 30_000);
+    const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
   }, []);
 
   if (!schedule) return null;
   const nextIdx = schedule.findIndex((t) => t > nowSec);
   if (nextIdx === -1) return null;
+  const secondsLeft = Math.max(0, schedule[nextIdx] - nowSec);
   return {
     cycleNumber: nextIdx + 1,
     totalCycles: schedule.length,
     nextTimestamp: schedule[nextIdx],
-    secondsLeft: Math.max(0, schedule[nextIdx] - nowSec),
+    secondsLeft,
+    parts: {
+      days: Math.floor(secondsLeft / 86400),
+      hours: Math.floor((secondsLeft % 86400) / 3600),
+      minutes: Math.floor((secondsLeft % 3600) / 60),
+      seconds: secondsLeft % 60,
+    },
   };
 }
 
+// Kept for back-compat with any caller using the older string format.
 export function formatCountdown(secondsLeft: number): string {
   if (secondsLeft <= 0) return "due now";
   const days = Math.floor(secondsLeft / 86400);
@@ -50,4 +58,9 @@ export function formatCountdown(secondsLeft: number): string {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}m`;
+}
+
+// Pad helper matching the PSE tab convention.
+export function pad(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
-import { useNextPSECycle, formatCountdown } from "@/hooks/useNextPSECycle";
+import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
 import { formatTxAmount } from "@/lib/governance";
 import TodaySignals from "./TodaySignals";
 
@@ -89,12 +89,37 @@ export default function TodayTab({
             <span className="today-cycle-sep">·</span>
             <span>Next PSE distribution</span>
           </div>
-          <div className="today-cycle-time">{formatCountdown(cycle.secondsLeft)}</div>
+          {/* Same days:hrs:min:sec block style as the PSE tab so the two
+              countdowns feel like the same product, not separate widgets. */}
+          <div className="countdown-row today-countdown-row">
+            <div className="countdown-unit">
+              <span className="countdown-digit">{pad(cycle.parts.days)}</span>
+              <span className="countdown-label">Days</span>
+            </div>
+            <span className="countdown-separator">:</span>
+            <div className="countdown-unit">
+              <span className="countdown-digit">{pad(cycle.parts.hours)}</span>
+              <span className="countdown-label">Hrs</span>
+            </div>
+            <span className="countdown-separator">:</span>
+            <div className="countdown-unit">
+              <span className="countdown-digit">{pad(cycle.parts.minutes)}</span>
+              <span className="countdown-label">Min</span>
+            </div>
+            <span className="countdown-separator">:</span>
+            <div className="countdown-unit">
+              <span className="countdown-digit">{pad(cycle.parts.seconds)}</span>
+              <span className="countdown-label">Sec</span>
+            </div>
+          </div>
           <div className="today-cycle-sub">
-            {new Date(cycle.nextTimestamp * 1000).toLocaleString("en-US", {
-              weekday: "short", month: "short", day: "numeric",
-              hour: "2-digit", minute: "2-digit", hour12: false,
-            })}
+            Next distribution{" "}
+            <strong>
+              {new Date(cycle.nextTimestamp * 1000).toLocaleString("en-US", {
+                weekday: "short", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit", hour12: false,
+              })}
+            </strong>
           </div>
         </section>
       )}

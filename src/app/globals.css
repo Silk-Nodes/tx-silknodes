@@ -10776,3 +10776,13 @@ input[type="range"]::-moz-range-thumb {
   .ts-row { grid-template-columns: auto 1fr; padding: 12px 14px; gap: 12px; }
   .ts-cta { display: none; }
 }
+
+/* Today cycle countdown: use the existing .countdown-* block style from
+   the PSE tab so both pages share the same visual language. The card
+   wrapper handles spacing/padding; the countdown row keeps its native
+   typographic scale. */
+.today-countdown-row { margin: 4px 0 8px; }
+.today-cycle-card .today-cycle-sub strong {
+  color: var(--text-dark);
+  font-weight: 600;
+}
