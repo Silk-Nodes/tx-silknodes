@@ -6,6 +6,7 @@ import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState 
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, formatCountdown } from "@/hooks/useNextPSECycle";
 import { formatTxAmount } from "@/lib/governance";
+import TodaySignals from "./TodaySignals";
 
 interface Props {
   tokenData: TokenData | null;
@@ -21,7 +22,7 @@ interface Props {
 // big-medium-small. The cycle countdown is the headline because it's
 // TX's unique recurring beat — the thing that brings users back daily.
 export default function TodayTab({
-  tokenData, stakingData, networkStatus, wallet, onConnectWallet, setActiveTab,
+  tokenData, stakingData, networkStatus, validators, wallet, onConnectWallet, setActiveTab,
 }: Props) {
   const { proposals } = useGovernance();
   const cycle = useNextPSECycle();
@@ -151,6 +152,14 @@ export default function TodayTab({
           </div>
         </section>
       )}
+
+      {/* ─── Signals (6 compact insights) ────────────────────────────── */}
+      <TodaySignals
+        validators={validators}
+        stakingData={stakingData}
+        proposals={proposals}
+        cycle={cycle}
+      />
 
       {/* ─── Action queue (when there's something live) ──────────────── */}
       {liveProposals.length > 0 && (
