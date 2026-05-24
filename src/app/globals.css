@@ -10889,3 +10889,73 @@ input[type="range"]::-moz-range-thumb {
   .today-feed-headline { white-space: normal; }
   .today-feed-sub-inline { display: block; margin-left: 0; }
 }
+
+/* Today signals v3: stacked layout. Tag chip lives on a top eyebrow
+   row alongside the CTA, so headlines all line up at the same left edge
+   regardless of how wide the tag is. */
+.ts-list { display: flex; flex-direction: column; gap: 8px; }
+.ts-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+}
+.ts-row-link:hover {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+  transform: translateY(-1px);
+}
+.ts-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ts-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+  color: var(--text-medium);
+  border: 1px solid var(--glass-border);
+  white-space: nowrap;
+}
+.ts-tag-ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.3); }
+.ts-tag-warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.3); }
+.ts-cta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-light);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.ts-row-link:hover .ts-cta { color: var(--text-accent); }
+.ts-headline {
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-dark);
+}
+.ts-headline strong { font-weight: 700; }
+.ts-headline.tone-ok strong { color: var(--text-accent); }
+.ts-headline.tone-warn strong { color: var(--accent-orange); }
+.ts-sub {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+.ts-sub strong { color: var(--text-medium); font-weight: 600; }
+
+@media (max-width: 700px) {
+  .ts-row { padding: 12px 14px; }
+}

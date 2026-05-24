@@ -298,14 +298,17 @@ function SignalRow({
   href?: string;
   tone?: "ok" | "warn";
 }) {
+  // Stacked layout: tag + CTA on top row (so tag-width variation doesn't
+  // shift the headline), then headline, then sub. Headlines line up
+  // consistently across all rows regardless of tag length.
   const inner = (
     <>
-      <span className={`ts-tag ${tone ? `ts-tag-${tone}` : ""}`}>{tag}</span>
-      <div className="ts-body">
-        <div className={`ts-headline ${tone ? `tone-${tone}` : ""}`}>{headline}</div>
-        <div className="ts-sub">{sub}</div>
+      <div className="ts-eyebrow">
+        <span className={`ts-tag ${tone ? `ts-tag-${tone}` : ""}`}>{tag}</span>
+        {cta && <span className="ts-cta">{cta}</span>}
       </div>
-      {cta && <span className="ts-cta">{cta}</span>}
+      <div className={`ts-headline ${tone ? `tone-${tone}` : ""}`}>{headline}</div>
+      <div className="ts-sub">{sub}</div>
     </>
   );
   if (href) {
