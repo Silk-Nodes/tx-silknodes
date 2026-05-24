@@ -153,20 +153,19 @@ export default function TodayTab({
       {!isConnected && (
         <section className="today-connect-card">
           <div className="today-connect-body">
-            <div className="today-connect-headline">
-              See your PSE score, rewards, and positions
-            </div>
-            <p className="today-connect-sub">
-              Connect Keplr, Leap, or Cosmostation. Your data stays on your device,
-              we never see your keys.
-            </p>
+            <span className="today-connect-headline">
+              See your PSE score, rewards, and positions.
+            </span>
+            <span className="today-connect-sub">
+              Keplr, Leap, or Cosmostation. Your keys stay on your device.
+            </span>
           </div>
           <div className="today-connect-actions">
             <button type="button" className="today-cta-primary" onClick={onConnectWallet}>
               Connect wallet
             </button>
             <Link href="/governance" className="today-cta-secondary">
-              Browse governance →
+              Browse governance
             </Link>
           </div>
         </section>

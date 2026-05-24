@@ -11143,3 +11143,61 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
   background: var(--accent-olive-light);
 }
+
+/* Today connect-wallet card v2: longer and thinner. Headline + sub now
+   sit on one line each within a single flex row, padding reduced so the
+   card hugs its content height. */
+.today-connect-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  padding: 14px 22px !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid rgba(177, 252, 3, 0.3) !important;
+  background: rgba(177, 252, 3, 0.05) !important;
+}
+.today-connect-card .today-connect-body {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: baseline !important;
+  gap: 12px !important;
+  flex: 1 !important;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.today-connect-card .today-connect-headline {
+  display: inline-block !important;
+  font-size: 0.98rem !important;
+  font-weight: 500 !important;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+.today-connect-card .today-connect-sub {
+  display: inline-block !important;
+  margin: 0 !important;
+  font-size: 0.82rem !important;
+  color: var(--text-light) !important;
+  line-height: 1.45 !important;
+}
+.today-connect-card .today-connect-actions {
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+.today-connect-card .today-cta-primary,
+.today-connect-card .today-cta-secondary {
+  padding: 7px 16px;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 900px) {
+  .today-connect-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 14px 18px !important;
+  }
+  .today-connect-card .today-connect-headline { white-space: normal; }
+}
