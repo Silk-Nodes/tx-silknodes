@@ -75,48 +75,80 @@ export default function TodayTab({
         <div className="today-hero-date">{formatDate(new Date())}</div>
       </header>
 
-      {/* ─── Cycle countdown - the daily beat ────────────────────────── */}
-      {cycle && (
-        <section className="today-cycle-card">
-          <div className="today-cycle-eyebrow">
-            <span>Cycle {cycle.cycleNumber} of {cycle.totalCycles}</span>
-            <span className="today-cycle-sep">/</span>
-            <span>Next PSE distribution</span>
-          </div>
-          {/* Same days:hrs:min:sec block style as the PSE tab so the two
-              countdowns feel like the same product, not separate widgets. */}
-          <div className="countdown-row today-countdown-row">
-            <div className="countdown-unit">
-              <span className="countdown-digit">{pad(cycle.parts.days)}</span>
-              <span className="countdown-label">Days</span>
+      {/* ─── Top row: cycle countdown + connect wallet side by side ──── */}
+      <div className="today-top-grid">
+        {cycle && (
+          <section className="today-cycle-card">
+            <div className="today-cycle-eyebrow">
+              <span>Cycle {cycle.cycleNumber} of {cycle.totalCycles}</span>
+              <span className="today-cycle-sep">/</span>
+              <span>Next PSE distribution</span>
             </div>
-            <span className="countdown-separator">:</span>
-            <div className="countdown-unit">
-              <span className="countdown-digit">{pad(cycle.parts.hours)}</span>
-              <span className="countdown-label">Hrs</span>
+            <div className="countdown-row today-countdown-row">
+              <div className="countdown-unit">
+                <span className="countdown-digit">{pad(cycle.parts.days)}</span>
+                <span className="countdown-label">Days</span>
+              </div>
+              <span className="countdown-separator">:</span>
+              <div className="countdown-unit">
+                <span className="countdown-digit">{pad(cycle.parts.hours)}</span>
+                <span className="countdown-label">Hrs</span>
+              </div>
+              <span className="countdown-separator">:</span>
+              <div className="countdown-unit">
+                <span className="countdown-digit">{pad(cycle.parts.minutes)}</span>
+                <span className="countdown-label">Min</span>
+              </div>
+              <span className="countdown-separator">:</span>
+              <div className="countdown-unit">
+                <span className="countdown-digit">{pad(cycle.parts.seconds)}</span>
+                <span className="countdown-label">Sec</span>
+              </div>
             </div>
-            <span className="countdown-separator">:</span>
-            <div className="countdown-unit">
-              <span className="countdown-digit">{pad(cycle.parts.minutes)}</span>
-              <span className="countdown-label">Min</span>
+            <div className="today-cycle-sub">
+              Next distribution{" "}
+              <strong>
+                {new Date(cycle.nextTimestamp * 1000).toLocaleString("en-US", {
+                  weekday: "short", month: "short", day: "numeric",
+                  hour: "2-digit", minute: "2-digit", hour12: false,
+                })}
+              </strong>
             </div>
-            <span className="countdown-separator">:</span>
-            <div className="countdown-unit">
-              <span className="countdown-digit">{pad(cycle.parts.seconds)}</span>
-              <span className="countdown-label">Sec</span>
+          </section>
+        )}
+
+        {/* Connect-wallet card sits next to the cycle countdown on wide
+            screens so the page top stays balanced. Same vertical height. */}
+        {!isConnected ? (
+          <section className="today-connect-stack">
+            <div className="today-connect-eyebrow">Connect wallet</div>
+            <div className="today-connect-stack-headline">
+              See your PSE score, rewards, and positions
             </div>
-          </div>
-          <div className="today-cycle-sub">
-            Next distribution{" "}
-            <strong>
-              {new Date(cycle.nextTimestamp * 1000).toLocaleString("en-US", {
-                weekday: "short", month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit", hour12: false,
-              })}
-            </strong>
-          </div>
-        </section>
-      )}
+            <div className="today-connect-stack-sub">
+              Connect Keplr or Cosmostation. Your keys never leave your device.
+            </div>
+            <div className="today-connect-stack-actions">
+              <button type="button" className="today-cta-primary" onClick={onConnectWallet}>
+                Connect wallet
+              </button>
+              <Link href="/governance" className="today-cta-secondary">
+                Browse governance
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <section className="today-connect-stack today-connect-stack-quiet">
+            <div className="today-connect-eyebrow">Wallet connected</div>
+            <div className="today-connect-stack-headline">
+              Welcome back
+            </div>
+            <div className="today-connect-stack-sub">
+              Your position and PSE score are loaded below.
+            </div>
+          </section>
+        )}
+      </div>
 
       {/* ─── Hero stats row ──────────────────────────────────────────── */}
       <section className="today-stats">
@@ -149,27 +181,8 @@ export default function TodayTab({
         </span>
       </div>
 
-      {/* ─── Connect wallet CTA, right under the hero ────────────────── */}
-      {!isConnected && (
-        <section className="today-connect-card">
-          <div className="today-connect-body">
-            <span className="today-connect-headline">
-              See your PSE score, rewards, and positions.
-            </span>
-            <span className="today-connect-sub">
-              Keplr, Leap, or Cosmostation. Your keys stay on your device.
-            </span>
-          </div>
-          <div className="today-connect-actions">
-            <button type="button" className="today-cta-primary" onClick={onConnectWallet}>
-              Connect wallet
-            </button>
-            <Link href="/governance" className="today-cta-secondary">
-              Browse governance
-            </Link>
-          </div>
-        </section>
-      )}
+      {/* Connect-wallet card moved into the top row above (paired with
+          the cycle countdown). */}
 
       {/* ─── Signals + Activity feed side by side on wide screens ────── */}
       <div className="today-bottom-grid">

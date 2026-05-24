@@ -11201,3 +11201,77 @@ input[type="range"]::-moz-range-thumb {
   }
   .today-connect-card .today-connect-headline { white-space: normal; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Today top row: cycle countdown + connect-wallet card paired
+   ════════════════════════════════════════════════════════════════════ */
+.today-top-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin: 4px 0 12px;
+}
+@media (min-width: 1100px) {
+  .today-top-grid {
+    grid-template-columns: 1.15fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+  }
+}
+
+/* Make the cycle card stretch the full row height. */
+.today-top-grid .today-cycle-card { height: 100%; }
+
+/* Connect-wallet card (paired version): vertical stack, fills the
+   matching height of the cycle card next to it. */
+.today-connect-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 28px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(177, 252, 3, 0.3);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(177, 252, 3, 0.12), transparent 50%),
+    var(--glass-bg);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+  height: 100%;
+}
+.today-connect-stack-quiet {
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+}
+.today-connect-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-medium);
+}
+.today-connect-stack-headline {
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--text-dark);
+  max-width: 90%;
+}
+.today-connect-stack-sub {
+  font-size: 0.92rem;
+  color: var(--text-light);
+  line-height: 1.5;
+  max-width: 90%;
+}
+.today-connect-stack-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+@media (max-width: 1100px) {
+  .today-connect-stack { padding: 20px 22px; }
+  .today-connect-stack-headline { font-size: 1.25rem; }
+}
