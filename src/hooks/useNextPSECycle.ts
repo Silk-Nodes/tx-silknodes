@@ -9,6 +9,9 @@ export interface NextPSECycle {
   nextTimestamp: number; // unix seconds when next distribution happens
   secondsLeft: number;   // refreshes every second
   parts: { days: number; hours: number; minutes: number; seconds: number };
+  // Full distribution schedule (unix seconds). Past distributions live
+  // at indices [0, cycleNumber - 2] inclusive, useful for activity feeds.
+  schedule: number[];
 }
 
 // Returns countdown info for the next PSE distribution. Same data source
@@ -46,6 +49,7 @@ export function useNextPSECycle(): NextPSECycle | null {
       minutes: Math.floor((secondsLeft % 3600) / 60),
       seconds: secondsLeft % 60,
     },
+    schedule,
   };
 }
 

@@ -11275,3 +11275,13 @@ input[type="range"]::-moz-range-thumb {
   .today-connect-stack { padding: 20px 22px; }
   .today-connect-stack-headline { font-size: 1.25rem; }
 }
+
+/* PSE tag in the activity feed: olive accent so it reads as a network
+   event, not a governance one. Sits between neutral (warn) and ok. */
+.today-feed-tag.tone-ok:has(+ *) { /* baseline keeps existing ok */ }
+
+/* Hide the legacy "Browse all governance activity" footer link so the
+   activity feed ends naturally at its last row. The signals column
+   already has a 'Browse proposals' CTA on its governance row, no need
+   to duplicate. */
+.today-feed-footer { display: none; }
