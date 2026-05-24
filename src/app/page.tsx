@@ -4739,10 +4739,10 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
   );
 }
 
-// Tools dropdown — small click-out menu for the long-tail tabs. We use
-// real <Link> elements inside so cmd-click opens in a new tab and the
-// item shows the correct visited state. State stays local to this
-// component since the trigger is the only place that needs it.
+// Tools dropdown — opens on hover for a snappy desktop feel, also opens
+// on click for touch/keyboard. Real <Link> children so cmd-click opens in
+// a new tab. A small close-delay prevents flicker when the cursor
+// briefly leaves the trigger on its way to a menu item.
 function ToolsDropdown({
   tools, activeTab, pathnameMap,
 }: {
@@ -4752,7 +4752,19 @@ function ToolsDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  // Close when clicking outside the dropdown.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const scheduleClose = (delay = 140) => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), delay);
+  };
+
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
@@ -4767,9 +4779,16 @@ function ToolsDropdown({
     };
   }, [open]);
 
+  useEffect(() => () => cancelClose(), []);
+
   const isActiveTool = tools.some((t) => t.id === activeTab);
   return (
-    <div className="nav-tools" ref={ref}>
+    <div
+      className="nav-tools"
+      ref={ref}
+      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseLeave={() => scheduleClose()}
+    >
       <button
         type="button"
         className={`nav-tab nav-tools-trigger ${isActiveTool || open ? "active" : ""}`}
@@ -4780,7 +4799,12 @@ function ToolsDropdown({
         Tools <span className="nav-tools-chev">▾</span>
       </button>
       {open && (
-        <div className="nav-tools-menu" role="menu">
+        <div
+          className="nav-tools-menu"
+          role="menu"
+          onMouseEnter={cancelClose}
+          onMouseLeave={() => scheduleClose()}
+        >
           {tools.map((t) => {
             const href = (Object.entries(pathnameMap).find(([, id]) => id === t.id)?.[0]) || "/";
             return (
