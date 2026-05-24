@@ -337,6 +337,9 @@ function WhatsHappeningFeed({ proposals }: { proposals: Proposal[] }) {
           </Link>
         ))}
       </div>
+      <Link href="/governance" className="today-feed-footer">
+        Browse all governance activity
+      </Link>
     </section>
   );
 }
