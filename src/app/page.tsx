@@ -115,6 +115,21 @@ export default function HomePage() {
     }
   }, [proposalIdFromUrl, activeTab]);
 
+  // Read ?tab= query param on every pathname change so that links like
+  // /?tab=governance respect the requested tab. Without this, navigating
+  // back from /governance/44 to /?tab=governance would dump the user on
+  // the Overview tab (the default initial state).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (proposalIdFromUrl !== null) return; // proposal detail owns the tab
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("tab") as TabId | null;
+    if (requested && TABS.some((t) => t.id === requested) && requested !== activeTab) {
+      setActiveTab(requested);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, proposalIdFromUrl]);
+
   // ─── Cookie consent ───
   useEffect(() => {
     const stored = localStorage.getItem("tx-cookie-consent");
