@@ -172,13 +172,16 @@ export default function TodayTab({
         </section>
       )}
 
-      {/* ─── Signals (6 compact insights) ────────────────────────────── */}
-      <TodaySignals
-        validators={validators}
-        stakingData={stakingData}
-        proposals={proposals}
-        cycle={cycle}
-      />
+      {/* ─── Signals + Activity feed side by side on wide screens ────── */}
+      <div className="today-bottom-grid">
+        <TodaySignals
+          validators={validators}
+          stakingData={stakingData}
+          proposals={proposals}
+          cycle={cycle}
+        />
+        <WhatsHappeningFeed proposals={proposals} />
+      </div>
 
       {/* ─── Action queue (when there's something live) ──────────────── */}
       {liveProposals.length > 0 && (
@@ -243,8 +246,6 @@ export default function TodayTab({
         </section>
       )}
 
-      {/* ─── Activity feed (time-anchored, real events) ──────────────── */}
-      <WhatsHappeningFeed proposals={proposals} />
     </div>
   );
 }
