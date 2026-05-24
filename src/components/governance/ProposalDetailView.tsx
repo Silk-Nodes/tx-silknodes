@@ -154,10 +154,10 @@ function LegacyActiveLayout({
         {projection && (
           <div className={`prop-page-banner banner-${projection.outcome}`}>
             <div className="prop-page-banner-headline">
-              {projection.outcome === "passing" && "📈 Currently on track to PASS"}
-              {projection.outcome === "failing-quorum" && "⏳ Currently FAILING — quorum not met"}
-              {projection.outcome === "failing-veto" && "🛑 Currently FAILING — vetoed"}
-              {projection.outcome === "failing-threshold" && "❌ Currently FAILING — Yes below threshold"}
+              {projection.outcome === "passing" && "Currently on track to PASS"}
+              {projection.outcome === "failing-quorum" && "Currently FAILING, quorum not met"}
+              {projection.outcome === "failing-veto" && "Currently FAILING, vetoed"}
+              {projection.outcome === "failing-threshold" && "Currently FAILING, Yes below threshold"}
             </div>
             <div className="prop-page-banner-reason">{projection.reason}</div>
           </div>

@@ -55,7 +55,7 @@ function formatTX(n: number): string {
 }
 
 function truncateAddr(addr: string): string {
-  if (!addr || addr.length <= 20) return addr || "—";
+  if (!addr || addr.length <= 20) return addr || "-";
   return `${addr.slice(0, 12)}…${addr.slice(-6)}`;
 }
 
@@ -73,8 +73,8 @@ export function explainProposal(p: Proposal): ExplainerSection {
           ? `Chain upgrade to ${name}.`
           : "Schedules a chain software upgrade.",
         bullets: [
-          { label: "Upgrade name", value: name || "—" },
-          { label: "Trigger block", value: height ? `#${Number(height).toLocaleString()}` : "—" },
+          { label: "Upgrade name", value: name || "-" },
+          { label: "Trigger block", value: height ? `#${Number(height).toLocaleString()}` : "-" },
           ...(info ? [{ label: "Notes", value: info }] : []),
           { label: "Validator action", value: "Update node software before the trigger block." },
         ],
@@ -100,7 +100,7 @@ export function explainProposal(p: Proposal): ExplainerSection {
         headline: `Spend ${formatTX(amountTX)} from the community pool.`,
         bullets: [
           { label: "Amount", value: formatTX(amountTX) },
-          { label: "Recipient", value: recipient ? truncateAddr(recipient) : "—" },
+          { label: "Recipient", value: recipient ? truncateAddr(recipient) : "-" },
           { label: "What happens", value: "If passed, the community pool sends this amount directly to the recipient address." },
         ],
         risk: amountTX >= 1_000_000
@@ -189,7 +189,7 @@ export function explainProposal(p: Proposal): ExplainerSection {
         headline: "Legacy v1beta1 proposal.",
         bullets: [
           { label: "Wrapped type", value: innerType || "unknown" },
-          { label: "Wrapped title", value: (inner.title as string) || "—" },
+          { label: "Wrapped title", value: (inner.title as string) || "-" },
           { label: "What this is", value: "A legacy-format proposal carried by MsgExecLegacyContent. See Summary for the proposer's description." },
         ],
       };
@@ -262,8 +262,8 @@ export function explainProposal(p: Proposal): ExplainerSection {
       return {
         headline: "Transfers admin rights on a CosmWasm smart contract.",
         bullets: [
-          { label: "Contract", value: (c.contract as string) || "—" },
-          { label: "New admin", value: (c.new_admin as string) || "—" },
+          { label: "Contract", value: (c.contract as string) || "-" },
+          { label: "New admin", value: (c.new_admin as string) || "-" },
           { label: "What happens", value: "The contract's admin (who can migrate it to new code) is reassigned." },
         ],
       };
@@ -273,8 +273,8 @@ export function explainProposal(p: Proposal): ExplainerSection {
       return {
         headline: "Migrates a CosmWasm smart contract to a new code ID.",
         bullets: [
-          { label: "Contract", value: (c.contract as string) || "—" },
-          { label: "New code ID", value: String(c.code_id || "—") },
+          { label: "Contract", value: (c.contract as string) || "-" },
+          { label: "New code ID", value: String(c.code_id || "-") },
           { label: "What happens", value: "The contract's stored code is replaced with the new code. State is preserved but logic changes." },
         ],
       };
@@ -284,8 +284,8 @@ export function explainProposal(p: Proposal): ExplainerSection {
       return {
         headline: "Recovers a stuck/expired IBC light client.",
         bullets: [
-          { label: "Subject client", value: (c.subject_client_id as string) || "—" },
-          { label: "Substitute client", value: (c.substitute_client_id as string) || "—" },
+          { label: "Subject client", value: (c.subject_client_id as string) || "-" },
+          { label: "Substitute client", value: (c.substitute_client_id as string) || "-" },
           { label: "What happens", value: "If passed, the expired subject client adopts the substitute client's state, restoring the IBC channel without redeploying contracts." },
         ],
       };
@@ -295,9 +295,9 @@ export function explainProposal(p: Proposal): ExplainerSection {
       return {
         headline: "Updates a fungible token's DEX unified reference amount.",
         bullets: [
-          { label: "Sender", value: (c.sender as string) || "—" },
-          { label: "Denom", value: (c.denom as string) || "—" },
-          { label: "New ref amount", value: (c.unified_ref_amount as string) || "—" },
+          { label: "Sender", value: (c.sender as string) || "-" },
+          { label: "Denom", value: (c.denom as string) || "-" },
+          { label: "New ref amount", value: (c.unified_ref_amount as string) || "-" },
           { label: "What this is", value: "Coreum's DEX uses a per-token reference amount for pricing. This proposal adjusts it for one specific token." },
         ],
       };
@@ -310,7 +310,7 @@ export function explainProposal(p: Proposal): ExplainerSection {
         unrecognized: true,
         headline: `${p.type}. Type not yet recognized by the explainer.`,
         bullets: [
-          { label: "Raw type", value: p.rawType || "—" },
+          { label: "Raw type", value: p.rawType || "-" },
           { label: "Action", value: `Cosmos SDK message: ${last}` },
           { label: "Next step", value: "Read the full description below for context. If this is a common type, file a feature request and we'll add a structured explainer." },
         ],

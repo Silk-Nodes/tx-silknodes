@@ -10786,3 +10786,34 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
   font-weight: 600;
 }
+
+/* Today signals: tag chip replaces the emoji icon. Compact uppercase
+   label that anchors each row, color-toned for ok/warn signals. */
+.ts-tag {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+  color: var(--text-medium);
+  border: 1px solid var(--glass-border);
+  white-space: nowrap;
+  margin-top: 1px;
+}
+.ts-tag-ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.3); }
+.ts-tag-warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.3); }
+
+/* Today attention dot replaces the lightning emoji. */
+.today-attention-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-accent);
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 4px rgba(177, 252, 3, 0.12);
+  align-self: center;
+}

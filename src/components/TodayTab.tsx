@@ -20,7 +20,7 @@ interface Props {
 
 // Today: a daily briefing front door, not a dashboard. Hierarchy is
 // big-medium-small. The cycle countdown is the headline because it's
-// TX's unique recurring beat — the thing that brings users back daily.
+// TX's unique recurring beat, the thing that brings users back daily.
 export default function TodayTab({
   tokenData, stakingData, networkStatus, validators, wallet, onConnectWallet, setActiveTab,
 }: Props) {
@@ -53,19 +53,19 @@ export default function TodayTab({
   const heroStats = [
     {
       label: "Price",
-      value: td.price > 0 ? `$${td.price.toFixed(4)}` : "—",
+      value: td.price > 0 ? `$${td.price.toFixed(4)}` : "-",
       delta: td.price > 0
         ? { text: `${priceUp ? "▴" : "▾"} ${Math.abs(td.priceChange24h).toFixed(2)}% 24h`, tone: priceUp ? "ok" : "warn" }
         : null,
     },
     {
       label: "APR",
-      value: apr > 0 ? `${apr.toFixed(1)}%` : "—",
+      value: apr > 0 ? `${apr.toFixed(1)}%` : "-",
       sub: "Annualised staking yield",
     },
     {
       label: "Bonded",
-      value: bondedPct > 0 ? `${bondedPct.toFixed(1)}%` : "—",
+      value: bondedPct > 0 ? `${bondedPct.toFixed(1)}%` : "-",
       sub: stakingData ? `${formatTxAmount(stakingData.bondedTokens)} TX staked` : "",
     },
   ];
@@ -80,13 +80,12 @@ export default function TodayTab({
         <div className="today-hero-date">{formatDate(new Date())}</div>
       </header>
 
-      {/* ─── Cycle countdown — the daily beat ────────────────────────── */}
+      {/* ─── Cycle countdown - the daily beat ────────────────────────── */}
       {cycle && (
         <section className="today-cycle-card">
           <div className="today-cycle-eyebrow">
-            <span className="today-cycle-icon" aria-hidden="true">⏰</span>
             <span>Cycle {cycle.cycleNumber} of {cycle.totalCycles}</span>
-            <span className="today-cycle-sep">·</span>
+            <span className="today-cycle-sep">/</span>
             <span>Next PSE distribution</span>
           </div>
           {/* Same days:hrs:min:sec block style as the PSE tab so the two
@@ -143,7 +142,7 @@ export default function TodayTab({
       {/* Supporting stats inline */}
       <div className="today-supporting">
         <span>
-          <strong>{stakingData ? `${stakingData.activeValidators}/${stakingData.totalValidators}` : "—"}</strong> active validators
+          <strong>{stakingData ? `${stakingData.activeValidators}/${stakingData.totalValidators}` : "-"}</strong> active validators
         </span>
         <span className="today-supporting-sep">·</span>
         <span>
@@ -151,7 +150,7 @@ export default function TodayTab({
         </span>
         <span className="today-supporting-sep">·</span>
         <span>
-          <strong>{td.totalSupply > 0 ? formatTxAmount(td.totalSupply) : "—"} TX</strong> total supply
+          <strong>{td.totalSupply > 0 ? formatTxAmount(td.totalSupply) : "-"} TX</strong> total supply
         </span>
       </div>
 
@@ -193,7 +192,7 @@ export default function TodayTab({
           <div className="today-attention-list">
             {liveProposals.map((p) => (
               <Link key={p.id} href={`/governance/${p.id}`} className="today-attention-row">
-                <span className="today-attention-icon">⚡</span>
+                <span className="today-attention-dot" aria-hidden="true" />
                 <span className="today-attention-body">
                   <span className="today-attention-headline">
                     Active vote: <strong>{p.title}</strong>

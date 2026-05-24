@@ -98,7 +98,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
       <div className="ts-list">
         {decentralization && (
           <SignalRow
-            icon="🏦"
+            tag="DECENTRALIZATION"
             href="/validators"
             headline={
               <>
@@ -117,7 +117,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         {flow && (
           <SignalRow
-            icon="⚡"
+            tag="STAKING FLOW"
             href="/flows"
             tone={flow.net >= 0 ? "ok" : "warn"}
             headline={
@@ -136,7 +136,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         {whale && (
           <SignalRow
-            icon="🌊"
+            tag="WHALE ACTIVITY"
             href="/flows"
             headline={
               <>
@@ -151,7 +151,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         {governance && (
           <SignalRow
-            icon="📊"
+            tag="GOVERNANCE"
             href="/governance"
             headline={
               <>
@@ -167,7 +167,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         {pseMath && (
           <SignalRow
-            icon="🎯"
+            tag="PSE"
             href="/pse"
             headline={
               <>
@@ -185,7 +185,7 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         {inflation && (
           <SignalRow
-            icon="💰"
+            tag="INFLATION"
             href="/analytics"
             headline={
               <>
@@ -292,9 +292,9 @@ function useWhaleSignal(): WhaleSignal | null {
 // ── Row primitive ─────────────────────────────────────────────────────
 
 function SignalRow({
-  icon, headline, sub, cta, href, tone,
+  tag, headline, sub, cta, href, tone,
 }: {
-  icon: string;
+  tag: string;
   headline: React.ReactNode;
   sub: React.ReactNode;
   cta?: string;
@@ -303,7 +303,7 @@ function SignalRow({
 }) {
   const inner = (
     <>
-      <span className="ts-icon" aria-hidden="true">{icon}</span>
+      <span className={`ts-tag ${tone ? `ts-tag-${tone}` : ""}`}>{tag}</span>
       <div className="ts-body">
         <div className={`ts-headline ${tone ? `tone-${tone}` : ""}`}>{headline}</div>
         <div className="ts-sub">{sub}</div>

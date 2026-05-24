@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 300; // 5 min — settled props don't move; cache wins.
+export const revalidate = 300; // 5 min - settled props don't move; cache wins.
 
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
@@ -119,7 +119,7 @@ export async function GET(
     // Get the delegator votes (non-validator votes) for this proposal from
     // Hasura. The base /api/governance/[id] already does this, but the
     // client may want to expand the accordion before that response lands
-    // in some race-conditiony cases — so we re-query here for safety.
+    // in some race-conditiony cases - so we re-query here for safety.
     const data = await hasura<{ proposal_vote: HasuraVote[]; validator_info: { self_delegate_address: string }[] }>(
       `query Q($id: Int!) {
         proposal_vote(where: {proposal_id: {_eq: $id}}, order_by: {timestamp: asc}) {
