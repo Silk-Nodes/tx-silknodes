@@ -11413,6 +11413,206 @@ input[type="range"]::-moz-range-thumb {
   .today-entry-alts { flex-direction: column; }
 }
 
+/* ─── HappeningFeed row as a button ────────────────────────────────────
+   Rows now open the FeedItemPanel side drawer instead of navigating.
+   We use a real <button> for accessibility and reset its default
+   browser chrome so it visually matches the previous <a> rendering. */
+.happening-row-button {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.happening-row-button:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+/* ─── FeedItemPanel: right-edge slide-in drawer ────────────────────────
+   Triggered by clicking any row in the HappeningFeed. Shows the full
+   body text + an "Open original" CTA so the user can preview without
+   leaving the Today page. Overlay dims the rest of the page and
+   captures click-outside-to-close. */
+.fi-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: fi-panel-fade 0.18s ease;
+}
+@keyframes fi-panel-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fi-panel {
+  width: min(520px, 100vw);
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg-card, var(--glass-bg));
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35);
+  padding: 22px 26px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: fi-panel-slide 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes fi-panel-slide {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.fi-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fi-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fi-panel-source {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--accent-olive-light);
+  color: var(--text-medium);
+}
+.fi-panel-source.source-twitter { background: rgba(29, 161, 242, 0.12); color: #1da1f2; border-color: rgba(29, 161, 242, 0.3); }
+.fi-panel-source.source-medium { background: rgba(0, 0, 0, 0.06); color: var(--text-dark); }
+.fi-panel-source.source-tx_press { background: rgba(177, 252, 3, 0.18); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.35); }
+.fi-panel-source.source-governance { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.3); }
+.fi-panel-source.source-chain { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.3); }
+.fi-panel-time {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+.fi-panel-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.fi-panel-close:hover {
+  background: var(--accent-olive-light);
+  color: var(--text-dark);
+}
+.fi-panel-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-dark);
+  margin: 4px 0 0;
+  letter-spacing: -0.01em;
+}
+.fi-panel-sub {
+  font-size: 0.95rem;
+  color: var(--text-medium);
+  line-height: 1.4;
+}
+.fi-panel-body {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-dark);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.fi-panel-body-p {
+  margin: 0 0 10px;
+}
+.fi-panel-body-p:last-child { margin-bottom: 0; }
+.fi-panel-body-empty {
+  color: var(--text-light);
+  font-style: italic;
+}
+.fi-panel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fi-panel-tag {
+  font-size: 0.74rem;
+  color: var(--text-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+  border: 1px solid var(--glass-border);
+}
+.fi-panel-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--glass-border);
+}
+.fi-panel-cta-primary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--text-accent);
+  color: var(--bg-page, #0c0c0c);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.fi-panel-cta-primary:hover {
+  transform: translateY(-1px);
+  background: var(--tx-neon-light, var(--text-accent));
+}
+.fi-panel-cta-arrow {
+  font-weight: 400;
+  font-size: 0.95rem;
+}
+.fi-panel-cta-secondary {
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fi-panel-cta-secondary:hover {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+}
+
+@media (max-width: 600px) {
+  .fi-panel {
+    width: 100vw;
+    padding: 18px 18px 24px;
+  }
+  .fi-panel-title { font-size: 1.2rem; }
+}
+
 /* PSE tag in the activity feed: olive accent so it reads as a network
    event, not a governance one. Sits between neutral (warn) and ok. */
 .today-feed-tag.tone-ok:has(+ *) { /* baseline keeps existing ok */ }

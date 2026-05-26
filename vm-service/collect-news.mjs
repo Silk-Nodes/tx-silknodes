@@ -162,7 +162,9 @@ async function pullTwitter() {
       external_id: String(id),
       title: truncate(text, 220),
       url: `https://x.com/${TWITTER_HANDLE}/status/${id}`,
-      summary: null,
+      // Full (untruncated) tweet text + author handle goes in summary
+      // so the side panel can show the whole post without re-fetching.
+      summary: text,
       ts,
       severity: "normal",
       tags: null,
@@ -195,12 +197,23 @@ async function pullMedium() {
     const severity = tags.some((t) => HIGH_SEVERITY_TAGS.has(t))
       ? "high"
       : "normal";
+    // Medium's RSS includes a <description> teaser (HTML) and a richer
+    // <content:encoded> block with the full post HTML. We use the
+    // description, strip tags, and truncate so the side panel can show
+    // a 500-char preview without proxying the whole post.
+    const descRaw =
+      cdataOrText(block, "description") ||
+      cdataOrText(block, "content:encoded") ||
+      "";
+    const summary = descRaw
+      ? truncate(stripTags(descRaw).replace(/\s+/g, " ").trim(), 600)
+      : null;
     items.push({
       source: "medium",
       external_id: guid,
       title: truncate(title, 220),
       url: link,
-      summary: null,
+      summary,
       ts,
       severity,
       tags,

@@ -61,6 +61,10 @@ type FeedItem = {
   url?: string;
   tag: string;
   tags?: string[];
+  // Long-form text for the side panel: full tweet text, Medium teaser,
+  // or formatted chain-event detail. The compact row in the feed only
+  // shows title + sub; the panel uses body for the expanded view.
+  body?: string;
 };
 
 type NewsRow = {
@@ -68,6 +72,7 @@ type NewsRow = {
   external_id: string;
   title: string;
   url: string;
+  summary: string | null;
   ts: Date;
   severity: Severity;
   tags: string[] | null;
@@ -99,7 +104,7 @@ export async function GET() {
   const [news, chain] = await Promise.all([
     sequelize
       .query<NewsRow>(
-        `SELECT source, external_id, title, url, ts, severity, tags
+        `SELECT source, external_id, title, url, summary, ts, severity, tags
            FROM news_items
           ORDER BY ts DESC
           LIMIT 30`,
@@ -145,6 +150,7 @@ export async function GET() {
 
 function mapNews(n: NewsRow): FeedItem {
   const ts = new Date(n.ts).toISOString();
+  const body = n.summary ?? undefined;
   if (n.source === "twitter") {
     return {
       source: "twitter",
@@ -155,6 +161,7 @@ function mapNews(n: NewsRow): FeedItem {
       url: n.url,
       tag: "TX NEWS",
       tags: n.tags ?? undefined,
+      body,
     };
   }
   if (n.source === "medium") {
@@ -167,6 +174,7 @@ function mapNews(n: NewsRow): FeedItem {
       url: n.url,
       tag: n.severity === "high" ? "ANNOUNCEMENT" : "MEDIUM",
       tags: n.tags ?? undefined,
+      body,
     };
   }
   // tx_press
@@ -179,6 +187,7 @@ function mapNews(n: NewsRow): FeedItem {
     url: n.url,
     tag: "PRESS",
     tags: n.tags ?? undefined,
+    body,
   };
 }
 
@@ -189,26 +198,44 @@ function mapChain(c: ChainRow): FeedItem {
   switch (c.type) {
     case "whale_delegate": {
       const amount = Number(c.payload?.amount_tx) || 0;
+      const validator = c.payload?.validator;
+      const delegator = c.payload?.delegator;
+      const txHash = c.payload?.tx_hash;
       return {
         source: "chain",
         type: "whale_delegate",
         severity: c.severity,
         ts,
         title: `${formatTx(amount)} TX delegated`,
-        sub: `to validator ${shortVal(c.payload?.validator)}`,
+        sub: `to validator ${shortVal(validator)}`,
         tag: "WHALE",
+        body: [
+          `${formatTx(amount)} TX delegated`,
+          validator ? `Validator: ${validator}` : null,
+          delegator ? `Delegator: ${delegator}` : null,
+          txHash ? `Tx: ${txHash}` : null,
+        ].filter(Boolean).join("\n"),
       };
     }
     case "large_unbond": {
       const amount = Number(c.payload?.amount_tx) || 0;
+      const validator = c.payload?.validator;
+      const delegator = c.payload?.delegator;
+      const txHash = c.payload?.tx_hash;
       return {
         source: "chain",
         type: "large_unbond",
         severity: c.severity,
         ts,
         title: `${formatTx(amount)} TX unbonded`,
-        sub: `from validator ${shortVal(c.payload?.validator)}`,
+        sub: `from validator ${shortVal(validator)}`,
         tag: "WHALE",
+        body: [
+          `${formatTx(amount)} TX unbonded`,
+          validator ? `Validator: ${validator}` : null,
+          delegator ? `Delegator: ${delegator}` : null,
+          txHash ? `Tx: ${txHash}` : null,
+        ].filter(Boolean).join("\n"),
       };
     }
     case "pse_distributed": {
@@ -222,6 +249,7 @@ function mapChain(c: ChainRow): FeedItem {
         title: `PSE cycle distributed`,
         sub: `${formatTx(amount)} TX to ${recipients.toLocaleString()} stakers`,
         tag: "PSE",
+        body: `A PSE distribution paid out ${formatTx(amount)} TX across ${recipients.toLocaleString()} stakers in a single window.`,
       };
     }
     default:

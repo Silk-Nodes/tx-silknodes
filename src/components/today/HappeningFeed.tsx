@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Proposal } from "@/lib/governance";
 import type { NextPSECycle } from "@/hooks/useNextPSECycle";
+import FeedItemPanel, { type PanelItem } from "./FeedItemPanel";
 
 // ── API contract (must match /api/today/feed route.ts) ─────────────────
 type FeedSource =
@@ -24,6 +24,7 @@ type FeedItem = {
   url?: string;
   tag: string;
   tags?: string[];
+  body?: string;
 };
 
 interface Props {
@@ -48,6 +49,7 @@ interface Props {
 export default function HappeningFeed({ proposals, cycle }: Props) {
   const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
   const [feedError, setFeedError] = useState(false);
+  const [panelItem, setPanelItem] = useState<PanelItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,67 +177,50 @@ export default function HappeningFeed({ proposals, cycle }: Props) {
               key={`${it.source}-${it.type}-${it.ts}-${idx}`}
               item={it}
               isLast={idx === merged.length - 1}
+              onOpen={() => setPanelItem(it)}
             />
           ))}
         </ol>
       )}
+      <FeedItemPanel item={panelItem} onClose={() => setPanelItem(null)} />
     </section>
   );
 }
 
-function FeedRow({ item, isLast }: { item: FeedItem; isLast: boolean }) {
-  const inner = (
-    <>
-      <span className="happening-rail-rail" aria-hidden="true">
-        <span className={`happening-rail-dot tone-${item.severity}`} />
-        {!isLast && <span className="happening-rail-line" />}
-      </span>
-      <span className="happening-row-body">
-        <span className="happening-row-meta">
-          <span
-            className={`happening-row-tag source-${item.source} ${
-              item.severity === "high" ? "high" : ""
-            }`}
-          >
-            {item.tag}
-          </span>
-          <span className="happening-row-time">{relTimeShort(item.ts)}</span>
-        </span>
-        <span className="happening-row-title">{item.title}</span>
-        {item.sub && <span className="happening-row-sub">{item.sub}</span>}
-      </span>
-    </>
-  );
-
-  // Internal links use next/link (proposal pages, /pse). External links
-  // open in a new tab so the user doesn't lose the Today page context.
-  if (!item.url) {
-    return (
-      <li className="happening-row">
-        <span className="happening-row-noop">{inner}</span>
-      </li>
-    );
-  }
-  const isExternal = item.url.startsWith("http");
-  if (isExternal) {
-    return (
-      <li className="happening-row">
-        <a
-          className="happening-row-link"
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {inner}
-        </a>
-      </li>
-    );
-  }
+// Every row opens the side panel — clicking a Medium teaser, a tweet,
+// a press release, an on-chain event or a governance row pops the
+// drawer with the full body + an "Open original" CTA inside. This
+// avoids accidentally navigating away from Today (especially valuable
+// for the external sources where we'd otherwise lose context).
+function FeedRow({
+  item, isLast, onOpen,
+}: { item: FeedItem; isLast: boolean; onOpen: () => void }) {
   return (
     <li className="happening-row">
-      <Link className="happening-row-link" href={item.url}>
-        {inner}
-      </Link>
+      <button
+        type="button"
+        className="happening-row-link happening-row-button"
+        onClick={onOpen}
+      >
+        <span className="happening-rail-rail" aria-hidden="true">
+          <span className={`happening-rail-dot tone-${item.severity}`} />
+          {!isLast && <span className="happening-rail-line" />}
+        </span>
+        <span className="happening-row-body">
+          <span className="happening-row-meta">
+            <span
+              className={`happening-row-tag source-${item.source} ${
+                item.severity === "high" ? "high" : ""
+              }`}
+            >
+              {item.tag}
+            </span>
+            <span className="happening-row-time">{relTimeShort(item.ts)}</span>
+          </span>
+          <span className="happening-row-title">{item.title}</span>
+          {item.sub && <span className="happening-row-sub">{item.sub}</span>}
+        </span>
+      </button>
     </li>
   );
 }
