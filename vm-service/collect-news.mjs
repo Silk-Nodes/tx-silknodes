@@ -86,35 +86,36 @@ async function fetchText(url, attempt = 1) {
 }
 
 // ── Twitter syndication ────────────────────────────────────────────────
-// Public endpoint used by Twitter's own iframe embed widget. Returns
-// JSON with the latest ~20 tweets. No auth, no rate limit headers
-// observed at the cadence we run (every 30 min).
+// Public endpoint that backs Twitter's own iframe embed widget. As of
+// 2026 the syndication CDN serves a pre-rendered Next.js HTML page (no
+// JSON variant exists anymore at /timeline/profile?screen_name=...).
+// We parse the embedded `<script id="__NEXT_DATA__" type="application/json">`
+// blob and walk to `props.pageProps.timeline.entries[].content.tweet`.
+//
+// No auth, no API key. The HTML response is ~130KB and we hit it once
+// per 30 min, well under any reasonable rate limit.
 async function pullTwitter() {
-  const url = `https://cdn.syndication.twitter.com/timeline/profile?screen_name=${encodeURIComponent(TWITTER_HANDLE)}&dnt=1&suppress_response_codes=true`;
-  const body = await fetchText(url);
-  let json;
+  const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(TWITTER_HANDLE)}?dnt=1&showHeader=false&showBorder=false`;
+  const html = await fetchText(url);
+  const scriptMatch = html.match(
+    /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
+  );
+  if (!scriptMatch) {
+    throw new Error("Twitter syndication: __NEXT_DATA__ script not found");
+  }
+  let data;
   try {
-    json = JSON.parse(body);
-  } catch {
-    throw new Error("Twitter syndication returned non-JSON body");
+    data = JSON.parse(scriptMatch[1]);
+  } catch (err) {
+    throw new Error(`Twitter syndication: __NEXT_DATA__ parse failed: ${err.message}`);
   }
-  // Two response shapes are in the wild depending on Twitter's rollout:
-  // { body: [...] } (HTML-style timeline) and { timeline: { entries: [...] } }
-  // (newer). We normalize both into a list of tweet objects.
-  let tweets = [];
-  if (Array.isArray(json?.body)) {
-    // Old shape — body is an array of pre-rendered entries with metadata.
-    tweets = json.body;
-  } else if (Array.isArray(json?.timeline?.entries)) {
-    tweets = json.timeline.entries
-      .map((e) => e?.content?.tweet || e?.tweet)
-      .filter(Boolean);
-  } else if (Array.isArray(json?.props?.pageProps?.contextProvider?.timeline?.entries)) {
-    // Defensive: another shape seen via the Next.js-rendered variant.
-    tweets = json.props.pageProps.contextProvider.timeline.entries
-      .map((e) => e?.content?.tweet || e?.tweet)
-      .filter(Boolean);
-  }
+  const entries =
+    data?.props?.pageProps?.timeline?.entries ??
+    data?.props?.pageProps?.contextProvider?.timeline?.entries ??
+    [];
+  const tweets = entries
+    .map((e) => e?.content?.tweet || e?.tweet)
+    .filter(Boolean);
 
   const items = [];
   for (const t of tweets) {
@@ -178,15 +179,17 @@ async function pullMedium() {
 }
 
 // ── tx.org press scrape ────────────────────────────────────────────────
-// The press page is a static marketing page. We extract <a href=...>...</a>
-// blocks that look like press articles, plus their nearby date if visible.
-// If the markup changes, we log a warning and keep going (no exception
-// bubbles up since this source is best-effort).
+// tx.org/press-and-media is a React SPA. The press item titles render
+// into the static HTML as <h6 class="css-... css-...">TITLE</h6> with a
+// publish date string in a sibling element, but the destination URLs
+// to the original articles are hydrated client-side and are NOT present
+// in the SSR response. So we scrape title + date, dedupe by title hash,
+// and link every item back to tx.org/press-and-media itself. The user
+// lands on the list with all press releases in one place.
 //
-// Heuristics:
-//   - candidate links whose path starts with /press/, /news/, /blog/,
-//     /post/, or /press-and-media/
-//   - title from anchor text, trimmed and de-duped on URL
+// If the page structure ever changes (class names are CSS-in-JS hashes
+// that survive across deploys but could rotate on a redesign), we log
+// a warning instead of throwing.
 async function pullTxPress() {
   let html;
   try {
@@ -198,32 +201,42 @@ async function pullTxPress() {
 
   const items = [];
   const seen = new Set();
-  const linkRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/g;
-  const pressPathRe = /\/(press|news|blog|post|press-and-media|press-release)\//i;
+  // The h6 class is two CSS-in-JS hashes. We anchor on the visible
+  // tag name + a class= attribute and let the inner text be anything.
+  // Matches the real markup as of 2026-05; if it ever stops matching,
+  // the empty-items warning at the bottom fires.
+  const titleRe = /<h6\s+class="css-[^"]+"[^>]*>([^<]{10,220})<\/h6>/g;
+  // Dates render as plain text like "Apr 19, 2026" near each title.
+  // We do a windowed search after each title for the next date string.
+  const dateRe = /\b([A-Z][a-z]{2})\s+(\d{1,2}),\s+(20\d{2})\b/;
   let m;
-  while ((m = linkRe.exec(html)) !== null) {
-    const hrefRaw = m[1];
-    const inner = stripTags(m[2]).trim();
-    if (!hrefRaw || !inner || inner.length < 10 || inner.length > 220) continue;
-    if (!pressPathRe.test(hrefRaw)) continue;
-    const url = normalizeUrl(hrefRaw, TX_PRESS_URL);
-    if (seen.has(url)) continue;
-    seen.add(url);
-    const id = sha1Hex(url);
+  while ((m = titleRe.exec(html)) !== null) {
+    const rawTitle = decodeHtmlEntities(m[1]).trim();
+    if (!rawTitle) continue;
+    // First title on the page is the "Press & media" page header — skip.
+    if (/^press\s*&?\s*media$/i.test(rawTitle)) continue;
+    if (seen.has(rawTitle.toLowerCase())) continue;
+    seen.add(rawTitle.toLowerCase());
+
+    // Pull a publish date from the 600 chars immediately following the
+    // title. Falls back to "now" if not found.
+    const tail = html.slice(m.index + m[0].length, m.index + m[0].length + 600);
+    const dateMatch = tail.match(dateRe);
+    const ts = dateMatch
+      ? new Date(`${dateMatch[1]} ${dateMatch[2]}, ${dateMatch[3]} 12:00:00 UTC`)
+      : new Date();
+
+    const id = sha1Hex(rawTitle);
     items.push({
       source: "tx_press",
       external_id: id,
-      title: truncate(inner, 220),
-      url,
+      title: truncate(rawTitle, 220),
+      url: TX_PRESS_URL,
       summary: null,
-      // We can't reliably extract a publish date without a real parser,
-      // so use first-seen time. On subsequent ticks the UNIQUE constraint
-      // means we don't overwrite, so this stays stable as "when we saw
-      // it" which is acceptable for a press feed.
-      ts: new Date(),
-      severity: "high", // press releases are by nature announcement-grade
+      ts,
+      severity: "high", // press releases are announcement-grade by nature
       tags: ["press"],
-      raw: null,
+      raw: { titleHash: id },
     });
   }
   if (items.length === 0) {
@@ -233,6 +246,21 @@ async function pullTxPress() {
     );
   }
   return items;
+}
+
+function decodeHtmlEntities(s) {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
+      String.fromCharCode(parseInt(code, 16)),
+    );
 }
 
 // ── DB write + retention ───────────────────────────────────────────────
