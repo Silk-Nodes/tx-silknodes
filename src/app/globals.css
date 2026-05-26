@@ -11544,6 +11544,94 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   font-style: italic;
 }
+
+/* ─── Rendered article HTML (Medium content:encoded) ──────────────────
+   Server-side sanitized to a small tag allowlist. Styles here mirror
+   Medium-style typography so the article reads naturally inside the
+   panel. */
+.fi-panel-body-html h1,
+.fi-panel-body-html h2,
+.fi-panel-body-html h3,
+.fi-panel-body-html h4,
+.fi-panel-body-html h5,
+.fi-panel-body-html h6 {
+  margin: 18px 0 8px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
+}
+.fi-panel-body-html h1 { font-size: 1.4rem; }
+.fi-panel-body-html h2 { font-size: 1.25rem; }
+.fi-panel-body-html h3 { font-size: 1.1rem; }
+.fi-panel-body-html h4,
+.fi-panel-body-html h5,
+.fi-panel-body-html h6 { font-size: 1rem; }
+.fi-panel-body-html p {
+  margin: 0 0 12px;
+}
+.fi-panel-body-html a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.fi-panel-body-html a:hover { opacity: 0.85; }
+.fi-panel-body-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: 12px 0;
+  display: block;
+}
+.fi-panel-body-html figure {
+  margin: 12px 0;
+}
+.fi-panel-body-html figcaption {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  margin-top: 6px;
+  text-align: center;
+  font-style: italic;
+}
+.fi-panel-body-html ul,
+.fi-panel-body-html ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+.fi-panel-body-html li { margin: 0 0 4px; }
+.fi-panel-body-html blockquote {
+  margin: 12px 0;
+  padding: 8px 0 8px 14px;
+  border-left: 3px solid var(--text-accent);
+  color: var(--text-medium);
+  font-style: italic;
+}
+.fi-panel-body-html code {
+  background: var(--accent-olive-light);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+}
+.fi-panel-body-html pre {
+  background: var(--accent-olive-light);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  margin: 12px 0;
+}
+.fi-panel-body-html pre code {
+  background: transparent;
+  padding: 0;
+}
+.fi-panel-body-html strong, .fi-panel-body-html b { font-weight: 600; }
+.fi-panel-body-html hr {
+  border: none;
+  border-top: 1px solid var(--glass-border);
+  margin: 20px 0;
+}
 .fi-panel-tags {
   display: flex;
   flex-wrap: wrap;

@@ -65,6 +65,10 @@ type FeedItem = {
   // or formatted chain-event detail. The compact row in the feed only
   // shows title + sub; the panel uses body for the expanded view.
   body?: string;
+  // Sanitized HTML for the side panel. Currently only set for Medium
+  // posts (content:encoded from RSS). Null/absent for everything else
+  // — the panel falls back to body text in that case.
+  bodyHtml?: string;
 };
 
 type NewsRow = {
@@ -73,6 +77,7 @@ type NewsRow = {
   title: string;
   url: string;
   summary: string | null;
+  content_html: string | null;
   ts: Date;
   severity: Severity;
   tags: string[] | null;
@@ -104,7 +109,7 @@ export async function GET() {
   const [news, chain] = await Promise.all([
     sequelize
       .query<NewsRow>(
-        `SELECT source, external_id, title, url, summary, ts, severity, tags
+        `SELECT source, external_id, title, url, summary, content_html, ts, severity, tags
            FROM news_items
           ORDER BY ts DESC
           LIMIT 30`,
@@ -175,6 +180,7 @@ function mapNews(n: NewsRow): FeedItem {
       tag: n.severity === "high" ? "ANNOUNCEMENT" : "MEDIUM",
       tags: n.tags ?? undefined,
       body,
+      bodyHtml: n.content_html ? sanitizeMediumHtml(n.content_html) : undefined,
     };
   }
   // tx_press
@@ -275,4 +281,66 @@ function shortVal(op: string | undefined): string {
   if (!op) return "?";
   if (op.length <= 14) return op;
   return `${op.slice(0, 8)}…${op.slice(-4)}`;
+}
+
+// ── Medium HTML sanitizer ──────────────────────────────────────────────
+// Allowlist-based: strip everything that isn't in the safe set, drop
+// all attributes except href on <a> and src/alt on <img>, force-rel and
+// target on external links, only allow http/https URLs. Runs server-
+// side so the client never sees unsafe input.
+//
+// Why not DOMPurify: avoids adding a runtime dep (and the jsdom adapter
+// it needs server-side). Medium's content:encoded uses a small, stable
+// vocabulary of tags, so an allowlist hand-roller is plenty.
+const ALLOWED_TAGS = new Set([
+  "p", "br", "hr",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "ul", "ol", "li",
+  "a", "img",
+  "strong", "b", "em", "i", "u",
+  "blockquote", "pre", "code",
+  "figure", "figcaption",
+  "span", "div",
+]);
+const VOID_TAGS = new Set(["br", "hr", "img"]);
+
+function sanitizeMediumHtml(html: string): string {
+  // Strip script/style blocks (incl content) entirely first.
+  let s = html.replace(/<(script|style|iframe)[\s\S]*?<\/\1\s*>/gi, "");
+  // Replace each tag with its sanitized version (or empty string).
+  s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g, (full, name: string, attrs: string) => {
+    const tag = name.toLowerCase();
+    if (!ALLOWED_TAGS.has(tag)) return ""; // drop disallowed tag, keep inner content
+    if (full.startsWith("</")) return `</${tag}>`;
+    // Build a safe attribute string. Only href on <a>, src/alt on <img>.
+    const safeAttrs: string[] = [];
+    if (tag === "a") {
+      const m = attrs.match(/\bhref\s*=\s*("([^"]*)"|'([^']*)')/i);
+      const href = (m && (m[2] ?? m[3])) || "";
+      if (/^https?:\/\//i.test(href)) {
+        safeAttrs.push(`href="${escapeAttr(href)}"`);
+        safeAttrs.push(`target="_blank"`);
+        safeAttrs.push(`rel="noopener noreferrer"`);
+      }
+    } else if (tag === "img") {
+      const sm = attrs.match(/\bsrc\s*=\s*("([^"]*)"|'([^']*)')/i);
+      const src = (sm && (sm[2] ?? sm[3])) || "";
+      if (/^https?:\/\//i.test(src)) {
+        safeAttrs.push(`src="${escapeAttr(src)}"`);
+      } else {
+        return ""; // drop img with non-http src
+      }
+      const am = attrs.match(/\balt\s*=\s*("([^"]*)"|'([^']*)')/i);
+      const alt = (am && (am[2] ?? am[3])) || "";
+      if (alt) safeAttrs.push(`alt="${escapeAttr(alt)}"`);
+      safeAttrs.push(`loading="lazy"`);
+    }
+    const inner = safeAttrs.length ? " " + safeAttrs.join(" ") : "";
+    if (VOID_TAGS.has(tag)) return `<${tag}${inner} />`;
+    return `<${tag}${inner}>`;
+  });
+  return s;
+}
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

@@ -22,6 +22,7 @@ export type PanelItem = {
   tag: string;
   tags?: string[];
   body?: string;
+  bodyHtml?: string;
 };
 
 // FeedItemPanel: slide-in right-edge drawer that opens when the user
@@ -89,8 +90,16 @@ export default function FeedItemPanel({
         {/* ── Sub line (e.g. proposal subtitle) ── */}
         {item.sub && <div className="fi-panel-sub">{item.sub}</div>}
 
-        {/* ── Body ── */}
-        {item.body ? (
+        {/* ── Body ──
+            HTML body (Medium) wins over plain text (tweets, chain events).
+            HTML was already allowlist-sanitized server-side in the
+            /api/today/feed route so dangerouslySetInnerHTML is safe here. */}
+        {item.bodyHtml ? (
+          <article
+            className="fi-panel-body fi-panel-body-html"
+            dangerouslySetInnerHTML={{ __html: item.bodyHtml }}
+          />
+        ) : item.body ? (
           <div className="fi-panel-body">
             {item.body.split("\n").map((line, i) => (
               <p key={i} className="fi-panel-body-p">{line}</p>

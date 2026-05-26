@@ -201,19 +201,23 @@ async function pullMedium() {
     // <content:encoded> block with the full post HTML. We use the
     // description, strip tags, and truncate so the side panel can show
     // a 500-char preview without proxying the whole post.
-    const descRaw =
-      cdataOrText(block, "description") ||
-      cdataOrText(block, "content:encoded") ||
-      "";
+    // Description = teaser HTML; content:encoded = full post HTML.
+    // We use the teaser (stripped) for `summary` (short, for cards) and
+    // keep the full HTML in `content_html` so the side panel can render
+    // the article in place. 30KB cap so a giant post can't blow the row.
+    const descRaw = cdataOrText(block, "description") || "";
     const summary = descRaw
       ? truncate(stripTags(descRaw).replace(/\s+/g, " ").trim(), 600)
       : null;
+    const fullHtml = cdataOrText(block, "content:encoded") || descRaw || "";
+    const contentHtml = fullHtml ? truncate(fullHtml, 30_000) : null;
     items.push({
       source: "medium",
       external_id: guid,
       title: truncate(title, 220),
       url: link,
       summary,
+      contentHtml,
       ts,
       severity,
       tags,
@@ -317,8 +321,8 @@ async function upsertItems(items) {
     // refresh content (e.g. corrected titles) we'd swap to DO UPDATE.
     const res = await query(
       `INSERT INTO news_items
-         (source, external_id, title, url, summary, ts, severity, tags, raw)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         (source, external_id, title, url, summary, content_html, ts, severity, tags, raw)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (source, external_id) DO NOTHING`,
       [
         it.source,
@@ -326,6 +330,7 @@ async function upsertItems(items) {
         it.title,
         it.url,
         it.summary,
+        it.contentHtml ?? null,
         it.ts,
         it.severity,
         it.tags ? JSON.stringify(it.tags) : null,

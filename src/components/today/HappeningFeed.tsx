@@ -25,6 +25,7 @@ type FeedItem = {
   tag: string;
   tags?: string[];
   body?: string;
+  bodyHtml?: string;
 };
 
 interface Props {
