@@ -11072,7 +11072,7 @@ input[type="range"]::-moz-range-thumb {
   .today-bottom-grid {
     grid-template-columns: 1.05fr 1fr;
     gap: 28px;
-    align-items: start;
+    align-items: stretch;
   }
   /* When side-by-side, shrink the signal tag column so headlines have
      enough room without wrapping awkwardly. */
@@ -11503,12 +11503,20 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* Fill the bottom-grid column so the signals + happening columns end
+     at the same y. The grid below then distributes the leftover height
+     across its rows via grid-auto-rows: 1fr. */
+  height: 100%;
 }
 .signals-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-rows: 1fr;
   gap: 12px;
+  /* Take whatever vertical space remains after the section label. Pairs
+     with grid-auto-rows: 1fr so each tile row stretches to share that
+     space equally, eliminating the gap below the grid. */
+  flex: 1;
 }
 .sg-tile {
   display: grid;
