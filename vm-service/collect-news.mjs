@@ -76,10 +76,21 @@ async function fetchText(url, attempt = 1) {
         accept: "text/html, application/json, application/xml, text/xml",
       },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      // 429 / 5xx: don't retry-spam. The next scheduled tick (30 min
+      // for news) is well past any rate-limit window, so a single fail
+      // is the right outcome. Retrying immediately on 429 only makes
+      // the cooldown longer.
+      if (res.status === 429 || res.status >= 500) {
+        throw new Error(`HTTP ${res.status} ${res.statusText} (will retry next tick)`);
+      }
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
     return await res.text();
   } catch (err) {
-    if (attempt >= 3) throw err;
+    // Retry on transient network errors only — not on HTTP errors above,
+    // which we already short-circuited.
+    if (attempt >= 3 || /HTTP \d/.test(err.message)) throw err;
     await new Promise((r) => setTimeout(r, 1000 * attempt));
     return fetchText(url, attempt + 1);
   }
