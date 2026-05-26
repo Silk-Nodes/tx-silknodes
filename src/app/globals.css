@@ -11494,3 +11494,290 @@ input[type="range"]::-moz-range-thumb {
   .happening-row-title { font-size: 0.88rem; }
 }
 
+/* ─── SignalsGrid: 3x2 dashboard tiles ─────────────────────────────────
+   Six data-backed tiles arranged 3 columns × 2 rows. Each tile has a
+   unique mini-visualization so the eye reads them as six different
+   things, not six rows of the same thing. No emojis — visual identity
+   comes from the per-tile viz and color tone. */
+.signals-grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.signals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+.sg-tile {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  text-decoration: none;
+  color: var(--text-dark);
+  position: relative;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  min-height: 168px;
+}
+.sg-tile:hover {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+  transform: translateY(-1px);
+}
+.sg-tile.is-empty {
+  opacity: 0.75;
+}
+.sg-tile-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sg-tile-value {
+  font-size: 1.85rem;
+  line-height: 1.05;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--text-dark);
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.sg-tile-value.tone-ok { color: var(--text-accent); }
+.sg-tile-value.tone-warn { color: var(--accent-orange); }
+.sg-tile-value.tone-muted { color: var(--text-medium); }
+.sg-sign {
+  font-size: 1.4rem;
+  margin-right: 1px;
+}
+.sg-tile-viz {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+}
+.sg-tile-sub {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  line-height: 1.35;
+}
+.sg-tile-sub strong { color: var(--text-dark); font-weight: 600; }
+.sg-mono { font-variant-numeric: tabular-nums; }
+.sg-delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.sg-delta.tone-ok { color: var(--text-accent); }
+.sg-delta.tone-warn { color: var(--accent-orange); }
+.sg-tile-cta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-medium);
+  opacity: 0.7;
+  transition: opacity 0.15s ease, color 0.15s ease, gap 0.15s ease;
+}
+.sg-tile:hover .sg-tile-cta {
+  opacity: 1;
+  color: var(--text-accent);
+  gap: 8px;
+}
+.sg-tile-cta-arrow {
+  font-weight: 400;
+  transition: transform 0.15s ease;
+}
+.sg-tile:hover .sg-tile-cta-arrow { transform: translateX(2px); }
+
+/* ─── Mini-viz primitives (one per signal type) ─────────────────────── */
+
+/* SplitBar: in/out percentages stacked horizontally with a thin gap. */
+.sg-splitbar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--glass-border);
+  gap: 1px;
+}
+.sg-splitbar-left {
+  background: var(--text-accent);
+  height: 100%;
+}
+.sg-splitbar-right {
+  background: var(--accent-orange);
+  height: 100%;
+}
+
+/* DotRow: one dot per whale move, fades after 12. Calm-state shows
+   muted placeholder dots so the tile retains visual weight. */
+.sg-dotrow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-orange);
+}
+.sg-dot.muted { background: var(--glass-border); }
+
+/* Arrivals bar: 2-color horizontal divided by ratio of in/out. */
+.sg-arrivalsbar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--glass-border);
+}
+.sg-arrivalsbar.empty { background: var(--glass-border); }
+.sg-arrivalsbar-up { background: var(--text-accent); height: 100%; }
+.sg-arrivalsbar-down { background: var(--accent-orange); height: 100%; }
+.sg-arrival-pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.sg-pair-up { color: var(--text-accent); }
+.sg-pair-down { color: var(--accent-orange); }
+.sg-pair-sep {
+  color: var(--text-light);
+  font-weight: 400;
+  font-size: 1.1rem;
+  padding: 0 4px;
+}
+
+/* MiniBars: 7 vertical bars for the next-7d unbonding curve, peak day
+   highlighted. Bottom-aligned so heights read like a tiny histogram. */
+.sg-minibars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  width: 100%;
+  height: 22px;
+}
+.sg-minibar {
+  flex: 1;
+  background: var(--text-medium);
+  border-radius: 1.5px;
+  min-height: 4px;
+  opacity: 0.65;
+}
+.sg-minibar.peak {
+  background: var(--text-accent);
+  opacity: 1;
+}
+
+/* DeltaGauge: centered horizontal axis with a pin marking the current
+   delta. -50%..+50% mapped across the bar width. */
+.sg-deltagauge {
+  position: relative;
+  width: 100%;
+  height: 14px;
+}
+.sg-deltagauge-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: var(--glass-border);
+  border-radius: 1px;
+  transform: translateY(-50%);
+}
+.sg-deltagauge-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-light);
+  opacity: 0.6;
+}
+.sg-deltagauge-pin {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-page, #0c0c0c);
+  transform: translate(-50%, -50%);
+}
+.sg-deltagauge-pin.tone-ok { background: var(--text-accent); }
+.sg-deltagauge-pin.tone-warn { background: var(--accent-orange); }
+
+/* DirectionalBar: a single bar that fills from left (positive) or
+   right (negative) using border-radius and a directional color. */
+.sg-dirbar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--glass-border);
+  overflow: hidden;
+}
+.sg-dirbar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.sg-dirbar.dir-in .sg-dirbar-fill {
+  left: 0;
+  background: var(--text-accent);
+}
+.sg-dirbar.dir-out .sg-dirbar-fill {
+  right: 0;
+  background: var(--accent-orange);
+}
+
+/* ─── Loading skeleton ─────────────────────────────────────────────── */
+.sg-tile-skeleton { pointer-events: none; }
+.sg-skel-line {
+  background: linear-gradient(90deg, var(--glass-border) 0%, var(--accent-olive-light) 50%, var(--glass-border) 100%);
+  background-size: 200% 100%;
+  animation: sg-skel-shimmer 1.4s infinite;
+  border-radius: 4px;
+}
+.sg-skel-line.wide { height: 28px; width: 60%; }
+.sg-skel-line.short { height: 8px; width: 80%; }
+.sg-skel-line.med { height: 10px; width: 70%; }
+@keyframes sg-skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────
+   The signals column lives alongside the happening feed (~50% width on
+   side-by-side layouts), so 3 columns of tiles only fit comfortably on
+   wide screens. Below 1400px the column drops to 2 wide so each tile
+   keeps real breathing room. Below 640px stack 1-up. */
+@media (max-width: 1399px) {
+  .signals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .signals-grid {
+    grid-template-columns: 1fr;
+  }
+  .sg-tile { min-height: 0; }
+  .sg-tile-value { font-size: 1.6rem; }
+}
+

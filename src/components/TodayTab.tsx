@@ -6,7 +6,7 @@ import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState 
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
 import { formatTxAmount } from "@/lib/governance";
-import TodaySignals from "./TodaySignals";
+import SignalsGrid from "./today/SignalsGrid";
 import HappeningFeed from "./today/HappeningFeed";
 
 interface Props {
@@ -187,12 +187,7 @@ export default function TodayTab({
 
       {/* ─── Signals + Activity feed side by side on wide screens ────── */}
       <div className="today-bottom-grid">
-        <TodaySignals
-          validators={validators}
-          stakingData={stakingData}
-          proposals={proposals}
-          cycle={cycle}
-        />
+        <SignalsGrid />
         <HappeningFeed proposals={proposals} cycle={cycle} />
       </div>
 
