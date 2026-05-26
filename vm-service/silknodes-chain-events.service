@@ -1,0 +1,26 @@
+[Unit]
+Description=Silk Nodes Chain Event Deriver (whale, large_unbond, pse_distributed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=/usr/bin/node __REPO_PATH__/vm-service/derive-chain-events.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-chain-events
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE. Optional overrides:
+#   POLL_INTERVAL_MS       default 5 min
+#   WHALE_LOOKBACK_HOURS   default 24
+#   WHALE_MIN_TX           default 100000 (absolute floor)
+EnvironmentFile=-/home/%i/.silknodes-db.env
+
+[Install]
+WantedBy=multi-user.target
