@@ -121,8 +121,40 @@ async function pullTwitter() {
   for (const t of tweets) {
     const id = t?.id_str || t?.id || t?.tweet_id;
     if (!id) continue;
-    const text = (t?.full_text || t?.text || "").trim();
+    let text = decodeHtmlEntities((t?.full_text || t?.text || "").trim());
     if (!text) continue;
+    // Media-only tweets serialize as just a t.co URL in full_text because
+    // the actual content is an image/video Twitter doesn't expose to
+    // syndication consumers. Rendering "https://t.co/abc123" as the
+    // headline looks broken, so we synthesise a usable label using the
+    // media type from extended_entities when present.
+    if (/^https:\/\/t\.co\/\w+$/.test(text)) {
+      const media = t?.extended_entities?.media?.[0] || t?.entities?.media?.[0];
+      const mediaType = media?.type; // 'photo' | 'video' | 'animated_gif'
+      const label =
+        mediaType === "video"
+          ? "Video"
+          : mediaType === "animated_gif"
+          ? "GIF"
+          : mediaType === "photo"
+          ? "Photo"
+          : "Media";
+      text = `${label} from @${TWITTER_HANDLE}`;
+    }
+    // Retweets — display the original author's name + text without the
+    // "RT @x: " prefix. The legacy payload preserves the retweeted_status
+    // object when expanded; if not present we keep the RT-prefixed text.
+    const rt = t?.retweeted_status_result?.result || t?.retweeted_status;
+    if (rt) {
+      const rtText = decodeHtmlEntities(
+        (rt.full_text || rt.text || rt.legacy?.full_text || "").trim(),
+      );
+      const rtAuthor =
+        rt.user?.screen_name || rt.legacy?.user?.screen_name || rt.core?.user_results?.result?.legacy?.screen_name;
+      if (rtText && rtAuthor) {
+        text = `RT @${rtAuthor}: ${rtText}`;
+      }
+    }
     const createdAt = t?.created_at || t?.legacy?.created_at || null;
     const ts = createdAt ? new Date(createdAt) : new Date();
     items.push({
