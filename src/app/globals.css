@@ -11276,6 +11276,143 @@ input[type="range"]::-moz-range-thumb {
   .today-connect-stack-headline { font-size: 1.25rem; }
 }
 
+/* ─── Address entry card ───────────────────────────────────────────────
+   Replaces the wallet-only card on the Today page. Three entry points
+   stacked: paste-address (primary, input + submit), connect wallet
+   (alt), open calculator (alt). Same chrome as the legacy connect-
+   stack so it slots into the top grid without re-doing layout. */
+.today-entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 28px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(177, 252, 3, 0.3);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(177, 252, 3, 0.12), transparent 50%),
+    var(--glass-bg);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+  height: 100%;
+}
+.today-entry-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-medium);
+}
+.today-entry-headline {
+  font-size: 1.4rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--text-dark);
+  max-width: 95%;
+}
+.today-entry-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.today-entry-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.today-entry-input:focus {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+}
+.today-entry-input::placeholder {
+  color: var(--text-light);
+  opacity: 0.7;
+}
+.today-entry-submit {
+  padding: 11px 22px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--text-accent);
+  color: var(--bg-page, #0c0c0c);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.today-entry-submit:hover {
+  transform: translateY(-1px);
+  background: var(--tx-neon-light, var(--text-accent));
+}
+.today-entry-error {
+  font-size: 0.78rem;
+  color: var(--accent-orange);
+  margin-top: 2px;
+}
+.today-entry-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-top: 6px;
+}
+.today-entry-divider::before,
+.today-entry-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--glass-border);
+}
+.today-entry-divider span { padding: 0 2px; }
+.today-entry-alts {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.today-entry-alt {
+  flex: 1;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.today-entry-alt:hover {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+  color: var(--text-accent);
+}
+
+@media (max-width: 1100px) {
+  .today-entry-card { padding: 20px 22px; }
+  .today-entry-headline { font-size: 1.2rem; }
+}
+@media (max-width: 540px) {
+  .today-entry-form { flex-direction: column; }
+  .today-entry-submit { width: 100%; }
+  .today-entry-alts { flex-direction: column; }
+}
+
 /* PSE tag in the activity feed: olive accent so it reads as a network
    event, not a governance one. Sits between neutral (warn) and ok. */
 .today-feed-tag.tone-ok:has(+ *) { /* baseline keeps existing ok */ }

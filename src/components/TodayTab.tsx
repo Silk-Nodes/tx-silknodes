@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
@@ -118,26 +119,14 @@ export default function TodayTab({
           </section>
         )}
 
-        {/* Connect-wallet card sits next to the cycle countdown on wide
-            screens so the page top stays balanced. Same vertical height. */}
+        {/* Entry card. Pairs with the PSE countdown on wide screens. We
+            lead with "check any address" because plenty of visitors
+            just want to look up their wallet without connecting it.
+            Wallet connect and calculator sit underneath as alternatives
+            so all three paths are visible up-front. When the wallet is
+            already connected the card collapses to a welcome state. */}
         {!isConnected ? (
-          <section className="today-connect-stack">
-            <div className="today-connect-eyebrow">Connect wallet</div>
-            <div className="today-connect-stack-headline">
-              See your PSE score, rewards, and positions
-            </div>
-            <div className="today-connect-stack-sub">
-              Connect Keplr or Cosmostation. Your keys never leave your device.
-            </div>
-            <div className="today-connect-stack-actions">
-              <button type="button" className="today-cta-primary" onClick={onConnectWallet}>
-                Connect wallet
-              </button>
-              <Link href="/governance" className="today-cta-secondary">
-                Browse governance
-              </Link>
-            </div>
-          </section>
+          <AddressEntryCard onConnectWallet={onConnectWallet} />
         ) : (
           <section className="today-connect-stack today-connect-stack-quiet">
             <div className="today-connect-eyebrow">Wallet connected</div>
@@ -260,6 +249,75 @@ export default function TodayTab({
 
 
 // ─── Helpers ────────────────────────────────────────────────────────
+
+// Entry-point card shown when no wallet is connected. Three pathways
+// of equal visibility:
+//   1. Paste any address → deep-link to /pse?address=core1... where the
+//      PSE tab auto-fetches the score on mount (handled in page.tsx).
+//   2. Connect Keplr/Cosmostation → existing flow via onConnectWallet.
+//   3. Open the staking calculator → /calculator route.
+// Address validation is intentionally permissive ("core1" prefix +
+// length floor). Stricter validation happens server-side on the lookup.
+function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) {
+  const router = useRouter();
+  const [addr, setAddr] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = addr.trim();
+    if (!trimmed) {
+      setError("Paste a TX address to look up.");
+      return;
+    }
+    if (!trimmed.startsWith("core1") || trimmed.length < 39) {
+      setError("Address should start with core1 and be at least 39 chars.");
+      return;
+    }
+    setError(null);
+    router.push(`/pse?address=${encodeURIComponent(trimmed)}`);
+  };
+
+  return (
+    <section className="today-entry-card">
+      <div className="today-entry-eyebrow">Check any address</div>
+      <div className="today-entry-headline">
+        Look up PSE score, rewards, and positions
+      </div>
+      <form className="today-entry-form" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className="today-entry-input"
+          value={addr}
+          onChange={(e) => {
+            setAddr(e.target.value);
+            if (error) setError(null);
+          }}
+          placeholder="Paste a core1... address"
+          spellCheck={false}
+          autoComplete="off"
+        />
+        <button type="submit" className="today-entry-submit">
+          Fetch
+        </button>
+      </form>
+      {error && <div className="today-entry-error">{error}</div>}
+      <div className="today-entry-divider"><span>or</span></div>
+      <div className="today-entry-alts">
+        <button
+          type="button"
+          className="today-entry-alt"
+          onClick={onConnectWallet}
+        >
+          Connect wallet
+        </button>
+        <Link href="/calculator" className="today-entry-alt">
+          Open calculator
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 function PositionStat({
   label, value, sub, tone,

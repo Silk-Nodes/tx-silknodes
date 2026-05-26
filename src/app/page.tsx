@@ -1401,6 +1401,23 @@ function PSETab({
     }
   }, [wallet.connected, wallet.address]);
 
+  // Auto-fill + auto-fetch from ?address= URL query param. Lets the
+  // Today page "Check any address" card deep-link straight into a PSE
+  // lookup without requiring the user to re-paste or click Fetch.
+  // We stash the address in a ref and let the effect below fire the
+  // network request once fetchPSEScore is in scope (it's defined with
+  // useCallback later in the component body).
+  const autoFetchRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get("address");
+    if (fromQuery && fromQuery.startsWith("core1") && fromQuery.length >= 39) {
+      setPseAddress(fromQuery);
+      autoFetchRef.current = fromQuery;
+    }
+  }, []);
+
   // PSE params: excluded addresses from on-chain (passed from parent), clearing balances from on-chain
   const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({
     excludedAddresses: onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES,
@@ -1479,6 +1496,19 @@ function PSETab({
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: err.message || "Failed to fetch", height: null });
     }
   }, [pseAddress, bondedTokens, pseParams, networkTotalScore, excludedPSEStake, lastDistribution]);
+
+  // Fire the auto-fetch queued by the ?address= query param handler
+  // above. Lives here (after fetchPSEScore) because the callback is
+  // defined with useCallback and is only in scope from this point on.
+  // Pops the ref so we don't refetch on every fetchPSEScore identity
+  // change (which happens whenever its deps update).
+  useEffect(() => {
+    if (autoFetchRef.current) {
+      const addr = autoFetchRef.current;
+      autoFetchRef.current = null;
+      fetchPSEScore(addr);
+    }
+  }, [fetchPSEScore]);
 
   // Auto-fetch when wallet connects
   useEffect(() => {
