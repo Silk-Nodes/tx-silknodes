@@ -5,8 +5,9 @@ import { useMemo } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
-import { formatTxAmount, type Proposal } from "@/lib/governance";
+import { formatTxAmount } from "@/lib/governance";
 import TodaySignals from "./TodaySignals";
+import HappeningFeed from "./today/HappeningFeed";
 
 interface Props {
   tokenData: TokenData | null;
@@ -192,7 +193,7 @@ export default function TodayTab({
           proposals={proposals}
           cycle={cycle}
         />
-        <WhatsHappeningFeed proposals={proposals} cycle={cycle} />
+        <HappeningFeed proposals={proposals} cycle={cycle} />
       </div>
 
       {/* ─── Action queue (when there's something live) ──────────────── */}
@@ -262,149 +263,6 @@ export default function TodayTab({
   );
 }
 
-// Time-anchored activity feed. Mixes governance events with PSE
-// distribution events so the feed has real variety. Each row reads
-// like a news bullet: tag, relative time, what happened, link.
-function WhatsHappeningFeed({
-  proposals, cycle,
-}: {
-  proposals: Proposal[];
-  cycle: ReturnType<typeof useNextPSECycle>;
-}) {
-  const events = useMemo(() => {
-    type FeedEvent = {
-      key: string;
-      tag: string;
-      tagTone?: "ok" | "warn";
-      time: number; // unix ms
-      headline: React.ReactNode;
-      href: string;
-    };
-    const out: FeedEvent[] = [];
-
-    // ── Governance: decided + active ──
-    for (const p of proposals) {
-      if (p.status === "voting" || p.status === "deposit") {
-        const t = p.votingStartTime ? new Date(p.votingStartTime).getTime()
-          : p.submitTime ? new Date(p.submitTime).getTime() : 0;
-        out.push({
-          key: `active-${p.id}`,
-          tag: "GOVERNANCE",
-          tagTone: "ok",
-          time: t,
-          headline: (
-            <>
-              Proposal #{p.id}{" "}
-              {p.status === "voting" ? "entered voting" : "is in deposit period"}
-              <span className="today-feed-sub-inline">{p.title}</span>
-            </>
-          ),
-          href: `/governance/${p.id}`,
-        });
-        continue;
-      }
-      if (p.status === "passed" || p.status === "rejected" || p.status === "failed") {
-        const t = p.votingEndTime ? new Date(p.votingEndTime).getTime() : 0;
-        if (!t) continue;
-        const verb = p.status === "passed" ? "passed"
-          : p.status === "rejected" ? "was rejected"
-          : "failed";
-        out.push({
-          key: `decided-${p.id}`,
-          tag: "GOVERNANCE",
-          tagTone: p.status === "passed" ? "ok" : "warn",
-          time: t,
-          headline: (
-            <>
-              Proposal #{p.id} {verb}
-              <span className="today-feed-sub-inline">{p.title}</span>
-            </>
-          ),
-          href: `/governance/${p.id}`,
-        });
-      }
-    }
-
-    // ── PSE distribution events: past cycles ──
-    // The schedule is an ordered array of unix-seconds timestamps. Past
-    // distributions are everything before `now`. We surface up to 5 to
-    // mix with governance events and balance the feed visually.
-    if (cycle?.schedule && cycle.schedule.length > 0) {
-      const nowSec = Math.floor(Date.now() / 1000);
-      const pastIndexes: number[] = [];
-      for (let i = 0; i < cycle.schedule.length; i++) {
-        if (cycle.schedule[i] <= nowSec) pastIndexes.push(i);
-      }
-      // Newest past distributions first, capped so PSE doesn't drown out
-      // governance.
-      const recent = pastIndexes.slice(-5).reverse();
-      for (const idx of recent) {
-        const tSec = cycle.schedule[idx];
-        out.push({
-          key: `pse-${idx}`,
-          tag: "PSE",
-          tagTone: "ok",
-          time: tSec * 1000,
-          headline: (
-            <>
-              Cycle {idx + 1} distributed
-              <span className="today-feed-sub-inline">~14.20M TX paid out to active stakers</span>
-            </>
-          ),
-          href: "/pse",
-        });
-      }
-    }
-
-    out.sort((a, b) => b.time - a.time);
-    // Cap at exactly 6 so the activity column matches the 6-row signal
-    // column on the left for strict visual symmetry.
-    return out.slice(0, 6);
-  }, [proposals, cycle]);
-
-  if (events.length === 0) {
-    return (
-      <section className="today-section">
-        <div className="today-section-label">What&apos;s happening</div>
-        <div className="today-feed-empty">No recent activity yet.</div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="today-section">
-      <div className="today-section-label">What&apos;s happening</div>
-      <div className="today-feed">
-        {events.map((ev) => (
-          <Link key={ev.key} href={ev.href} className="today-feed-row">
-            <span className={`today-feed-tag ${ev.tagTone ? `tone-${ev.tagTone}` : ""}`}>
-              {ev.tag}
-            </span>
-            <span className="today-feed-time">{relTimeShort(ev.time)}</span>
-            <span className="today-feed-headline">{ev.headline}</span>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function relTimeShort(ms: number): string {
-  if (!ms) return "";
-  const diff = Date.now() - ms;
-  if (diff < 0) return "scheduled";
-  const days = Math.floor(diff / 86_400_000);
-  if (days >= 30) {
-    const months = Math.floor(days / 30);
-    return `${months}mo ago`;
-  }
-  if (days > 0) return `${days}d ago`;
-  const hours = Math.floor(diff / 3_600_000);
-  if (hours > 0) return `${hours}h ago`;
-  const mins = Math.floor(diff / 60_000);
-  if (mins > 0) return `${mins}m ago`;
-  return "just now";
-}
 
 // ─── Helpers ────────────────────────────────────────────────────────
 

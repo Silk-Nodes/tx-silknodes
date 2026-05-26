@@ -11319,3 +11319,178 @@ input[type="range"]::-moz-range-thumb {
     align-self: center;
   }
 }
+
+/* ─── Today signals: number-led lead column ────────────────────────────
+   Each row in TodaySignals can opt into a big-number-on-the-left look
+   via the `lead` prop. This visually separates the signals column from
+   the HappeningFeed timeline rail beside it, even though both live in
+   the same width grid. The lead reuses the row's left slot (where the
+   plain `ts-tag` chip otherwise renders), so layout stays consistent. */
+.ts-lead {
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 88px;
+  padding-right: 4px;
+}
+.ts-lead-value {
+  font-size: 1.55rem;
+  line-height: 1.05;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.ts-lead-sub {
+  margin-top: 4px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+.ts-lead.tone-ok .ts-lead-value { color: var(--text-accent); }
+.ts-lead.tone-warn .ts-lead-value { color: var(--accent-orange); }
+@media (max-width: 700px) {
+  .ts-lead { min-width: 64px; }
+  .ts-lead-value { font-size: 1.25rem; }
+}
+
+/* ─── HappeningFeed: timeline rail ─────────────────────────────────────
+   Replaces the old `.today-feed` row grid with a vertical timeline:
+   left rail of dots connected by a thin line, body to the right with
+   chip + time on one line and headline + sub below. Visually different
+   from the Signals column on purpose: dots-and-line rail vs number-led
+   stat rows. */
+.happening-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.happening-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.happening-row { position: relative; }
+.happening-row-link,
+.happening-row-noop {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px 14px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-dark);
+  transition: background 0.15s ease;
+  border: 1px solid transparent;
+}
+.happening-row-link:hover {
+  background: var(--accent-olive-light);
+  border-color: var(--glass-border);
+}
+.happening-rail-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-self: stretch;
+  width: 22px;
+  flex: 0 0 auto;
+  padding-top: 6px;
+}
+.happening-rail-dot {
+  position: relative;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-medium);
+  box-shadow: 0 0 0 3px var(--bg-page, transparent);
+}
+.happening-rail-dot.tone-high {
+  background: var(--text-accent);
+  box-shadow: 0 0 0 3px var(--bg-page, transparent), 0 0 0 6px rgba(177, 252, 3, 0.15);
+}
+.happening-rail-dot.tone-low { background: var(--text-light); }
+.happening-rail-line {
+  position: absolute;
+  top: 16px;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: var(--glass-border);
+}
+.happening-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.happening-row-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.happening-row-tag {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--accent-olive-light);
+  color: var(--text-medium);
+  white-space: nowrap;
+}
+.happening-row-tag.source-twitter { background: rgba(29, 161, 242, 0.12); color: #1da1f2; border-color: rgba(29, 161, 242, 0.3); }
+.happening-row-tag.source-medium { background: rgba(0, 0, 0, 0.06); color: var(--text-dark); border-color: var(--glass-border); }
+.happening-row-tag.source-tx_press { background: rgba(177, 252, 3, 0.18); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.35); }
+.happening-row-tag.source-governance { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border-color: rgba(177, 252, 3, 0.3); }
+.happening-row-tag.source-chain { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border-color: rgba(255, 176, 120, 0.3); }
+.happening-row-tag.high {
+  /* The high-severity Medium post promotes to ANNOUNCEMENT styling so
+     the eye lands on it before any other feed row. */
+  background: var(--text-accent);
+  color: var(--bg-page, #0c0c0c);
+  border-color: var(--text-accent);
+}
+.happening-row-time {
+  font-size: 0.74rem;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.happening-row-title {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  line-height: 1.35;
+}
+.happening-row-sub {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+.happening-feed-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+}
+@media (max-width: 700px) {
+  .happening-row-link,
+  .happening-row-noop { padding: 10px 8px 12px; }
+  .happening-row-title { font-size: 0.88rem; }
+}
+

@@ -100,6 +100,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         {decentralization && (
           <SignalRow
             tag="DECENTRALIZATION"
+            lead={`${decentralization.pct.toFixed(0)}%`}
+            leadSub="TOP-10 POWER"
             href="/validators"
             headline={
               <>
@@ -118,6 +120,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         )}
         <SignalRow
           tag="STAKING FLOW"
+          lead={flow ? `${flow.net >= 0 ? "+" : ""}${formatTX(flow.net)}` : "—"}
+          leadSub="NET 24H (TX)"
           href="/flows"
           tone={flow && flow.net !== 0 ? (flow.net > 0 ? "ok" : "warn") : undefined}
           headline={flow
@@ -133,6 +137,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         />
         <SignalRow
           tag="WHALE ACTIVITY"
+          lead={whale ? String(whale.bigMoveCount) : "0"}
+          leadSub="WHALE MOVES 24H"
           href="/flows"
           tone={whale && whale.bigMoveCount > 0 ? "warn" : undefined}
           headline={whale && whale.bigMoveCount > 0
@@ -149,6 +155,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         {governance && (
           <SignalRow
             tag="GOVERNANCE"
+            lead={`${governance.passRate.toFixed(0)}%`}
+            leadSub="PASS RATE"
             href="/governance"
             headline={
               <>
@@ -165,6 +173,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         {pseMath && (
           <SignalRow
             tag="PSE"
+            lead={String(pseMath.remainingCycles)}
+            leadSub="CYCLES LEFT"
             href="/pse"
             headline={
               <>
@@ -183,6 +193,8 @@ export default function TodaySignals({ validators, stakingData, proposals, cycle
         {inflation && (
           <SignalRow
             tag="INFLATION"
+            lead={`${(inflation.ratePct * 100).toFixed(1)}%`}
+            leadSub="ANNUAL"
             href="/analytics"
             headline={
               <>
@@ -289,21 +301,32 @@ function useWhaleSignal(): WhaleSignal | null {
 // ── Row primitive ─────────────────────────────────────────────────────
 
 function SignalRow({
-  tag, headline, sub, cta, href, tone,
+  tag, lead, leadSub, headline, sub, cta, href, tone,
 }: {
   tag: string;
+  // Number-led layout: when `lead` is set, the left column shows a big
+  // number and a small label below it (the original `tag`). This
+  // visually separates this column from the HappeningFeed timeline rail
+  // (which uses chip + dot). Rows without a clear primary number leave
+  // `lead` undefined and render the original tag chip.
+  lead?: string;
+  leadSub?: string;
   headline: React.ReactNode;
   sub: React.ReactNode;
   cta?: string;
   href?: string;
   tone?: "ok" | "warn";
 }) {
-  // Horizontal layout with a fixed-width tag column so headlines line up
-  // at the same left edge regardless of tag length. tag | body | cta
-  // arranged as a 3-column grid. On mobile this collapses to a stack.
   const inner = (
     <>
-      <span className={`ts-tag ${tone ? `ts-tag-${tone}` : ""}`}>{tag}</span>
+      {lead != null ? (
+        <span className={`ts-lead ${tone ? `tone-${tone}` : ""}`}>
+          <span className="ts-lead-value">{lead}</span>
+          <span className="ts-lead-sub">{leadSub ?? tag}</span>
+        </span>
+      ) : (
+        <span className={`ts-tag ${tone ? `ts-tag-${tone}` : ""}`}>{tag}</span>
+      )}
       <div className="ts-body">
         <div className={`ts-headline ${tone ? `tone-${tone}` : ""}`}>{headline}</div>
         <div className="ts-sub">{sub}</div>

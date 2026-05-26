@@ -94,6 +94,10 @@ const REQUIRED_TABLES = [
   // 008_feature_requests.sql
   "feature_requests",
   "feature_request_votes",
+  // 010_news_items.sql
+  "news_items",
+  // 011_chain_events.sql
+  "chain_events",
 ];
 
 if (!globalThis.__txSilknodesMigrationCheckRan && process.env.PGUSER) {
