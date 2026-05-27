@@ -1,9 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Proposal } from "@/lib/governance";
 import type { NextPSECycle } from "@/hooks/useNextPSECycle";
 import FeedItemPanel, { type PanelItem } from "./FeedItemPanel";
+
+// Sources that open the side panel for in-place reading. Everything
+// else (governance proposals, chain events, PSE distributions) goes
+// straight to its deeper page because the panel would be a thin
+// wrapper over content that already has its own dedicated view.
+const PANEL_SOURCES = new Set(["twitter", "medium"]);
 
 // ── API contract (must match /api/today/feed route.ts) ─────────────────
 type FeedSource =
@@ -188,40 +195,83 @@ export default function HappeningFeed({ proposals, cycle }: Props) {
   );
 }
 
-// Every row opens the side panel — clicking a Medium teaser, a tweet,
-// a press release, an on-chain event or a governance row pops the
-// drawer with the full body + an "Open original" CTA inside. This
-// avoids accidentally navigating away from Today (especially valuable
-// for the external sources where we'd otherwise lose context).
+// Two click behaviors depending on source:
+//   - Twitter / Medium: open the side panel for in-place reading.
+//     These are external articles where staying on Today is the win.
+//   - Governance / PSE / chain / press: navigate directly. The panel
+//     would be a thin wrapper over a dedicated page that already
+//     exists (proposal detail, /pse, /flows, tx.org press listing).
 function FeedRow({
   item, isLast, onOpen,
 }: { item: FeedItem; isLast: boolean; onOpen: () => void }) {
+  const inner = (
+    <>
+      <span className="happening-rail-rail" aria-hidden="true">
+        <span className={`happening-rail-dot tone-${item.severity}`} />
+        {!isLast && <span className="happening-rail-line" />}
+      </span>
+      <span className="happening-row-body">
+        <span className="happening-row-meta">
+          <span
+            className={`happening-row-tag source-${item.source} ${
+              item.severity === "high" ? "high" : ""
+            }`}
+          >
+            {item.tag}
+          </span>
+          <span className="happening-row-time">{relTimeShort(item.ts)}</span>
+        </span>
+        <span className="happening-row-title">{item.title}</span>
+        {item.sub && <span className="happening-row-sub">{item.sub}</span>}
+      </span>
+    </>
+  );
+
+  // Panel sources: button that opens the drawer.
+  if (PANEL_SOURCES.has(item.source)) {
+    return (
+      <li className="happening-row">
+        <button
+          type="button"
+          className="happening-row-link happening-row-button"
+          onClick={onOpen}
+        >
+          {inner}
+        </button>
+      </li>
+    );
+  }
+
+  // Non-panel sources: render as a link. Internal URLs (/governance/N,
+  // /pse, /flows) use next/link for client routing; external URLs
+  // (tx.org press) open in a new tab so the user doesn't lose Today.
+  if (!item.url) {
+    return (
+      <li className="happening-row">
+        <span className="happening-row-noop">{inner}</span>
+      </li>
+    );
+  }
+  const isExternal = /^https?:\/\//.test(item.url);
+  if (isExternal) {
+    return (
+      <li className="happening-row">
+        <a
+          className="happening-row-link"
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {inner}
+        </a>
+      </li>
+    );
+  }
   return (
     <li className="happening-row">
-      <button
-        type="button"
-        className="happening-row-link happening-row-button"
-        onClick={onOpen}
-      >
-        <span className="happening-rail-rail" aria-hidden="true">
-          <span className={`happening-rail-dot tone-${item.severity}`} />
-          {!isLast && <span className="happening-rail-line" />}
-        </span>
-        <span className="happening-row-body">
-          <span className="happening-row-meta">
-            <span
-              className={`happening-row-tag source-${item.source} ${
-                item.severity === "high" ? "high" : ""
-              }`}
-            >
-              {item.tag}
-            </span>
-            <span className="happening-row-time">{relTimeShort(item.ts)}</span>
-          </span>
-          <span className="happening-row-title">{item.title}</span>
-          {item.sub && <span className="happening-row-sub">{item.sub}</span>}
-        </span>
-      </button>
+      <Link className="happening-row-link" href={item.url}>
+        {inner}
+      </Link>
     </li>
   );
 }
