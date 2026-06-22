@@ -1160,6 +1160,7 @@ function FlowsSummary({
   );
 
   return (
+    <Shareable title="Flows Quick Read" framed={false}>
     <div className="flows-summary">
       <div className="flows-summary-header">
         <span className="flows-chart-title">Quick Read</span>
@@ -1176,6 +1177,7 @@ function FlowsSummary({
         Observational summary generated from on chain data. Not financial advice.
       </div>
     </div>
+    </Shareable>
   );
 }
 

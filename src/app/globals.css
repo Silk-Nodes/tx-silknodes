@@ -12669,6 +12669,28 @@ input[type="range"]::-moz-range-thumb {
 /* Reserve top-right space in the cohort headline so the Shareable camera
    button doesn't overlap the delta pill (camera is inset 12px + 30px wide). */
 .shareable .pse-cohort-headline { padding-right: 48px; }
+
+/* Same guard for every card header that has right-aligned content (a
+   current value, a count, a legend). The camera is inset 12px + 30px
+   wide, so reserve ~48px on the header's right edge while the live
+   shareable is shown. The export card (.share-card) has no camera, so
+   reclaim the space there. */
+.shareable .chart-card-v2-header,
+.shareable .flows-chart-header,
+.shareable .flows-counterparty-header,
+.shareable .flows-destinations-header,
+.shareable .flows-summary-header,
+.shareable .price-header-left {
+  padding-right: 48px;
+}
+.share-card .chart-card-v2-header,
+.share-card .flows-chart-header,
+.share-card .flows-counterparty-header,
+.share-card .flows-destinations-header,
+.share-card .flows-summary-header,
+.share-card .price-header-left {
+  padding-right: 0;
+}
 /* In the rasterized export card there's no camera, so reclaim the space. */
 .share-card .pse-cohort-headline { padding-right: 0; }
 
@@ -12684,4 +12706,16 @@ input[type="range"]::-moz-range-thumb {
 .share-card-bare .share-card-footer {
   border-top: none;
   padding-top: 2px;
+}
+
+/* In an export snapshot, hide interactive controls (search, filter chips,
+   pagination) so the shared PNG shows clean data, not form widgets. */
+.share-card .whale-filter-bar,
+.share-card .whale-search,
+.share-card .whale-pager,
+.share-card .flows-search,
+.share-card .time-range-selector,
+.share-card input,
+.share-card .shareable-camera {
+  display: none !important;
 }

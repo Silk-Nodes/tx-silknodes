@@ -24,6 +24,7 @@ import {
   windowLookbackDays,
   type WhaleWindow,
 } from "@/lib/whale-moves";
+import Shareable from "@/components/share/Shareable";
 
 interface WhaleTrackerProps {
   topDelegators: TopDelegatorEntry[];
@@ -240,6 +241,7 @@ export default function WhaleTracker({
   }
 
   return (
+    <Shareable title="Top Delegators" framed={false}>
     <div className="whale-tracker">
       {/* ─── Section A: Top Delegators ─── */}
       <div className="whale-section">
@@ -747,5 +749,6 @@ export default function WhaleTracker({
         )}
       </div>
     </div>
+    </Shareable>
   );
 }
