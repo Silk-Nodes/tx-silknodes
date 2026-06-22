@@ -12558,11 +12558,14 @@ input[type="range"]::-moz-range-thumb {
 .share-dialog-close:hover { background: var(--accent-olive-light); color: var(--text-dark); }
 
 /* The scroll frame centers the fixed-width export card and lets it
-   overflow gracefully on narrow screens. */
+   overflow gracefully. Capped height so a tall card (staking feed, top
+   delegators) scrolls INSIDE this frame instead of pushing the dialog's
+   Copy/Download actions below the viewport. */
 .share-card-scroll {
   display: flex;
   justify-content: center;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 58vh;
   padding: 4px;
 }
 
@@ -12698,14 +12701,38 @@ input[type="range"]::-moz-range-thumb {
    so the frame is transparent and just hosts the card + footer line. */
 .share-card.share-card-bare {
   background:
-    radial-gradient(circle at 85% -10%, rgba(177, 252, 3, 0.08), transparent 45%),
+    radial-gradient(circle at 85% -10%, rgba(177, 252, 3, 0.10), transparent 45%),
     var(--bg-page, #0c0c0c);
-  padding: 16px 16px 12px;
-  gap: 12px;
+  padding: 22px 24px 14px;
+  gap: 14px;
 }
 .share-card-bare .share-card-footer {
-  border-top: none;
-  padding-top: 2px;
+  border-top: 1px solid var(--glass-border);
+  padding-top: 12px;
+}
+/* The wrapped chart/list card blends onto the share-card's solid frame:
+   strip its own border, shadow, and glass blur so the export is ONE
+   clean card, not a washed-out card-in-card. backdrop-filter especially
+   must go — html-to-image can't rasterize it and renders flat gray. */
+.share-card-bare > .chart-card-v2,
+.share-card-bare > .flows-chart-card,
+.share-card-bare > .flows-counterparty-card,
+.share-card-bare > .flows-destinations,
+.share-card-bare > .flows-summary,
+.share-card-bare > .whale-tracker,
+.share-card-bare > .staking-feed-container {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+/* Belt-and-suspenders: kill backdrop-filter anywhere in an export card
+   (nested glass elements) so nothing rasterizes as gray. */
+.share-card * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* In an export snapshot, hide interactive controls (search, filter chips,
