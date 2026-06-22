@@ -12452,10 +12452,23 @@ input[type="range"]::-moz-range-thumb {
 .shareable {
   position: relative;
 }
+/* Fill mode (framed=false chart-card wraps in grids): make the shareable
+   fill its grid cell and the wrapped card fill the shareable, so the
+   card keeps its pre-wrap height and the camera anchors to the card's
+   real top-right corner instead of floating above a stretched wrapper. */
+.shareable.shareable-fill {
+  height: 100%;
+  display: flex;
+  min-width: 0;
+}
+.shareable.shareable-fill > *:not(.shareable-camera) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .shareable-camera {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 12px;
+  right: 12px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -12654,8 +12667,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Reserve top-right space in the cohort headline so the Shareable camera
-   button doesn't overlap the delta pill. */
-.shareable .pse-cohort-headline { padding-right: 38px; }
+   button doesn't overlap the delta pill (camera is inset 12px + 30px wide). */
+.shareable .pse-cohort-headline { padding-right: 48px; }
 /* In the rasterized export card there's no camera, so reclaim the space. */
 .share-card .pse-cohort-headline { padding-right: 0; }
 

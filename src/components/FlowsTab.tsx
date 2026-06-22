@@ -1222,6 +1222,7 @@ const DESTINATION_META: Record<
 
 function DestinationsSection({ data }: { data: DestinationsResponse }) {
   return (
+    <Shareable title="Where Withdrawals Go" framed={false}>
     <div className="flows-destinations">
       <div className="flows-destinations-header">
         <span className="flows-chart-title">Where Withdrawals Go</span>
@@ -1245,6 +1246,7 @@ function DestinationsSection({ data }: { data: DestinationsResponse }) {
         })}
       </div>
     </div>
+    </Shareable>
   );
 }
 
@@ -1298,6 +1300,7 @@ function CounterpartyList({
 }) {
   const directionClass = direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
   return (
+    <Shareable title={title} framed={false}>
     <div className="flows-counterparty-card">
       <div className="flows-counterparty-header">
         <span className="flows-chart-title">{title}</span>
@@ -1341,6 +1344,7 @@ function CounterpartyList({
         </ol>
       )}
     </div>
+    </Shareable>
   );
 }
 

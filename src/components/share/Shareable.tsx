@@ -47,7 +47,7 @@ export default function Shareable({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="shareable">
+    <div className={`shareable ${framed ? "" : "shareable-fill"}`}>
       <button
         type="button"
         className="shareable-camera"
@@ -110,21 +110,44 @@ function ShareModal({
     [],
   );
 
-  // html-to-image options: 2x for retina, white-ish bg pulled from the
-  // card's own computed background so transparency doesn't bleed.
-  const renderOpts = {
-    pixelRatio: 2,
-    cacheBust: true,
-    // Skip the camera button if it ever leaks into the export tree.
-    filter: (node: HTMLElement) =>
-      !(node.classList && node.classList.contains("shareable-camera")),
+  // Build render options bound to the node's actual box. Passing an
+  // explicit width/height stops html-to-image from clipping edges
+  // (the footer / right column were getting cut without this). The
+  // solid backgroundColor avoids transparent bleed in the PNG.
+  const buildOpts = (node: HTMLElement) => {
+    const rect = node.getBoundingClientRect();
+    const pageBg =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--bg-page")
+        .trim() || "#0c0c0c";
+    return {
+      pixelRatio: 2,
+      cacheBust: true,
+      width: Math.ceil(rect.width),
+      height: Math.ceil(rect.height),
+      backgroundColor: pageBg,
+      // Skip the camera button if it ever leaks into the export tree.
+      filter: (n: HTMLElement) =>
+        !(n.classList && n.classList.contains("shareable-camera")),
+    };
+  };
+
+  // html-to-image's first pass often misses fonts/images that haven't
+  // been inlined into its clone yet, producing a clipped or blank image
+  // (this was the "image is not correct" bug). Two warm-up passes prime
+  // the clone cache; the third render is reliable.
+  const rasterize = async (node: HTMLElement) => {
+    const opts = buildOpts(node);
+    await toPng(node, opts);
+    await toPng(node, opts);
+    return toPng(node, opts);
   };
 
   const handleDownload = useCallback(async () => {
     if (!cardRef.current) return;
     setBusy(true); setError(null);
     try {
-      const dataUrl = await toPng(cardRef.current, renderOpts);
+      const dataUrl = await rasterize(cardRef.current);
       const a = document.createElement("a");
       a.download = `tx-silknodes-${slugify(title)}-${Date.now()}.png`;
       a.href = dataUrl;
@@ -141,7 +164,12 @@ function ShareModal({
     if (!cardRef.current) return;
     setBusy(true); setError(null); setCopied(false);
     try {
-      const blob = await toBlob(cardRef.current, renderOpts);
+      const node = cardRef.current;
+      const opts = buildOpts(node);
+      // Warm-up passes (same reason as rasterize) then capture a blob.
+      await toPng(node, opts);
+      await toPng(node, opts);
+      const blob = await toBlob(node, opts);
       if (!blob) throw new Error("no blob");
       // Clipboard image write — supported in Chrome/Edge/Safari, not
       // Firefox. Falls through to the catch with a friendly message.
