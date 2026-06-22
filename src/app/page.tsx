@@ -40,6 +40,7 @@ import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
 import TodayTab from "@/components/TodayTab";
+import PseCohortSection from "@/components/pse/PseCohortSection";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
 import { usePathname, useRouter } from "next/navigation";
 import SupplyChart from "@/components/SupplyChart";
@@ -1937,6 +1938,10 @@ function PSETab({
           PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
+
+      {/* Backward-looking counterpart to the calculator: what recipients
+          actually did with past distributions (kept staked vs sold). */}
+      <PseCohortSection />
 
       <ExcludedAddressesPanel addresses={onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES} />
     </>

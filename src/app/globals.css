@@ -12214,3 +12214,447 @@ input[type="range"]::-moz-range-thumb {
   .sg-tile-value { font-size: 1.6rem; }
 }
 
+
+/* ─── PSE cohort tracker: "What recipients do with PSE" ────────────────
+   Backward-looking section on the PSE page. Stacked bars, one per cycle,
+   show how much distributed PSE stayed staked vs got unbonded and sold.
+   Olive = kept, muted = unbonded-but-liquid, orange = left wallet. */
+.pse-cohort {
+  margin-top: 28px;
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pse-cohort-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pse-cohort-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.pse-cohort-sub {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 56ch;
+}
+.pse-cohort-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--accent-olive-light);
+  flex: 0 0 auto;
+}
+.pse-cohort-toggle-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pse-cohort-toggle-btn.active {
+  background: var(--text-accent);
+  color: var(--bg-page, #0c0c0c);
+}
+
+.pse-cohort-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+/* Headline */
+.pse-cohort-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pse-cohort-headline-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pse-cohort-headline-value {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.pse-cohort-headline-label {
+  font-size: 0.92rem;
+  color: var(--text-medium);
+}
+.pse-cohort-live {
+  color: var(--text-light);
+  font-style: italic;
+}
+.pse-cohort-delta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pse-cohort-delta.tone-ok { color: var(--text-accent); }
+.pse-cohort-delta.tone-warn { color: var(--accent-orange); }
+
+/* Chart */
+.pse-cohort-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pse-cohort-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  height: 220px;
+  padding: 8px 4px 0;
+}
+.pse-cohort-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.pse-cohort-bar {
+  width: 100%;
+  max-width: 88px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--accent-olive-light);
+}
+.pse-cohort-seg {
+  width: 100%;
+  display: block;
+  transition: height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Stack order top-to-bottom in DOM: other, left, liquid, kept.
+   flex-direction column + justify flex-end keeps kept at the bottom. */
+.pse-cohort-seg.seg-kept,
+.pse-cohort-swatch.seg-kept { background: var(--text-accent); }
+.pse-cohort-seg.seg-liquid,
+.pse-cohort-swatch.seg-liquid { background: var(--text-light); }
+.pse-cohort-seg.seg-left,
+.pse-cohort-swatch.seg-left { background: var(--accent-orange); }
+.pse-cohort-seg.seg-other { background: transparent; }
+.pse-cohort-bar-keptval {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+}
+.pse-cohort-bar-label {
+  font-size: 0.78rem;
+  color: var(--text-medium);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pse-cohort-bar-open {
+  color: var(--text-light);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Legend */
+.pse-cohort-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--glass-border);
+}
+.pse-cohort-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-light);
+}
+.pse-cohort-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+/* Callouts */
+.pse-cohort-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pse-cohort-notes li {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+}
+.pse-cohort-notes li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-accent);
+}
+
+@media (max-width: 600px) {
+  .pse-cohort-bars { gap: 10px; height: 180px; }
+  .pse-cohort-headline-value { font-size: 1.9rem; }
+}
+
+/* ─── Shareable: chart-to-PNG export (hl.eco style) ────────────────────
+   A camera button overlays any wrapped chart; clicking opens a modal
+   with a branded export card that gets rasterized to PNG. */
+.shareable {
+  position: relative;
+}
+.shareable-camera {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-medium);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.shareable:hover .shareable-camera { opacity: 1; }
+.shareable-camera:hover {
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
+/* Touch devices have no hover — keep the button always visible there. */
+@media (hover: none) {
+  .shareable-camera { opacity: 0.6; }
+}
+
+/* Modal */
+.share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: share-fade 0.16s ease;
+}
+@keyframes share-fade { from { opacity: 0; } to { opacity: 1; } }
+.share-dialog {
+  width: min(820px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--bg-card, var(--glass-bg));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.share-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.share-dialog-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.share-dialog-sub {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+.share-dialog-dims {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  opacity: 0.7;
+  margin-top: 6px;
+}
+.share-dialog-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-medium);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-md);
+}
+.share-dialog-close:hover { background: var(--accent-olive-light); color: var(--text-dark); }
+
+/* The scroll frame centers the fixed-width export card and lets it
+   overflow gracefully on narrow screens. */
+.share-card-scroll {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+/* The export card — THIS node is rasterized. Solid background (no
+   blur/transparency) so the PNG renders cleanly. */
+.share-card {
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle at 85% -10%, rgba(177, 252, 3, 0.10), transparent 45%),
+    var(--bg-page, #0c0c0c);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 26px 28px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-dark);
+}
+.share-card-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-dark);
+}
+.share-card-subheading {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-top: 3px;
+}
+.share-card-body { display: flex; flex-direction: column; gap: 14px; }
+.share-card-caption {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+.share-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--glass-border);
+}
+.share-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.share-card-domain {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-accent);
+  letter-spacing: 0.01em;
+}
+.share-card-stamp {
+  font-size: 0.74rem;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Actions */
+.share-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.share-dialog-error {
+  margin-right: auto;
+  font-size: 0.8rem;
+  color: var(--accent-orange);
+}
+.share-btn-primary,
+.share-btn-secondary {
+  padding: 11px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.share-btn-primary {
+  border: none;
+  background: var(--text-accent);
+  color: var(--bg-page, #0c0c0c);
+}
+.share-btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+.share-btn-primary:disabled { opacity: 0.6; cursor: default; }
+.share-btn-secondary {
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-dark);
+}
+.share-btn-secondary:hover:not(:disabled) {
+  border-color: var(--text-accent);
+  background: var(--accent-olive-light);
+}
+.share-btn-secondary:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 600px) {
+  .share-overlay { padding: 0; }
+  .share-dialog { border-radius: 0; max-height: 100vh; height: 100vh; }
+}
+
+/* Reserve top-right space in the cohort headline so the Shareable camera
+   button doesn't overlap the delta pill. */
+.shareable .pse-cohort-headline { padding-right: 38px; }
+/* In the rasterized export card there's no camera, so reclaim the space. */
+.share-card .pse-cohort-headline { padding-right: 0; }
