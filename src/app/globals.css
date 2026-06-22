@@ -12509,17 +12509,23 @@ input[type="range"]::-moz-range-thumb {
 @keyframes share-fade { from { opacity: 0; } to { opacity: 1; } }
 .share-dialog {
   width: min(820px, 100%);
-  max-height: 92vh;
-  overflow-y: auto;
+  max-height: 90vh;
+  /* Flex column with a scrollable middle so the header and the action
+     buttons are ALWAYS visible — only the card preview scrolls. The
+     dialog itself never scrolls, so Copy/Download can't drift offscreen
+     on a tall card (staking feed, top delegators). */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
   background: var(--bg-card, var(--glass-bg));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
   padding: 22px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
 }
+.share-dialog-head { flex: 0 0 auto; }
+.share-dialog-actions { flex: 0 0 auto; }
 .share-dialog-head {
   display: flex;
   justify-content: space-between;
@@ -12562,10 +12568,12 @@ input[type="range"]::-moz-range-thumb {
    delegators) scrolls INSIDE this frame instead of pushing the dialog's
    Copy/Download actions below the viewport. */
 .share-card-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   overflow: auto;
-  max-height: 58vh;
   padding: 4px;
 }
 
@@ -12711,28 +12719,48 @@ input[type="range"]::-moz-range-thumb {
   padding-top: 12px;
 }
 /* The wrapped chart/list card blends onto the share-card's solid frame:
-   strip its own border, shadow, and glass blur so the export is ONE
-   clean card, not a washed-out card-in-card. backdrop-filter especially
-   must go — html-to-image can't rasterize it and renders flat gray. */
-.share-card-bare > .chart-card-v2,
-.share-card-bare > .flows-chart-card,
-.share-card-bare > .flows-counterparty-card,
-.share-card-bare > .flows-destinations,
-.share-card-bare > .flows-summary,
-.share-card-bare > .whale-tracker,
-.share-card-bare > .staking-feed-container {
+   strip its own border, shadow, glass blur, and translucent background
+   so the export is ONE clean card, not a washed-out card-in-card. These
+   cards are nested under .share-card-body (NOT a direct child of
+   .share-card-bare), so we use the descendant combinator — the earlier
+   `>` selector silently never matched, which is why the wash persisted.
+   backdrop-filter especially must go: html-to-image can't rasterize it
+   and a translucent glass bg renders as flat gray. */
+.share-card .chart-card-v2,
+.share-card .flows-chart-card,
+.share-card .flows-counterparty-card,
+.share-card .flows-destinations,
+.share-card .flows-summary,
+.share-card .whale-tracker,
+.share-card .staking-feed-container {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   padding: 0 !important;
   border-radius: 0 !important;
 }
-/* Belt-and-suspenders: kill backdrop-filter anywhere in an export card
-   (nested glass elements) so nothing rasterizes as gray. */
-.share-card * {
+/* Belt-and-suspenders: kill backdrop-filter and force opaque inheritance
+   anywhere in an export card so nothing rasterizes as gray. */
+.share-card *,
+.share-card *::before,
+.share-card *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+/* Chart text readability: Recharts paints axis ticks with a very faint
+   rgba fill ATTRIBUTE (≈0.3 opacity) that's nearly invisible once the
+   card is rasterized. CSS `fill` overrides the SVG attribute, so promote
+   tick + legend text to the theme's medium text color, full opacity, in
+   both light and dark. */
+.share-card .recharts-text,
+.share-card .recharts-cartesian-axis-tick text,
+.share-card .recharts-cartesian-axis-tick-value,
+.share-card .recharts-cartesian-axis-tick-value tspan,
+.share-card .recharts-legend-item-text {
+  fill: var(--text-medium) !important;
+  opacity: 1 !important;
 }
 
 /* In an export snapshot, hide interactive controls (search, filter chips,
