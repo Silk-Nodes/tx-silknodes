@@ -135,11 +135,12 @@ function ShareModal({
 
   // html-to-image's first pass often misses fonts/images that haven't
   // been inlined into its clone yet, producing a clipped or blank image
-  // (this was the "image is not correct" bug). Two warm-up passes prime
-  // the clone cache; the third render is reliable.
+  // (this was the "image is not correct" bug). One warm-up pass primes
+  // the clone cache; the second render is reliable. Kept to two passes
+  // (not three) so large cards — staking feed, top delegators — capture
+  // well within the timeout instead of stacking 3 slow renders.
   const rasterize = async (node: HTMLElement) => {
     const opts = buildOpts(node);
-    await toPng(node, opts);
     await toPng(node, opts);
     return toPng(node, opts);
   };
@@ -175,13 +176,12 @@ function ShareModal({
     // Lightweight charts captured fast enough to sneak in; the feed did
     // not. The Promise form lets write() fire immediately and the
     // browser awaits the render while keeping the gesture valid.
-    const blobPromise = (async () => {
-      await toPng(node, opts); // warm-up passes prime font/image inlining
-      await toPng(node, opts);
+    const blobPromise = withTimeout((async () => {
+      await toPng(node, opts); // warm-up pass primes font/image inlining
       const b = await toBlob(node, opts);
       if (!b) throw new Error("no blob");
       return b;
-    })();
+    })(), 15000);
     try {
       // ClipboardItem-with-Promise: Chrome/Edge/Safari. Firefox lacks it
       // and lands in the catch with the Download fallback hint.
