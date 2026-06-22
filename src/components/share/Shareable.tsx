@@ -163,18 +163,28 @@ function ShareModal({
   const handleCopy = useCallback(async () => {
     if (!cardRef.current) return;
     setBusy(true); setError(null); setCopied(false);
+    const node = cardRef.current;
+    const opts = buildOpts(node);
+    // CRITICAL: pass a Promise to ClipboardItem and call clipboard.write
+    // synchronously inside the click handler. Rendering a dense card
+    // (e.g. the 12-row staking feed) takes long enough that if we await
+    // the blob FIRST and then call write(), the browser's transient
+    // user-activation has expired and write() throws NotAllowedError.
+    // Lightweight charts captured fast enough to sneak in; the feed did
+    // not. The Promise form lets write() fire immediately and the
+    // browser awaits the render while keeping the gesture valid.
+    const blobPromise = (async () => {
+      await toPng(node, opts); // warm-up passes prime font/image inlining
+      await toPng(node, opts);
+      const b = await toBlob(node, opts);
+      if (!b) throw new Error("no blob");
+      return b;
+    })();
     try {
-      const node = cardRef.current;
-      const opts = buildOpts(node);
-      // Warm-up passes (same reason as rasterize) then capture a blob.
-      await toPng(node, opts);
-      await toPng(node, opts);
-      const blob = await toBlob(node, opts);
-      if (!blob) throw new Error("no blob");
-      // Clipboard image write — supported in Chrome/Edge/Safari, not
-      // Firefox. Falls through to the catch with a friendly message.
+      // ClipboardItem-with-Promise: Chrome/Edge/Safari. Firefox lacks it
+      // and lands in the catch with the Download fallback hint.
       await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
+        new ClipboardItem({ "image/png": blobPromise }),
       ]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
