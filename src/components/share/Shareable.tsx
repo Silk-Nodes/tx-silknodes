@@ -123,7 +123,16 @@ function ShareModal({
         .trim() || "#0c0c0c";
     return {
       pixelRatio: 2,
-      cacheBust: true,
+      // skipFonts is the ROOT-CAUSE fix for `RangeError: Invalid string
+      // length` on the large cards (staking feed, top delegators).
+      // html-to-image serializes the clone + every node's inlined
+      // computed style + base64-embedded web fonts into ONE string for
+      // the SVG foreignObject. On a deep DOM the embedded font payload
+      // pushes that string past V8's max length and toPng throws before
+      // producing a blob. We already accept a system-font fallback in
+      // exports, so embedding fonts is pure cost — skipping it removes
+      // the largest contributor and also makes capture much faster.
+      skipFonts: true,
       width: Math.ceil(rect.width),
       height: Math.ceil(rect.height),
       backgroundColor: pageBg,
