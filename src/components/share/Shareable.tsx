@@ -30,10 +30,19 @@ interface Props {
   children: React.ReactNode;
   // Export PNG width in CSS px (height auto). Default 720 ≈ hl.eco.
   exportWidth?: number;
+  // framed=true (default): wrap children in a branded card with its own
+  //   heading + footer. Use for raw content (no card chrome of its own).
+  // framed=false: children already bring their own card styling — render
+  //   them as-is and append only a small tx.silknodes.io footer line.
+  //   Use for the analytics chart cards (chart-card-v2 etc).
+  framed?: boolean;
+  // Camera button placement when the wrapped card has its own top-right
+  // controls. Default top-right.
+  cameraOffset?: { top?: number; right?: number };
 }
 
 export default function Shareable({
-  title, subtitle, caption, children, exportWidth = 720,
+  title, subtitle, caption, children, exportWidth = 720, framed = true, cameraOffset,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -44,6 +53,7 @@ export default function Shareable({
         className="shareable-camera"
         aria-label="Share as image"
         title="Share as image"
+        style={cameraOffset ? { top: cameraOffset.top, right: cameraOffset.right } : undefined}
         onClick={() => setOpen(true)}
       >
         <CameraIcon />
@@ -57,6 +67,7 @@ export default function Shareable({
           subtitle={subtitle}
           caption={caption}
           exportWidth={exportWidth}
+          framed={framed}
           onClose={() => setOpen(false)}
         >
           {children}
@@ -67,12 +78,13 @@ export default function Shareable({
 }
 
 function ShareModal({
-  title, subtitle, caption, exportWidth, children, onClose,
+  title, subtitle, caption, exportWidth, framed, children, onClose,
 }: {
   title: string;
   subtitle?: string;
   caption?: string;
   exportWidth: number;
+  framed: boolean;
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -167,15 +179,17 @@ function ShareModal({
         <div className="share-card-scroll">
           <div
             ref={cardRef}
-            className="share-card"
+            className={`share-card ${framed ? "" : "share-card-bare"}`}
             style={{ width: exportWidth }}
           >
-            <div className="share-card-header">
-              <div className="share-card-heading">{title}</div>
-              {subtitle && <div className="share-card-subheading">{subtitle}</div>}
-            </div>
+            {framed && (
+              <div className="share-card-header">
+                <div className="share-card-heading">{title}</div>
+                {subtitle && <div className="share-card-subheading">{subtitle}</div>}
+              </div>
+            )}
             <div className="share-card-body">{children}</div>
-            {caption && <div className="share-card-caption">{caption}</div>}
+            {framed && caption && <div className="share-card-caption">{caption}</div>}
             <div className="share-card-footer">
               <span className="share-card-domain">tx.silknodes.io</span>
               <span className="share-card-stamp">{todayStamp}</span>

@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { formatLargeNumber } from "@/lib/analytics-utils";
 import AddressFlowPanel from "./AddressFlowPanel";
+import Shareable from "@/components/share/Shareable";
 
 // ─── Types mirror the API response shapes ─────────────────────────────
 
@@ -586,6 +587,7 @@ function FlowsChart({
   const xTickFill = isDark ? "rgba(244,241,235,0.55)" : "rgba(59,45,38,0.65)";
 
   return (
+    <Shareable title="Exchange Daily Flow" framed={false}>
     <div className="flows-chart-card">
       <div className="flows-chart-header">
         <span className="flows-chart-title">Daily Flow {hasPrice ? "+ Price" : ""}</span>
@@ -698,6 +700,7 @@ function FlowsChart({
         </ResponsiveContainer>
       </div>
     </div>
+    </Shareable>
   );
 }
 

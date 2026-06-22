@@ -12658,3 +12658,17 @@ input[type="range"]::-moz-range-thumb {
 .shareable .pse-cohort-headline { padding-right: 38px; }
 /* In the rasterized export card there's no camera, so reclaim the space. */
 .share-card .pse-cohort-headline { padding-right: 0; }
+
+/* Bare share card: children bring their own card chrome (chart-card-v2),
+   so the frame is transparent and just hosts the card + footer line. */
+.share-card.share-card-bare {
+  background:
+    radial-gradient(circle at 85% -10%, rgba(177, 252, 3, 0.08), transparent 45%),
+    var(--bg-page, #0c0c0c);
+  padding: 16px 16px 12px;
+  gap: 12px;
+}
+.share-card-bare .share-card-footer {
+  border-top: none;
+  padding-top: 2px;
+}

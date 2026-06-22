@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { DataPoint } from "@/lib/analytics-utils";
 import { useTokenData } from "@/hooks/useTokenData";
+import Shareable from "@/components/share/Shareable";
 
 // TX era only
 const TX_ERA = "2026-03-06";
@@ -125,6 +126,7 @@ export default function PriceChart() {
   const fadeId = "price-fade";
 
   return (
+    <Shareable title="TX Price" framed={false}>
     <div className="chart-card-v2 chart-card-hero price-chart-card">
       <div className="price-header-left">
         <span className="chart-card-v2-title">
@@ -212,5 +214,6 @@ export default function PriceChart() {
         </ResponsiveContainer>
       </div>
     </div>
+    </Shareable>
   );
 }
