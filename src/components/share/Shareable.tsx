@@ -210,7 +210,7 @@ function ShareModal({
   // buttons. Portaling to body escapes any such ancestor.
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="share-overlay" onClick={onClose} role="presentation">
+    <div className="share-overlay" data-theme="dark" onClick={onClose} role="presentation">
       <div
         className="share-dialog"
         role="dialog"

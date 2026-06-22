@@ -12781,6 +12781,10 @@ input[type="range"]::-moz-range-thumb {
 .share-card .whale-section:not(:first-of-type) { display: none !important; }
 .share-card .whale-filter-chips,
 .share-card .whale-filter-empty { display: none !important; }
+/* Cap the leaderboard to ~10 rows so the export stays a readable size
+   (the live table can show a 25-50 row page). Head is the 1st div
+   sibling, rows follow, so the 12th div onward is row 11+. */
+.share-card .whale-table-row:nth-of-type(n+12) { display: none !important; }
 
 /* Staking activity export: cap to the most recent ~12 rows so the image
    stays a readable card instead of a giant scroll. The container's own
