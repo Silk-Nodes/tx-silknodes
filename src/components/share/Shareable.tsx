@@ -230,6 +230,11 @@ function ShareModal({
         <div className="share-card-scroll">
           <div
             ref={cardRef}
+            // Always export the dark-themed card regardless of the page
+            // theme, so shared images have one consistent look. The
+            // data-theme="dark" attribute activates every [data-theme=
+            // "dark"] rule + variable within this subtree.
+            data-theme="dark"
             className={`share-card ${framed ? "" : "share-card-bare"}`}
             style={{ width: exportWidth }}
           >

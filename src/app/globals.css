@@ -80,7 +80,7 @@
    Applied via <html data-theme="dark"> set by the no-flash script in
    layout.tsx. Variables override the :root defaults above.
    ═══════════════════════════════════════════ */
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   --bg-base: #0a0d07;
   --bg-gradient: radial-gradient(circle at top left, #0d1209 0%, #0a0d07 50%, #080a05 100%);
 
@@ -132,15 +132,15 @@
 /* Dark-mode-only component overrides. These fix places where a component
    hardcoded a light-mode color (rgba white, inline cream text) that breaks
    in dark mode. We scope to [data-theme="dark"] so light mode is untouched. */
-:root[data-theme="dark"] .chart-card-hero {
+[data-theme="dark"] .chart-card-hero {
   /* Was hardcoded rgba(255,255,255,0.55) which reads as grey on dark bg. */
   background: var(--glass-bg);
   border-color: var(--glass-border);
 }
 
-:root[data-theme="dark"] .silk-delegate-btn,
-:root[data-theme="dark"] button[style*="background: var(--tx-neon)"],
-:root[data-theme="dark"] button[style*="background:var(--tx-neon)"] {
+[data-theme="dark"] .silk-delegate-btn,
+[data-theme="dark"] button[style*="background: var(--tx-neon)"],
+[data-theme="dark"] button[style*="background:var(--tx-neon)"] {
   /* Neon green bg always needs dark text for contrast — override the
      cream --text-dark that inline styles use in dark mode. Scope to
      buttons whose BACKGROUND is neon (not just any inline style that
@@ -148,7 +148,7 @@
   color: #0D0D0C !important;
 }
 
-:root[data-theme="dark"] .btn-olive {
+[data-theme="dark"] .btn-olive {
   /* In light mode btn-olive is dark-green bg + neon text (dramatic).
      In dark mode that bg disappears into the page — swap to neon bg
      with dark text so the CTA pops like the other Silk Nodes buttons. */
@@ -156,7 +156,7 @@
   color: #0D0D0C;
   box-shadow: 0 3px 14px rgba(177, 252, 3, 0.25);
 }
-:root[data-theme="dark"] .btn-olive:hover {
+[data-theme="dark"] .btn-olive:hover {
   background: var(--tx-neon-light);
   color: #0D0D0C;
   opacity: 1;
@@ -169,25 +169,25 @@
    translucent dark green so pills, chips, inputs, pager buttons,
    and secondary panels all feel like the forest palette.
    ────────────────────────────────────────────────────────────── */
-:root[data-theme="dark"] .input-group,
-:root[data-theme="dark"] .info-box,
-:root[data-theme="dark"] .compare-box,
-:root[data-theme="dark"] .staking-panel-section,
-:root[data-theme="dark"] .staking-feed-row,
-:root[data-theme="dark"] .whale-top-row {
+[data-theme="dark"] .input-group,
+[data-theme="dark"] .info-box,
+[data-theme="dark"] .compare-box,
+[data-theme="dark"] .staking-panel-section,
+[data-theme="dark"] .staking-feed-row,
+[data-theme="dark"] .whale-top-row {
   background: rgba(30, 48, 22, 0.55) !important;
 }
 
-:root[data-theme="dark"] .filter-chip,
-:root[data-theme="dark"] .chip,
-:root[data-theme="dark"] .page-btn,
-:root[data-theme="dark"] .whale-pager-btn,
-:root[data-theme="dark"] .staking-type-chip {
+[data-theme="dark"] .filter-chip,
+[data-theme="dark"] .chip,
+[data-theme="dark"] .page-btn,
+[data-theme="dark"] .whale-pager-btn,
+[data-theme="dark"] .staking-type-chip {
   background: rgba(40, 60, 25, 0.5) !important;
   border-color: rgba(177, 252, 3, 0.12);
 }
 
-:root[data-theme="dark"] .staking-type-chip.active {
+[data-theme="dark"] .staking-type-chip.active {
   /* Earlier rule used rgba(40, 60, 25, 0.85) which is nearly the same
      dark-olive as both the inactive chip background and the Delegations
      dot color — making an active Delegations chip indistinguishable
@@ -205,7 +205,7 @@
    lime active fill on every hover-to-click). Same source position
    would tie on specificity with the hover rule below; adding
    `:hover` here bumps specificity by one pseudo-class so this wins. */
-:root[data-theme="dark"] .staking-type-chip.active:hover {
+[data-theme="dark"] .staking-type-chip.active:hover {
   background: rgba(177, 252, 3, 0.22) !important;
 }
 
@@ -219,26 +219,26 @@
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
-:root[data-theme="dark"] .filter-chip:hover,
-:root[data-theme="dark"] .chip:hover,
-:root[data-theme="dark"] .page-btn:hover:not(:disabled),
-:root[data-theme="dark"] .whale-pager-btn:hover:not(:disabled),
-:root[data-theme="dark"] .staking-type-chip:hover,
-:root[data-theme="dark"] .time-pill:hover,
-:root[data-theme="dark"] .network-activity-tab:hover,
-:root[data-theme="dark"] .staking-feed-row:hover,
-:root[data-theme="dark"] .data-table tbody tr:hover,
-:root[data-theme="dark"] .validator-table tbody tr:hover {
+[data-theme="dark"] .filter-chip:hover,
+[data-theme="dark"] .chip:hover,
+[data-theme="dark"] .page-btn:hover:not(:disabled),
+[data-theme="dark"] .whale-pager-btn:hover:not(:disabled),
+[data-theme="dark"] .staking-type-chip:hover,
+[data-theme="dark"] .time-pill:hover,
+[data-theme="dark"] .network-activity-tab:hover,
+[data-theme="dark"] .staking-feed-row:hover,
+[data-theme="dark"] .data-table tbody tr:hover,
+[data-theme="dark"] .validator-table tbody tr:hover {
   background: rgba(55, 80, 30, 0.7) !important;
 }
 
 /* Inputs + select fields: use a solid-ish dark-green fill so the
    placeholder text reads without washing out. */
-:root[data-theme="dark"] input[type="text"],
-:root[data-theme="dark"] input[type="number"],
-:root[data-theme="dark"] input:not([type]),
-:root[data-theme="dark"] select,
-:root[data-theme="dark"] textarea {
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input:not([type]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
   background: rgba(22, 38, 18, 0.85);
   border-color: var(--glass-border);
   color: var(--text-dark);
@@ -249,33 +249,33 @@
    attributes have low CSS specificity (presentation attributes) and are
    beaten by a plain selector — so in dark mode we re-paint them white-ish
    with !important defense in case Recharts re-renders. */
-:root[data-theme="dark"] .recharts-cartesian-axis-tick-value,
-:root[data-theme="dark"] .recharts-cartesian-axis-tick text,
-:root[data-theme="dark"] .recharts-text.recharts-cartesian-axis-tick-value {
+[data-theme="dark"] .recharts-cartesian-axis-tick-value,
+[data-theme="dark"] .recharts-cartesian-axis-tick text,
+[data-theme="dark"] .recharts-text.recharts-cartesian-axis-tick-value {
   fill: rgba(255, 255, 255, 0.65) !important;
 }
-:root[data-theme="dark"] .recharts-cartesian-grid line {
+[data-theme="dark"] .recharts-cartesian-grid line {
   stroke: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Validator search field: override the grey-tinted wrapper in dark mode */
-:root[data-theme="dark"] .field-input {
+[data-theme="dark"] .field-input {
   background: #44624c;
   border-color: var(--glass-border);
 }
-:root[data-theme="dark"] .field-input input {
+[data-theme="dark"] .field-input input {
   color: #fff;
   background: transparent;
 }
-:root[data-theme="dark"] .field-input input::placeholder {
+[data-theme="dark"] .field-input input::placeholder {
   color: rgba(255, 255, 255, 0.55);
 }
-:root[data-theme="dark"] .field-input .field-addon {
+[data-theme="dark"] .field-input .field-addon {
   color: rgba(255, 255, 255, 0.7);
 }
 
 /* Validator table sticky header in dark mode */
-:root[data-theme="dark"] .validator-table th {
+[data-theme="dark"] .validator-table th {
   background: #44624c !important;
   color: rgba(255, 255, 255, 0.85) !important;
   border-bottom: 1px solid var(--glass-border);
@@ -284,23 +284,23 @@
 
 /* Whale label pills: re-tint the unlabeled / individual / validator
    light-colored pills match the dark palette. */
-:root[data-theme="dark"] .whale-label-unlabeled {
+[data-theme="dark"] .whale-label-unlabeled {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-medium);
 }
-:root[data-theme="dark"] .whale-label-individual {
+[data-theme="dark"] .whale-label-individual {
   background: rgba(200, 200, 200, 0.08);
 }
-:root[data-theme="dark"] .whale-label-validator {
+[data-theme="dark"] .whale-label-validator {
   background: rgba(177, 252, 3, 0.12);
   color: var(--tx-neon-light);
 }
-:root[data-theme="dark"] .whale-label-pse-excluded,
-:root[data-theme="dark"] .whale-label-validator-pse {
+[data-theme="dark"] .whale-label-pse-excluded,
+[data-theme="dark"] .whale-label-validator-pse {
   background: rgba(200, 175, 120, 0.12);
   color: #d8c09a;
 }
-:root[data-theme="dark"] .whale-label-cex {
+[data-theme="dark"] .whale-label-cex {
   background: rgba(216, 138, 58, 0.15);
   color: #e5a368;
 }
@@ -308,15 +308,15 @@
 /* Whale tracker inner bands: header strip, row dividers, and hover tint
    all used rgba black values that vanish on dark bg. Re-tint in dark mode
    with subtle neon-warm accents so the table reads as banded, not flat. */
-:root[data-theme="dark"] .whale-table-head {
+[data-theme="dark"] .whale-table-head {
   background: rgba(0, 0, 0, 0.25);
   color: var(--text-medium);
 }
-:root[data-theme="dark"] .whale-table-row {
+[data-theme="dark"] .whale-table-row {
   border-top-color: rgba(255, 255, 255, 0.06);
 }
-:root[data-theme="dark"] .whale-table-row:hover,
-:root[data-theme="dark"] .whale-table-row-clickable:hover {
+[data-theme="dark"] .whale-table-row:hover,
+[data-theme="dark"] .whale-table-row-clickable:hover {
   background: rgba(177, 252, 3, 0.06);
 }
 
@@ -328,28 +328,28 @@
    ────────────────────────────────────────────────────────────── */
 
 /* Active tab text — was var(--tx-dark-green) (near-black) → invisible. */
-:root[data-theme="dark"] .network-activity-tab.active {
+[data-theme="dark"] .network-activity-tab.active {
   color: var(--tx-neon);
 }
-:root[data-theme="dark"] .network-activity-tab {
+[data-theme="dark"] .network-activity-tab {
   color: var(--text-medium);
 }
-:root[data-theme="dark"] .network-activity-tab-count {
+[data-theme="dark"] .network-activity-tab-count {
   background: rgba(177, 252, 3, 0.12);
   color: var(--tx-neon);
 }
-:root[data-theme="dark"] .network-activity-tab.active .network-activity-tab-count {
+[data-theme="dark"] .network-activity-tab.active .network-activity-tab-count {
   background: var(--tx-neon);
   color: #0D0D0C;
 }
 
 /* Status pills (e.g. "Cycle 2 of 84") — green text on green fill
    needs brighter foreground in dark mode. */
-:root[data-theme="dark"] .status-pill {
+[data-theme="dark"] .status-pill {
   background: rgba(177, 252, 3, 0.10);
   color: var(--text-dark);
 }
-:root[data-theme="dark"] .status-pill.success {
+[data-theme="dark"] .status-pill.success {
   background: rgba(177, 252, 3, 0.15);
   color: var(--tx-neon);
   border-color: rgba(177, 252, 3, 0.4);
@@ -358,36 +358,36 @@
 /* PSE Score lookup container — the linear-gradient(dark-green → #1a2e10)
    was vanishing into the page. Bump the gradient so it reads as a
    distinct surface with a clear neon edge. */
-:root[data-theme="dark"] [class*="page-title"] + .status-pill,
-:root[data-theme="dark"] .pse-lookup-shell {
+[data-theme="dark"] [class*="page-title"] + .status-pill,
+[data-theme="dark"] .pse-lookup-shell {
   /* reserved for future pse-specific treatments */
 }
 
 /* Side panels (StakingFeedPanel + DelegatorPanel) — force explicit
    dark surface + border so they can't inherit any stale light color. */
-:root[data-theme="dark"] .staking-feed-panel {
+[data-theme="dark"] .staking-feed-panel {
   background: #0F1410;
   border-left: 1px solid var(--glass-border);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6);
 }
-:root[data-theme="dark"] .staking-feed-panel-backdrop {
+[data-theme="dark"] .staking-feed-panel-backdrop {
   background: rgba(0, 0, 0, 0.55);
 }
-:root[data-theme="dark"] .staking-panel-close:hover {
+[data-theme="dark"] .staking-panel-close:hover {
   background: rgba(177, 252, 3, 0.12);
   color: var(--tx-neon);
 }
 
 /* Inline CTA: "Connect Wallet" pill inside the PSE lookup card.
    rgba(177,252,3,0.12) was too dim on an already dim parent — boost. */
-:root[data-theme="dark"] button[style*="rgba(177,252,3,0.12)"] {
+[data-theme="dark"] button[style*="rgba(177,252,3,0.12)"] {
   background: rgba(177, 252, 3, 0.22) !important;
   border-color: rgba(177, 252, 3, 0.5) !important;
 }
 
 /* (removed: .whale-section transparent rule — superseded by the
    .whale-tracker .whale-section sage rule further below.) */
-:root[data-theme="dark"] .whale-tracker .whale-table-head {
+[data-theme="dark"] .whale-tracker .whale-table-head {
   background: rgba(177, 252, 3, 0.06);
   border-bottom: 1px solid var(--glass-border);
 }
@@ -398,47 +398,47 @@
 .wallet-modal {
   background: #fff;
 }
-:root[data-theme="dark"] .wallet-modal {
+[data-theme="dark"] .wallet-modal {
   background: #1a2a1e;
   border: 1px solid var(--glass-border);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   color: #fff;
 }
 /* Wallet modal headline (first direct div child) + subtitle */
-:root[data-theme="dark"] .wallet-modal > div:first-of-type {
+[data-theme="dark"] .wallet-modal > div:first-of-type {
   color: #fff !important;
 }
-:root[data-theme="dark"] .wallet-modal p {
+[data-theme="dark"] .wallet-modal p {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 /* Wallet option buttons: solid sage surface so wallet names + logos
    stand out cleanly. Force white text on all descendants — the deep
    nested divs were still inheriting black `buttontext` from the
    browser default, making "Keplr / Leap / Cosmostation" invisible. */
-:root[data-theme="dark"] .wallet-modal button {
+[data-theme="dark"] .wallet-modal button {
   background: #44624c !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
 }
-:root[data-theme="dark"] .wallet-modal button *,
-:root[data-theme="dark"] .wallet-modal button div,
-:root[data-theme="dark"] .wallet-modal button span {
+[data-theme="dark"] .wallet-modal button *,
+[data-theme="dark"] .wallet-modal button div,
+[data-theme="dark"] .wallet-modal button span {
   color: #fff !important;
 }
-:root[data-theme="dark"] .wallet-modal button > div > div:last-child {
+[data-theme="dark"] .wallet-modal button > div > div:last-child {
   /* "Not installed" subtitle — slightly dimmed but still readable */
   color: rgba(255, 255, 255, 0.7) !important;
 }
-:root[data-theme="dark"] .wallet-modal button a {
+[data-theme="dark"] .wallet-modal button a {
   /* "Install" link */
   color: var(--tx-neon) !important;
 }
-:root[data-theme="dark"] .wallet-modal button:hover {
+[data-theme="dark"] .wallet-modal button:hover {
   background: #557361 !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
 }
 /* Cancel button at bottom of modal */
-:root[data-theme="dark"] .wallet-modal > button:last-child {
+[data-theme="dark"] .wallet-modal > button:last-child {
   background: transparent !important;
   color: rgba(255, 255, 255, 0.7) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -447,33 +447,33 @@
 /* Tooltip bubble: was rendering pale neon (15% alpha) text on dark green
    bg — practically unreadable. In dark mode use a solid high-contrast
    near-black surface with bright cream text. */
-:root[data-theme="dark"] .tooltip-bubble {
+[data-theme="dark"] .tooltip-bubble {
   background: #1a2318;
   color: var(--text-dark);
   border: 1px solid rgba(177, 252, 3, 0.35);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
 }
-:root[data-theme="dark"] .tooltip-top::after { border-top-color: #1a2318; }
-:root[data-theme="dark"] .tooltip-bottom::after { border-bottom-color: #1a2318; }
-:root[data-theme="dark"] .tooltip-left::after { border-left-color: #1a2318; }
-:root[data-theme="dark"] .tooltip-right::after { border-right-color: #1a2318; }
+[data-theme="dark"] .tooltip-top::after { border-top-color: #1a2318; }
+[data-theme="dark"] .tooltip-bottom::after { border-bottom-color: #1a2318; }
+[data-theme="dark"] .tooltip-left::after { border-left-color: #1a2318; }
+[data-theme="dark"] .tooltip-right::after { border-right-color: #1a2318; }
 
 /* Top-nav Connect Wallet pill — mirror the PSE page's neon-filled CTA
    so all "connect/delegate" actions use one visual language. */
-:root[data-theme="dark"] .wallet-pill:not(.connected) {
+[data-theme="dark"] .wallet-pill:not(.connected) {
   background: var(--tx-neon);
   color: #0D0D0C;
   border-color: var(--tx-neon);
   box-shadow: 0 3px 14px rgba(177, 252, 3, 0.35);
   font-weight: 700;
 }
-:root[data-theme="dark"] .wallet-pill:not(.connected):hover {
+[data-theme="dark"] .wallet-pill:not(.connected):hover {
   background: var(--tx-neon-light);
   color: #0D0D0C;
   opacity: 1;
   transform: translateY(-1px);
 }
-:root[data-theme="dark"] .wallet-pill.connected {
+[data-theme="dark"] .wallet-pill.connected {
   background: rgba(177, 252, 3, 0.12);
   color: var(--tx-neon);
   border-color: var(--tx-neon);
@@ -483,36 +483,36 @@
    table both use the SAME sage surface (#44624c) and identical white
    text treatments so the two tabs feel like one unified card system.
    Sage sits inside the dark outer card as a single visual tier. */
-:root[data-theme="dark"] .staking-feed-container {
+[data-theme="dark"] .staking-feed-container {
   background: #44624c;
   border-radius: var(--radius-md);
   padding: 8px 4px;
   color: #fff;
 }
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row {
+[data-theme="dark"] .staking-feed-container .staking-feed-row {
   background: transparent !important;
   color: #fff;
 }
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row:hover {
+[data-theme="dark"] .staking-feed-container .staking-feed-row:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
 /* On the sage feed, every text column must render white so the timestamp,
    address, delegator, validator, and "Xh ago" are all readable. Default
    row styles use muted colors that wash out on sage. */
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-delegator,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-validator,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-amount,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-arrow {
+[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-delegator,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-validator,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-ago,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-amount,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-arrow {
   color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
-:root[data-theme="dark"] .staking-feed-container .staking-feed-row-ago {
+[data-theme="dark"] .staking-feed-container .staking-feed-row-time,
+[data-theme="dark"] .staking-feed-container .staking-feed-row-ago {
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
-:root[data-theme="dark"] .whale-tracker {
+[data-theme="dark"] .whale-tracker {
   background: #44624c !important;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
@@ -520,7 +520,7 @@
   color: #fff;
   gap: 24px;
 }
-:root[data-theme="dark"] .whale-tracker .whale-section {
+[data-theme="dark"] .whale-tracker .whale-section {
   background: transparent !important;
   padding: 0;
   color: #fff;
@@ -533,86 +533,86 @@
    transparent which made the 3 sections (Top Delegators / Whales on the
    Move / Recent Whale Moves) and the 4 mover cards inside Whales on the
    Move all bleed together visually. */
-:root[data-theme="dark"] .whale-tracker .whale-table {
+[data-theme="dark"] .whale-tracker .whale-table {
   background: rgba(0, 0, 0, 0.18) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: var(--radius-md);
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+[data-theme="dark"] .whale-tracker .whale-movers-card {
   background: rgba(0, 0, 0, 0.18) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: var(--radius-md);
   padding: 12px 14px;
 }
-:root[data-theme="dark"] .whale-tracker .whale-moves {
+[data-theme="dark"] .whale-tracker .whale-moves {
   background: rgba(0, 0, 0, 0.18) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: var(--radius-md);
 }
-:root[data-theme="dark"] .whale-tracker .whale-move {
+[data-theme="dark"] .whale-tracker .whale-move {
   color: #fff !important;
   border-top-color: rgba(255, 255, 255, 0.08) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-move:hover {
+[data-theme="dark"] .whale-tracker .whale-move:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-move-time,
-:root[data-theme="dark"] .whale-tracker .whale-move-ago,
-:root[data-theme="dark"] .whale-tracker .whale-move-arrow,
-:root[data-theme="dark"] .whale-tracker .whale-move-parties,
-:root[data-theme="dark"] .whale-tracker .whale-move-amount {
+[data-theme="dark"] .whale-tracker .whale-move-time,
+[data-theme="dark"] .whale-tracker .whale-move-ago,
+[data-theme="dark"] .whale-tracker .whale-move-arrow,
+[data-theme="dark"] .whale-tracker .whale-move-parties,
+[data-theme="dark"] .whale-tracker .whale-move-amount {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-move-time,
-:root[data-theme="dark"] .whale-tracker .whale-move-ago {
+[data-theme="dark"] .whale-tracker .whale-move-time,
+[data-theme="dark"] .whale-tracker .whale-move-ago {
   color: rgba(255, 255, 255, 0.85) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-delta.up,
-:root[data-theme="dark"] .whale-tracker .whale-movers-delta.down {
+[data-theme="dark"] .whale-tracker .whale-movers-delta.up,
+[data-theme="dark"] .whale-tracker .whale-movers-delta.down {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-section-title,
-:root[data-theme="dark"] .whale-tracker .whale-section-sub,
-:root[data-theme="dark"] .whale-tracker .whale-col-addr,
-:root[data-theme="dark"] .whale-tracker .whale-col-stake,
-:root[data-theme="dark"] .whale-tracker .whale-col-pct,
-:root[data-theme="dark"] .whale-tracker .whale-col-vals {
+[data-theme="dark"] .whale-tracker .whale-section-title,
+[data-theme="dark"] .whale-tracker .whale-section-sub,
+[data-theme="dark"] .whale-tracker .whale-col-addr,
+[data-theme="dark"] .whale-tracker .whale-col-stake,
+[data-theme="dark"] .whale-tracker .whale-col-pct,
+[data-theme="dark"] .whale-tracker .whale-col-vals {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-col-rank {
+[data-theme="dark"] .whale-tracker .whale-col-rank {
   color: rgba(255, 255, 255, 0.7) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-table-head {
+[data-theme="dark"] .whale-tracker .whale-table-head {
   background: rgba(255, 255, 255, 0.08) !important;
   border-bottom-color: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.85) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-table-row {
+[data-theme="dark"] .whale-tracker .whale-table-row {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .whale-tracker .whale-table-row:hover,
-:root[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
+[data-theme="dark"] .whale-tracker .whale-table-row:hover,
+[data-theme="dark"] .whale-tracker .whale-table-row-clickable:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
 /* Sortable headers: active state needs to pop on dark background, so we
    switch from the dark-green brand token to neon which reads clearly. */
-:root[data-theme="dark"] .whale-tracker .whale-col-sortable {
+[data-theme="dark"] .whale-tracker .whale-col-sortable {
   color: rgba(255, 255, 255, 0.85) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-col-sortable:hover {
+[data-theme="dark"] .whale-tracker .whale-col-sortable:hover {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-col-sortable.active {
+[data-theme="dark"] .whale-tracker .whale-col-sortable.active {
   color: var(--tx-neon) !important;
 }
 /* Pager inside the whale-tracker sage box */
-:root[data-theme="dark"] .whale-tracker .whale-pager-btn,
-:root[data-theme="dark"] .whale-tracker .whale-pager-nav {
+[data-theme="dark"] .whale-tracker .whale-pager-btn,
+[data-theme="dark"] .whale-tracker .whale-pager-nav {
   background: rgba(255, 255, 255, 0.12) !important;
   color: #fff !important;
   border-color: rgba(255, 255, 255, 0.22) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-pager-btn.active {
+[data-theme="dark"] .whale-tracker .whale-pager-btn.active {
   background: #fff !important;
   color: #44624c !important;
 }
@@ -620,42 +620,42 @@
 /* Whale tracker: headers + sub-labels + empty states all read white on
    sage. These were inheriting --text-light / --text-medium which muted
    them into the sage background. */
-:root[data-theme="dark"] .whale-tracker .whale-section-header,
-:root[data-theme="dark"] .whale-tracker .whale-empty,
-:root[data-theme="dark"] .whale-tracker .whale-empty-moves,
-:root[data-theme="dark"] .whale-tracker .whale-empty-text,
-:root[data-theme="dark"] .whale-tracker .whale-empty-sub,
-:root[data-theme="dark"] .whale-tracker .whale-pager-status {
+[data-theme="dark"] .whale-tracker .whale-section-header,
+[data-theme="dark"] .whale-tracker .whale-empty,
+[data-theme="dark"] .whale-tracker .whale-empty-moves,
+[data-theme="dark"] .whale-tracker .whale-empty-text,
+[data-theme="dark"] .whale-tracker .whale-empty-sub,
+[data-theme="dark"] .whale-tracker .whale-pager-status {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-section-sub {
+[data-theme="dark"] .whale-tracker .whale-section-sub {
   color: rgba(255, 255, 255, 0.75) !important;
 }
 
 /* "Whales on the Move" movers cards — also part of the whale tracker,
    need the same sage + white treatment so arrivals/exits/rank/stake
    cards stay in the unified scheme. */
-:root[data-theme="dark"] .whale-tracker .whale-movers-card {
+[data-theme="dark"] .whale-tracker .whale-movers-card {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-card-title {
+[data-theme="dark"] .whale-tracker .whale-movers-card-title {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-count {
+[data-theme="dark"] .whale-tracker .whale-movers-count {
   color: rgba(255, 255, 255, 0.75) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-row {
+[data-theme="dark"] .whale-tracker .whale-movers-row {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-row:hover {
+[data-theme="dark"] .whale-tracker .whale-movers-row:hover {
   background: rgba(255, 255, 255, 0.08) !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-addr {
+[data-theme="dark"] .whale-tracker .whale-movers-addr {
   color: #fff !important;
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-rank {
+[data-theme="dark"] .whale-tracker .whale-movers-rank {
   color: rgba(255, 255, 255, 0.6) !important;
 }
 
@@ -663,30 +663,30 @@
    "PSE Excluded", "CEX", validator pills all stay legible. The earlier
    dark-mode variants (neon on forest) now clash with sage, so use
    white-tinted fills for this specific context. */
-:root[data-theme="dark"] .staking-feed-card .whale-label-unlabeled,
-:root[data-theme="dark"] .whale-tracker .whale-label-unlabeled {
+[data-theme="dark"] .staking-feed-card .whale-label-unlabeled,
+[data-theme="dark"] .whale-tracker .whale-label-unlabeled {
   background: rgba(255, 255, 255, 0.15) !important;
   color: rgba(255, 255, 255, 0.85) !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-label-validator,
-:root[data-theme="dark"] .whale-tracker .whale-label-validator {
+[data-theme="dark"] .staking-feed-card .whale-label-validator,
+[data-theme="dark"] .whale-tracker .whale-label-validator {
   background: rgba(255, 255, 255, 0.18) !important;
   color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-label-pse-excluded,
-:root[data-theme="dark"] .whale-tracker .whale-label-pse-excluded,
-:root[data-theme="dark"] .staking-feed-card .whale-label-validator-pse,
-:root[data-theme="dark"] .whale-tracker .whale-label-validator-pse {
+[data-theme="dark"] .staking-feed-card .whale-label-pse-excluded,
+[data-theme="dark"] .whale-tracker .whale-label-pse-excluded,
+[data-theme="dark"] .staking-feed-card .whale-label-validator-pse,
+[data-theme="dark"] .whale-tracker .whale-label-validator-pse {
   background: rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-label-cex,
-:root[data-theme="dark"] .whale-tracker .whale-label-cex {
+[data-theme="dark"] .staking-feed-card .whale-label-cex,
+[data-theme="dark"] .whale-tracker .whale-label-cex {
   background: rgba(255, 200, 130, 0.22) !important;
   color: #ffd8a0 !important;
 }
-:root[data-theme="dark"] .staking-feed-card .whale-label-individual,
-:root[data-theme="dark"] .whale-tracker .whale-label-individual {
+[data-theme="dark"] .staking-feed-card .whale-label-individual,
+[data-theme="dark"] .whale-tracker .whale-label-individual {
   background: rgba(255, 255, 255, 0.12) !important;
   color: rgba(255, 255, 255, 0.85) !important;
 }
@@ -751,10 +751,10 @@ html {
 .theme-switcher.is-dark .theme-switcher-icon.is-right {
   color: var(--tx-dark-green);
 }
-:root[data-theme="dark"] .theme-switcher-icon {
+[data-theme="dark"] .theme-switcher-icon {
   color: rgba(255, 255, 255, 0.75);
 }
-:root[data-theme="dark"] .theme-switcher.is-dark .theme-switcher-icon.is-right {
+[data-theme="dark"] .theme-switcher.is-dark .theme-switcher-icon.is-right {
   color: var(--tx-dark-green);
 }
 
@@ -789,7 +789,7 @@ html {
   left: 32px;
 }
 
-:root[data-theme="dark"] .theme-switcher-thumb {
+[data-theme="dark"] .theme-switcher-thumb {
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.4);
 }
 
@@ -813,10 +813,10 @@ html {
   text-decoration: underline;
 }
 
-:root[data-theme="dark"] .theme-switcher-system {
+[data-theme="dark"] .theme-switcher-system {
   color: rgba(255, 255, 255, 0.55);
 }
-:root[data-theme="dark"] .theme-switcher-system:hover {
+[data-theme="dark"] .theme-switcher-system:hover {
   color: var(--tx-neon);
 }
 
@@ -1064,9 +1064,9 @@ body::-webkit-scrollbar-thumb { background: rgba(44,44,43,0.15); border-radius: 
    background needs light text. In dark mode --tx-subtle-pale flips to a
    dark olive and would vanish into the card. */
 .card-dark { background: var(--tx-black); color: #F6FFEF; }
-:root[data-theme="dark"] .card-dark { color: #F6FFEF; }
-:root[data-theme="dark"] .card-dark .card-value,
-:root[data-theme="dark"] .card-dark .card-value .unit { color: #F6FFEF; }
+[data-theme="dark"] .card-dark { color: #F6FFEF; }
+[data-theme="dark"] .card-dark .card-value,
+[data-theme="dark"] .card-dark .card-value .unit { color: #F6FFEF; }
 
 .card-content {
   position: relative;
@@ -1365,15 +1365,15 @@ input[type="range"]::-moz-range-thumb {
 
 /* Dark mode: track was invisible (near-black on dark). Give it a visible
    neon-tinted track and a neon thumb so drag affordance is obvious. */
-:root[data-theme="dark"] input[type="range"] {
+[data-theme="dark"] input[type="range"] {
   background: rgba(177, 252, 3, 0.18);
 }
-:root[data-theme="dark"] input[type="range"]::-webkit-slider-thumb {
+[data-theme="dark"] input[type="range"]::-webkit-slider-thumb {
   background: var(--tx-neon);
   border-color: var(--tx-dark-green);
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
-:root[data-theme="dark"] input[type="range"]::-moz-range-thumb {
+[data-theme="dark"] input[type="range"]::-moz-range-thumb {
   background: var(--tx-neon);
   border-color: var(--tx-dark-green);
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
@@ -1896,23 +1896,23 @@ input[type="range"]::-moz-range-thumb {
 /* Dark mode: every tooltip icon uses the neon treatment by default so
    the subtle olive-on-dark fallback doesn't disappear. Light cards
    (yellow/orange) keep their original dark-olive tooltip for contrast. */
-:root[data-theme="dark"] .tooltip-icon {
+[data-theme="dark"] .tooltip-icon {
   background: rgba(177, 252, 3, 0.15);
   border-color: rgba(177, 252, 3, 0.4);
   color: var(--tx-neon);
 }
-:root[data-theme="dark"] .tooltip-wrapper:hover .tooltip-icon {
+[data-theme="dark"] .tooltip-wrapper:hover .tooltip-icon {
   background: rgba(177, 252, 3, 0.28);
   border-color: var(--tx-neon);
 }
-:root[data-theme="dark"] .card-yellow .tooltip-icon,
-:root[data-theme="dark"] .card-orange .tooltip-icon {
+[data-theme="dark"] .card-yellow .tooltip-icon,
+[data-theme="dark"] .card-orange .tooltip-icon {
   background: rgba(177, 252, 3, 0.15);
   border-color: rgba(177, 252, 3, 0.4);
   color: var(--tx-neon);
 }
-:root[data-theme="dark"] .card-yellow .tooltip-wrapper:hover .tooltip-icon,
-:root[data-theme="dark"] .card-orange .tooltip-wrapper:hover .tooltip-icon {
+[data-theme="dark"] .card-yellow .tooltip-wrapper:hover .tooltip-icon,
+[data-theme="dark"] .card-orange .tooltip-wrapper:hover .tooltip-icon {
   background: rgba(177, 252, 3, 0.28);
   border-color: var(--tx-neon);
 }
@@ -1922,47 +1922,47 @@ input[type="range"]::-moz-range-thumb {
    carry dark text. Leaving them as-is in dark mode creates jarring
    light "islands" on the dark page. Replace with a tinted dark surface
    that keeps the color DNA (warm/amber) but sits in the dark system. */
-:root[data-theme="dark"] .card-yellow {
+[data-theme="dark"] .card-yellow {
   background: linear-gradient(135deg, rgba(235, 244, 80, 0.10), rgba(235, 244, 80, 0.04));
   color: var(--text-dark);
   border: 1px solid rgba(235, 244, 80, 0.22);
 }
-:root[data-theme="dark"] .card-orange {
+[data-theme="dark"] .card-orange {
   background: linear-gradient(135deg, rgba(255, 176, 120, 0.10), rgba(255, 176, 120, 0.04));
   color: var(--text-dark);
   border: 1px solid rgba(255, 176, 120, 0.22);
 }
-:root[data-theme="dark"] .card-yellow .card-title,
-:root[data-theme="dark"] .card-orange .card-title {
+[data-theme="dark"] .card-yellow .card-title,
+[data-theme="dark"] .card-orange .card-title {
   color: var(--text-dark) !important;
 }
-:root[data-theme="dark"] .card-yellow .card-value,
-:root[data-theme="dark"] .card-orange .card-value {
+[data-theme="dark"] .card-yellow .card-value,
+[data-theme="dark"] .card-orange .card-value {
   color: var(--text-dark);
 }
-:root[data-theme="dark"] .card-yellow .card-sub,
-:root[data-theme="dark"] .card-orange .card-sub {
+[data-theme="dark"] .card-yellow .card-sub,
+[data-theme="dark"] .card-orange .card-sub {
   color: var(--text-medium);
 }
-:root[data-theme="dark"] .card-orange .unit,
-:root[data-theme="dark"] .card-yellow .unit {
+[data-theme="dark"] .card-orange .unit,
+[data-theme="dark"] .card-yellow .unit {
   color: var(--text-medium);
 }
 
 /* Unify stat cards: the .card-olive variant rendered near-black while
    sibling stat cards on the same grid sat on sage. Normalize the
    olive override in dark mode so the grid reads as one family. */
-:root[data-theme="dark"] .stat-card.card-olive {
+[data-theme="dark"] .stat-card.card-olive {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
 }
-:root[data-theme="dark"] .stat-card.card-olive .stat-card-label {
+[data-theme="dark"] .stat-card.card-olive .stat-card-label {
   color: var(--text-light);
 }
-:root[data-theme="dark"] .stat-card.card-olive .stat-card-value {
+[data-theme="dark"] .stat-card.card-olive .stat-card-value {
   color: var(--tx-neon);
 }
-:root[data-theme="dark"] .stat-card.card-olive .stat-card-context {
+[data-theme="dark"] .stat-card.card-olive .stat-card-context {
   color: var(--text-light) !important;
 }
 
@@ -1970,16 +1970,16 @@ input[type="range"]::-moz-range-thumb {
    sub-line, copy / close buttons, rank icon, empty state. Previously
    inherited --text-light which was the dim warm-grey that washed out
    against panel sage. */
-:root[data-theme="dark"] .staking-panel-label,
-:root[data-theme="dark"] .staking-panel-copy,
-:root[data-theme="dark"] .staking-panel-close,
-:root[data-theme="dark"] .staking-panel-sub,
-:root[data-theme="dark"] .delegator-panel-rank-icon,
-:root[data-theme="dark"] .delegator-panel-rank-text,
-:root[data-theme="dark"] .delegator-panel-empty {
+[data-theme="dark"] .staking-panel-label,
+[data-theme="dark"] .staking-panel-copy,
+[data-theme="dark"] .staking-panel-close,
+[data-theme="dark"] .staking-panel-sub,
+[data-theme="dark"] .delegator-panel-rank-icon,
+[data-theme="dark"] .delegator-panel-rank-text,
+[data-theme="dark"] .delegator-panel-empty {
   color: rgba(255, 255, 255, 0.72) !important;
 }
-:root[data-theme="dark"] .staking-panel-link.staking-panel-mono {
+[data-theme="dark"] .staking-panel-link.staking-panel-mono {
   color: var(--tx-neon-pale, #cdeea5);
 }
 
@@ -2317,7 +2317,7 @@ input[type="range"]::-moz-range-thumb {
 /* Dark-mode floating pill: tinted dark backdrop with a neon ring so
    it pops against the page without bleeding light-mode whites onto
    the dark surface. */
-:root[data-theme="dark"] .sticky-pills-bar {
+[data-theme="dark"] .sticky-pills-bar {
   background: rgba(15, 27, 7, 0.78);
   border-color: rgba(177, 252, 3, 0.18);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
@@ -3139,47 +3139,47 @@ input[type="range"]::-moz-range-thumb {
 
 /* Dark mode overrides for the filter bar: search input and chips need
    higher-contrast surfaces against the dark section backdrop. */
-:root[data-theme="dark"] .whale-tracker .whale-search-input {
+[data-theme="dark"] .whale-tracker .whale-search-input {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.15);
 }
-:root[data-theme="dark"] .whale-tracker .whale-search-input::placeholder {
+[data-theme="dark"] .whale-tracker .whale-search-input::placeholder {
   color: rgba(255, 255, 255, 0.45);
 }
-:root[data-theme="dark"] .whale-tracker .whale-search-input:focus {
+[data-theme="dark"] .whale-tracker .whale-search-input:focus {
   border-color: var(--tx-neon);
   background: rgba(255, 255, 255, 0.1);
 }
-:root[data-theme="dark"] .whale-tracker .whale-search-icon,
-:root[data-theme="dark"] .whale-tracker .whale-search-clear {
+[data-theme="dark"] .whale-tracker .whale-search-icon,
+[data-theme="dark"] .whale-tracker .whale-search-clear {
   color: rgba(255, 255, 255, 0.55);
 }
-:root[data-theme="dark"] .whale-tracker .whale-search-clear:hover {
+[data-theme="dark"] .whale-tracker .whale-search-clear:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-chip {
+[data-theme="dark"] .whale-tracker .whale-filter-chip {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-chip:hover {
+[data-theme="dark"] .whale-tracker .whale-filter-chip:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-chip.active {
+[data-theme="dark"] .whale-tracker .whale-filter-chip.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
   border-color: var(--tx-neon);
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-empty {
+[data-theme="dark"] .whale-tracker .whale-filter-empty {
   color: rgba(255, 255, 255, 0.6);
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-empty-clear {
+[data-theme="dark"] .whale-tracker .whale-filter-empty-clear {
   border-color: rgba(255, 255, 255, 0.2);
   color: #fff;
 }
-:root[data-theme="dark"] .whale-tracker .whale-filter-empty-clear:hover {
+[data-theme="dark"] .whale-tracker .whale-filter-empty-clear:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -3224,19 +3224,19 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.74rem;
 }
 
-:root[data-theme="dark"] .whale-tracker .whale-window-pill {
+[data-theme="dark"] .whale-tracker .whale-window-pill {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
 }
-:root[data-theme="dark"] .whale-tracker .whale-window-pill:hover {
+[data-theme="dark"] .whale-tracker .whale-window-pill:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
-:root[data-theme="dark"] .whale-tracker .whale-window-pill.active {
+[data-theme="dark"] .whale-tracker .whale-window-pill.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
-:root[data-theme="dark"] .whale-tracker .whale-movers-empty {
+[data-theme="dark"] .whale-tracker .whale-movers-empty {
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -4537,12 +4537,12 @@ input[type="range"]::-moz-range-thumb {
   background: #fff;
   box-shadow: -1px -1px 0 rgba(0, 0, 0, 0.05);
 }
-:root[data-theme="dark"] .brand-popover {
+[data-theme="dark"] .brand-popover {
   background: #0F1B07;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(177, 252, 3, 0.2);
   color: var(--text-dark);
 }
-:root[data-theme="dark"] .brand-popover-arrow {
+[data-theme="dark"] .brand-popover-arrow {
   background: #0F1B07;
   box-shadow: -1px -1px 0 rgba(177, 252, 3, 0.2);
 }
@@ -4552,15 +4552,15 @@ input[type="range"]::-moz-range-thumb {
   background: #fff;
   color: var(--text-dark);
 }
-:root[data-theme="dark"] .excluded-addresses-drawer {
+[data-theme="dark"] .excluded-addresses-drawer {
   background: #0F1B07;
   color: #fff;
   border-left: 1px solid var(--glass-border);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6) !important;
 }
-:root[data-theme="dark"] .excluded-addresses-drawer .excluded-addresses-panel,
-:root[data-theme="dark"] .excluded-addresses-drawer > div[style*="background: rgb(255, 255, 255)"],
-:root[data-theme="dark"] .excluded-addresses-drawer div[style*="background: rgba(255,255,255"] {
+[data-theme="dark"] .excluded-addresses-drawer .excluded-addresses-panel,
+[data-theme="dark"] .excluded-addresses-drawer > div[style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .excluded-addresses-drawer div[style*="background: rgba(255,255,255"] {
   background: rgba(255, 255, 255, 0.06) !important;
 }
 
@@ -4596,21 +4596,21 @@ input[type="range"]::-moz-range-thumb {
   color: var(--accent-olive);
 }
 
-:root[data-theme="dark"] .wallet-connect-prompt {
+[data-theme="dark"] .wallet-connect-prompt {
   background: rgba(177, 252, 3, 0.04);
   border: 1px dashed rgba(177, 252, 3, 0.28);
 }
-:root[data-theme="dark"] .wallet-connect-prompt:hover {
+[data-theme="dark"] .wallet-connect-prompt:hover {
   background: rgba(177, 252, 3, 0.08);
   border-color: rgba(177, 252, 3, 0.45);
 }
-:root[data-theme="dark"] .wallet-connect-prompt-icon {
+[data-theme="dark"] .wallet-connect-prompt-icon {
   stroke: rgba(255, 255, 255, 0.75);
 }
-:root[data-theme="dark"] .wallet-connect-prompt-text {
+[data-theme="dark"] .wallet-connect-prompt-text {
   color: rgba(255, 255, 255, 0.85);
 }
-:root[data-theme="dark"] .wallet-connect-prompt-cta {
+[data-theme="dark"] .wallet-connect-prompt-cta {
   color: var(--tx-neon);
 }
 
@@ -4784,7 +4784,7 @@ input[type="range"]::-moz-range-thumb {
   transform: translateY(0);
   pointer-events: auto;
 }
-:root[data-theme="dark"] .flow-card-direction-tip-bubble {
+[data-theme="dark"] .flow-card-direction-tip-bubble {
   background: rgba(8, 16, 4, 0.98);
   border-color: rgba(177, 252, 3, 0.35);
 }
@@ -4835,32 +4835,32 @@ input[type="range"]::-moz-range-thumb {
 
 /* Dark mode: glass cards need a slightly lighter inset background +
    adjusted text colours to read against the dark page background. */
-:root[data-theme="dark"] .flow-card {
+[data-theme="dark"] .flow-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flow-card-name { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flow-card-tx-count,
-:root[data-theme="dark"] .flow-card-direction,
-:root[data-theme="dark"] .flow-card-latest { color: rgba(255, 255, 255, 0.5); }
-:root[data-theme="dark"] .flow-card-breakdown { color: rgba(255, 255, 255, 0.75); }
-:root[data-theme="dark"] .flow-card-net-neutral { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flow-card-net-in  { color: #ff8a78; }
-:root[data-theme="dark"] .flow-card-net-out { color: var(--tx-neon); }
-:root[data-theme="dark"] .flow-card-in   { border-left-color: #ff8a78; }
-:root[data-theme="dark"] .flow-card-out  { border-left-color: var(--tx-neon); }
-:root[data-theme="dark"] .flow-card-neutral { border-left-color: rgba(255, 255, 255, 0.2); }
-:root[data-theme="dark"] .flows-window-pills {
+[data-theme="dark"] .flow-card-name { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flow-card-tx-count,
+[data-theme="dark"] .flow-card-direction,
+[data-theme="dark"] .flow-card-latest { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .flow-card-breakdown { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .flow-card-net-neutral { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flow-card-net-in  { color: #ff8a78; }
+[data-theme="dark"] .flow-card-net-out { color: var(--tx-neon); }
+[data-theme="dark"] .flow-card-in   { border-left-color: #ff8a78; }
+[data-theme="dark"] .flow-card-out  { border-left-color: var(--tx-neon); }
+[data-theme="dark"] .flow-card-neutral { border-left-color: rgba(255, 255, 255, 0.2); }
+[data-theme="dark"] .flows-window-pills {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
 }
-:root[data-theme="dark"] .flows-window-pill { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flows-window-pill:hover { color: #fff; }
-:root[data-theme="dark"] .flows-window-pill.active {
+[data-theme="dark"] .flows-window-pill { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flows-window-pill:hover { color: #fff; }
+[data-theme="dark"] .flows-window-pill.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
-:root[data-theme="dark"] .flows-loading { color: rgba(255, 255, 255, 0.55); }
+[data-theme="dark"] .flows-loading { color: rgba(255, 255, 255, 0.55); }
 
 /* ── Daily Flow chart card ── */
 .flows-chart-card {
@@ -4926,9 +4926,9 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   letter-spacing: 0.02em;
 }
-:root[data-theme="dark"] .flows-summary-headline { color: #fff; }
-:root[data-theme="dark"] .flows-summary-line { color: rgba(255, 255, 255, 0.78); }
-:root[data-theme="dark"] .flows-summary-disclaimer { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .flows-summary-headline { color: #fff; }
+[data-theme="dark"] .flows-summary-line { color: rgba(255, 255, 255, 0.78); }
+[data-theme="dark"] .flows-summary-disclaimer { color: rgba(255, 255, 255, 0.5); }
 .flows-chart-header {
   display: flex;
   justify-content: space-between;
@@ -4965,14 +4965,14 @@ input[type="range"]::-moz-range-thumb {
 .flows-chart-legend-in  { background: #c45a4a; }
 .flows-chart-legend-out { background: #4a7a1a; }
 
-:root[data-theme="dark"] .flows-chart-card {
+[data-theme="dark"] .flows-chart-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flows-chart-title { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flows-chart-legend { color: rgba(255, 255, 255, 0.55); }
-:root[data-theme="dark"] .flows-chart-legend-in  { background: #ff8a78; }
-:root[data-theme="dark"] .flows-chart-legend-out { background: var(--tx-neon); }
+[data-theme="dark"] .flows-chart-title { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flows-chart-legend { color: rgba(255, 255, 255, 0.55); }
+[data-theme="dark"] .flows-chart-legend-in  { background: #ff8a78; }
+[data-theme="dark"] .flows-chart-legend-out { background: var(--tx-neon); }
 
 /* ── Recent flows feed ── */
 .flows-feed-card {
@@ -5040,12 +5040,12 @@ input[type="range"]::-moz-range-thumb {
   color: #4a7a1a;
   border: 1px solid rgba(74, 122, 26, 0.35);
 }
-:root[data-theme="dark"] .flows-feed-pill-in {
+[data-theme="dark"] .flows-feed-pill-in {
   background: rgba(255, 138, 120, 0.16);
   color: #ff8a78;
   border-color: rgba(255, 138, 120, 0.4);
 }
-:root[data-theme="dark"] .flows-feed-pill-out {
+[data-theme="dark"] .flows-feed-pill-out {
   background: rgba(177, 252, 3, 0.14);
   color: var(--tx-neon);
   border-color: rgba(177, 252, 3, 0.4);
@@ -5112,22 +5112,22 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.74rem;
 }
 
-:root[data-theme="dark"] .flows-feed-card {
+[data-theme="dark"] .flows-feed-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flows-feed-row {
+[data-theme="dark"] .flows-feed-row {
   border-top-color: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
 }
-:root[data-theme="dark"] .flows-feed-time,
-:root[data-theme="dark"] .flows-feed-arrow,
-:root[data-theme="dark"] .flows-feed-count,
-:root[data-theme="dark"] .flows-feed-empty-text { color: rgba(255, 255, 255, 0.5); }
-:root[data-theme="dark"] .flows-feed-route { color: rgba(255, 255, 255, 0.75); }
-:root[data-theme="dark"] .flows-feed-exchange,
-:root[data-theme="dark"] .flows-feed-counterparty { color: #fff; }
-:root[data-theme="dark"] .flows-feed-whale-tag {
+[data-theme="dark"] .flows-feed-time,
+[data-theme="dark"] .flows-feed-arrow,
+[data-theme="dark"] .flows-feed-count,
+[data-theme="dark"] .flows-feed-empty-text { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .flows-feed-route { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .flows-feed-exchange,
+[data-theme="dark"] .flows-feed-counterparty { color: #fff; }
+[data-theme="dark"] .flows-feed-whale-tag {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
@@ -5208,26 +5208,26 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.02em;
 }
 
-:root[data-theme="dark"] .flows-feed-chip {
+[data-theme="dark"] .flows-feed-chip {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
 }
-:root[data-theme="dark"] .flows-feed-chip:hover {
+[data-theme="dark"] .flows-feed-chip:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
-:root[data-theme="dark"] .flows-feed-chip.active {
+[data-theme="dark"] .flows-feed-chip.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
-:root[data-theme="dark"] .flows-feed-pager-btn {
+[data-theme="dark"] .flows-feed-pager-btn {
   border-color: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.85);
 }
-:root[data-theme="dark"] .flows-feed-pager-btn:hover:not(:disabled) {
+[data-theme="dark"] .flows-feed-pager-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
 }
-:root[data-theme="dark"] .flows-feed-pager-status {
+[data-theme="dark"] .flows-feed-pager-status {
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -5292,17 +5292,17 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.4;
 }
 
-:root[data-theme="dark"] .flows-destination-card {
+[data-theme="dark"] .flows-destination-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flows-destination-label  { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flows-destination-pct    { color: #fff; }
-:root[data-theme="dark"] .flows-destination-amount { color: rgba(255, 255, 255, 0.75); }
-:root[data-theme="dark"] .flows-destination-desc   { color: rgba(255, 255, 255, 0.5); }
-:root[data-theme="dark"] .flows-destination-good    { border-left-color: var(--tx-neon); }
-:root[data-theme="dark"] .flows-destination-neutral { border-left-color: rgba(255, 255, 255, 0.25); }
-:root[data-theme="dark"] .flows-destination-warn    { border-left-color: #f0b95a; }
+[data-theme="dark"] .flows-destination-label  { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flows-destination-pct    { color: #fff; }
+[data-theme="dark"] .flows-destination-amount { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .flows-destination-desc   { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .flows-destination-good    { border-left-color: var(--tx-neon); }
+[data-theme="dark"] .flows-destination-neutral { border-left-color: rgba(255, 255, 255, 0.25); }
+[data-theme="dark"] .flows-destination-warn    { border-left-color: #f0b95a; }
 
 /* ── Top counterparties leaderboard ── */
 .flows-counterparties {
@@ -5367,22 +5367,22 @@ input[type="range"]::-moz-range-thumb {
   text-align: right;
 }
 
-:root[data-theme="dark"] .flows-counterparty-card {
+[data-theme="dark"] .flows-counterparty-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flows-counterparty-row {
+[data-theme="dark"] .flows-counterparty-row {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .flows-counterparty-rank,
-:root[data-theme="dark"] .flows-counterparty-count {
+[data-theme="dark"] .flows-counterparty-rank,
+[data-theme="dark"] .flows-counterparty-count {
   color: rgba(255, 255, 255, 0.5);
 }
-:root[data-theme="dark"] .flows-counterparty-name { color: #fff; }
+[data-theme="dark"] .flows-counterparty-name { color: #fff; }
 
 /* ── Chart legend swatch for the price line ── */
 .flows-chart-legend-price { background: #3f6212; }
-:root[data-theme="dark"] .flows-chart-legend-price { background: var(--tx-neon); }
+[data-theme="dark"] .flows-chart-legend-price { background: var(--tx-neon); }
 
 /* ── Clickable counterparty rows + feed counterparty button ── */
 .flows-counterparty-row-clickable {
@@ -5423,10 +5423,10 @@ input[type="range"]::-moz-range-thumb {
   outline-offset: 2px;
   border-radius: 2px;
 }
-:root[data-theme="dark"] .flows-counterparty-row-clickable:hover {
+[data-theme="dark"] .flows-counterparty-row-clickable:hover {
   background: rgba(177, 252, 3, 0.08);
 }
-:root[data-theme="dark"] .flows-feed-counterparty-button:hover {
+[data-theme="dark"] .flows-feed-counterparty-button:hover {
   color: var(--tx-neon);
 }
 
@@ -5457,7 +5457,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-:root[data-theme="dark"] .address-flow-panel-whale-tag {
+[data-theme="dark"] .address-flow-panel-whale-tag {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
@@ -5492,11 +5492,11 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: -0.01em;
   line-height: 1.2;
 }
-:root[data-theme="dark"] .address-flow-summary-card {
+[data-theme="dark"] .address-flow-summary-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .address-flow-summary-label {
+[data-theme="dark"] .address-flow-summary-label {
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -5528,11 +5528,11 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700;
   text-align: right;
 }
-:root[data-theme="dark"] .address-flow-per-exchange-row {
+[data-theme="dark"] .address-flow-per-exchange-row {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .address-flow-per-exchange-name { color: #fff; }
-:root[data-theme="dark"] .address-flow-per-exchange-detail { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .address-flow-per-exchange-name { color: #fff; }
+[data-theme="dark"] .address-flow-per-exchange-detail { color: rgba(255, 255, 255, 0.75); }
 
 /* Recent transfers list inside the panel */
 .address-flow-recent {
@@ -5561,13 +5561,13 @@ input[type="range"]::-moz-range-thumb {
 .address-flow-recent-direction {
   color: var(--text-medium);
 }
-:root[data-theme="dark"] .address-flow-recent-row {
+[data-theme="dark"] .address-flow-recent-row {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
-:root[data-theme="dark"] .address-flow-recent-time {
+[data-theme="dark"] .address-flow-recent-time {
   color: rgba(255, 255, 255, 0.5);
 }
-:root[data-theme="dark"] .address-flow-recent-direction {
+[data-theme="dark"] .address-flow-recent-direction {
   color: rgba(255, 255, 255, 0.75);
 }
 
@@ -5589,7 +5589,7 @@ input[type="range"]::-moz-range-thumb {
 .address-flow-staking-button:hover {
   opacity: 0.92;
 }
-:root[data-theme="dark"] .address-flow-staking-button {
+[data-theme="dark"] .address-flow-staking-button {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
 }
@@ -5604,7 +5604,7 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--font-mono);
   font-size: 0.74rem;
 }
-:root[data-theme="dark"] .address-flow-empty {
+[data-theme="dark"] .address-flow-empty {
   border-color: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.55);
 }
@@ -5653,7 +5653,7 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0.4;
   cursor: not-allowed;
 }
-:root[data-theme="dark"] .flows-search-input {
+[data-theme="dark"] .flows-search-input {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.12);
   color: #fff;
@@ -5707,7 +5707,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   font-size: 0.72rem;
 }
-:root[data-theme="dark"] .flows-biggest-cp {
+[data-theme="dark"] .flows-biggest-cp {
   color: var(--tx-neon);
 }
 
@@ -5725,8 +5725,8 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   font-style: italic;
 }
-:root[data-theme="dark"] .flow-card-delta-up   { color: #ff8a78; }
-:root[data-theme="dark"] .flow-card-delta-down { color: var(--tx-neon); }
+[data-theme="dark"] .flow-card-delta-up   { color: #ff8a78; }
+[data-theme="dark"] .flow-card-delta-down { color: var(--tx-neon); }
 
 /* ── #5 Destinations Sankey ── */
 .flows-sankey {
@@ -5818,10 +5818,10 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.7rem;
   color: var(--text-light);
 }
-:root[data-theme="dark"] .flows-sankey { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-sankey-source-amount,
-:root[data-theme="dark"] .flows-sankey-bar-pct { color: #fff; }
-:root[data-theme="dark"] .flows-sankey-bar-detail { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flows-sankey { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-sankey-source-amount,
+[data-theme="dark"] .flows-sankey-bar-pct { color: #fff; }
+[data-theme="dark"] .flows-sankey-bar-detail { color: rgba(255, 255, 255, 0.7); }
 
 @media (max-width: 720px) {
   .flows-sankey-body { flex-direction: column; }
@@ -5934,13 +5934,13 @@ input[type="range"]::-moz-range-thumb {
   color: rgba(244, 241, 235, 0.6);
   font-weight: 400;
 }
-:root[data-theme="dark"] .flows-heatmap-cell-bubble {
+[data-theme="dark"] .flows-heatmap-cell-bubble {
   background: rgba(8, 16, 4, 0.98);
   border-color: rgba(177, 252, 3, 0.35);
 }
-:root[data-theme="dark"] .flows-heatmap { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-heatmap-row-label { color: #fff; }
-:root[data-theme="dark"] .flows-heatmap-day-label { color: rgba(255, 255, 255, 0.55); }
+[data-theme="dark"] .flows-heatmap { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-heatmap-row-label { color: #fff; }
+[data-theme="dark"] .flows-heatmap-day-label { color: rgba(255, 255, 255, 0.55); }
 
 /* ── #7 Repeat patterns ── */
 .flows-patterns {
@@ -5994,9 +5994,9 @@ input[type="range"]::-moz-range-thumb {
 .flows-patterns-text {
   flex: 1;
 }
-:root[data-theme="dark"] .flows-patterns { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-patterns-row { border-top-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); }
-:root[data-theme="dark"] .flows-patterns-cp { color: #fff; }
+[data-theme="dark"] .flows-patterns { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-patterns-row { border-top-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .flows-patterns-cp { color: #fff; }
 
 /* ── #8 Period comparison panel ── */
 .flows-compare {
@@ -6057,11 +6057,11 @@ input[type="range"]::-moz-range-thumb {
   padding-top: 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
-:root[data-theme="dark"] .flows-compare { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-compare-current { color: #fff; }
-:root[data-theme="dark"] .flows-compare-pct-up   { color: #ff8a78; }
-:root[data-theme="dark"] .flows-compare-pct-down { color: var(--tx-neon); }
-:root[data-theme="dark"] .flows-compare-mover { color: rgba(255, 255, 255, 0.75); border-top-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-compare { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-compare-current { color: #fff; }
+[data-theme="dark"] .flows-compare-pct-up   { color: #ff8a78; }
+[data-theme="dark"] .flows-compare-pct-down { color: var(--tx-neon); }
+[data-theme="dark"] .flows-compare-mover { color: rgba(255, 255, 255, 0.75); border-top-color: rgba(255, 255, 255, 0.08); }
 
 /* ── Top Private Destinations audit panel ── */
 .flows-private-audit {
@@ -6168,12 +6168,12 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   white-space: nowrap;
 }
-:root[data-theme="dark"] .flows-private-audit { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-private-audit-help { color: rgba(255, 255, 255, 0.7); }
-:root[data-theme="dark"] .flows-private-audit-help code { background: rgba(255, 255, 255, 0.08); }
-:root[data-theme="dark"] .flows-private-audit-row { border-top-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); }
-:root[data-theme="dark"] .flows-private-audit-cp,
-:root[data-theme="dark"] .flows-private-audit-amount { color: #fff; }
+[data-theme="dark"] .flows-private-audit { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-private-audit-help { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .flows-private-audit-help code { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .flows-private-audit-row { border-top-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .flows-private-audit-cp,
+[data-theme="dark"] .flows-private-audit-amount { color: #fff; }
 
 /* The flex row above wraps naturally on narrow viewports, so the
    former mobile grid-areas override is no longer needed. */
@@ -6199,7 +6199,7 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
   font-weight: 700;
 }
-:root[data-theme="dark"] .flows-private-audit-pending {
+[data-theme="dark"] .flows-private-audit-pending {
   background: rgba(177, 252, 3, 0.18);
   color: var(--tx-neon);
 }
@@ -6220,7 +6220,7 @@ input[type="range"]::-moz-range-thumb {
 .flows-private-audit-suggest-btn:hover {
   background: rgba(177, 252, 3, 0.12);
 }
-:root[data-theme="dark"] .flows-private-audit-suggest-btn {
+[data-theme="dark"] .flows-private-audit-suggest-btn {
   border-color: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
@@ -6270,8 +6270,8 @@ input[type="range"]::-moz-range-thumb {
 .flows-private-audit-form-field select:focus {
   border-color: var(--tx-neon);
 }
-:root[data-theme="dark"] .flows-private-audit-form-field input,
-:root[data-theme="dark"] .flows-private-audit-form-field select {
+[data-theme="dark"] .flows-private-audit-form-field input,
+[data-theme="dark"] .flows-private-audit-form-field select {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.15);
   color: #fff;
@@ -6330,7 +6330,7 @@ input[type="range"]::-moz-range-thumb {
   color: #c45a4a;
   padding-left: 6px;
 }
-:root[data-theme="dark"] .flows-search-error { color: #ff8a78; }
+[data-theme="dark"] .flows-search-error { color: #ff8a78; }
 
 /* ── AddressFlowPanel: make addresses selectable ──
    The address element is rendered as an <a>, which lets browsers
@@ -6375,7 +6375,7 @@ input[type="range"]::-moz-range-thumb {
   height: 18px;
   background: var(--glass-border);
 }
-:root[data-theme="dark"] .flows-feed-chip-divider {
+[data-theme="dark"] .flows-feed-chip-divider {
   background: rgba(255, 255, 255, 0.18);
 }
 .flows-feed-search-row {
@@ -6418,7 +6418,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(196, 90, 74, 0.12);
   color: #c45a4a;
 }
-:root[data-theme="dark"] .flows-feed-search-input {
+[data-theme="dark"] .flows-feed-search-input {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.12);
   color: #fff;
@@ -6647,8 +6647,8 @@ input[type="range"]::-moz-range-thumb {
 /* ── StakingFeed net flow indicator ── */
 .staking-feed-net-positive { color: #4a7a1a; font-weight: 700; }
 .staking-feed-net-negative { color: #c45a4a; font-weight: 700; }
-:root[data-theme="dark"] .staking-feed-net-positive { color: var(--tx-neon); }
-:root[data-theme="dark"] .staking-feed-net-negative { color: #ff8a78; }
+[data-theme="dark"] .staking-feed-net-positive { color: var(--tx-neon); }
+[data-theme="dark"] .staking-feed-net-negative { color: #ff8a78; }
 
 /* ═══════════════════════════════════════════════════════════
    Feedback / Feature Requests
@@ -7097,12 +7097,12 @@ input[type="range"]::-moz-range-thumb {
   opacity: 1;
   background: rgba(0, 0, 0, 0.06);
 }
-:root[data-theme="dark"] .whats-new-banner {
+[data-theme="dark"] .whats-new-banner {
   background: rgba(177, 252, 3, 0.14);
   border-bottom-color: rgba(177, 252, 3, 0.35);
   color: var(--text-dark);
 }
-:root[data-theme="dark"] .whats-new-banner-close:hover {
+[data-theme="dark"] .whats-new-banner-close:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -7411,18 +7411,18 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Dark mode adjustments */
-:root[data-theme="dark"] .governance-card-detail {
+[data-theme="dark"] .governance-card-detail {
   background: rgba(0, 0, 0, 0.18);
 }
-:root[data-theme="dark"] .governance-status-badge.status-voting { color: var(--tx-neon); }
-:root[data-theme="dark"] .governance-status-badge.status-passed { color: #8ad12f; }
-:root[data-theme="dark"] .governance-status-badge.status-rejected,
-:root[data-theme="dark"] .governance-status-badge.status-failed { color: #d88378; }
-:root[data-theme="dark"] .governance-status-badge.status-deposit { color: #f0a458; }
-:root[data-theme="dark"] .tn-yes { color: var(--tx-neon); }
-:root[data-theme="dark"] .tn-no { color: #d88378; }
-:root[data-theme="dark"] .tn-veto { color: #ef6b5d; }
-:root[data-theme="dark"] .governance-card-head:hover {
+[data-theme="dark"] .governance-status-badge.status-voting { color: var(--tx-neon); }
+[data-theme="dark"] .governance-status-badge.status-passed { color: #8ad12f; }
+[data-theme="dark"] .governance-status-badge.status-rejected,
+[data-theme="dark"] .governance-status-badge.status-failed { color: #d88378; }
+[data-theme="dark"] .governance-status-badge.status-deposit { color: #f0a458; }
+[data-theme="dark"] .tn-yes { color: var(--tx-neon); }
+[data-theme="dark"] .tn-no { color: #d88378; }
+[data-theme="dark"] .tn-veto { color: #ef6b5d; }
+[data-theme="dark"] .governance-card-head:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -7464,9 +7464,9 @@ input[type="range"]::-moz-range-thumb {
 .governance-stat-active .governance-stat-value { color: #d88a3a; }
 .governance-stat-passed .governance-stat-value { color: #4a7a1a; }
 .governance-stat-rejected .governance-stat-value { color: #c45a4a; }
-:root[data-theme="dark"] .governance-stat-active .governance-stat-value { color: #f0a458; }
-:root[data-theme="dark"] .governance-stat-passed .governance-stat-value { color: var(--tx-neon); }
-:root[data-theme="dark"] .governance-stat-rejected .governance-stat-value { color: #d88378; }
+[data-theme="dark"] .governance-stat-active .governance-stat-value { color: #f0a458; }
+[data-theme="dark"] .governance-stat-passed .governance-stat-value { color: var(--tx-neon); }
+[data-theme="dark"] .governance-stat-rejected .governance-stat-value { color: #d88378; }
 
 /* Section wrapper (Live proposals, All proposals) */
 .governance-section { display: flex; flex-direction: column; gap: 12px; }
@@ -7534,7 +7534,7 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
-:root[data-theme="dark"] .governance-type-pill {
+[data-theme="dark"] .governance-type-pill {
   background: rgba(74, 122, 200, 0.22);
   color: #8ab3e8;
 }
@@ -7588,12 +7588,12 @@ input[type="range"]::-moz-range-thumb {
 .governance-vote-card.vote-abstain { border-left: 3px solid rgba(180, 170, 155, 0.5); }
 .governance-vote-card.vote-abstain .governance-vote-label { color: var(--text-medium); }
 
-:root[data-theme="dark"] .governance-vote-card {
+[data-theme="dark"] .governance-vote-card {
   background: rgba(0, 0, 0, 0.18);
 }
-:root[data-theme="dark"] .governance-vote-card.vote-yes .governance-vote-label { color: var(--tx-neon); }
-:root[data-theme="dark"] .governance-vote-card.vote-no .governance-vote-label { color: #d88378; }
-:root[data-theme="dark"] .governance-vote-card.vote-veto .governance-vote-label { color: #ef6b5d; }
+[data-theme="dark"] .governance-vote-card.vote-yes .governance-vote-label { color: var(--tx-neon); }
+[data-theme="dark"] .governance-vote-card.vote-no .governance-vote-label { color: #d88378; }
+[data-theme="dark"] .governance-vote-card.vote-veto .governance-vote-label { color: #ef6b5d; }
 
 /* Mobile: stack the 4-up to 2-up */
 @media (max-width: 640px) {
@@ -7612,7 +7612,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(74, 122, 200, 0.06);
   border: 1px solid rgba(74, 122, 200, 0.2);
 }
-:root[data-theme="dark"] .governance-explainer {
+[data-theme="dark"] .governance-explainer {
   background: rgba(74, 122, 200, 0.1);
   border-color: rgba(74, 122, 200, 0.3);
 }
@@ -7682,15 +7682,15 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(180, 74, 62, 0.1);
   border-color: rgba(180, 74, 62, 0.35);
 }
-:root[data-theme="dark"] .governance-projection.outcome-pass {
+[data-theme="dark"] .governance-projection.outcome-pass {
   background: rgba(74, 122, 26, 0.18);
   border-color: rgba(177, 252, 3, 0.45);
 }
-:root[data-theme="dark"] .governance-projection.outcome-fail {
+[data-theme="dark"] .governance-projection.outcome-fail {
   background: rgba(216, 138, 58, 0.18);
   border-color: rgba(240, 164, 88, 0.45);
 }
-:root[data-theme="dark"] .governance-projection.outcome-veto {
+[data-theme="dark"] .governance-projection.outcome-veto {
   background: rgba(180, 74, 62, 0.2);
   border-color: rgba(216, 131, 120, 0.5);
 }
@@ -7708,9 +7708,9 @@ input[type="range"]::-moz-range-thumb {
 .governance-projection.outcome-pass .governance-projection-verb { color: #2d5710; }
 .governance-projection.outcome-fail .governance-projection-verb { color: #a55a18; }
 .governance-projection.outcome-veto .governance-projection-verb { color: #8a2c20; }
-:root[data-theme="dark"] .governance-projection.outcome-pass .governance-projection-verb { color: var(--tx-neon); }
-:root[data-theme="dark"] .governance-projection.outcome-fail .governance-projection-verb { color: #f0a458; }
-:root[data-theme="dark"] .governance-projection.outcome-veto .governance-projection-verb { color: #d88378; }
+[data-theme="dark"] .governance-projection.outcome-pass .governance-projection-verb { color: var(--tx-neon); }
+[data-theme="dark"] .governance-projection.outcome-fail .governance-projection-verb { color: #f0a458; }
+[data-theme="dark"] .governance-projection.outcome-veto .governance-projection-verb { color: #d88378; }
 .governance-projection-reason {
   font-size: 0.85rem;
   line-height: 1.5;
@@ -7946,11 +7946,11 @@ input[type="range"]::-moz-range-thumb {
 .prop-detail-result-value.status-failed { color: #a8341c; }
 .prop-detail-result-value.status-voting { color: #1c5fa8; }
 .prop-detail-result-value.status-deposit { color: #a87a1c; }
-:root[data-theme="dark"] .prop-detail-result-value.status-passed { color: var(--tx-neon, #7cf09b); }
-:root[data-theme="dark"] .prop-detail-result-value.status-rejected { color: #ee8a72; }
-:root[data-theme="dark"] .prop-detail-result-value.status-failed { color: #ee8a72; }
-:root[data-theme="dark"] .prop-detail-result-value.status-voting { color: #7ab7f0; }
-:root[data-theme="dark"] .prop-detail-result-value.status-deposit { color: #f0c878; }
+[data-theme="dark"] .prop-detail-result-value.status-passed { color: var(--tx-neon, #7cf09b); }
+[data-theme="dark"] .prop-detail-result-value.status-rejected { color: #ee8a72; }
+[data-theme="dark"] .prop-detail-result-value.status-failed { color: #ee8a72; }
+[data-theme="dark"] .prop-detail-result-value.status-voting { color: #7ab7f0; }
+[data-theme="dark"] .prop-detail-result-value.status-deposit { color: #f0c878; }
 
 .prop-detail-quorum-value {
   font-size: 1.5rem;
@@ -7958,8 +7958,8 @@ input[type="range"]::-moz-range-thumb {
 }
 .prop-detail-quorum-value .qmet { color: #1f7a32; }
 .prop-detail-quorum-value .qunmet { color: #a8341c; }
-:root[data-theme="dark"] .prop-detail-quorum-value .qmet { color: var(--tx-neon, #7cf09b); }
-:root[data-theme="dark"] .prop-detail-quorum-value .qunmet { color: #ee8a72; }
+[data-theme="dark"] .prop-detail-quorum-value .qmet { color: var(--tx-neon, #7cf09b); }
+[data-theme="dark"] .prop-detail-quorum-value .qunmet { color: #ee8a72; }
 .prop-detail-quorum-sep { color: var(--muted, #999); font-weight: 500; }
 .prop-detail-quorum-value .qref { color: var(--muted, #888); font-weight: 600; font-size: 1.1rem; }
 
@@ -8219,7 +8219,7 @@ input[type="range"]::-moz-range-thumb {
 .gov-health-label { font-size: 0.85rem; color: var(--text-medium); margin-bottom: 14px; }
 .gov-health-bar-wrap { position: relative; margin-top: auto; padding-top: 28px; }
 .gov-health-bar { position: relative; height: 10px; border-radius: var(--radius-pill); background: rgba(0,0,0,0.07); border: 1px solid var(--glass-border); }
-:root[data-theme="dark"] .gov-health-bar { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .gov-health-bar { background: rgba(255,255,255,0.06); }
 .gov-health-fill { position: absolute; top: 0; left: 0; bottom: 0; border-radius: var(--radius-pill); background: var(--text-accent); transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .gov-health.warn .gov-health-fill { background: var(--accent-orange); }
 .gov-health-tick { position: absolute; top: -22px; bottom: -6px; width: 0; transform: translateX(-50%); pointer-events: none; }
@@ -8238,7 +8238,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 1px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
-:root[data-theme="dark"] .gov-health-tick-line {
+[data-theme="dark"] .gov-health-tick-line {
   background: #ffffff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
@@ -8280,7 +8280,7 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.55;
   max-width: 720px;
 }
-:root[data-theme="dark"] .gov-section-empty { background: rgba(255,255,255,0.025); }
+[data-theme="dark"] .gov-section-empty { background: rgba(255,255,255,0.025); }
 
 /* Legacy gov-hero classes kept for the inner card grid layout. */
 .gov-chip {
@@ -9459,7 +9459,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(0,0,0,0.06);
   border: 1px solid var(--glass-border);
 }
-:root[data-theme="dark"] .vrb-bar { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .vrb-bar { background: rgba(255,255,255,0.06); }
 .vrb-seg { height: 100%; transition: width 0.3s ease; }
 .vrb-yes { background: var(--text-accent); }
 .vrb-no { background: var(--accent-orange); }
@@ -9681,7 +9681,7 @@ input[type="range"]::-moz-range-thumb {
   object-fit: cover;
   background: rgba(0,0,0,0.06);
 }
-:root[data-theme="dark"] .wvc-avatar { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .wvc-avatar { background: rgba(255,255,255,0.06); }
 .wvc-avatar-fallback {
   display: inline-flex;
   align-items: center;
@@ -9811,7 +9811,7 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 6px 18px rgba(15, 27, 7, 0.12);
   margin-top: 10px;
 }
-:root[data-theme="dark"] .prop-sticky-strip-inner {
+[data-theme="dark"] .prop-sticky-strip-inner {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 .prop-sticky-id { color: var(--text-light); font-weight: 600; font-size: 0.86rem; }
@@ -9933,7 +9933,7 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   gap: 4px;
 }
-:root[data-theme="dark"] .ovp-stat-card { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .ovp-stat-card { background: rgba(255,255,255,0.04); }
 .ovp-stat-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-light); }
 .ovp-stat-value { font-size: 1.4rem; font-weight: 300; letter-spacing: -0.02em; color: var(--text-dark); line-height: 1.1; }
 .ovp-stat-sub { font-size: 0.78rem; color: var(--text-light); }
@@ -9947,7 +9947,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(0,0,0,0.06);
   border: 1px solid var(--glass-border);
 }
-:root[data-theme="dark"] .ovp-stat-splitbar { background: rgba(255,255,255,0.05); }
+[data-theme="dark"] .ovp-stat-splitbar { background: rgba(255,255,255,0.05); }
 .ovp-stat-seg { height: 100%; }
 .ovp-stat-seg-yes { background: var(--text-accent); }
 .ovp-stat-seg-no { background: var(--accent-orange); }
@@ -10056,7 +10056,7 @@ input[type="range"]::-moz-range-thumb {
   animation: dd-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes dd-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
-:root[data-theme="dark"] .delegator-drawer {
+[data-theme="dark"] .delegator-drawer {
   background: linear-gradient(180deg, #131a0e 0%, #0d1209 100%);
   box-shadow: -16px 0 40px rgba(0, 0, 0, 0.5);
 }
@@ -10106,7 +10106,7 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   gap: 2px;
 }
-:root[data-theme="dark"] .dd-stat { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .dd-stat { background: rgba(255,255,255,0.04); }
 .dd-stat-ok { border-color: rgba(177, 252, 3, 0.3); }
 .dd-stat-warn { border-color: rgba(255, 176, 120, 0.3); }
 .dd-stat-label { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-light); }
@@ -10133,7 +10133,7 @@ input[type="range"]::-moz-range-thumb {
 .dd-row-agree { border-color: rgba(177, 252, 3, 0.2); }
 .dd-row-validator { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dd-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: rgba(0,0,0,0.06); flex: 0 0 auto; }
-:root[data-theme="dark"] .dd-avatar { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .dd-avatar { background: rgba(255,255,255,0.06); }
 .dd-avatar-fallback { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.82rem; color: var(--text-medium); }
 .dd-row-validator-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dd-row-name { font-weight: 500; color: var(--text-dark); font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -10313,7 +10313,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--glass-border);
 }
-:root[data-theme="dark"] .today-position-card { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .today-position-card { background: rgba(255,255,255,0.04); }
 .today-position-card.tone-ok { border-color: rgba(177, 252, 3, 0.25); }
 .today-position-label {
   font-size: 0.7rem;
@@ -10548,7 +10548,7 @@ input[type="range"]::-moz-range-thumb {
   gap: 2px;
   animation: nav-tools-in 0.15s ease;
 }
-:root[data-theme="dark"] .nav-tools-menu { background: #131a0e; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+[data-theme="dark"] .nav-tools-menu { background: #131a0e; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
 @keyframes nav-tools-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
