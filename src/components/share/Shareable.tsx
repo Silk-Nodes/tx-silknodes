@@ -247,7 +247,13 @@ function ShareModal({
             <div className="share-card-body">{children}</div>
             {framed && caption && <div className="share-card-caption">{caption}</div>}
             <div className="share-card-footer">
-              <span className="share-card-domain">tx.silknodes.io</span>
+              <div className="share-card-brand">
+                <span className="share-card-brand-icon"><TxIcon /></span>
+                <span className="share-card-brand-text">
+                  <span className="share-card-brand-name">All in ONE</span>
+                  <span className="share-card-domain">tx.silknodes.io</span>
+                </span>
+              </div>
               <span className="share-card-stamp">{todayStamp}</span>
             </div>
           </div>
@@ -269,6 +275,20 @@ function ShareModal({
 }
 
 // ─── Inline marks ──────────────────────────────────────────────────────
+// The real tx-icon, inlined so the export is fully self-contained (no
+// external <img> fetch for html-to-image to race or taint). Matches
+// public/tx-icon.svg: dark-green tile + neon "tx" glyph.
+function TxIcon() {
+  return (
+    <svg viewBox="0 0 501 501" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="500" height="500" transform="translate(0.710938 0.205078)" fill="#0F1B07" />
+      <path
+        d="M157.384 199.256H212.833V236.026H157.384V282.646C157.384 292.861 165.659 301.15 175.87 301.155H212.833V338.169H175.869C145.256 338.169 120.433 313.327 120.412 282.673V236.026H83.5869V199.256H120.412V162.704H157.384V199.256ZM219.386 199.256C235.511 199.256 250.362 204.782 262.136 214.042L298.896 241.601C304.652 245.837 309.138 249.451 316.99 249.451C324.866 249.451 329.391 245.809 335.136 241.544L372.101 213.611C383.781 204.61 398.42 199.256 414.299 199.256H416.92V236.027H414.299C406.562 236.027 399.715 239.196 393.458 243.588L361.105 268.436L387.696 288.787C395.611 294.837 403.677 301.143 414.299 301.143H416.92V337.919H414.299C398.167 337.919 383.322 332.394 371.547 323.127L335.037 294.896C329.398 290.59 324.779 286.957 316.99 286.957C308.986 286.957 304.249 290.818 298.473 295.207L262.137 323.127C250.363 332.386 235.518 337.919 219.386 337.919H216.765V301.143H219.386C227.186 301.143 234.217 298.182 240.147 293.649L272.593 268.72L240.163 243.543C234.06 239.075 227.141 236.027 219.386 236.027H216.765V199.256H219.386Z"
+        fill="#B1FC03"
+      />
+    </svg>
+  );
+}
 function CameraIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

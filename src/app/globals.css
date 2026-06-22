@@ -12619,11 +12619,33 @@ input[type="range"]::-moz-range-thumb {
 .share-card-brand {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
+}
+.share-card-brand-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  display: block;
+  line-height: 0;
+}
+.share-card-brand-icon svg { display: block; }
+.share-card-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
+.share-card-brand-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: -0.01em;
 }
 .share-card-domain {
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text-accent);
   letter-spacing: 0.01em;
 }
@@ -12631,6 +12653,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.74rem;
   color: var(--text-light);
   font-variant-numeric: tabular-nums;
+  align-self: flex-end;
 }
 
 /* Actions */
