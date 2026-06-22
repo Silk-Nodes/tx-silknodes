@@ -147,13 +147,14 @@ function ShareModal({
     if (!cardRef.current) return;
     setBusy(true); setError(null);
     try {
-      const dataUrl = await rasterize(cardRef.current);
+      const dataUrl = await withTimeout(rasterize(cardRef.current), 15000);
       const a = document.createElement("a");
       a.download = `tx-silknodes-${slugify(title)}-${Date.now()}.png`;
       a.href = dataUrl;
       a.click();
     } catch (e) {
-      setError("Could not generate image. Try again.");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`Render failed: ${msg.slice(0, 80)}`);
       console.warn("[shareable] download failed", e);
     } finally {
       setBusy(false);
@@ -189,7 +190,11 @@ function ShareModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
-      setError("Copy not supported here — use Download instead.");
+      const msg = e instanceof Error ? e.message : String(e);
+      // NotAllowedError / missing ClipboardItem → browser support issue.
+      // Anything else is a render failure worth seeing.
+      const isSupport = /NotAllowed|ClipboardItem|not defined|clipboard/i.test(msg);
+      setError(isSupport ? "Copy not supported here — use Download." : `Copy failed: ${msg.slice(0, 70)}`);
       console.warn("[shareable] copy failed", e);
     } finally {
       setBusy(false);
@@ -258,6 +263,17 @@ function CameraIcon() {
     </svg>
   );
 }
+// Reject if a render takes longer than ms so the button never hangs
+// silently on a stuck font/image fetch — surfaces a visible error.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`timed out after ${ms / 1000}s`)), ms),
+    ),
+  ]);
+}
+
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40);
 }
