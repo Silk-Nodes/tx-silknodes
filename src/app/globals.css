@@ -12719,3 +12719,19 @@ input[type="range"]::-moz-range-thumb {
 .share-card .shareable-camera {
   display: none !important;
 }
+
+/* Whale tracker export: show only the Top Delegators section, drop the
+   filter chips and the other (whale-moves) sections so the shared PNG
+   is a clean leaderboard rather than the full interactive panel. */
+.share-card .whale-section:not(:first-of-type) { display: none !important; }
+.share-card .whale-filter-chips,
+.share-card .whale-filter-empty { display: none !important; }
+
+/* Staking activity export: cap to the most recent ~12 rows so the image
+   stays a readable card instead of a giant scroll. The container's own
+   max-height/scroll is also released so rows aren't clipped mid-capture. */
+.share-card .staking-feed-container {
+  max-height: none !important;
+  overflow: visible !important;
+}
+.share-card .staking-feed-row:nth-of-type(n+13) { display: none !important; }
