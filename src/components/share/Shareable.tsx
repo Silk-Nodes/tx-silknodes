@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toPng, toBlob } from "html-to-image";
 
 // Shareable: wraps any chart/card so it can be exported as a branded PNG.
@@ -201,7 +202,14 @@ function ShareModal({
     }
   }, []);
 
-  return (
+  // Portal to <body>. CRITICAL: the modal is rendered inside the wrapped
+  // card, and ancestors like .chart-card-v2 use backdrop-filter, which
+  // establishes a containing block for position:fixed — without the
+  // portal the "fixed" overlay is positioned relative to the card (low
+  // on the page, cut off) instead of the viewport, hiding the action
+  // buttons. Portaling to body escapes any such ancestor.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="share-overlay" onClick={onClose} role="presentation">
       <div
         className="share-dialog"
@@ -250,7 +258,8 @@ function ShareModal({
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
