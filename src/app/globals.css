@@ -12609,51 +12609,45 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-light);
   line-height: 1.5;
 }
+/* Single-line footer lockup: All in ONE [tx]  tx.silknodes.io  <date> */
 .share-card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding-top: 14px;
   border-top: 1px solid var(--glass-border);
-}
-.share-card-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.share-card-brand-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  overflow: hidden;
-  flex: 0 0 auto;
-  display: block;
-  line-height: 0;
-}
-.share-card-brand-icon svg { display: block; }
-.share-card-brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1.15;
 }
 .share-card-brand-name {
   font-size: 0.86rem;
   font-weight: 700;
   color: var(--text-dark);
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
+.share-card-brand-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  display: block;
+  line-height: 0;
+}
+.share-card-brand-icon svg { display: block; }
 .share-card-domain {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-accent);
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 .share-card-stamp {
-  font-size: 0.74rem;
+  /* push the date to the far right of the single-line footer */
+  margin-left: auto;
+  font-size: 0.78rem;
   color: var(--text-light);
   font-variant-numeric: tabular-nums;
-  align-self: flex-end;
+  white-space: nowrap;
 }
 
 /* Actions */

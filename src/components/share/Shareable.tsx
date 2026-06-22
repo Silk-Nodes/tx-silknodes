@@ -247,13 +247,9 @@ function ShareModal({
             <div className="share-card-body">{children}</div>
             {framed && caption && <div className="share-card-caption">{caption}</div>}
             <div className="share-card-footer">
-              <div className="share-card-brand">
-                <span className="share-card-brand-icon"><TxIcon /></span>
-                <span className="share-card-brand-text">
-                  <span className="share-card-brand-name">All in ONE</span>
-                  <span className="share-card-domain">tx.silknodes.io</span>
-                </span>
-              </div>
+              <span className="share-card-brand-name">All in ONE</span>
+              <span className="share-card-brand-icon"><TxIcon /></span>
+              <span className="share-card-domain">tx.silknodes.io</span>
               <span className="share-card-stamp">{todayStamp}</span>
             </div>
           </div>
