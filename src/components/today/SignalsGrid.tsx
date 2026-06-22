@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatCompact } from "@/lib/ui-format";
 
 // ── API contract (must match /api/today/signals route.ts) ──────────────
 type SignalsResponse = {
@@ -65,16 +66,32 @@ export default function SignalsGrid() {
     };
   }, []);
 
+  const loading = !data && !errored;
+
+  // Distinguish a hard fetch failure from "data loaded, nothing notable".
+  // Without this, a network error fell through to every tile rendering
+  // fabricated "no data / quiet" copy, which misleads the reader.
+  if (errored) {
+    return (
+      <section className="today-section signals-grid-section">
+        <div className="today-section-label">Today&apos;s signals</div>
+        <div className="signals-grid-error" role="status">
+          Signals are temporarily unavailable. Refresh to try again.
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="today-section signals-grid-section">
       <div className="today-section-label">Today&apos;s signals</div>
-      <div className="signals-grid">
-        <ExchangeFlowTile signal={data?.signals.exchangeFlow} loading={!data && !errored} />
-        <WhaleMovesTile signal={data?.signals.whaleMoves} loading={!data && !errored} />
-        <NewWhalesTile signal={data?.signals.newWhales} loading={!data && !errored} />
-        <UnbondingWaveTile signal={data?.signals.unbondingWave} loading={!data && !errored} />
-        <ActiveStakersTile signal={data?.signals.activeStakers} loading={!data && !errored} />
-        <TopValidatorTile signal={data?.signals.topValidator} loading={!data && !errored} />
+      <div className="signals-grid" aria-busy={loading} aria-live="polite">
+        <ExchangeFlowTile signal={data?.signals.exchangeFlow} loading={loading} />
+        <WhaleMovesTile signal={data?.signals.whaleMoves} loading={loading} />
+        <NewWhalesTile signal={data?.signals.newWhales} loading={loading} />
+        <UnbondingWaveTile signal={data?.signals.unbondingWave} loading={loading} />
+        <ActiveStakersTile signal={data?.signals.activeStakers} loading={loading} />
+        <TopValidatorTile signal={data?.signals.topValidator} loading={loading} />
       </div>
     </section>
   );
@@ -169,8 +186,8 @@ function WhaleMovesTile({ signal, loading }: {
         largest
           ? <>
               Largest: <span className="sg-mono">{formatTx(largest.amountTx)}</span>{" "}
-              {largest.type === "undelegate" ? "unbonded" : "delegated"}
-              {largest.moniker ? <> to <strong>{largest.moniker}</strong></> : null}
+              {moveVerb(largest.type)}
+              {largest.moniker ? <> {movePreposition(largest.type)} <strong>{largest.moniker}</strong></> : null}
             </>
           : <>Quiet, no moves above 1M TX</>
       }
@@ -293,7 +310,7 @@ function TopValidatorTile({ signal, loading }: {
         </>
       }
       valueTone={signal.direction === "in" ? "ok" : "warn"}
-      viz={<DirectionalBar pct={Math.min(100, Math.log10(Math.abs(signal.netTx) + 1) * 16)} direction={signal.direction} />}
+      viz={<DirectionalBar pct={Math.max(8, Math.min(100, Math.log10(Math.abs(signal.netTx) + 1) * 16))} direction={signal.direction} />}
       sub={<><strong>{name}</strong> saw the largest 24h net change</>}
       href="/validators"
       ctaLabel="See validators"
@@ -402,12 +419,20 @@ function SkeletonTile({ label }: { label: string }) {
 }
 
 // ─── Format helpers ────────────────────────────────────────────────────
+// Compact TX amount via the shared sign-safe formatter (2dp K so whale
+// amounts read with enough precision).
 function formatTx(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-  if (abs >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return n.toFixed(0);
+  return formatCompact(n, { k: 1, m: 2, b: 2 });
+}
+// Correct verb + preposition for all three staking event types — the
+// earlier two-way branch mislabeled redelegate as "delegated".
+function moveVerb(type: "delegate" | "undelegate" | "redelegate"): string {
+  if (type === "undelegate") return "unbonded";
+  if (type === "redelegate") return "redelegated";
+  return "delegated";
+}
+function movePreposition(type: "delegate" | "undelegate" | "redelegate"): string {
+  return type === "undelegate" ? "from" : "to";
 }
 function shortDate(iso: string): string {
   const d = new Date(iso);

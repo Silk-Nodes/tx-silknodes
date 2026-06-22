@@ -270,8 +270,10 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
       setError("Paste a TX address to look up.");
       return;
     }
-    if (!trimmed.startsWith("core1") || trimmed.length < 39) {
-      setError("Address should start with core1 and be at least 39 chars.");
+    // Bech32 addresses are ~44 chars; cap well above that so an absurd
+    // paste can't produce a giant URL and a guaranteed-failed lookup.
+    if (!trimmed.startsWith("core1") || trimmed.length < 39 || trimmed.length > 90) {
+      setError("Enter a valid core1... address (about 44 characters).");
       return;
     }
     setError(null);
@@ -281,7 +283,7 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
   return (
     <section className="today-entry-card">
       <div className="today-entry-eyebrow">Check any address</div>
-      <div className="today-entry-headline">
+      <div className="today-entry-headline" id="today-entry-headline">
         Look up PSE score, rewards, and positions
       </div>
       <form className="today-entry-form" onSubmit={handleSubmit}>
@@ -296,12 +298,22 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
           placeholder="Paste a core1... address"
           spellCheck={false}
           autoComplete="off"
+          inputMode="text"
+          maxLength={100}
+          aria-label="TX wallet address"
+          aria-describedby="today-entry-headline"
+          aria-invalid={!!error}
+          {...(error ? { "aria-errormessage": "today-entry-error" } : {})}
         />
         <button type="submit" className="today-entry-submit">
           Fetch
         </button>
       </form>
-      {error && <div className="today-entry-error">{error}</div>}
+      {error && (
+        <div className="today-entry-error" id="today-entry-error" role="alert">
+          {error}
+        </div>
+      )}
       <div className="today-entry-divider"><span>or</span></div>
       <div className="today-entry-alts">
         <button
@@ -351,8 +363,11 @@ function formatDate(d: Date): string {
 }
 
 function formatUSD(n: number): string {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return n.toFixed(2);
+  if (!Number.isFinite(n)) return "0.00";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}${abs.toFixed(2)}`;
 }

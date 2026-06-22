@@ -11943,6 +11943,20 @@ input[type="range"]::-moz-range-thumb {
      space equally, eliminating the gap below the grid. */
   flex: 1;
 }
+/* Hard fetch-failure state for the whole signals grid (distinct from a
+   tile's "nothing notable" empty copy). */
+.signals-grid-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+}
 .sg-tile {
   display: grid;
   grid-template-rows: auto auto 1fr auto auto;
@@ -12657,8 +12671,13 @@ input[type="range"]::-moz-range-thumb {
   justify-content: flex-end;
   gap: 10px;
 }
-.share-dialog-error {
+.share-dialog-status {
   margin-right: auto;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  min-height: 1em;
+}
+.share-dialog-error {
   font-size: 0.8rem;
   color: var(--accent-orange);
 }

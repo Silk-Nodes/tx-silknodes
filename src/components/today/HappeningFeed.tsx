@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Proposal } from "@/lib/governance";
 import type { NextPSECycle } from "@/hooks/useNextPSECycle";
+import { relativeTimeShort } from "@/lib/ui-format";
 import FeedItemPanel, { type PanelItem } from "./FeedItemPanel";
 
 // Sources that open the side panel for in-place reading. Everything
@@ -166,7 +167,7 @@ export default function HappeningFeed({ proposals, cycle }: Props) {
   }, [feedItems, govItems, pseFallback]);
 
   return (
-    <section className="today-section happening-feed">
+    <section className="today-section happening-feed" aria-busy={merged == null} aria-live="polite">
       <div className="today-section-label">What&apos;s happening</div>
       {merged == null && (
         <div className="happening-feed-empty">Loading activity…</div>
@@ -219,7 +220,7 @@ function FeedRow({
           >
             {item.tag}
           </span>
-          <span className="happening-row-time">{relTimeShort(item.ts)}</span>
+          <span className="happening-row-time">{relativeTimeShort(item.ts)}</span>
         </span>
         <span className="happening-row-title">{item.title}</span>
         {item.sub && <span className="happening-row-sub">{item.sub}</span>}
@@ -274,20 +275,4 @@ function FeedRow({
       </Link>
     </li>
   );
-}
-
-function relTimeShort(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 0) return "scheduled";
-  const days = Math.floor(ms / 86_400_000);
-  if (days >= 30) {
-    const months = Math.floor(days / 30);
-    return `${months}mo ago`;
-  }
-  if (days > 0) return `${days}d ago`;
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours > 0) return `${hours}h ago`;
-  const mins = Math.floor(ms / 60_000);
-  if (mins > 0) return `${mins}m ago`;
-  return "just now";
 }

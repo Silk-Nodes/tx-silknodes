@@ -81,7 +81,7 @@ export default function PseCohortSection() {
   const loading = !data && !errored;
 
   return (
-    <section className="pse-cohort">
+    <section className="pse-cohort" aria-busy={loading} aria-live="polite">
       <div className="pse-cohort-head">
         <div>
           <h2 className="pse-cohort-title">What recipients do with PSE</h2>
@@ -92,13 +92,16 @@ export default function PseCohortSection() {
           </p>
         </div>
         {cohortSizes.length > 0 && (
-          <div className="pse-cohort-toggle" role="tablist" aria-label="Cohort size">
+          // Group of toggle buttons (aria-pressed), not a tablist: these
+          // filter the same chart, they don't switch panels. aria-pressed
+          // is the honest contract and needs no roving-tabindex/arrow-key
+          // handling that a real tablist would require.
+          <div className="pse-cohort-toggle" role="group" aria-label="Cohort size">
             {cohortSizes.map((n) => (
               <button
                 key={n}
                 type="button"
-                role="tab"
-                aria-selected={n === activeCohort}
+                aria-pressed={n === activeCohort}
                 className={`pse-cohort-toggle-btn ${n === activeCohort ? "active" : ""}`}
                 onClick={() => setCohort(n)}
               >
@@ -183,13 +186,23 @@ export default function PseCohortSection() {
 // We split unbonded into "left wallet" and "held liquid" so the bar
 // distinguishes intent (unbonded) from action (actually sold/moved).
 function CohortBar({ point }: { point: CohortPoint }) {
-  const kept = point.keptStakedPct;
-  const left = point.leftWalletPct;
+  // Clamp every input to [0,100] and normalize the stacked segments so
+  // inconsistent API data (e.g. parts summing >100 from rounding or a
+  // collector bug) can never make a segment overflow the bar.
+  const clamp = (v: number) => Math.max(0, Math.min(100, v || 0));
+  const kept = clamp(point.keptStakedPct);
+  const left = clamp(point.leftWalletPct);
   // Unbonded but not yet out of the wallet = held liquid (undecided).
-  const heldLiquid = Math.max(0, point.unbondedPct - point.leftWalletPct);
+  const heldLiquid = clamp(point.unbondedPct - point.leftWalletPct);
+  const sum = kept + heldLiquid + left;
+  // If the three segments already exceed 100, scale them down to fit
+  // (preserving ratios) rather than overflowing the bar.
+  const scale = sum > 100 ? 100 / sum : 1;
+  const keptH = kept * scale;
+  const leftH = left * scale;
+  const liquidH = heldLiquid * scale;
   // Anything unaccounted (rounding, partials) pads the bar to 100.
-  const accounted = kept + heldLiquid + left;
-  const other = Math.max(0, 100 - accounted);
+  const other = Math.max(0, 100 - (keptH + leftH + liquidH));
 
   return (
     <div className="pse-cohort-bar-col">
@@ -200,13 +213,13 @@ function CohortBar({ point }: { point: CohortPoint }) {
         {other > 0 && (
           <span className="pse-cohort-seg seg-other" style={{ height: `${other}%` }} />
         )}
-        {left > 0 && (
-          <span className="pse-cohort-seg seg-left" style={{ height: `${left}%` }} />
+        {leftH > 0 && (
+          <span className="pse-cohort-seg seg-left" style={{ height: `${leftH}%` }} />
         )}
-        {heldLiquid > 0 && (
-          <span className="pse-cohort-seg seg-liquid" style={{ height: `${heldLiquid}%` }} />
+        {liquidH > 0 && (
+          <span className="pse-cohort-seg seg-liquid" style={{ height: `${liquidH}%` }} />
         )}
-        <span className="pse-cohort-seg seg-kept" style={{ height: `${kept}%` }} />
+        <span className="pse-cohort-seg seg-kept" style={{ height: `${keptH}%` }} />
       </div>
       <div className="pse-cohort-bar-keptval">{kept.toFixed(0)}%</div>
       <div className="pse-cohort-bar-label">

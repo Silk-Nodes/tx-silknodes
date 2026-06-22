@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { relativeTimeShort } from "@/lib/ui-format";
+import { sanitizeHtmlClient } from "@/lib/sanitize-html-client";
 
 type FeedSource =
   | "chain"
@@ -40,6 +44,9 @@ export type PanelItem = {
 export default function FeedItemPanel({
   item, onClose,
 }: { item: PanelItem | null; onClose: () => void }) {
+  // Move + trap + restore focus while the drawer is open.
+  const panelRef = useFocusTrap<HTMLElement>(!!item);
+
   // Lock body scroll + handle Escape.
   useEffect(() => {
     if (!item) return;
@@ -53,17 +60,28 @@ export default function FeedItemPanel({
     };
   }, [item, onClose]);
 
+  // Sanitize Medium HTML on the client as defense-in-depth (the server
+  // already sanitizes). Memoized so it doesn't re-run every render.
+  const safeHtml = useMemo(
+    () => (item?.bodyHtml ? sanitizeHtmlClient(item.bodyHtml) : ""),
+    [item?.bodyHtml],
+  );
+
   if (!item) return null;
+  if (typeof document === "undefined") return null;
 
   const isExternal = item.url ? /^https?:\/\//.test(item.url) : false;
   const sourceLabel = sourceLabelFor(item.source);
 
-  return (
+  return createPortal(
     <div className="fi-panel-overlay" onClick={onClose} role="presentation">
       <aside
+        ref={panelRef}
         className="fi-panel"
         role="dialog"
+        aria-modal="true"
         aria-label={`${sourceLabel}: ${item.title}`}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
@@ -72,7 +90,7 @@ export default function FeedItemPanel({
             <span className={`fi-panel-source source-${item.source}`}>
               {sourceLabel}
             </span>
-            <span className="fi-panel-time">{relTime(item.ts)}</span>
+            <span className="fi-panel-time">{relativeTimeShort(item.ts)}</span>
           </div>
           <button
             type="button"
@@ -92,12 +110,12 @@ export default function FeedItemPanel({
 
         {/* ── Body ──
             HTML body (Medium) wins over plain text (tweets, chain events).
-            HTML was already allowlist-sanitized server-side in the
-            /api/today/feed route so dangerouslySetInnerHTML is safe here. */}
-        {item.bodyHtml ? (
+            HTML is allowlist-sanitized server-side AND again on the client
+            (sanitizeHtmlClient) before this dangerouslySetInnerHTML sink. */}
+        {safeHtml ? (
           <article
             className="fi-panel-body fi-panel-body-html"
-            dangerouslySetInnerHTML={{ __html: item.bodyHtml }}
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
         ) : item.body ? (
           <div className="fi-panel-body">
@@ -149,7 +167,8 @@ export default function FeedItemPanel({
           </button>
         </footer>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -170,16 +189,4 @@ function openLabelFor(s: FeedSource): string {
     case "governance": return "Open proposal";
     case "chain": return "View detail";
   }
-}
-function relTime(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 0) return "scheduled";
-  const days = Math.floor(ms / 86_400_000);
-  if (days >= 30) return `${Math.floor(days / 30)}mo ago`;
-  if (days > 0) return `${days}d ago`;
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours > 0) return `${hours}h ago`;
-  const mins = Math.floor(ms / 60_000);
-  if (mins > 0) return `${mins}m ago`;
-  return "just now";
 }

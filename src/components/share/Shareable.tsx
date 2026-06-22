@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toPng, toBlob } from "html-to-image";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 // Shareable: wraps any chart/card so it can be exported as a branded PNG.
 //
@@ -90,11 +91,16 @@ function ShareModal({
   onClose: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Lock scroll + Escape to close.
+  // Move + trap + restore focus while the modal is open.
+  const dialogRef = useFocusTrap<HTMLDivElement>(true);
+
+  // Lock scroll + Escape to close. Also clears the "Copied" reset timer
+  // on unmount so it can't fire on an unmounted component.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -103,6 +109,7 @@ function ShareModal({
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
     };
   }, [onClose]);
 
@@ -198,7 +205,8 @@ function ShareModal({
         new ClipboardItem({ "image/png": blobPromise }),
       ]);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       // NotAllowedError / missing ClipboardItem → browser support issue.
@@ -221,9 +229,13 @@ function ShareModal({
   return createPortal(
     <div className="share-overlay" data-theme="dark" onClick={onClose} role="presentation">
       <div
+        ref={dialogRef}
         className="share-dialog"
         role="dialog"
+        aria-modal="true"
         aria-label={`Share ${title}`}
+        aria-busy={busy}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="share-dialog-head">
@@ -265,7 +277,9 @@ function ShareModal({
         </div>
 
         <footer className="share-dialog-actions">
-          {error && <span className="share-dialog-error">{error}</span>}
+          <span className="share-dialog-status" role="status" aria-live="polite">
+            {error ? <span className="share-dialog-error">{error}</span> : copied ? "Copied to clipboard" : ""}
+          </span>
           <button type="button" className="share-btn-secondary" onClick={handleCopy} disabled={busy}>
             {copied ? "Copied" : "Copy"}
           </button>
