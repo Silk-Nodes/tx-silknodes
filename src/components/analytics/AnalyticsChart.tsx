@@ -12,6 +12,7 @@ import {
   ReferenceDot,
 } from "recharts";
 import type { DataPoint, TimeRange } from "@/lib/analytics-utils";
+import Shareable from "@/components/share/Shareable";
 import {
   formatLargeNumber,
   formatPct,
@@ -138,6 +139,7 @@ export default function AnalyticsChart({
   ) : null;
 
   return (
+    <Shareable title={title} framed={false}>
     <div className={`chart-card-v2 chart-card-${size}`}>
       <div className="chart-card-v2-header">
         <span className="chart-card-v2-title">
@@ -246,5 +248,6 @@ export default function AnalyticsChart({
         </ResponsiveContainer>
       </div>
     </div>
+    </Shareable>
   );
 }

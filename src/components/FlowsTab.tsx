@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { formatLargeNumber } from "@/lib/analytics-utils";
 import AddressFlowPanel from "./AddressFlowPanel";
+import Shareable from "@/components/share/Shareable";
 
 // ─── Types mirror the API response shapes ─────────────────────────────
 
@@ -586,6 +587,7 @@ function FlowsChart({
   const xTickFill = isDark ? "rgba(244,241,235,0.55)" : "rgba(59,45,38,0.65)";
 
   return (
+    <Shareable title="Exchange Daily Flow" framed={false}>
     <div className="flows-chart-card">
       <div className="flows-chart-header">
         <span className="flows-chart-title">Daily Flow {hasPrice ? "+ Price" : ""}</span>
@@ -698,6 +700,7 @@ function FlowsChart({
         </ResponsiveContainer>
       </div>
     </div>
+    </Shareable>
   );
 }
 
@@ -1157,6 +1160,7 @@ function FlowsSummary({
   );
 
   return (
+    <Shareable title="Flows Quick Read" framed={false}>
     <div className="flows-summary">
       <div className="flows-summary-header">
         <span className="flows-chart-title">Quick Read</span>
@@ -1173,6 +1177,7 @@ function FlowsSummary({
         Observational summary generated from on chain data. Not financial advice.
       </div>
     </div>
+    </Shareable>
   );
 }
 
@@ -1219,6 +1224,7 @@ const DESTINATION_META: Record<
 
 function DestinationsSection({ data }: { data: DestinationsResponse }) {
   return (
+    <Shareable title="Where Withdrawals Go" framed={false}>
     <div className="flows-destinations">
       <div className="flows-destinations-header">
         <span className="flows-chart-title">Where Withdrawals Go</span>
@@ -1242,6 +1248,7 @@ function DestinationsSection({ data }: { data: DestinationsResponse }) {
         })}
       </div>
     </div>
+    </Shareable>
   );
 }
 
@@ -1295,6 +1302,7 @@ function CounterpartyList({
 }) {
   const directionClass = direction === "inflow" ? "flow-card-net-in" : "flow-card-net-out";
   return (
+    <Shareable title={title} framed={false}>
     <div className="flows-counterparty-card">
       <div className="flows-counterparty-header">
         <span className="flows-chart-title">{title}</span>
@@ -1338,6 +1346,7 @@ function CounterpartyList({
         </ol>
       )}
     </div>
+    </Shareable>
   );
 }
 

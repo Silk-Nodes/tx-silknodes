@@ -15,6 +15,7 @@ import {
   type StakingEventType,
 } from "@/lib/staking-events";
 import { formatLargeNumber, type TimeRange } from "@/lib/analytics-utils";
+import Shareable from "@/components/share/Shareable";
 import StakingFeedRow from "./StakingFeedRow";
 import StakingFeedPanel from "./StakingFeedPanel";
 import WhaleTracker from "./WhaleTracker";
@@ -292,6 +293,7 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
               })}
             </div>
 
+            <Shareable title="Staking Activity" cameraOffset={{ top: 6, right: 6 }}>
             <div
               className="staking-feed-container"
               data-active-types={activeTypesKey || "(none)"}
@@ -350,6 +352,7 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
                 ))
               )}
             </div>
+            </Shareable>
 
             <div className="staking-feed-footer">
               Showing {filteredEvents.length} of {events.length} events ({feedWindowLabel(globalRange)}, 5,000+ TX)

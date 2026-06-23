@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import type { DataPoint } from "@/lib/analytics-utils";
 import { formatLargeNumber, formatTooltipDate } from "@/lib/analytics-utils";
+import Shareable from "@/components/share/Shareable";
 
 interface SpikePoint extends DataPoint {
   walletCount?: number;
@@ -57,6 +58,7 @@ export default function SpikeChart({ title, subtitle, data, total }: SpikeChartP
   const maxVal = Math.max(...data.map((d) => d.value), 0);
 
   return (
+    <Shareable title={title} framed={false}>
     <div className="chart-card-v2 chart-card-small">
       <div className="chart-card-v2-header">
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -118,5 +120,6 @@ export default function SpikeChart({ title, subtitle, data, total }: SpikeChartP
         </ResponsiveContainer>
       </div>
     </div>
+    </Shareable>
   );
 }

@@ -67,7 +67,7 @@ export default function WhoVotedCompact({ validators, totalBonded, highlightAddr
         </div>
       </div>
 
-      {/* Didn't vote — visually demoted */}
+      {/* Didn't vote - visually demoted */}
       {nonVoters.length > 0 && (
         <div className="wvc-section wvc-nonvoters-section">
           <div className="wvc-section-label wvc-section-label-muted">

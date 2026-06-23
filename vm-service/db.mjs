@@ -19,8 +19,44 @@
 // explicitly so we can tune limits and surface errors.
 
 import pg from "pg";
+import { readFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 
 const { Pool } = pg;
+
+// Convenience for manual runs: if the PG vars aren't already in the
+// environment, load them from ~/.silknodes-db.env ourselves. This makes
+// `node vm-service/collect-news.mjs` work even when the operator forgot
+// `set -a` before sourcing (the env file uses bare KEY=value lines with
+// no `export`, so a plain `source` sets shell vars but doesn't export
+// them to the node child, the exact failure mode that bit us). Under
+// systemd the vars are already present via EnvironmentFile, so this is
+// a no-op there. We parse KEY=value lines, tolerating optional `export`
+// and surrounding quotes; we never overwrite vars already set.
+function autoloadDbEnv() {
+  if (process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE) return;
+  const path = process.env.SILKNODES_DB_ENV || join(homedir(), ".silknodes-db.env");
+  let text;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    return; // file absent: fall through to the loud validation error below
+  }
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const m = line.replace(/^export\s+/, "").match(/^([A-Z_][A-Z0-9_]*)=(.*)$/i);
+    if (!m) continue;
+    const key = m[1];
+    let val = m[2].trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+}
+autoloadDbEnv();
 
 // One pool per process. The collector is a long-running daemon, so we
 // initialise lazily on first query and reuse forever. Pool size is

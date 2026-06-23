@@ -69,10 +69,10 @@ export function computeInsights(
     const pct = Math.round(top10Share * 100);
     bullets.push({
       text: pct >= 80
-        ? `Top 10 validators controlled ${pct}% of the votes — highly concentrated.`
+        ? `Top 10 validators controlled ${pct}% of the votes - highly concentrated.`
         : pct >= 60
         ? `Top 10 validators controlled ${pct}% of the votes.`
-        : `Top 10 validators only held ${pct}% — broadly distributed.`,
+        : `Top 10 validators only held ${pct}% - broadly distributed.`,
       tone: pct >= 80 ? "warn" : pct >= 60 ? "neutral" : "ok",
     });
   }
@@ -94,9 +94,9 @@ export function computeInsights(
     const totalBuckets = velocity.length;
     const hitFraction = quorumHitBucket / totalBuckets;
     if (hitFraction <= 0.33) {
-      bullets.push({ text: "Quorum was reached early — the vote settled fast.", tone: "ok" });
+      bullets.push({ text: "Quorum was reached early - the vote settled fast.", tone: "ok" });
     } else if (hitFraction >= 0.85) {
-      bullets.push({ text: "Quorum only landed near the deadline — a close call.", tone: "warn" });
+      bullets.push({ text: "Quorum only landed near the deadline - a close call.", tone: "warn" });
     } else if (lateShare > 0.3) {
       bullets.push({ text: "A burst of late voting decided the outcome.", tone: "neutral" });
     } else {

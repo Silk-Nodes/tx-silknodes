@@ -4,6 +4,7 @@
 const BASE_PATH = "";
 
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
+import Link from "next/link";
 
 // ─── Analytics helper ───
 declare global { interface Window { gtag?: (...args: any[]) => void; } }
@@ -38,6 +39,8 @@ import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
+import TodayTab from "@/components/TodayTab";
+import PseCohortSection from "@/components/pse/PseCohortSection";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
 import { usePathname, useRouter } from "next/navigation";
 import SupplyChart from "@/components/SupplyChart";
@@ -65,21 +68,51 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance";
+type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance";
 
-const TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "analytics", label: "Analytics" },
-  { id: "flows", label: "Flows" },
-  { id: "portfolio", label: "Portfolio", walletOnly: true },
+// Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
+// Daily-relevance ordering: Today first, your-data and chain-wide signals next.
+const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
+  { id: "today", label: "Today" },
   { id: "pse", label: "PSE" },
   { id: "governance", label: "Governance" },
-  { id: "calculator", label: "Calculator" },
-  { id: "rwa", label: "RWA" },
-  { id: "validators", label: "Validators" },
-  { id: "silknodes", label: "Silk Nodes" },
-  { id: "feedback", label: "Feedback" },
+  { id: "analytics", label: "Analytics" },
+  { id: "flows", label: "Flows" },
 ];
+
+// Tools dropdown: the long tail. Each entry maps to a tab id the rest of
+// the app already knows how to render. Validators is first because it's
+// the most-used Tools item (delegators picking who to stake with).
+const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: boolean }[] = [
+  { id: "validators", label: "Validators", description: "Browse, compare, delegate" },
+  { id: "calculator", label: "Calculator", description: "Estimate staking rewards" },
+  { id: "portfolio", label: "Portfolio", description: "Your delegations", walletOnly: true },
+  { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on Coreum" },
+  { id: "silknodes", label: "Silk Nodes", description: "About the validator" },
+  { id: "feedback", label: "Feedback", description: "Share ideas with us" },
+];
+
+// Legacy aggregate for code paths that need the full union (e.g. valid-tab
+// filtering when reading the URL ?tab= query). Order matches the original
+// TABS array for backward compatibility.
+const TABS = [...PRIMARY_TABS, ...TOOLS_TABS] as { id: TabId; label: string; walletOnly?: boolean }[];
+
+// Map URL pathnames to tab ids so each top-level page has its own URL.
+// /today maps to today; / also resolves to today as the default front door.
+const PATHNAME_TO_TAB: Record<string, TabId> = {
+  "/": "today",
+  "/today": "today",
+  "/pse": "pse",
+  "/governance": "governance",
+  "/analytics": "analytics",
+  "/flows": "flows",
+  "/validators": "validators",
+  "/calculator": "calculator",
+  "/rwa": "rwa",
+  "/silknodes": "silknodes",
+  "/portfolio": "portfolio",
+  "/feedback": "feedback",
+};
 
 export default function HomePage() {
   const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
@@ -89,7 +122,7 @@ export default function HomePage() {
     loading: walletLoading, error: walletError, clearError,
     txPending, txResult, clearTxResult, availableWallets,
   } = useWallet();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [activeTab, setActiveTab] = useState<TabId>("today");
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [cookieConsent, setCookieConsent] = useState<"accepted" | "declined" | null>(null);
 
@@ -115,13 +148,23 @@ export default function HomePage() {
     }
   }, [proposalIdFromUrl, activeTab]);
 
-  // Read ?tab= query param on every pathname change so that links like
-  // /?tab=governance respect the requested tab. Without this, navigating
-  // back from /governance/44 to /?tab=governance would dump the user on
-  // the Overview tab (the default initial state).
+  // Resolve active tab from the URL. Each top-level tab has its own
+  // pathname (/pse, /governance, /analytics, etc.) so users can bookmark,
+  // share, and use the browser back button naturally. For backward
+  // compatibility with older shared links, we still respect ?tab= as a
+  // fallback when the pathname is just "/".
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (proposalIdFromUrl !== null) return; // proposal detail owns the tab
+
+    // First try matching the exact pathname.
+    if (pathname && pathname in PATHNAME_TO_TAB) {
+      const next = PATHNAME_TO_TAB[pathname];
+      if (next !== activeTab) setActiveTab(next);
+      return;
+    }
+
+    // Fall back to ?tab= query for /?tab=foo style links.
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("tab") as TabId | null;
     if (requested && TABS.some((t) => t.id === requested) && requested !== activeTab) {
@@ -346,15 +389,24 @@ export default function HomePage() {
         </div>
 
         <div className="nav-tabs">
-          {TABS.filter((tab) => !tab.walletOnly || wallet.connected).map((tab) => (
-            <button
-              key={tab.id}
-              className={`nav-tab ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => { setActiveTab(tab.id); trackEvent("tab_switch", { tab_name: tab.id }); }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {PRIMARY_TABS.filter((tab) => !tab.walletOnly || wallet.connected).map((tab) => {
+            const href = (Object.entries(PATHNAME_TO_TAB).find(([, id]) => id === tab.id)?.[0]) || "/";
+            return (
+              <Link
+                key={tab.id}
+                href={href}
+                className={`nav-tab ${activeTab === tab.id ? "active" : ""}`}
+                onClick={() => trackEvent("tab_switch", { tab_name: tab.id })}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+          <ToolsDropdown
+            tools={TOOLS_TABS.filter((t) => !t.walletOnly || wallet.connected)}
+            activeTab={activeTab}
+            pathnameMap={PATHNAME_TO_TAB}
+          />
         </div>
 
         <div className="nav-right">
@@ -582,6 +634,20 @@ export default function HomePage() {
       <div className="tab-content">
         {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "flows" && <FlowsTab />}
+        {activeTab === "today" && (
+          <TodayTab
+            tokenData={tokenData}
+            stakingData={stakingData}
+            networkStatus={networkStatus}
+            validators={validators}
+            wallet={wallet}
+            onConnectWallet={() => setShowWalletModal(true)}
+            setActiveTab={(t) => setActiveTab(t as TabId)}
+          />
+        )}
+        {/* Legacy Overview tab kept renderable for users who land on a
+            stale /?tab=overview link. Same component, same data. New
+            users default to /today (the TodayTab above). */}
         {activeTab === "overview" && (
           <OverviewTab
             price={price}
@@ -1336,6 +1402,23 @@ function PSETab({
     }
   }, [wallet.connected, wallet.address]);
 
+  // Auto-fill + auto-fetch from ?address= URL query param. Lets the
+  // Today page "Check any address" card deep-link straight into a PSE
+  // lookup without requiring the user to re-paste or click Fetch.
+  // We stash the address in a ref and let the effect below fire the
+  // network request once fetchPSEScore is in scope (it's defined with
+  // useCallback later in the component body).
+  const autoFetchRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get("address");
+    if (fromQuery && fromQuery.startsWith("core1") && fromQuery.length >= 39) {
+      setPseAddress(fromQuery);
+      autoFetchRef.current = fromQuery;
+    }
+  }, []);
+
   // PSE params: excluded addresses from on-chain (passed from parent), clearing balances from on-chain
   const [pseParams, setPseParams] = useState<{ excludedAddresses: string[]; communityBalance: number }>({
     excludedAddresses: onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES,
@@ -1414,6 +1497,19 @@ function PSETab({
       setPseLookup({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: err.message || "Failed to fetch", height: null });
     }
   }, [pseAddress, bondedTokens, pseParams, networkTotalScore, excludedPSEStake, lastDistribution]);
+
+  // Fire the auto-fetch queued by the ?address= query param handler
+  // above. Lives here (after fetchPSEScore) because the callback is
+  // defined with useCallback and is only in scope from this point on.
+  // Pops the ref so we don't refetch on every fetchPSEScore identity
+  // change (which happens whenever its deps update).
+  useEffect(() => {
+    if (autoFetchRef.current) {
+      const addr = autoFetchRef.current;
+      autoFetchRef.current = null;
+      fetchPSEScore(addr);
+    }
+  }, [fetchPSEScore]);
 
   // Auto-fetch when wallet connects
   useEffect(() => {
@@ -1842,6 +1938,10 @@ function PSETab({
           PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
+
+      {/* Backward-looking counterpart to the calculator: what recipients
+          actually did with past distributions (kept staked vs sold). */}
+      <PseCohortSection />
 
       <ExcludedAddressesPanel addresses={onChainExcluded?.length > 0 ? onChainExcluded : PSE_EXCLUDED_ADDRESSES} />
     </>
@@ -4670,6 +4770,93 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
         </button>
       </div>
 
+    </div>
+  );
+}
+
+// Tools dropdown, opens on hover for a snappy desktop feel, also opens
+// on click for touch/keyboard. Real <Link> children so cmd-click opens in
+// a new tab. A small close-delay prevents flicker when the cursor
+// briefly leaves the trigger on its way to a menu item.
+function ToolsDropdown({
+  tools, activeTab, pathnameMap,
+}: {
+  tools: { id: TabId; label: string; description: string }[];
+  activeTab: TabId;
+  pathnameMap: Record<string, TabId>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const scheduleClose = (delay = 140) => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), delay);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
+  useEffect(() => () => cancelClose(), []);
+
+  const isActiveTool = tools.some((t) => t.id === activeTab);
+  return (
+    <div
+      className="nav-tools"
+      ref={ref}
+      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseLeave={() => scheduleClose()}
+    >
+      <button
+        type="button"
+        className={`nav-tab nav-tools-trigger ${isActiveTool || open ? "active" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        Tools <span className="nav-tools-chev">▾</span>
+      </button>
+      {open && (
+        <div
+          className="nav-tools-menu"
+          role="menu"
+          onMouseEnter={cancelClose}
+          onMouseLeave={() => scheduleClose()}
+        >
+          {tools.map((t) => {
+            const href = (Object.entries(pathnameMap).find(([, id]) => id === t.id)?.[0]) || "/";
+            return (
+              <Link
+                key={t.id}
+                href={href}
+                role="menuitem"
+                className={`nav-tools-item ${activeTab === t.id ? "active" : ""}`}
+                onClick={() => setOpen(false)}
+              >
+                <span className="nav-tools-item-label">{t.label}</span>
+                <span className="nav-tools-item-desc">{t.description}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

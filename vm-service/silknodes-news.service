@@ -1,0 +1,28 @@
+[Unit]
+Description=Silk Nodes News Collector (Twitter, Medium, tx.org press)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=/usr/bin/node __REPO_PATH__/vm-service/collect-news.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-news
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+# Loads PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE. The collector also
+# accepts these optional vars to override defaults:
+#   POLL_INTERVAL_MS   default 30 min
+#   TWITTER_HANDLE     default 'txEcosystem'
+#   MEDIUM_HANDLE      default '@txEcosystem'
+#   TX_PRESS_URL       default 'https://tx.org/press-and-media'
+EnvironmentFile=-/home/%i/.silknodes-db.env
+
+[Install]
+WantedBy=multi-user.target
