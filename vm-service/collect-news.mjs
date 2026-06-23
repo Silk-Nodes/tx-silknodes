@@ -18,7 +18,7 @@
  *             cheerio dep. Fragile by nature; if the markup changes the
  *             collector logs a warning and keeps running.
  *
- * Dedupe: (source, external_id) UNIQUE. Idempotent — re-running on the
+ * Dedupe: (source, external_id) UNIQUE. Idempotent - re-running on the
  * same data inserts nothing.
  *
  * Retention: 90 days, pruned on each tick.
@@ -88,7 +88,7 @@ async function fetchText(url, attempt = 1) {
     }
     return await res.text();
   } catch (err) {
-    // Retry on transient network errors only — not on HTTP errors above,
+    // Retry on transient network errors only - not on HTTP errors above,
     // which we already short-circuited.
     if (attempt >= 3 || /HTTP \d/.test(err.message)) throw err;
     await new Promise((r) => setTimeout(r, 1000 * attempt));
@@ -152,7 +152,7 @@ async function pullTwitter() {
           : "Media";
       text = `${label} from @${TWITTER_HANDLE}`;
     }
-    // Retweets — display the original author's name + text without the
+    // Retweets - display the original author's name + text without the
     // "RT @x: " prefix. The legacy payload preserves the retweeted_status
     // object when expanded; if not present we keep the RT-prefixed text.
     const rt = t?.retweeted_status_result?.result || t?.retweeted_status;
@@ -273,7 +273,7 @@ async function pullTxPress() {
   while ((m = titleRe.exec(html)) !== null) {
     const rawTitle = decodeHtmlEntities(m[1]).trim();
     if (!rawTitle) continue;
-    // First title on the page is the "Press & media" page header — skip.
+    // First title on the page is the "Press & media" page header - skip.
     if (/^press\s*&?\s*media$/i.test(rawTitle)) continue;
     if (seen.has(rawTitle.toLowerCase())) continue;
     seen.add(rawTitle.toLowerCase());
@@ -302,7 +302,7 @@ async function pullTxPress() {
   if (items.length === 0) {
     log(
       "warn",
-      `tx.org press scrape returned 0 items — selector may need updating`,
+      `tx.org press scrape returned 0 items - selector may need updating`,
     );
   }
   return items;
@@ -385,7 +385,7 @@ function normalizeUrl(href, base) {
   }
 }
 function sha1Hex(s) {
-  // Deterministic, dep-free 32-bit hash. Not cryptographic — only used
+  // Deterministic, dep-free 32-bit hash. Not cryptographic - only used
   // as a dedupe key for the scrape, where collision risk is negligible
   // at the volume of a press page.
   let h = 0x811c9dc5;
@@ -446,14 +446,14 @@ async function tick() {
   const ms = Date.now() - tickStart;
   log(
     "info",
-    `tick done in ${ms}ms — twitter+${twInserted} medium+${mdInserted} press+${prInserted} pruned-${pruned}`,
+    `tick done in ${ms}ms - twitter+${twInserted} medium+${mdInserted} press+${prInserted} pruned-${pruned}`,
   );
 }
 
 async function main() {
   log("info", `starting news collector (poll ${POLL_INTERVAL_MS / 60_000}m)`);
   // Initial tick, then steady cadence. setInterval is fine since we
-  // don't await inside it — overlap is unlikely at 30 min cadence.
+  // don't await inside it - overlap is unlikely at 30 min cadence.
   await tick();
   setInterval(() => {
     tick().catch((err) => log("error", `tick failed: ${err.message}`));

@@ -25,13 +25,13 @@
  *
  * Future types (stubbed, easy to fill):
  *   validator_joined / validator_left / commission_changed / jailed.
- *   These need a `validator_snapshots` table that doesn't exist yet —
+ *   These need a `validator_snapshots` table that doesn't exist yet -
  *   left for the next round.
  *
  * Required env vars: same as the other collectors. Optional:
  *   POLL_INTERVAL_MS    default 5 min
  *   WHALE_LOOKBACK_HOURS default 24 (window of new events to scan per
- *                       tick — anything older is assumed already derived)
+ *                       tick - anything older is assumed already derived)
  *   WHALE_MIN_TX        default 100_000 (absolute floor below which an
  *                       event never counts as a whale, regardless of
  *                       percentile)
@@ -45,7 +45,7 @@ const WHALE_LOOKBACK_HOURS = Number(process.env.WHALE_LOOKBACK_HOURS) || 24;
 const WHALE_MIN_TX = Number(process.env.WHALE_MIN_TX) || 100_000;
 // PSE schedule lives in the frontend config. We hardcode the same
 // timestamps here so the deriver doesn't depend on a Node import of TS
-// code. If the schedule changes, update both places — see
+// code. If the schedule changes, update both places - see
 // src/hooks/useNextPSECycle.ts. The list is short, append-only.
 const PSE_SCHEDULE_TS = [
   // Cycle 1: 2025-03-15 14:00 UTC (genesis distribution)
@@ -125,7 +125,7 @@ async function deriveWhaleEvents(threshold) {
 // from on-chain proposals 36/40 metadata. For now this deriver only
 // re-emits cycles where we already have staking_events present.
 //
-// dedupe_key = "pse_distributed:<unix_seconds>" — one row per cycle.
+// dedupe_key = "pse_distributed:<unix_seconds>" - one row per cycle.
 async function derivePseDistributions() {
   // Find candidate distribution windows by looking for unusually large
   // 10-min delegate-volume clusters in the last 18 months. Self-defined
@@ -190,7 +190,7 @@ async function tick() {
   const ms = Date.now() - tickStart;
   log(
     "info",
-    `tick done in ${ms}ms — whale+${whaleN} pse+${pseN} (threshold=${Math.round(threshold)} TX)`,
+    `tick done in ${ms}ms - whale+${whaleN} pse+${pseN} (threshold=${Math.round(threshold)} TX)`,
   );
 }
 
@@ -199,7 +199,7 @@ async function main() {
     "info",
     `starting chain-event deriver (poll ${POLL_INTERVAL_MS / 60_000}m, whale lookback ${WHALE_LOOKBACK_HOURS}h)`,
   );
-  // Initial tick — useful for catching up after a restart. PSE deriver
+  // Initial tick - useful for catching up after a restart. PSE deriver
   // is idempotent and scans 18 months so a fresh deploy backfills.
   await tick();
   setInterval(() => {
