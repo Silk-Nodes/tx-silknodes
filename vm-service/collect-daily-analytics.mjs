@@ -546,9 +546,18 @@ async function main() {
   const results = {};
 
   // ─── 1. Backfill per-day tx count + active addresses for all missing days ───
-  // transactions.json is the master file for these two metrics. Both files
-  // stay in lockstep so reading either one tells us what to backfill.
-  const missingDays = await findMissingDays("transactions.json");
+  // Union of the two metrics' missing days. They USUALLY stay in lockstep
+  // (computed in the same per-day loop below), but a kill mid-run breaks
+  // that: tx count is written first, then the address scan runs for
+  // minutes — a timeout or restart in between leaves transactions
+  // current and active_addresses NULL for that day. Keying only off
+  // transactions would then skip the day forever (real incident:
+  // 2026-06-09, a 798-page scan killed by TimeoutStartSec=45min).
+  // appendDataPoint upserts a single column, so re-running a day that
+  // has one metric already written is harmless.
+  const missingTx = await findMissingDays("transactions.json");
+  const missingAddrs = await findMissingDays("active-addresses.json");
+  const missingDays = [...new Set([...missingTx, ...missingAddrs])].sort();
   if (missingDays.length === 0) {
     log("info", "No missing days for transactions + active addresses");
   } else {
