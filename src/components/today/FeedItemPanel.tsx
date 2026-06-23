@@ -74,6 +74,19 @@ export default function FeedItemPanel({
   const isExternal = item.url ? /^https?:\/\//.test(item.url) : false;
   const sourceLabel = sourceLabelFor(item.source);
 
+  // For tweets the title is just the tweet text truncated to ~220 chars,
+  // while the body is the full tweet text, so the panel was showing the
+  // same content twice. When the plain-text body starts with the title
+  // (ellipsis stripped), the heading is redundant: hide it and let the
+  // body carry the post. The source chip + timestamp already head the
+  // panel. Medium keeps its heading (article title != article body).
+  const cleanTitle = item.title.replace(/[…\s]+$/u, "").trim();
+  const titleIsRedundant =
+    !item.bodyHtml &&
+    !!item.body &&
+    cleanTitle.length > 0 &&
+    item.body.trim().startsWith(cleanTitle.slice(0, 60));
+
   return createPortal(
     <div className="fi-panel-overlay" onClick={onClose} role="presentation">
       <aside
@@ -103,8 +116,8 @@ export default function FeedItemPanel({
           </button>
         </header>
 
-        {/* ── Title ── */}
-        <h2 className="fi-panel-title">{item.title}</h2>
+        {/* ── Title ── (hidden when it just duplicates the body, e.g. tweets) */}
+        {!titleIsRedundant && <h2 className="fi-panel-title">{item.title}</h2>}
 
         {/* ── Sub line (e.g. proposal subtitle) ── */}
         {item.sub && <div className="fi-panel-sub">{item.sub}</div>}
