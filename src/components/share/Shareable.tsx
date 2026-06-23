@@ -10,7 +10,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 // Pattern mirrors hl.eco's snapshot feature:
 //   1. A camera button overlays the wrapped content (top-right).
 //   2. Click opens a modal showing a purpose-built EXPORT CARD (fixed
-//      width, clean layout, tx.silknodes.io footer) — not the live
+//      width, clean layout, tx.silknodes.io footer) - not the live
 //      widget. This keeps the shared image consistent regardless of
 //      page theme/layout.
 //   3. Copy (PNG to clipboard) + Download PNG.
@@ -34,7 +34,7 @@ interface Props {
   exportWidth?: number;
   // framed=true (default): wrap children in a branded card with its own
   //   heading + footer. Use for raw content (no card chrome of its own).
-  // framed=false: children already bring their own card styling — render
+  // framed=false: children already bring their own card styling - render
   //   them as-is and append only a small tx.silknodes.io footer line.
   //   Use for the analytics chart cards (chart-card-v2 etc).
   framed?: boolean;
@@ -137,7 +137,7 @@ function ShareModal({
       // the SVG foreignObject. On a deep DOM the embedded font payload
       // pushes that string past V8's max length and toPng throws before
       // producing a blob. We already accept a system-font fallback in
-      // exports, so embedding fonts is pure cost — skipping it removes
+      // exports, so embedding fonts is pure cost - skipping it removes
       // the largest contributor and also makes capture much faster.
       skipFonts: true,
       width: Math.ceil(rect.width),
@@ -153,7 +153,7 @@ function ShareModal({
   // been inlined into its clone yet, producing a clipped or blank image
   // (this was the "image is not correct" bug). One warm-up pass primes
   // the clone cache; the second render is reliable. Kept to two passes
-  // (not three) so large cards — staking feed, top delegators — capture
+  // (not three) so large cards - staking feed, top delegators - capture
   // well within the timeout instead of stacking 3 slow renders.
   const rasterize = async (node: HTMLElement) => {
     const opts = buildOpts(node);
@@ -212,7 +212,7 @@ function ShareModal({
       // NotAllowedError / missing ClipboardItem → browser support issue.
       // Anything else is a render failure worth seeing.
       const isSupport = /NotAllowed|ClipboardItem|not defined|clipboard/i.test(msg);
-      setError(isSupport ? "Copy not supported here — use Download." : `Copy failed: ${msg.slice(0, 70)}`);
+      setError(isSupport ? "Copy not supported here. Use Download instead." : `Copy failed: ${msg.slice(0, 70)}`);
       console.warn("[shareable] copy failed", e);
     } finally {
       setBusy(false);
@@ -221,7 +221,7 @@ function ShareModal({
 
   // Portal to <body>. CRITICAL: the modal is rendered inside the wrapped
   // card, and ancestors like .chart-card-v2 use backdrop-filter, which
-  // establishes a containing block for position:fixed — without the
+  // establishes a containing block for position:fixed - without the
   // portal the "fixed" overlay is positioned relative to the card (low
   // on the page, cut off) instead of the viewport, hiding the action
   // buttons. Portaling to body escapes any such ancestor.
@@ -317,7 +317,7 @@ function CameraIcon() {
   );
 }
 // Reject if a render takes longer than ms so the button never hangs
-// silently on a stuck font/image fetch — surfaces a visible error.
+// silently on a stuck font/image fetch - surfaces a visible error.
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     p,

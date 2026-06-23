@@ -2,15 +2,15 @@
 //
 // Powers the "What recipients do with PSE" section on the PSE page.
 // Returns the latest snapshot for every (cycle, cohort_top_n) pair from
-// pse_cohort_snapshots — the daily collector (silknodes-pse-cohort)
+// pse_cohort_snapshots - the daily collector (silknodes-pse-cohort)
 // writes these during each cycle's 7-day post-distribution window and
 // freezes the final one once window_complete flips true.
 //
 // The section reads "did recipients keep their PSE staked or sell it",
 // so we surface the three TX splits as percentages of what was received:
-//   keptStakedPct  — bonded the auto-staked reward and held it
-//   unbondedPct    — unbonded within the window (sell intent)
-//   leftWalletPct  — of the unbonded, how much actually left the wallet
+//   keptStakedPct  - bonded the auto-staked reward and held it
+//   unbondedPct    - unbonded within the window (sell intent)
+//   leftWalletPct  - of the unbonded, how much actually left the wallet
 //
 // leftWalletPct ≤ unbondedPct always (it's a subset). On this chain the
 // two track ~1:1 because nobody unbonds and then sits liquid.

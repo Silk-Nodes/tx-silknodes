@@ -171,7 +171,7 @@ export async function GET() {
       )
       .catch(() => [] as Array<{ avg: string }>),
     // Top validator by absolute net stake change in 24h. ABS sort so a
-    // big *outflow* qualifies as much as a big inflow — both are news.
+    // big *outflow* qualifies as much as a big inflow - both are news.
     sequelize
       .query<{ operator: string; moniker: string | null; net: string }>(
         `SELECT se.validator AS operator,

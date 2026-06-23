@@ -1,4 +1,4 @@
-// Client-side HTML sanitizer — defense-in-depth for the Medium article
+// Client-side HTML sanitizer - defense-in-depth for the Medium article
 // HTML rendered via dangerouslySetInnerHTML in FeedItemPanel. The server
 // (/api/today/feed) already runs an allowlist sanitizer; this is a second
 // independent pass on the client so a server-side regression can't become

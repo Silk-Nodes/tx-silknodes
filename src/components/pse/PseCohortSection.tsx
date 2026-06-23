@@ -27,7 +27,7 @@ type CohortResponse = {
 // cycle-over-cycle trend (kept staked vs unbonded) reads left to right.
 //
 // Cohort toggle (top 100 / 500 / 1000) because whales behave differently
-// from the broad set — that gap is itself a finding worth surfacing.
+// from the broad set - that gap is itself a finding worth surfacing.
 //
 // Renders nothing destructive if the DB is unreachable: shows an empty
 // state instead of erroring (the data only exists when the VM Postgres

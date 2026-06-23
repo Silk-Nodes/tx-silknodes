@@ -4,8 +4,8 @@
 // time-anchored streams into one feed:
 //
 //   chain_events   derived on-chain activity (whale_delegate, large_unbond,
-//                  pse_distributed) — populated by vm-service/derive-chain-events.mjs
-//   news_items     external sources (twitter, medium, tx_press) — populated
+//                  pse_distributed) - populated by vm-service/derive-chain-events.mjs
+//   news_items     external sources (twitter, medium, tx_press) - populated
 //                  by vm-service/collect-news.mjs
 //   governance     live + recently-decided proposals, loaded straight from
 //                  the existing governance source-of-truth so we don't have
@@ -67,7 +67,7 @@ type FeedItem = {
   body?: string;
   // Sanitized HTML for the side panel. Currently only set for Medium
   // posts (content:encoded from RSS). Null/absent for everything else
-  // — the panel falls back to body text in that case.
+  // - the panel falls back to body text in that case.
   bodyHtml?: string;
 };
 
@@ -92,7 +92,7 @@ type ChainRow = {
 };
 
 // Module-scoped cache. Survives hot reloads via the same globalThis
-// pattern as the Sequelize singleton — we don't need that here because
+// pattern as the Sequelize singleton - we don't need that here because
 // stale 60s on dev is fine.
 let cached: { at: number; body: { updatedAt: string; items: FeedItem[] } } | null = null;
 
@@ -103,7 +103,7 @@ export async function GET() {
     });
   }
 
-  // News + chain pulled in parallel — independent queries, both bounded
+  // News + chain pulled in parallel - independent queries, both bounded
   // by ORDER BY ts DESC LIMIT N so the DB never returns more than we'd
   // ever surface.
   const [news, chain] = await Promise.all([
@@ -200,7 +200,7 @@ function mapNews(n: NewsRow): FeedItem {
 function mapChain(c: ChainRow): FeedItem {
   const ts = new Date(c.ts).toISOString();
   // Each chain_event type renders into a one-line headline + an optional
-  // sub. Keep these terse — the UI shows them in a compact row.
+  // sub. Keep these terse - the UI shows them in a compact row.
   switch (c.type) {
     case "whale_delegate": {
       const amount = Number(c.payload?.amount_tx) || 0;

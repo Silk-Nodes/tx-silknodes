@@ -11922,7 +11922,7 @@ input[type="range"]::-moz-range-thumb {
 /* ─── SignalsGrid: 3x2 dashboard tiles ─────────────────────────────────
    Six data-backed tiles arranged 3 columns × 2 rows. Each tile has a
    unique mini-visualization so the eye reads them as six different
-   things, not six rows of the same thing. No emojis — visual identity
+   things, not six rows of the same thing. No emojis, visual identity
    comes from the per-tile viz and color tone. */
 .signals-grid-section {
   display: flex;
@@ -12502,7 +12502,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-accent);
   border-color: var(--text-accent);
 }
-/* Touch devices have no hover — keep the button always visible there. */
+/* Touch devices have no hover, so keep the button always visible. */
 @media (hover: none) {
   .shareable-camera { opacity: 0.6; }
 }
@@ -12525,7 +12525,7 @@ input[type="range"]::-moz-range-thumb {
   width: min(820px, 100%);
   max-height: 90vh;
   /* Flex column with a scrollable middle so the header and the action
-     buttons are ALWAYS visible — only the card preview scrolls. The
+     buttons are ALWAYS visible (only the card preview scrolls). The
      dialog itself never scrolls, so Copy/Download can't drift offscreen
      on a tall card (staking feed, top delegators). */
   display: flex;
@@ -12591,7 +12591,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 4px;
 }
 
-/* The export card — THIS node is rasterized. Solid background (no
+/* The export card (THIS node is rasterized). Solid background (no
    blur/transparency) so the PNG renders cleanly. */
 .share-card {
   flex: 0 0 auto;
@@ -12758,7 +12758,7 @@ input[type="range"]::-moz-range-thumb {
    strip its own border, shadow, glass blur, and translucent background
    so the export is ONE clean card, not a washed-out card-in-card. These
    cards are nested under .share-card-body (NOT a direct child of
-   .share-card-bare), so we use the descendant combinator — the earlier
+   .share-card-bare), so we use the descendant combinator. The earlier
    `>` selector silently never matched, which is why the wash persisted.
    backdrop-filter especially must go: html-to-image can't rasterize it
    and a translucent glass bg renders as flat gray. */

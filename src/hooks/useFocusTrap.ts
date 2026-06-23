@@ -46,7 +46,7 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
       if (e.key !== "Tab") return;
       const focusables = getFocusable();
       if (focusables.length === 0) {
-        // Nothing focusable inside — keep focus on the container.
+        // Nothing focusable inside - keep focus on the container.
         e.preventDefault();
         node.focus();
         return;

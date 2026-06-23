@@ -4774,7 +4774,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
   );
 }
 
-// Tools dropdown — opens on hover for a snappy desktop feel, also opens
+// Tools dropdown, opens on hover for a snappy desktop feel, also opens
 // on click for touch/keyboard. Real <Link> children so cmd-click opens in
 // a new tab. A small close-delay prevents flicker when the cursor
 // briefly leaves the trigger on its way to a menu item.

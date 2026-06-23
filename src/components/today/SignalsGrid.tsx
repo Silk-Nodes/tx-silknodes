@@ -38,11 +38,11 @@ type SignalsResponse = {
 // SignalsGrid: 3×2 grid of compact data tiles. Each tile has a unique
 // mini-visualization tailored to the underlying metric, so the eye
 // reads them as six different things rather than six rows of the same
-// thing. No emojis — visual differentiation comes from the per-tile
+// thing. No emojis - visual differentiation comes from the per-tile
 // viz, the label, and color tone.
 //
 // Every tile links to a deeper page (flows / analytics / validators)
-// — that's why these specific six were picked. Surfaces don't repeat
+// - that's why these specific six were picked. Surfaces don't repeat
 // data that lives elsewhere on the Today page (governance + PSE are
 // in the right rail; APR / Bonded / Price are in the hero stats).
 export default function SignalsGrid() {
@@ -424,7 +424,7 @@ function SkeletonTile({ label }: { label: string }) {
 function formatTx(n: number): string {
   return formatCompact(n, { k: 1, m: 2, b: 2 });
 }
-// Correct verb + preposition for all three staking event types — the
+// Correct verb + preposition for all three staking event types - the
 // earlier two-way branch mislabeled redelegate as "delegated".
 function moveVerb(type: "delegate" | "undelegate" | "redelegate"): string {
   if (type === "undelegate") return "unbonded";
