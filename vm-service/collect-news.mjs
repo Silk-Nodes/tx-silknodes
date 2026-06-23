@@ -38,10 +38,17 @@ const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS) || 30 * 60_000;
 const PRESS_INTERVAL_MS = 6 * 60 * 60_000; // 6h
 const RETENTION_DAYS = 90;
 
-const TWITTER_HANDLE = process.env.TWITTER_HANDLE || "txEcosystem";
+// Comma-separated list so launches/announcements posted from any of the
+// official accounts are caught (the main account AND the RWA/marketplace
+// account often post the big news separately).
+const TWITTER_HANDLES = (process.env.TWITTER_HANDLES || "txEcosystem,txRWAs")
+  .split(",")
+  .map((h) => h.trim().replace(/^@/, ""))
+  .filter(Boolean);
 const MEDIUM_HANDLE = process.env.MEDIUM_HANDLE || "@txEcosystem";
 const TX_PRESS_URL = process.env.TX_PRESS_URL || "https://tx.org/press-and-media";
 
+// Medium post tags that mark a post as announcement-grade.
 const HIGH_SEVERITY_TAGS = new Set([
   "announcement",
   "announcements",
@@ -54,6 +61,29 @@ const HIGH_SEVERITY_TAGS = new Set([
   "launch",
   "mainnet",
 ]);
+
+// Tweets default to "normal", but tweets announcing a launch/listing/etc
+// are the ones that belong at the top of the Today feed. We bump those
+// to "high" so the feed can pin and feature them. Word-boundary matched,
+// case-insensitive, against the tweet text.
+const HIGH_SEVERITY_TWEET_PATTERNS = [
+  /\blaunch(ing|ed|es)?\b/i,
+  /\bnow live\b/i,
+  /\bgoing live\b/i,
+  /\bis live\b/i,
+  /\bmainnet\b/i,
+  /\bnow available\b/i,
+  /\bofficially\b/i,
+  /\blisted\b/i,
+  /\blisting\b/i,
+  /\bpartnership\b/i,
+  /\bintroducing\b/i,
+  /\bunveil(ing|ed)?\b/i,
+  /\bbig news\b/i,
+];
+function tweetSeverity(text) {
+  return HIGH_SEVERITY_TWEET_PATTERNS.some((re) => re.test(text)) ? "high" : "normal";
+}
 
 const LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const levels = { debug: 0, info: 1, warn: 2, error: 3 };
@@ -105,8 +135,26 @@ async function fetchText(url, attempt = 1) {
 //
 // No auth, no API key. The HTML response is ~130KB and we hit it once
 // per 30 min, well under any reasonable rate limit.
+// Pull all configured handles. Per-handle errors (e.g. a 429 on one
+// account) are isolated so the others still succeed. Tweet ids are
+// globally unique, so a post seen from two handles dedupes naturally on
+// the (source, external_id) constraint.
 async function pullTwitter() {
-  const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(TWITTER_HANDLE)}?dnt=1&showHeader=false&showBorder=false`;
+  const all = [];
+  for (const handle of TWITTER_HANDLES) {
+    try {
+      const items = await pullTwitterHandle(handle);
+      all.push(...items);
+      log("debug", `twitter @${handle}: ${items.length} tweets`);
+    } catch (err) {
+      log("warn", `twitter @${handle} failed: ${err.message}`);
+    }
+  }
+  return all;
+}
+
+async function pullTwitterHandle(handle) {
+  const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?dnt=1&showHeader=false&showBorder=false`;
   const html = await fetchText(url);
   const scriptMatch = html.match(
     /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
@@ -150,7 +198,7 @@ async function pullTwitter() {
           : mediaType === "photo"
           ? "Photo"
           : "Media";
-      text = `${label} from @${TWITTER_HANDLE}`;
+      text = `${label} from @${handle}`;
     }
     // Retweets - display the original author's name + text without the
     // "RT @x: " prefix. The legacy payload preserves the retweeted_status
@@ -172,12 +220,15 @@ async function pullTwitter() {
       source: "twitter",
       external_id: String(id),
       title: truncate(text, 220),
-      url: `https://x.com/${TWITTER_HANDLE}/status/${id}`,
+      url: `https://x.com/${handle}/status/${id}`,
       // Full (untruncated) tweet text + author handle goes in summary
       // so the side panel can show the whole post without re-fetching.
       summary: text,
       ts,
-      severity: "normal",
+      // Launch/listing/partnership tweets bubble to "high" so the feed
+      // can pin and feature them. Retweets keep "normal" (the bump is
+      // for first-party announcements, not amplification).
+      severity: text.startsWith("RT @") ? "normal" : tweetSeverity(text),
       tags: null,
       raw: t,
     });

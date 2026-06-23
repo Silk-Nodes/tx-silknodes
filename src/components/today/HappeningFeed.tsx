@@ -34,6 +34,7 @@ type FeedItem = {
   tags?: string[];
   body?: string;
   bodyHtml?: string;
+  featured?: boolean;
 };
 
 interface Props {
@@ -179,21 +180,69 @@ export default function HappeningFeed({ proposals, cycle }: Props) {
             : "No recent activity yet."}
         </div>
       )}
-      {merged != null && merged.length > 0 && (
-        <ol className="happening-rail" role="list">
-          {merged.map((it, idx) => (
-            <FeedRow
-              key={`${it.source}-${it.type}-${it.ts}-${idx}`}
-              item={it}
-              isLast={idx === merged.length - 1}
-              onOpen={() => setPanelItem(it)}
-            />
-          ))}
-        </ol>
-      )}
+      {merged != null && merged.length > 0 && (() => {
+        // A pinned announcement (if any) renders as a prominent featured
+        // card above the timeline rail; the rest render as normal rows.
+        const featured = merged[0]?.featured ? merged[0] : null;
+        const rows = featured ? merged.slice(1) : merged;
+        return (
+          <>
+            {featured && (
+              <FeaturedRow item={featured} onOpen={() => setPanelItem(featured)} />
+            )}
+            {rows.length > 0 && (
+              <ol className="happening-rail" role="list">
+                {rows.map((it, idx) => (
+                  <FeedRow
+                    key={`${it.source}-${it.type}-${it.ts}-${idx}`}
+                    item={it}
+                    isLast={idx === rows.length - 1}
+                    onOpen={() => setPanelItem(it)}
+                  />
+                ))}
+              </ol>
+            )}
+          </>
+        );
+      })()}
       <FeedItemPanel item={panelItem} onClose={() => setPanelItem(null)} />
     </section>
   );
+}
+
+// Featured announcement card — the pinned high-severity item. Bigger,
+// neon-accented, with an ANNOUNCEMENT eyebrow. Twitter/Medium open the
+// side panel; press/other navigate. Clicking anywhere on the card acts.
+function FeaturedRow({ item, onOpen }: { item: FeedItem; onOpen: () => void }) {
+  const opensPanel = PANEL_SOURCES.has(item.source);
+  const inner = (
+    <>
+      <span className="happening-featured-eyebrow">
+        <span className="happening-featured-spark" aria-hidden="true" />
+        ANNOUNCEMENT
+        <span className="happening-featured-src">{item.tag}</span>
+        <span className="happening-featured-time">{relativeTimeShort(item.ts)}</span>
+      </span>
+      <span className="happening-featured-title">{item.title}</span>
+      {item.sub && <span className="happening-featured-sub">{item.sub}</span>}
+    </>
+  );
+  if (opensPanel) {
+    return (
+      <button type="button" className="happening-featured happening-featured-button" onClick={onOpen}>
+        {inner}
+      </button>
+    );
+  }
+  if (item.url) {
+    const isExternal = /^https?:\/\//.test(item.url);
+    return isExternal ? (
+      <a className="happening-featured" href={item.url} target="_blank" rel="noopener noreferrer">{inner}</a>
+    ) : (
+      <Link className="happening-featured" href={item.url}>{inner}</Link>
+    );
+  }
+  return <div className="happening-featured">{inner}</div>;
 }
 
 // Two click behaviors depending on source:

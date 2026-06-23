@@ -27,6 +27,7 @@ export type PanelItem = {
   tags?: string[];
   body?: string;
   bodyHtml?: string;
+  featured?: boolean;
 };
 
 // FeedItemPanel: slide-in right-edge drawer that opens when the user

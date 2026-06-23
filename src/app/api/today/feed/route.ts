@@ -69,6 +69,10 @@ type FeedItem = {
   // posts (content:encoded from RSS). Null/absent for everything else
   // - the panel falls back to body text in that case.
   bodyHtml?: string;
+  // True for the single pinned announcement at the top of the feed
+  // (latest high-severity official news). The UI renders it as a
+  // prominent featured card instead of a timeline row.
+  featured?: boolean;
 };
 
 type NewsRow = {
@@ -143,7 +147,27 @@ export async function GET() {
   }
 
   items.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-  const top = items.slice(0, FEED_LIMIT);
+
+  // Pin the latest official announcement to the top, even if it would
+  // otherwise fall outside the time-sorted FEED_LIMIT. "Announcement" =
+  // a high-severity news item (an announcement-tagged Medium post, a
+  // press release, or a launch/listing tweet bumped to high by the
+  // collector). Chain/governance rows are never featured. This guarantees
+  // a launch-day post sits front-and-center instead of being buried
+  // under whale moves. Only the single most-recent one is featured.
+  const NEWS_SOURCES = new Set(["twitter", "medium", "tx_press"]);
+  const featuredIdx = items.findIndex(
+    (it) => it.severity === "high" && NEWS_SOURCES.has(it.source),
+  );
+
+  let top: FeedItem[];
+  if (featuredIdx >= 0) {
+    const featured = { ...items[featuredIdx], featured: true };
+    const rest = items.filter((_, i) => i !== featuredIdx);
+    top = [featured, ...rest.slice(0, FEED_LIMIT - 1)];
+  } else {
+    top = items.slice(0, FEED_LIMIT);
+  }
 
   const body = {
     updatedAt: new Date().toISOString(),

@@ -11913,6 +11913,78 @@ input[type="range"]::-moz-range-thumb {
   border: 1px dashed var(--glass-border);
   border-radius: var(--radius-md);
 }
+
+/* Featured announcement: the pinned high-severity item, rendered above
+   the timeline rail as a prominent neon-accented card. */
+.happening-featured {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(177, 252, 3, 0.35);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(177, 252, 3, 0.12), transparent 55%),
+    var(--accent-olive-light);
+  color: var(--text-dark);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+}
+.happening-featured-button {
+  appearance: none;
+  font: inherit;
+}
+.happening-featured:hover {
+  border-color: var(--text-accent);
+  transform: translateY(-1px);
+}
+.happening-featured-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+}
+.happening-featured-spark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-accent);
+  box-shadow: 0 0 0 4px rgba(177, 252, 3, 0.18);
+  flex: 0 0 auto;
+}
+.happening-featured-src {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(177, 252, 3, 0.3);
+  color: var(--text-medium);
+  letter-spacing: 0.1em;
+}
+.happening-featured-time {
+  margin-left: auto;
+  color: var(--text-light);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.happening-featured-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-dark);
+}
+.happening-featured-sub {
+  font-size: 0.84rem;
+  color: var(--text-light);
+  line-height: 1.4;
+}
 @media (max-width: 700px) {
   .happening-row-link,
   .happening-row-noop { padding: 10px 8px 12px; }
