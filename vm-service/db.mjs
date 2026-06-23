@@ -30,7 +30,7 @@ const { Pool } = pg;
 // `node vm-service/collect-news.mjs` work even when the operator forgot
 // `set -a` before sourcing (the env file uses bare KEY=value lines with
 // no `export`, so a plain `source` sets shell vars but doesn't export
-// them to the node child — the exact failure mode that bit us). Under
+// them to the node child, the exact failure mode that bit us). Under
 // systemd the vars are already present via EnvironmentFile, so this is
 // a no-op there. We parse KEY=value lines, tolerating optional `export`
 // and surrounding quotes; we never overwrite vars already set.
@@ -41,7 +41,7 @@ function autoloadDbEnv() {
   try {
     text = readFileSync(path, "utf8");
   } catch {
-    return; // file absent — fall through to the loud validation error below
+    return; // file absent: fall through to the loud validation error below
   }
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();

@@ -210,7 +210,7 @@ export default function HappeningFeed({ proposals, cycle }: Props) {
   );
 }
 
-// Featured announcement card — the pinned high-severity item. Bigger,
+// Featured announcement card: the pinned high-severity item. Bigger,
 // neon-accented, with an ANNOUNCEMENT eyebrow. Twitter/Medium open the
 // side panel; press/other navigate. Clicking anywhere on the card acts.
 function FeaturedRow({ item, onOpen }: { item: FeedItem; onOpen: () => void }) {
