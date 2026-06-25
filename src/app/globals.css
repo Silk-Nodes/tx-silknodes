@@ -2369,14 +2369,18 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ═══ TIME RANGE PILLS ═══ */
+/* Matches the Flows window selector (.flows-window-pills) exactly so the
+   two time-range controls look identical: same container (no backdrop
+   blur), same pill sizing, and the same per-theme active treatment
+   (dark-green pill + neon text in light mode, neon pill + dark text in
+   dark mode), no glow. */
 .time-pills {
   display: flex;
   gap: 4px;
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
-  padding: 5px;
+  padding: 4px;
 }
 
 .time-pill {
@@ -2384,25 +2388,34 @@ input[type="range"]::-moz-range-thumb {
   background: transparent;
   color: var(--text-medium);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 6px 14px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 13px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  transition: background 0.12s ease, color 0.12s ease;
   white-space: nowrap;
 }
 
 .time-pill:hover {
   color: var(--text-dark);
-  background: rgba(255, 255, 255, 0.3);
 }
 
 .time-pill.active {
+  background: var(--tx-dark-green);
+  color: var(--tx-neon);
+}
+
+[data-theme="dark"] .time-pills {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .time-pill { color: rgba(255, 255, 255, 0.7); }
+[data-theme="dark"] .time-pill:hover { color: #fff; }
+[data-theme="dark"] .time-pill.active {
   background: var(--tx-neon);
   color: var(--tx-dark-green);
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(177, 252, 3, 0.2);
 }
 
 /* ═══ STAT / SIGNAL CARDS ═══ */
