@@ -12991,28 +12991,41 @@ input[type="range"]::-moz-range-thumb {
 .nav-tools-menu { max-width: calc(100vw - 16px); }
 
 @media (max-width: 640px) {
-  /* Analytics time-range pills: keep them on ONE row (wrapping turned the
-     rounded segmented-control container into a lumpy 2-row blob). Shrink
-     the pills so all six fit at 375px, and let the row scroll if it ever
-     can't. */
+  /* Analytics time-range pills must look IDENTICAL to the Flows window
+     selector (.flows-window-pills, mobile rules at line ~6499/6603). The
+     user asked for "the same as the flows page one." That means: the
+     container stretches full width (width:100%) with 3px padding, and the
+     pills use the exact same compact sizing (4px 8px / 0.64rem) rather
+     than the chunky 40px-tall touch target that made "1Y" render as a
+     giant circle and the box hug its content. Keep them on one row and
+     let the row scroll if six pills ever overflow. */
+  /* Stretch the header column and the pills wrapper to full width, exactly
+     as the Flows page does (.flows-tab .section-head, line ~6488). Without
+     this the wrapper (an unclassed div from AnalyticsTab) shrinks to its
+     content because .section-head is align-items:flex-start, so width:100%
+     on .time-pills resolves to content width and the box hugs the pills
+     instead of spanning the row like Flows. */
+  .analytics-tab .section-head { align-items: stretch; }
+  .analytics-tab .section-head > div:last-child {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
   .time-pills {
+    width: 100%;
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    max-width: 100%;
+    padding: 3px;
   }
   .time-pills::-webkit-scrollbar { display: none; }
 
-  /* Touch targets: bump the small but primary controls to ~40px tap area.
-     Time pills shrink horizontally to fit one row but stay 40px tall. */
   .time-pill {
-    min-height: 40px;
-    padding: 6px 11px;
-    font-size: 0.7rem;
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
+    padding: 4px 8px;
+    font-size: 0.64rem;
+    flex-shrink: 0;
   }
   .pse-cohort-toggle-btn { min-height: 40px; }
   .vvt-chip { min-height: 38px; display: inline-flex; align-items: center; }
