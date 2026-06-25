@@ -44,6 +44,26 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Cache policy. Prerendered HTML was served with a 1-year s-maxage and
+  // nothing telling browsers to revalidate, so browsers (Safari
+  // especially) held the OLD HTML across deploys. That stale HTML
+  // references hashed JS/CSS chunks the new build deleted, so they 404
+  // and the page renders blank. Fix: HTML must always revalidate
+  // ("no-cache" = may cache but must check the ETag first; a 304 keeps
+  // it cheap, a changed ETag pulls the new build). The hashed
+  // /_next/static/* assets are immutable and keep their long-lived cache
+  // (Next.js sets that itself; the source regex excludes them so this
+  // doesn't weaken it).
+  async headers() {
+    return [
+      {
+        source: "/((?!_next/static|_next/image).*)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, must-revalidate" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
