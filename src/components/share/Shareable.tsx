@@ -257,7 +257,11 @@ function ShareModal({
             // "dark"] rule + variable within this subtree.
             data-theme="dark"
             className={`share-card ${framed ? "" : "share-card-bare"}`}
-            style={{ width: exportWidth }}
+            // Cap the card to the viewport on small screens so the preview
+            // fits (and the exported PNG comes out phone-width) instead of
+            // a 720px card scrolling off-screen. html-to-image captures the
+            // node's actual rendered width, so the export adapts too.
+            style={{ width: `min(${exportWidth}px, calc(100vw - 24px))` }}
           >
             {framed && (
               <div className="share-card-header">
