@@ -11,9 +11,23 @@ import { DEFAULT_THEME, STORAGE_KEY, isValidTheme, type Theme } from "@/lib/them
  *   3. Broadcasts to other tabs via the `storage` event
  */
 export function useTheme(): [Theme, (theme: Theme) => void] {
-  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
+  // Initialize synchronously from the <html data-theme> the no-flash script
+  // already set, so the very first render matches the real theme. This
+  // matters because the nav (and ThemeSwitcher) remounts on every tab
+  // navigation: if we started at DEFAULT and corrected in an effect, the
+  // switcher thumb would slide on each remount. Reading it here means no
+  // flip, so no spurious animation. (On the server document is undefined,
+  // so SSR falls back to DEFAULT_THEME.)
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof document !== "undefined") {
+      const attr = document.documentElement.getAttribute("data-theme");
+      if (isValidTheme(attr)) return attr;
+    }
+    return DEFAULT_THEME;
+  });
 
-  // On mount, sync state with whatever the no-flash script already applied.
+  // Keep listening for cross-tab changes (and re-sync once on mount as a
+  // belt-and-braces against any attribute set after first paint).
   useEffect(() => {
     const attr = document.documentElement.getAttribute("data-theme");
     if (isValidTheme(attr)) setThemeState(attr);
