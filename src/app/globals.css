@@ -6455,13 +6455,21 @@ input[type="range"]::-moz-range-thumb {
     grid-template-columns: repeat(3, 1fr) !important;
   }
   .nav-tab {
-    padding: 8px 8px !important;
+    padding: 8px 14px !important;
     font-size: 0.72rem !important;
     min-height: 38px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* Hug the text and center in the grid cell so the active pill is a
+       snug rounded chip instead of a heavy full-cell block. */
+    justify-self: center;
+    width: auto;
   }
+  /* Tools is wrapped in .nav-tools (the actual grid cell), so center that
+     too and let its trigger hug its content like the other tabs. */
+  .nav-tools { justify-self: center; }
+  .nav-tools .nav-tools-trigger { width: auto; }
 
   /* ── Flows page top: title above pills, both full width ── */
   .flows-tab .section-head {
@@ -10586,7 +10594,10 @@ input[type="range"]::-moz-range-thumb {
 .nav-tools-item-desc { font-size: 0.78rem; color: var(--text-light); }
 
 @media (max-width: 720px) {
-  .nav-tools-menu { right: auto; left: 0; min-width: 240px; }
+  /* Tools sits in the right column of the 2x3 nav grid, so anchor the
+     menu to the right edge (extends leftward, stays on-screen). left:0
+     here pushed it off the right side and clipped every label. */
+  .nav-tools-menu { right: 0; left: auto; min-width: 240px; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -12967,15 +12978,33 @@ input[type="range"]::-moz-range-thumb {
 .nav-tools-menu { max-width: calc(100vw - 16px); }
 
 @media (max-width: 640px) {
-  /* Analytics time-range pills: wrap instead of clipping the "ALL" pill
-     (parent is overflow-x:hidden, so a single nowrap row gets cut). */
-  .time-pills { flex-wrap: wrap; }
+  /* Analytics time-range pills: keep them on ONE row (wrapping turned the
+     rounded segmented-control container into a lumpy 2-row blob). Shrink
+     the pills so all six fit at 375px, and let the row scroll if it ever
+     can't. */
+  .time-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+  .time-pills::-webkit-scrollbar { display: none; }
 
-  /* Touch targets: bump the small but primary controls to ~40px tap area. */
-  .time-pill { min-height: 40px; display: inline-flex; align-items: center; }
+  /* Touch targets: bump the small but primary controls to ~40px tap area.
+     Time pills shrink horizontally to fit one row but stay 40px tall. */
+  .time-pill {
+    min-height: 40px;
+    padding: 6px 11px;
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+  }
   .pse-cohort-toggle-btn { min-height: 40px; }
   .vvt-chip { min-height: 38px; display: inline-flex; align-items: center; }
-  .theme-switcher { width: 64px; height: 38px; }
+  /* (theme switcher keeps its designed 60x30: the sliding thumb is
+     positioned for that size; resizing it misaligned the moon/sun.) */
   .fi-panel-close,
   .share-dialog-close {
     min-width: 40px;
