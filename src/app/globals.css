@@ -2135,9 +2135,18 @@ input[type="range"]::-moz-range-thumb {
   .compare-row { gap: 8px; }
   .compare-cost { font-size: 0.68rem !important; }
 
-  /* Prevent any overflow on tab content — but not on validators tab (sticky header needs overflow visible) */
+  /* Prevent any overflow on tab content. */
   .tab-content > div { overflow-x: hidden; }
-  .tab-content > div:has(.validator-table-wrap) { overflow: visible; }
+  /* Validators: scroll the wide 6-column table inside its own container
+     instead of letting it overflow the whole page. A sticky header can't
+     survive a horizontal-scroll container, so make the header static on
+     mobile (the column headers scroll with the table). */
+  .validator-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .validator-table { min-width: 540px; }
+  .validator-table thead { position: static; top: auto; }
 
   .tooltip-bubble { max-width: min(260px, 80vw); }
 }
@@ -6574,9 +6583,12 @@ input[type="range"]::-moz-range-thumb {
   .nav-tab { padding: 5px 6px !important; font-size: 0.66rem !important; }
   .sticky-pills-bar { padding: 5px 10px; }
 
-  /* Heatmap: even smaller row label + cell so 14+ days fit. */
+  /* Heatmap: keep cells wide enough for the date-axis labels to stay
+     readable (16px squashed "Jun 25" into an unreadable smear). The grid
+     lives in an overflow-x:auto container, so wider cells just mean the
+     30D/90D windows scroll horizontally instead of clipping. */
   .flows-heatmap-grid {
-    grid-template-columns: 64px repeat(auto-fit, minmax(16px, 1fr)) !important;
+    grid-template-columns: 56px repeat(auto-fit, minmax(34px, 1fr)) !important;
   }
   .flows-heatmap-row-label { font-size: 0.62rem; }
   .flows-heatmap-cell { height: 18px; }
@@ -12574,9 +12586,18 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-accent);
   border-color: var(--text-accent);
 }
-/* Touch devices have no hover, so keep the button always visible. */
+/* Touch devices have no hover, so keep the share button always visible
+   AND give it a proper tap target (40px) at full opacity. It's the only
+   entry point to sharing, so it must be easy to see and hit. */
 @media (hover: none) {
-  .shareable-camera { opacity: 0.6; }
+  .shareable-camera {
+    opacity: 1;
+    width: 40px;
+    height: 40px;
+    background: var(--accent-olive-light);
+    color: var(--text-accent);
+    border-color: rgba(177, 252, 3, 0.35);
+  }
 }
 
 /* Modal */
@@ -12902,3 +12923,103 @@ input[type="range"]::-moz-range-thumb {
   overflow: visible !important;
 }
 .share-card .staking-feed-row:nth-of-type(n+13) { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE COMPATIBILITY PASS (June 2026)
+   Targeted fixes from the full mobile audit at ~375px. Grouped here so
+   the polish is reviewable in one place.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Feed side panel: use dynamic viewport height so the bottom isn't hidden
+   under the mobile URL bar, and pin the CTA footer so it's always reachable
+   on a long Medium article instead of sitting below the fold. */
+.fi-panel { height: 100dvh; }
+.fi-panel-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  background: var(--bg-card, var(--glass-bg));
+}
+
+/* Signals tiles: long validator monikers are single long tokens; let them
+   break so they can't push the tile wider than the viewport. */
+.sg-tile-sub { overflow-wrap: anywhere; word-break: break-word; }
+
+/* Featured announcement eyebrow: allow the chip row to wrap so spark +
+   ANNOUNCEMENT + source + time don't crowd/clip on a narrow screen. */
+.happening-featured-eyebrow { flex-wrap: wrap; row-gap: 4px; }
+
+/* Long proposal titles shouldn't widen rows next to a nowrap CTA. */
+.today-attention-headline,
+.gov-history-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Tools dropdown: clamp to the viewport so it can't poke past the right
+   edge when anchored from a mid-row grid cell. */
+.nav-tools-menu { max-width: calc(100vw - 16px); }
+
+@media (max-width: 640px) {
+  /* Analytics time-range pills: wrap instead of clipping the "ALL" pill
+     (parent is overflow-x:hidden, so a single nowrap row gets cut). */
+  .time-pills { flex-wrap: wrap; }
+
+  /* Touch targets: bump the small but primary controls to ~40px tap area. */
+  .time-pill { min-height: 40px; display: inline-flex; align-items: center; }
+  .pse-cohort-toggle-btn { min-height: 40px; }
+  .vvt-chip { min-height: 38px; display: inline-flex; align-items: center; }
+  .theme-switcher { width: 64px; height: 38px; }
+  .fi-panel-close,
+  .share-dialog-close {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .whats-new-close { min-width: 40px; min-height: 40px; }
+
+  /* Flows: top depositor/withdrawer rows crush the name to 2-3 chars on a
+     narrow screen (auto auto amount/count columns are nowrap). Reflow to
+     two lines: name on top, amount + count below. */
+  .flows-counterparty-row {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "rank name"
+      "rank meta";
+    row-gap: 2px;
+  }
+  .flows-counterparty-rank { grid-area: rank; align-self: center; }
+  .flows-counterparty-name { grid-area: name; min-width: 0; }
+  .flows-counterparty-amount { grid-area: meta; justify-self: start; }
+  .flows-counterparty-count { grid-area: meta; justify-self: end; }
+}
+
+/* Cycle countdown: on very narrow screens four digit units + separators +
+   labels can overflow the cycle card. Tighten gap and digit size. */
+@media (max-width: 400px) {
+  .today-countdown-row { gap: 3px; }
+  .countdown-digit { font-size: 1.15rem; }
+  .countdown-separator { margin: 0 1px; }
+  .countdown-label { font-size: 0.5rem; }
+}
+
+/* What's New banner vs the fixed mobile nav: when the banner is present it
+   was rendered UNDER the position:fixed nav. Pin the banner above the nav
+   and offset the nav + spacer by its height. (Banner is single-line via
+   its own overflow-x scroll, so a fixed ~40px offset holds. Re-verify if
+   the banner copy ever wraps.) */
+@media (max-width: 768px) {
+  .app-shell:has(.whats-new-banner) .whats-new-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    min-height: 40px;
+  }
+  .app-shell:has(.whats-new-banner) .top-nav { top: 40px; }
+  .app-shell:has(.whats-new-banner) .nav-spacer { height: 160px; }
+}
