@@ -2076,7 +2076,9 @@ input[type="range"]::-moz-range-thumb {
   }
   .nav-spacer {
     display: block;
-    height: 120px;
+    /* Matches the slimmed one-row nav (~83px fixed at top:0) plus a little
+       breathing room. Was 120px for the old 2-row-grid nav. */
+    height: 92px;
   }
   .brand {
     font-size: 0.88rem;
@@ -6631,16 +6633,18 @@ input[type="range"]::-moz-range-thumb {
    ════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
-  /* Brand: the [tx] icon alone is recognisable; "All in ONE" wordmark
-     is redundant once the icon's there. Hide the text node so the
-     brand area collapses to ~36px wide instead of ~140px. */
+  /* Brand: show the full "All in ONE [tx]" wordmark on the top row next
+     to the theme toggle and Connect Wallet. Measured at 375px the
+     wordmark (~101px) plus the right-hand cluster (~206px) = 307px, well
+     inside the ~353px row, so it stays on one line and the tabs still
+     drop to row two. */
   .brand {
-    font-size: 0;
-    gap: 0;
+    font-size: 0.88rem;
+    gap: 8px;
   }
   .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     flex-shrink: 0;
   }
 
@@ -6680,6 +6684,48 @@ input[type="range"]::-moz-range-thumb {
   }
   .brand-icon { width: 28px; height: 28px; }
   .wallet-pill { padding: 6px 10px; font-size: 0.68rem; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MOBILE NAV: ONE-ROW TAB STRIP
+   The 2-row 3-col tab grid made the banner ~3 rows tall (128px, a third
+   of the viewport). Collapse the tabs onto a single horizontal line that
+   scrolls sideways if all six can't fit. Sizing is tuned so the common
+   case (>=360px) shows every tab without scrolling; narrower phones just
+   swipe. This overrides the earlier grid rules (some !important) on
+   purpose, so it must out-specify them: hence the !important here too. */
+@media (max-width: 768px) {
+  .nav-tabs {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  /* Each tab hugs its label and never stretches to a grid cell. */
+  .nav-tab {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    justify-self: auto !important;
+    min-height: 34px;
+    padding: 6px 11px !important;
+    font-size: 0.72rem !important;
+    white-space: nowrap;
+  }
+  .nav-tools { flex: 0 0 auto; justify-self: auto; }
+  .nav-tools .nav-tools-trigger { width: auto; }
+}
+
+@media (max-width: 480px) {
+  /* Squeeze sizing once more so all six fit on a 360-375px screen. */
+  .nav-tabs { gap: 3px; }
+  .nav-tab { padding: 6px 9px !important; font-size: 0.68rem !important; }
 }
 
 /* ── StakingFeed net flow indicator ── */
@@ -13081,5 +13127,7 @@ input[type="range"]::-moz-range-thumb {
     min-height: 40px;
   }
   .app-shell:has(.whats-new-banner) .top-nav { top: 40px; }
-  .app-shell:has(.whats-new-banner) .nav-spacer { height: 160px; }
+  /* 40px banner + ~83px one-row nav + breathing room (was 160px for the
+     old 2-row-grid nav). */
+  .app-shell:has(.whats-new-banner) .nav-spacer { height: 132px; }
 }
