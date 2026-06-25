@@ -6633,16 +6633,18 @@ input[type="range"]::-moz-range-thumb {
    ════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
-  /* Brand: the [tx] icon alone is recognisable; "All in ONE" wordmark
-     is redundant once the icon's there. Hide the text node so the
-     brand area collapses to ~36px wide instead of ~140px. */
+  /* Brand: show the full "All in ONE [tx]" wordmark on the top row next
+     to the theme toggle and Connect Wallet. Measured at 375px the
+     wordmark (~101px) plus the right-hand cluster (~206px) = 307px, well
+     inside the ~353px row, so it stays on one line and the tabs still
+     drop to row two. */
   .brand {
-    font-size: 0;
-    gap: 0;
+    font-size: 0.88rem;
+    gap: 8px;
   }
   .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     flex-shrink: 0;
   }
 
