@@ -2091,10 +2091,19 @@ input[type="range"]::-moz-range-thumb {
     font-size: 0.88rem;
     order: 1;
   }
+  /* Top row: brand (left) | theme toggle (centered) | live dot + wallet
+     (right). nav-right fills the row after the brand; auto margins before
+     the toggle and before the live dot give the toggle equal space on
+     each side, so it sits centred between the brand and the wallet
+     instead of floating with a big gap after the wordmark. */
   .nav-right {
     order: 2;
-    margin-left: auto;
+    flex: 1;
+    min-width: 0;
+    margin-left: 14px;
   }
+  .nav-right > .theme-switcher-group { margin-left: auto; }
+  .nav-right > .live-indicator { margin-left: auto; }
   .nav-tabs {
     order: 3;
     width: 100%;
@@ -9165,7 +9174,7 @@ input[type="range"]::-moz-range-thumb {
 .vvt-sortable { cursor: pointer; user-select: none; }
 .vvt-sortable:hover { color: var(--text-dark); }
 .vvt-sortable.active { color: var(--text-accent); }
-.vvt-num { text-align: right; font-variant-numeric: tabular-nums; }
+.vvt-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .vvt-th-rank { width: 48px; text-align: center; }
 .vvt-td-rank { text-align: center; color: var(--text-light); font-weight: 500; }
 .vvt-mon-cell { display: flex; align-items: center; gap: 12px; }
@@ -10117,8 +10126,12 @@ input[type="range"]::-moz-range-thumb {
 .ovp-row-chev { color: var(--text-light); text-align: right; }
 
 @media (max-width: 700px) {
-  .ovp-row { grid-template-columns: 1fr auto; gap: 10px; }
+  /* Three columns (address | vote | stake) so the "X.XM TX" amount stays
+     on the same line as the address and vote badge. With only two columns
+     the stake wrapped onto a second grid row, making each card taller. */
+  .ovp-row { grid-template-columns: 1fr auto auto; gap: 10px; }
   .ovp-row-time, .ovp-row-chev { display: none; }
+  .ovp-row-stake { white-space: nowrap; }
 }
 
 /* ── Delegator drawer ──────────────────────────────────────────── */
