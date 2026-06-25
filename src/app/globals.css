@@ -780,9 +780,16 @@ html {
   border-radius: 50%;
   background: var(--tx-neon);
   box-shadow: 0 0 0 1px var(--tx-dark-green);
-  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* No transition by default so the thumb snaps into place on mount and on
+     every nav remount (tab switch). The .is-animatable class is added one
+     frame after mount to enable the slide for genuine user toggles. */
+  transition: none;
   pointer-events: none;
   z-index: 0;
+}
+
+.theme-switcher.is-animatable .theme-switcher-thumb {
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .theme-switcher.is-dark .theme-switcher-thumb {
@@ -6699,7 +6706,11 @@ input[type="range"]::-moz-range-thumb {
     display: flex !important;
     grid-template-columns: none !important;
     flex-wrap: nowrap;
-    justify-content: flex-start;
+    /* space-between spreads the six tabs to fill the row so Tools sits flush
+       right (no trailing gap on wider phones). When the tabs overflow on a
+       narrow screen there's no free space to distribute, so they just pack
+       and scroll as before. */
+    justify-content: space-between;
     gap: 4px;
     overflow-x: auto;
     overflow-y: hidden;

@@ -4,6 +4,7 @@
 const BASE_PATH = "";
 
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 // ─── Analytics helper ───
@@ -4787,7 +4788,27 @@ function ToolsDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Fixed-position coords for the portaled menu. The mobile nav strip is a
+  // horizontal-scroll container (overflow:auto), which clips any normally
+  // positioned dropdown child. So the menu is rendered in a portal to
+  // <body> and positioned from the trigger's rect instead.
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  const positionMenu = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setMenuPos({ top: Math.round(r.bottom + 6), right: Math.round(Math.max(8, window.innerWidth - r.right)) });
+  }, []);
+
+  const openMenu = useCallback(() => {
+    cancelClose();
+    positionMenu();
+    setOpen(true);
+  }, [positionMenu]);
 
   const cancelClose = () => {
     if (closeTimer.current) {
@@ -4803,16 +4824,26 @@ function ToolsDropdown({
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // The menu lives in a portal outside `ref`, so check it explicitly.
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    // Keep the portaled menu pinned under the trigger if the page scrolls
+    // or the viewport resizes while it's open.
+    const reposition = () => positionMenu();
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onEsc);
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
     };
-  }, [open]);
+  }, [open, positionMenu]);
 
   useEffect(() => () => cancelClose(), []);
 
@@ -4821,22 +4852,25 @@ function ToolsDropdown({
     <div
       className="nav-tools"
       ref={ref}
-      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseEnter={() => openMenu()}
       onMouseLeave={() => scheduleClose()}
     >
       <button
+        ref={triggerRef}
         type="button"
         className={`nav-tab nav-tools-trigger ${isActiveTool || open ? "active" : ""}`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-expanded={open}
         aria-haspopup="menu"
       >
         Tools <span className="nav-tools-chev">▾</span>
       </button>
-      {open && (
+      {open && menuPos && typeof document !== "undefined" && createPortal(
         <div
+          ref={menuRef}
           className="nav-tools-menu"
           role="menu"
+          style={{ position: "fixed", top: menuPos.top, right: menuPos.right, left: "auto" }}
           onMouseEnter={cancelClose}
           onMouseLeave={() => scheduleClose()}
         >
@@ -4855,7 +4889,8 @@ function ToolsDropdown({
               </Link>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
