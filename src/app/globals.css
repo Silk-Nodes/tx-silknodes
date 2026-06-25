@@ -6448,14 +6448,19 @@ input[type="range"]::-moz-range-thumb {
    ════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
-  /* Top nav: 8 tabs in 3 rows was eating half the phone screen.
-     Switch to 4 columns so 8 tabs fit in 2 rows. */
+  /* Top nav: 6 items (5 tabs + Tools) in a 3-column grid = a clean,
+     balanced 2x3 block. (4 columns left an awkward 4+2 with two lonely
+     tabs on the second row.) */
   .nav-tabs {
-    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-columns: repeat(3, 1fr) !important;
   }
   .nav-tab {
-    padding: 6px 8px !important;
-    font-size: 0.7rem !important;
+    padding: 8px 8px !important;
+    font-size: 0.72rem !important;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* ── Flows page top: title above pills, both full width ── */
@@ -6579,7 +6584,7 @@ input[type="range"]::-moz-range-thumb {
 
   /* Phone nav: keep 4-col grid but smaller paddings so 8 tabs
      comfortably fit in 2 rows even on a 360px screen. */
-  .nav-tabs { grid-template-columns: repeat(4, 1fr) !important; gap: 2px !important; }
+  .nav-tabs { grid-template-columns: repeat(3, 1fr) !important; gap: 3px !important; }
   .nav-tab { padding: 5px 6px !important; font-size: 0.66rem !important; }
   .sticky-pills-bar { padding: 5px 10px; }
 
