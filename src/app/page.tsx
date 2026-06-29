@@ -127,6 +127,32 @@ export default function HomePage() {
     txPending, txResult, clearTxResult, availableWallets,
   } = useWallet();
   const [activeTab, setActiveTab] = useState<TabId>("today");
+  // Keep the active tab centered in the mobile nav strip. With 7 items the
+  // strip scrolls horizontally, and the active tab could otherwise sit
+  // half-off the edge (e.g. Passport). Scrolls only the strip, never the
+  // page (we adjust scrollLeft directly rather than scrollIntoView).
+  const navTabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const center = () => {
+      const c = navTabsRef.current;
+      if (!c || c.scrollWidth <= c.clientWidth + 2) return;
+      const active = c.querySelector(".nav-tab.active") as HTMLElement | null;
+      if (!active) return;
+      const cRect = c.getBoundingClientRect();
+      const aRect = active.getBoundingClientRect();
+      const target = c.scrollLeft + (aRect.left - cRect.left) - (c.clientWidth - aRect.width) / 2;
+      // Instant, not smooth: smooth scroll animates via rAF, which is paused
+      // in backgrounded tabs, so it can silently no-op. A direct jump always
+      // lands and reads fine (the tab is just correctly placed on arrival).
+      c.scrollTo({ left: Math.max(0, target), behavior: "auto" });
+    };
+    // Defer so it runs after the strip's overflow layout has settled (on a
+    // fresh load the effect can otherwise fire while the row still fits).
+    // setTimeout (not just rAF) so it still fires in a backgrounded tab.
+    const raf = requestAnimationFrame(center);
+    const timer = window.setTimeout(center, 250);
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
+  }, [activeTab]);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [cookieConsent, setCookieConsent] = useState<"accepted" | "declined" | null>(null);
 
@@ -392,7 +418,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="nav-tabs">
+        <div className="nav-tabs" ref={navTabsRef}>
           {PRIMARY_TABS.filter((tab) => !tab.walletOnly || wallet.connected).map((tab) => {
             const href = (Object.entries(PATHNAME_TO_TAB).find(([, id]) => id === tab.id)?.[0]) || "/";
             return (

@@ -277,14 +277,14 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
       return;
     }
     setError(null);
-    router.push(`/pse?address=${encodeURIComponent(trimmed)}`);
+    router.push(`/passport?address=${encodeURIComponent(trimmed)}`);
   };
 
   return (
     <section className="today-entry-card">
-      <div className="today-entry-eyebrow">Check any address</div>
+      <div className="today-entry-eyebrow">Check any wallet</div>
       <div className="today-entry-headline" id="today-entry-headline">
-        Look up PSE score, rewards, and positions
+        See holdings, staking, PSE, and governance in one view
       </div>
       <form className="today-entry-form" onSubmit={handleSubmit}>
         <input
@@ -306,7 +306,7 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
           {...(error ? { "aria-errormessage": "today-entry-error" } : {})}
         />
         <button type="submit" className="today-entry-submit">
-          Fetch
+          View passport
         </button>
       </form>
       {error && (
