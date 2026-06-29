@@ -13142,3 +13142,139 @@ input[type="range"]::-moz-range-thumb {
      old 2-row-grid nav). */
   .app-shell:has(.whats-new-banner) .nav-spacer { height: 132px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   WALLET PASSPORT
+   One address in, a full readable profile out. Uses the shared glass
+   tokens so it themes with the rest of the app automatically.
+   ════════════════════════════════════════════════════════════════════ */
+.psp {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Entry state */
+.psp-intro { text-align: center; margin-top: 8px; }
+.psp-title { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+.psp-sub { color: var(--text-medium); font-size: 0.95rem; line-height: 1.5; max-width: 520px; margin: 0 auto; }
+.psp-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 520px;
+  margin: 8px auto 0;
+  width: 100%;
+}
+.psp-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+}
+.psp-input:focus { outline: 2px solid var(--tx-neon); outline-offset: 1px; }
+.psp-btn-primary, .psp-btn-secondary {
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.psp-btn-primary { background: var(--tx-neon); color: var(--tx-dark-green); border: none; }
+.psp-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.psp-btn-secondary { background: transparent; color: var(--text-dark); border: 1px solid var(--glass-border); }
+.psp-btn-secondary:hover { background: var(--accent-olive-light); }
+.psp-or { text-align: center; color: var(--text-light); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.psp-error { color: var(--danger); font-size: 0.85rem; text-align: center; }
+
+/* Loading */
+.psp-loading {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 60px 20px; color: var(--text-medium); font-size: 0.95rem;
+}
+.psp-spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--glass-border); border-top-color: var(--tx-neon);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Cards */
+.psp-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+.psp-card-head { font-size: 1rem; font-weight: 700; margin-bottom: 14px; }
+
+/* Summary (shareable) */
+.psp-summary { display: flex; flex-direction: column; gap: 14px; }
+.psp-addr-block { display: flex; flex-direction: column; gap: 8px; }
+.psp-addr { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); }
+.psp-addr-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-tag { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); }
+.psp-tag-label { background: var(--accent-olive-light); color: var(--text-dark); }
+.psp-tag-rank { background: var(--tx-neon); color: var(--tx-dark-green); }
+.psp-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-badge { font-size: 0.72rem; font-weight: 700; padding: 4px 11px; border-radius: var(--radius-pill); border: 1px solid transparent; }
+.psp-badge-good { background: rgba(177,252,3,0.12); color: var(--text-accent); border-color: rgba(177,252,3,0.3); }
+.psp-badge-accent { background: var(--tx-neon); color: var(--tx-dark-green); }
+.psp-badge-warn { background: rgba(239,107,93,0.14); color: var(--danger); border-color: rgba(239,107,93,0.3); }
+.psp-badge-neutral { background: var(--accent-olive-light); color: var(--text-medium); }
+.psp-summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.psp-stat { display: flex; flex-direction: column; gap: 3px; }
+.psp-stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-stat-value { font-size: 1.15rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-accent); }
+
+/* Key-value grid */
+.psp-kv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; }
+.psp-kv { display: flex; flex-direction: column; gap: 2px; }
+.psp-kv-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); }
+.psp-kv-value { font-size: 1rem; font-weight: 600; font-family: var(--font-mono); }
+.psp-kv-good { color: var(--text-accent); }
+
+/* Lists */
+.psp-list { margin-top: 14px; border-top: 1px solid var(--glass-border); padding-top: 12px; }
+.psp-list-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 8px; }
+.psp-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--glass-border);
+}
+.psp-row:last-child { border-bottom: none; }
+.psp-row-name { font-size: 0.86rem; color: var(--text-dark); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-prop-id { color: var(--text-light); font-family: var(--font-mono); font-size: 0.78rem; }
+.psp-row-val { font-size: 0.86rem; font-weight: 600; font-family: var(--font-mono); white-space: nowrap; }
+.psp-row-meta { font-size: 0.72rem; color: var(--text-light); font-weight: 400; }
+
+/* Flow verdict */
+.psp-flow-verdict { margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; }
+.psp-flow-accum { color: var(--text-accent); }
+.psp-flow-distrib { color: var(--danger); }
+
+/* Vote badges */
+.psp-vote { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); white-space: nowrap; }
+.psp-vote-yes { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-vote-no { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-vote-abstain { background: var(--accent-olive-light); color: var(--text-medium); }
+.psp-vote-no_with_veto { background: rgba(239,107,93,0.22); color: var(--danger); }
+
+.psp-empty { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; }
+.psp-reset { align-self: flex-start; background: none; border: none; color: var(--text-medium); cursor: pointer; font-size: 0.85rem; padding: 4px 0; }
+.psp-reset:hover { color: var(--text-accent); }
+
+@media (max-width: 640px) {
+  .psp-title { font-size: 1.6rem; }
+  .psp-card { padding: 16px; }
+  .psp-summary-stats { gap: 8px; }
+  .psp-stat-value { font-size: 1rem; }
+  .psp-kv-grid { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+}

@@ -40,6 +40,7 @@ import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
+import PassportTab from "@/components/PassportTab";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
@@ -69,7 +70,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance";
+type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
 
 // Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
 // Daily-relevance ordering: Today first, your-data and chain-wide signals next.
@@ -79,6 +80,7 @@ const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "governance", label: "Governance" },
   { id: "analytics", label: "Analytics" },
   { id: "flows", label: "Flows" },
+  { id: "passport", label: "Passport" },
 ];
 
 // Tools dropdown: the long tail. Each entry maps to a tab id the rest of
@@ -107,6 +109,7 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/governance": "governance",
   "/analytics": "analytics",
   "/flows": "flows",
+  "/passport": "passport",
   "/validators": "validators",
   "/calculator": "calculator",
   "/rwa": "rwa",
@@ -635,6 +638,9 @@ export default function HomePage() {
       <div className="tab-content">
         {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "flows" && <FlowsTab />}
+        {activeTab === "passport" && (
+          <PassportTab connectedAddress={wallet.connected ? wallet.address : undefined} />
+        )}
         {activeTab === "today" && (
           <TodayTab
             tokenData={tokenData}
