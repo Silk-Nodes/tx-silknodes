@@ -639,7 +639,10 @@ export default function HomePage() {
         {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "flows" && <FlowsTab />}
         {activeTab === "passport" && (
-          <PassportTab connectedAddress={wallet.connected ? wallet.address : undefined} />
+          <PassportTab
+            connectedAddress={wallet.connected ? wallet.address : undefined}
+            txPrice={tokenData?.price ?? 0}
+          />
         )}
         {activeTab === "today" && (
           <TodayTab

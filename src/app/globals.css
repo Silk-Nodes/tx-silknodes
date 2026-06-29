@@ -13145,49 +13145,28 @@ input[type="range"]::-moz-range-thumb {
 
 /* ════════════════════════════════════════════════════════════════════
    WALLET PASSPORT
-   One address in, a full readable profile out. Uses the shared glass
-   tokens so it themes with the rest of the app automatically.
+   Full-width data dashboard for a single address. Uses the shared glass
+   tokens so it themes with the app. Layout: a hero summary, then a
+   responsive two-column grid of insight cards.
    ════════════════════════════════════════════════════════════════════ */
-.psp {
-  max-width: 760px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.psp { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+
+/* Palette for portfolio / flow / bar fills */
+.psp-fill-staked { background: var(--tx-neon); }
+.psp-fill-liquid { background: #4aa3c4; }
+.psp-fill-unbond { background: #e0a23a; }
+.psp-fill-reward { background: #8fd14f; }
+.psp-fill-in { background: var(--tx-neon); }
+.psp-fill-out { background: #e0795a; }
 
 /* Entry state */
 .psp-intro { text-align: center; margin-top: 8px; }
 .psp-title { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
 .psp-sub { color: var(--text-medium); font-size: 0.95rem; line-height: 1.5; max-width: 520px; margin: 0 auto; }
-.psp-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 520px;
-  margin: 8px auto 0;
-  width: 100%;
-}
-.psp-input {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  color: var(--text-dark);
-  font-family: var(--font-mono);
-  font-size: 0.92rem;
-}
+.psp-entry { display: flex; flex-direction: column; gap: 12px; max-width: 520px; margin: 8px auto 0; width: 100%; }
+.psp-input { width: 100%; padding: 14px 16px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-family: var(--font-mono); font-size: 0.92rem; }
 .psp-input:focus { outline: 2px solid var(--tx-neon); outline-offset: 1px; }
-.psp-btn-primary, .psp-btn-secondary {
-  width: 100%;
-  padding: 13px 18px;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  font-size: 0.92rem;
-  cursor: pointer;
-  transition: opacity 0.15s ease, background 0.15s ease;
-}
+.psp-btn-primary, .psp-btn-secondary { width: 100%; padding: 13px 18px; border-radius: var(--radius-pill); font-weight: 700; font-size: 0.92rem; cursor: pointer; transition: opacity 0.15s ease, background 0.15s ease; }
 .psp-btn-primary { background: var(--tx-neon); color: var(--tx-dark-green); border: none; }
 .psp-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 .psp-btn-secondary { background: transparent; color: var(--text-dark); border: 1px solid var(--glass-border); }
@@ -13196,44 +13175,73 @@ input[type="range"]::-moz-range-thumb {
 .psp-error { color: var(--danger); font-size: 0.85rem; text-align: center; }
 
 /* Loading */
-.psp-loading {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 60px 20px; color: var(--text-medium); font-size: 0.95rem;
-}
-.psp-spinner {
-  width: 18px; height: 18px; border-radius: 50%;
-  border: 2px solid var(--glass-border); border-top-color: var(--tx-neon);
-  animation: spin 0.8s linear infinite;
-}
+.psp-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 20px; color: var(--text-medium); font-size: 0.95rem; }
+.psp-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--glass-border); border-top-color: var(--tx-neon); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Cards */
-.psp-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-}
-.psp-card-head { font-size: 1rem; font-weight: 700; margin-bottom: 14px; }
-
-/* Summary (shareable) */
-.psp-summary { display: flex; flex-direction: column; gap: 14px; }
-.psp-addr-block { display: flex; flex-direction: column; gap: 8px; }
-.psp-addr { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); }
-.psp-addr-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Hero */
+.psp-hero { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.psp-hero-top { display: flex; align-items: center; gap: 16px; }
+.psp-avatar { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #fff; font-family: var(--font-mono); letter-spacing: 0.02em; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+.psp-hero-id { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.psp-hero-addr-row { display: flex; align-items: center; gap: 10px; }
+.psp-addr { font-size: 1.2rem; font-weight: 700; font-family: var(--font-mono); }
+.psp-copy { background: var(--accent-olive-light); border: 1px solid var(--glass-border); color: var(--text-medium); border-radius: var(--radius-pill); font-size: 0.68rem; font-weight: 700; padding: 4px 10px; cursor: pointer; }
+.psp-copy:hover { color: var(--text-dark); }
+.psp-hero-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .psp-tag { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); }
 .psp-tag-label { background: var(--accent-olive-light); color: var(--text-dark); }
 .psp-tag-rank { background: var(--tx-neon); color: var(--tx-dark-green); }
+.psp-tag-soft { background: transparent; border: 1px solid var(--glass-border); color: var(--text-light); }
 .psp-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .psp-badge { font-size: 0.72rem; font-weight: 700; padding: 4px 11px; border-radius: var(--radius-pill); border: 1px solid transparent; }
 .psp-badge-good { background: rgba(177,252,3,0.12); color: var(--text-accent); border-color: rgba(177,252,3,0.3); }
 .psp-badge-accent { background: var(--tx-neon); color: var(--tx-dark-green); }
 .psp-badge-warn { background: rgba(239,107,93,0.14); color: var(--danger); border-color: rgba(239,107,93,0.3); }
 .psp-badge-neutral { background: var(--accent-olive-light); color: var(--text-medium); }
-.psp-summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.psp-stat { display: flex; flex-direction: column; gap: 3px; }
-.psp-stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
-.psp-stat-value { font-size: 1.15rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-accent); }
+
+/* Headline metric strip */
+.psp-headline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; border-top: 1px solid var(--glass-border); padding-top: 16px; }
+.psp-metric { display: flex; flex-direction: column; gap: 3px; }
+.psp-metric-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); }
+.psp-metric-value { font-size: 1.35rem; font-weight: 700; font-family: var(--font-mono); }
+.psp-metric-accent { color: var(--text-accent); }
+.psp-metric-sub { font-size: 0.72rem; color: var(--text-light); font-family: var(--font-mono); }
+
+/* Grid of cards */
+/* No align-items:start, so the two cards in a row share the taller card's
+   height (default stretch). Without it the content-heavy left column
+   towered over the right and the grid looked ragged/asymmetric. */
+.psp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.psp-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; }
+.psp-card-wide { grid-column: 1 / -1; }
+.psp-card-head { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
+
+/* Stacked composition bar */
+.psp-stack { display: flex; height: 16px; border-radius: var(--radius-pill); overflow: hidden; gap: 2px; background: var(--accent-olive-light); }
+.psp-stack-seg { height: 100%; min-width: 3px; }
+.psp-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+.psp-legend-row { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 10px; }
+.psp-dot { width: 10px; height: 10px; border-radius: 3px; }
+.psp-legend-label { font-size: 0.84rem; color: var(--text-dark); }
+.psp-legend-val { font-size: 0.84rem; font-family: var(--font-mono); font-weight: 600; text-align: right; }
+.psp-legend-pct { font-size: 0.78rem; color: var(--text-light); font-family: var(--font-mono); min-width: 42px; text-align: right; }
+.psp-usd { color: var(--text-light); font-weight: 400; }
+
+/* Horizontal bars (delegations) */
+.psp-bars { display: flex; flex-direction: column; gap: 12px; }
+.psp-bar-row { display: flex; flex-direction: column; gap: 5px; }
+.psp-bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.psp-bar-name { font-size: 0.84rem; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-bar-val { font-size: 0.82rem; font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+.psp-bar-pct { color: var(--text-light); font-weight: 400; }
+.psp-bar-track { height: 8px; border-radius: var(--radius-pill); background: var(--accent-olive-light); overflow: hidden; }
+.psp-bar-track.sm { height: 6px; }
+.psp-bar-fill { height: 100%; border-radius: var(--radius-pill); min-width: 2px; }
+
+/* Share bar (PSE pool / turnout) */
+.psp-sharebar-wrap { margin-top: 16px; }
+.psp-sharebar-head { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-medium); margin-bottom: 6px; }
 
 /* Key-value grid */
 .psp-kv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; }
@@ -13242,39 +13250,69 @@ input[type="range"]::-moz-range-thumb {
 .psp-kv-value { font-size: 1rem; font-weight: 600; font-family: var(--font-mono); }
 .psp-kv-good { color: var(--text-accent); }
 
-/* Lists */
-.psp-list { margin-top: 14px; border-top: 1px solid var(--glass-border); padding-top: 12px; }
+/* Exchange verdict + per-exchange in/out */
+.psp-verdict { font-size: 0.9rem; padding: 10px 14px; border-radius: var(--radius-md); margin-bottom: 14px; }
+.psp-verdict-accum { background: rgba(177,252,3,0.1); color: var(--text-accent); }
+.psp-verdict-distrib { background: rgba(239,107,93,0.12); color: var(--danger); }
+.psp-xchg-row { display: flex; align-items: center; gap: 12px; }
+.psp-xchg-name { font-size: 0.82rem; width: 86px; flex-shrink: 0; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-xchg-bars { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.psp-xchg-line { display: flex; align-items: center; gap: 8px; }
+.psp-xchg-tag { font-size: 0.6rem; font-weight: 700; width: 24px; flex-shrink: 0; }
+.psp-xchg-tag.in { color: var(--text-accent); }
+.psp-xchg-tag.out { color: var(--danger); }
+.psp-xchg-amt { font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-light); width: 70px; text-align: right; flex-shrink: 0; }
+
+/* Lists / rows */
+.psp-list { margin-top: 16px; border-top: 1px solid var(--glass-border); padding-top: 12px; }
 .psp-list-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 8px; }
-.psp-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 8px 0; border-bottom: 1px solid var(--glass-border);
-}
+.psp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--glass-border); }
 .psp-row:last-child { border-bottom: none; }
 .psp-row-name { font-size: 0.86rem; color: var(--text-dark); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .psp-prop-id { color: var(--text-light); font-family: var(--font-mono); font-size: 0.78rem; }
-.psp-row-val { font-size: 0.86rem; font-weight: 600; font-family: var(--font-mono); white-space: nowrap; }
+.psp-row-val { font-size: 0.86rem; font-weight: 600; font-family: var(--font-mono); white-space: nowrap; text-align: right; }
 .psp-row-meta { font-size: 0.72rem; color: var(--text-light); font-weight: 400; }
 
-/* Flow verdict */
-.psp-flow-verdict { margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; }
-.psp-flow-accum { color: var(--text-accent); }
-.psp-flow-distrib { color: var(--danger); }
+.psp-flowdir { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: var(--radius-pill); }
+.psp-flowdir.inflow { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-flowdir.outflow { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-evt { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: var(--radius-pill); }
+.psp-evt.in { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-evt.out { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-evt.neutral { background: var(--accent-olive-light); color: var(--text-medium); }
 
-/* Vote badges */
+/* Governance */
+.psp-gov-top { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: center; }
+.psp-votebar { display: flex; height: 22px; border-radius: var(--radius-pill); overflow: hidden; gap: 2px; }
+.psp-votebar-seg { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #0f1b07; min-width: 22px; }
+.psp-status { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.psp-status-passed { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-status-rejected, .psp-status-failed { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-status-voting { background: var(--accent-olive-light); color: var(--text-medium); }
+
+/* Vote chips */
 .psp-vote { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); white-space: nowrap; }
 .psp-vote-yes { background: rgba(177,252,3,0.14); color: var(--text-accent); }
 .psp-vote-no { background: rgba(239,107,93,0.14); color: var(--danger); }
 .psp-vote-abstain { background: var(--accent-olive-light); color: var(--text-medium); }
-.psp-vote-no_with_veto { background: rgba(239,107,93,0.22); color: var(--danger); }
+.psp-vote-no_with_veto { background: rgba(239,107,93,0.24); color: var(--danger); }
 
-.psp-empty { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; }
+/* In a stretched card the empty-state message fills the leftover height and
+   sits centered, so a sparse card reads as intentional rather than broken. */
+.psp-empty { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; flex: 1; display: flex; align-items: center; min-height: 60px; }
 .psp-reset { align-self: flex-start; background: none; border: none; color: var(--text-medium); cursor: pointer; font-size: 0.85rem; padding: 4px 0; }
 .psp-reset:hover { color: var(--text-accent); }
 
+@media (max-width: 900px) {
+  .psp-grid { grid-template-columns: 1fr; }
+  .psp-headline { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 640px) {
   .psp-title { font-size: 1.6rem; }
-  .psp-card { padding: 16px; }
-  .psp-summary-stats { gap: 8px; }
-  .psp-stat-value { font-size: 1rem; }
-  .psp-kv-grid { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .psp-card, .psp-hero { padding: 16px; }
+  .psp-headline { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .psp-metric-value { font-size: 1.15rem; }
+  .psp-gov-top { grid-template-columns: 1fr; gap: 12px; }
+  .psp-avatar { width: 46px; height: 46px; }
+  .psp-addr { font-size: 1rem; }
 }
