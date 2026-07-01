@@ -63,16 +63,19 @@ export function ogFrame(opts: {
         fontFamily: "sans-serif",
       }}
     >
-      {/* Brand header: "All in ONE [tx]" — the icon IS the TX, so there is
-          no separate "TX" word (that read as TX twice). */}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div style={{ display: "flex", fontSize: 32, fontWeight: 700, letterSpacing: -0.5 }}>
-          All in ONE
+      {/* Header: "All in ONE [tx]" (the icon IS the TX) on the left, the
+          site URL on the right, aligned on the same baseline. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ display: "flex", fontSize: 32, fontWeight: 700, letterSpacing: -0.5 }}>
+            All in ONE
+          </div>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logo} width={58} height={58} style={{ borderRadius: 14, marginLeft: 16 }} alt="" />
+          ) : null}
         </div>
-        {logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} width={58} height={58} style={{ borderRadius: 14, marginLeft: 16 }} alt="" />
-        ) : null}
+        <div style={{ display: "flex", fontSize: 27, fontWeight: 600, color: NEON }}>tx.silknodes.io</div>
       </div>
 
       {/* Body */}
@@ -103,17 +106,16 @@ export function ogFrame(opts: {
         {children}
       </div>
 
-      {/* Footer lockup */}
+      {/* Footer: URL moved to the header (top-right), so the bottom-left is
+          intentionally empty; only the Silk Nodes credit sits bottom-right. */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           borderTop: `1px solid ${LINE}`,
           paddingTop: 24,
         }}
       >
-        <div style={{ display: "flex", fontSize: 27, fontWeight: 600, color: NEON }}>tx.silknodes.io</div>
         <div style={{ display: "flex", fontSize: 24, color: MUTED }}>Built by Silk Nodes</div>
       </div>
     </div>
