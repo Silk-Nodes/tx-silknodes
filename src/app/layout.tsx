@@ -7,7 +7,13 @@ import { NO_FLASH_SCRIPT } from "@/lib/theme";
 const basePath = "";
 
 export const metadata: Metadata = {
-  title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+  // Per-page titles: each route's layout sets a short title (e.g. "Flows")
+  // and this template appends the brand, so the browser tab reads
+  // "Flows \u00b7 All in ONE TX". Routes with no title use `default`.
+  title: {
+    default: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+    template: "%s \u00b7 All in ONE TX",
+  },
   description:
     "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
   keywords: [
@@ -36,20 +42,15 @@ export const metadata: Metadata = {
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: `${basePath}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: "ALL in ONE TX | Stake, PSE, Explore, Track",
-      },
-    ],
+    // og:image is provided per-route by the file-based opengraph-image.tsx
+    // convention (root default + page-specific + dynamic proposal cards),
+    // so it is intentionally not hardcoded here.
   },
   twitter: {
     card: "summary_large_image",
     title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
     description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
-    images: [`${basePath}/og-image.png`],
+    // twitter:image also comes from opengraph-image (X falls back to og:image).
   },
   robots: {
     index: true,
