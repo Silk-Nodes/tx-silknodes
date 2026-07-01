@@ -318,13 +318,25 @@ export default function HomePage() {
   const brandPopoverRef = useRef<HTMLDivElement>(null);
 
   const handleBrandClick = () => {
+    // The logo is a home button first. If we're anywhere other than the
+    // home (Today) view — another tab, or a /governance/[id] proposal —
+    // navigate home. router.push changes the URL, which clears the proposal
+    // (proposalIdFromUrl -> null) and the routing effect resets the tab to
+    // "today". Setting activeTab alone did nothing here because the proposal
+    // effect immediately forced it back to "governance".
+    const onHome = activeTab === "today" && proposalIdFromUrl === null;
+    if (!onHome) {
+      trackEvent("brand_click", { navigate_home: true });
+      router.push("/");
+      return;
+    }
+    // Already home: use the click for the one-time "support us" popover.
     if (!brandClickedOnce) {
       setShowBrandPopover(true);
       setBrandClickedOnce(true);
       trackEvent("brand_click", { first_time: true });
     } else {
-      setActiveTab("overview");
-      trackEvent("brand_click", { first_time: false });
+      setShowBrandPopover((v) => !v);
     }
   };
 
