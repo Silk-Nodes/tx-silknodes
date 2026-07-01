@@ -38,7 +38,7 @@ export default function ReferralTab({ txPrice = 0 }: { txPrice?: number }) {
   const [referrals, setReferrals] = useState(10);
   const [targetPrice, setTargetPrice] = useState(0);
   const [qr, setQr] = useState("");
-  const [copied, setCopied] = useState<"link" | "text" | null>(null);
+  const [copied, setCopied] = useState<"link" | "text" | "qr" | null>(null);
 
   // Restore a previously entered code + seed a sensible target price.
   useEffect(() => {
@@ -82,6 +82,31 @@ export default function ReferralTab({ txPrice = 0 }: { txPrice?: number }) {
     }).catch(() => {});
   };
 
+  // High-res QR PNG (dark on white) for saving/posting.
+  const bigQr = useCallback(
+    () => QRCode.toDataURL(link, { width: 800, margin: 2, color: { dark: "#0a0d07", light: "#ffffff" } }),
+    [link],
+  );
+  const downloadQr = async () => {
+    if (!link) return;
+    const dataUrl = await bigQr().catch(() => "");
+    if (!dataUrl) return;
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = "tx-referral-qr.png";
+    a.click();
+  };
+  const copyQr = async () => {
+    if (!link) return;
+    try {
+      const dataUrl = await bigQr();
+      const blob = await (await fetch(dataUrl)).blob();
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopied("qr");
+      setTimeout(() => setCopied(null), 1600);
+    } catch { /* image clipboard may be unsupported; the download button covers it */ }
+  };
+
   // ── Calculator ──
   const perReferral = elite ? ELITE_REWARD : BASE_REWARD;
   const totalTX = referrals * perReferral;
@@ -109,6 +134,7 @@ export default function ReferralTab({ txPrice = 0 }: { txPrice?: number }) {
         </div>
       </div>
 
+      <div className="ref-grid">
       {/* Link builder */}
       <div className="ref-card">
         <div className="ref-card-head">Your referral link</div>
@@ -131,6 +157,8 @@ export default function ReferralTab({ txPrice = 0 }: { txPrice?: number }) {
               <div className="ref-linkout-actions">
                 <button className="ref-chip" onClick={() => copy("link")}>{copied === "link" ? "Copied" : "Copy link"}</button>
                 <button className="ref-chip" onClick={() => copy("text")}>{copied === "text" ? "Copied" : "Copy post"}</button>
+                <button className="ref-chip" onClick={downloadQr}>Download QR</button>
+                <button className="ref-chip" onClick={copyQr}>{copied === "qr" ? "Copied" : "Copy QR"}</button>
                 <a className="ref-chip ref-chip-x" href={shareOpen} target="_blank" rel="noopener noreferrer">Share on X</a>
               </div>
             </div>
@@ -204,6 +232,7 @@ export default function ReferralTab({ txPrice = 0 }: { txPrice?: number }) {
           </div>
         )}
       </div>
+      </div>{/* /ref-grid */}
 
       {/* How it works */}
       <div className="ref-card">

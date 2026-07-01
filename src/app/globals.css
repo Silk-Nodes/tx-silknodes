@@ -13158,7 +13158,13 @@ input[type="range"]::-moz-range-thumb {
    REFER & EARN
    tx.market referral tool: link builder + shareable QR card + calculator.
    ════════════════════════════════════════════════════════════════════ */
-.ref { width: 100%; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+/* Fill the tab-content width like the analytics/flows/governance tabs so
+   the page lines up with the rest (no centered narrow column). */
+.ref { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+/* Two-up on desktop: get-your-link on the left, calculator on the right,
+   so the full width is used instead of one narrow stack. */
+.ref-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .ref-grid { grid-template-columns: 1fr; } }
 
 .ref-intro { text-align: center; margin-top: 4px; }
 .ref-title { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
