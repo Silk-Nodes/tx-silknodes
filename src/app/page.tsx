@@ -40,6 +40,7 @@ import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
+import ReferralTab from "@/components/ReferralTab";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
@@ -69,7 +70,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance";
+type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance" | "referral";
 
 // Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
 // Daily-relevance ordering: Today first, your-data and chain-wide signals next.
@@ -87,6 +88,7 @@ const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
 const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: boolean }[] = [
   { id: "validators", label: "Validators", description: "Browse, compare, delegate" },
   { id: "calculator", label: "Calculator", description: "Estimate staking rewards" },
+  { id: "referral", label: "Refer & Earn", description: "Share your link, earn TX" },
   { id: "portfolio", label: "Portfolio", description: "Your delegations", walletOnly: true },
   { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on Coreum" },
   { id: "silknodes", label: "Silk Nodes", description: "About the validator" },
@@ -109,6 +111,7 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/flows": "flows",
   "/validators": "validators",
   "/calculator": "calculator",
+  "/referral": "referral",
   "/rwa": "rwa",
   "/silknodes": "silknodes",
   "/portfolio": "portfolio",
@@ -647,6 +650,7 @@ export default function HomePage() {
       <div className="tab-content">
         {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "flows" && <FlowsTab />}
+        {activeTab === "referral" && <ReferralTab txPrice={tokenData?.price ?? 0} />}
         {activeTab === "today" && (
           <TodayTab
             tokenData={tokenData}
