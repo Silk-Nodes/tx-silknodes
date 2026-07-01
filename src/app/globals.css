@@ -7217,9 +7217,9 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 24px 16px 64px;
+  /* No max-width / margin:auto: fill the tab-content width like the
+     analytics and flows tabs so the page lines up with the rest. */
+  padding-bottom: 48px;
 }
 
 .governance-header {
@@ -7534,8 +7534,6 @@ input[type="range"]::-moz-range-thumb {
 .governance-tab {
   /* gap was 20px; bumped slightly for breathing room around stats + sections */
   gap: 24px;
-  /* wider so 4-up stats panel + vote cards have room */
-  max-width: 1080px;
 }
 
 /* Stats panel */
