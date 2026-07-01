@@ -63,15 +63,16 @@ export function ogFrame(opts: {
         fontFamily: "sans-serif",
       }}
     >
-      {/* Brand header */}
+      {/* Brand header: "All in ONE [tx]" — the icon IS the TX, so there is
+          no separate "TX" word (that read as TX twice). */}
       <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ display: "flex", fontSize: 32, fontWeight: 700, letterSpacing: -0.5 }}>
+          All in ONE
+        </div>
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} width={60} height={60} style={{ borderRadius: 14 }} alt="" />
+          <img src={logo} width={58} height={58} style={{ borderRadius: 14, marginLeft: 16 }} alt="" />
         ) : null}
-        <div style={{ display: "flex", fontSize: 30, fontWeight: 700, marginLeft: 18, letterSpacing: -0.5 }}>
-          All in ONE TX
-        </div>
       </div>
 
       {/* Body */}
