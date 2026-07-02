@@ -34,12 +34,15 @@ interface PseStanding {
   sharePct: number;
   eligible: boolean;
 }
-interface StakingEvt {
-  type: "delegate" | "undelegate" | "redelegate";
-  timestamp: string;
-  validator: string;
-  sourceValidator?: string;
-  amount: number;
+interface ActivityItem {
+  kind: "send" | "receive" | "delegate" | "undelegate" | "redelegate"
+    | "claim_rewards" | "vote" | "referral_reward" | "ibc_transfer" | "contract" | "other";
+  height: number;
+  txHash: string;
+  timestamp: string | null;
+  amountTX?: number;
+  counterparty?: string;
+  detail?: string;
 }
 
 interface Referral {
@@ -56,7 +59,7 @@ interface Loaded {
   flows: FlowsAddress | null;
   gov: GovHistory | null;
   pse: PseStanding | null;
-  staking: StakingEvt[];
+  activity: ActivityItem[];
   referral: Referral | null;
   badges: Badge[];
   monikers: Record<string, string>;
@@ -114,21 +117,21 @@ export default function PassportTab({
     setLoading(true);
     setData(null);
     try {
-      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, stakingRes, refRes, monikers] = await Promise.all([
+      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, activityRes, refRes, monikers] = await Promise.all([
         fetchAddressChainData(address),
         fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchOnChainPSEScore(address),
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
-        fetch(`/api/staking-feed?delegator=${address}&sinceDays=3650&limit=300`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchValidatorMonikers(),
       ]);
 
       const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
       const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
-      const staking: StakingEvt[] = Array.isArray(stakingRes?.events) ? stakingRes.events : [];
+      const activity: ActivityItem[] = Array.isArray(activityRes?.items) ? activityRes.items : [];
       const referral: Referral | null = refRes && !refRes.error ? refRes : null;
 
       const est = layeredPSEEstimate({
@@ -160,7 +163,7 @@ export default function PassportTab({
         votedCount: gov?.summary.votedCount ?? 0,
       });
 
-      setData({ address, chain, flows, gov, pse, staking, referral, badges, monikers });
+      setData({ address, chain, flows, gov, pse, activity, referral, badges, monikers });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load wallet passport");
     } finally {
@@ -233,7 +236,7 @@ export default function PassportTab({
   }
 
   if (!data) return null;
-  const { address, chain, flows, gov, pse, staking, referral, badges, monikers } = data;
+  const { address, chain, flows, gov, pse, activity, referral, badges, monikers } = data;
   const nameOf = (v: string) => monikers[v] || shortAddr(v);
   const av = avatar(address);
   const label = flows?.isExchange ? flows.exchangeName : flows?.label;
@@ -250,7 +253,8 @@ export default function PassportTab({
   const topValidatorShare = chain.stakedTX > 0 && chain.delegations[0] ? (chain.delegations[0].amountTX / chain.stakedTX) * 100 : 0;
   const monthlyYieldPct = chain.stakedTX > 0 && pse ? (pse.monthly / chain.stakedTX) * 100 : 0;
   const allTimeNet = flows ? flows.summary.totalReceivedFromExchanges - flows.summary.totalSentToExchanges : 0;
-  const firstActivity = staking.length ? staking[staking.length - 1].timestamp : (flows?.recent.length ? flows.recent[flows.recent.length - 1].timestamp : null);
+  const oldest = activity[activity.length - 1]?.timestamp ?? null;
+  const firstActivity = oldest ?? (flows?.recent.length ? flows.recent[flows.recent.length - 1].timestamp : null);
 
   const govCounts: Record<string, number> = { YES: 0, NO: 0, ABSTAIN: 0, NO_WITH_VETO: 0 };
   for (const v of gov?.votes ?? []) govCounts[v.option] = (govCounts[v.option] ?? 0) + 1;
@@ -440,22 +444,26 @@ export default function PassportTab({
           ) : <Empty>This wallet has not voted on any governance proposals.</Empty>}
         </Card>
 
-        {/* Staking activity */}
-        <Card title="Staking activity" wide>
-          {staking.length > 0 ? (
+        {/* Recent on-chain activity (full history from the indexer) */}
+        <Card title="Recent activity" wide>
+          {activity.length > 0 ? (
             <div className="psp-list">
-              {staking.slice(0, 12).map((e, i) => {
-                const tone = e.type === "delegate" ? "in" : e.type === "undelegate" ? "out" : "neutral";
-                const verb = e.type === "delegate" ? "Delegated to" : e.type === "undelegate" ? "Undelegated from" : "Redelegated to";
+              {activity.slice(0, 15).map((e, i) => {
+                const [tone, verb, who, sign] = describeActivity(e, nameOf);
                 return (
-                  <div key={i} className="psp-row">
-                    <span className="psp-row-name"><span className={`psp-evt ${tone}`}>{verb}</span> {nameOf(e.validator)}{e.sourceValidator ? <span className="psp-row-meta"> from {nameOf(e.sourceValidator)}</span> : null}</span>
-                    <span className="psp-row-val">{e.type === "undelegate" ? "−" : "+"}{TX(e.amount)} <span className="psp-row-meta">{relativeTimeShort(e.timestamp)}</span></span>
+                  <div key={`${e.txHash}-${i}`} className="psp-row">
+                    <span className="psp-row-name">
+                      <span className={`psp-evt ${tone}`}>{verb}</span> {who}
+                    </span>
+                    <span className="psp-row-val">
+                      {e.amountTX ? <>{sign}{TX(e.amountTX)} </> : null}
+                      <span className="psp-row-meta">{e.timestamp ? relativeTimeShort(e.timestamp) : `#${e.height}`}</span>
+                    </span>
                   </div>
                 );
               })}
             </div>
-          ) : <Empty>No recorded staking events in the tracked window.</Empty>}
+          ) : <Empty>No on-chain activity found for this wallet.</Empty>}
         </Card>
       </div>
 
@@ -492,6 +500,27 @@ function KV({ label, value, sub, tone }: { label: string; value: string; sub?: s
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="psp-empty">{children}</div>;
 }
+// Human line for an activity item: [chip tone, chip verb, subject, amount sign].
+function describeActivity(
+  e: ActivityItem,
+  nameOf: (v: string) => string,
+): [string, string, string, string] {
+  const cp = e.counterparty ?? "";
+  switch (e.kind) {
+    case "receive": return ["in", "Received", `from ${shortAddr(cp)}`, "+"];
+    case "send": return ["out", "Sent", `to ${shortAddr(cp)}`, "−"];
+    case "delegate": return ["in", "Delegated", `to ${nameOf(cp)}`, "+"];
+    case "undelegate": return ["out", "Undelegated", `from ${nameOf(cp)}`, "−"];
+    case "redelegate": return ["neutral", "Redelegated", `to ${nameOf(cp)}${e.detail ? ` from ${nameOf(e.detail)}` : ""}`, ""];
+    case "claim_rewards": return ["in", "Claimed rewards", e.detail ?? (cp ? `from ${nameOf(cp)}` : ""), "+"];
+    case "vote": return ["neutral", "Voted", e.detail ?? "", ""];
+    case "referral_reward": return ["in", "Referral reward", e.detail ?? "", "+"];
+    case "ibc_transfer": return ["out", "IBC transfer", `to ${shortAddr(cp)}`, "−"];
+    case "contract": return ["neutral", "Contract call", shortAddr(cp), ""];
+    default: return ["neutral", "Activity", "", ""];
+  }
+}
+
 function voteLabel(opt: string): string {
   switch (opt) {
     case "YES": return "Yes";

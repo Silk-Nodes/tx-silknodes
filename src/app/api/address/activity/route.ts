@@ -1,0 +1,167 @@
+// GET /api/address/activity?address=core1...
+//
+// Full on-chain activity timeline for a wallet, straight from the public
+// Coreum indexer. Unlike the VM-backed staking/flows tables (which only
+// cover what our collectors watch), the indexer's message table has every
+// message a wallet was ever involved in, so this card always has data.
+//
+// Two-step fetch because joining message -> transaction -> block times out
+// on the indexer: (1) pull recent messages by involved address, (2) batch
+// the distinct heights through block(where height _in ...) which is a fast
+// PK lookup (<1s), and stitch timestamps in.
+//
+// Cache 2 min per address.
+
+import { NextResponse } from "next/server";
+
+const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const REFERRAL_PAYER = "core15sh9smq7ay5r430yetzn57v2rg666ma0ulzp84";
+const UCORE_PER_TX = 1_000_000;
+const LIMIT = 60;
+
+const MSG_QUERY = `query Q($addr: [String!]!) {
+  message(
+    where: {involved_accounts_addresses: {_contains: $addr}},
+    order_by: {height: desc},
+    limit: ${LIMIT}
+  ) { type height transaction_hash value }
+}`;
+const BLOCK_QUERY = `query B($hs: [bigint!]!) {
+  block(where: {height: {_in: $hs}}) { height timestamp }
+}`;
+
+export type ActivityKind =
+  | "send" | "receive"
+  | "delegate" | "undelegate" | "redelegate" | "claim_rewards"
+  | "vote" | "referral_reward" | "ibc_transfer" | "contract" | "other";
+
+interface ActivityItem {
+  kind: ActivityKind;
+  height: number;
+  txHash: string;
+  timestamp: string | null;
+  amountTX?: number;
+  counterparty?: string;   // other wallet / validator / contract
+  detail?: string;         // vote option, proposal id, etc.
+}
+
+function ucore(amounts: any[]): number {
+  return (amounts ?? []).reduce(
+    (s, c) => (c?.denom === "ucore" ? s + Number(c.amount) : s), 0,
+  ) / UCORE_PER_TX;
+}
+
+function classify(address: string, type: string, v: any): Omit<ActivityItem, "height" | "txHash" | "timestamp"> | null {
+  switch (type) {
+    case "/cosmos.bank.v1beta1.MsgSend": {
+      const amt = ucore(v.amount);
+      if (v.from_address === address) return { kind: "send", amountTX: amt, counterparty: v.to_address };
+      if (v.to_address === address) return { kind: "receive", amountTX: amt, counterparty: v.from_address };
+      return null;
+    }
+    case "/cosmos.staking.v1beta1.MsgDelegate":
+      return { kind: "delegate", amountTX: ucore([v.amount]), counterparty: v.validator_address };
+    case "/cosmos.staking.v1beta1.MsgUndelegate":
+      return { kind: "undelegate", amountTX: ucore([v.amount]), counterparty: v.validator_address };
+    case "/cosmos.staking.v1beta1.MsgBeginRedelegate":
+      return { kind: "redelegate", amountTX: ucore([v.amount]), counterparty: v.validator_dst_address, detail: v.validator_src_address };
+    case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward":
+      return { kind: "claim_rewards", counterparty: v.validator_address };
+    case "/cosmos.gov.v1.MsgVote":
+    case "/cosmos.gov.v1beta1.MsgVote":
+      return { kind: "vote", detail: `#${v.proposal_id} ${String(v.option ?? "").replace("VOTE_OPTION_", "")}` };
+    case "/ibc.applications.transfer.v1.MsgTransfer":
+      return { kind: "ibc_transfer", amountTX: v.token?.denom === "ucore" ? Number(v.token.amount) / UCORE_PER_TX : undefined, counterparty: v.receiver };
+    case "/cosmwasm.wasm.v1.MsgExecuteContract": {
+      const p = v?.msg?.payout;
+      if (v.sender === REFERRAL_PAYER && p?.key?.startsWith?.("ref-")) {
+        const mine = (p.payouts ?? []).find((x: any) => x?.recipient === address);
+        if (!mine) return null;
+        const [referrer] = p.key.slice(4).split("-");
+        return {
+          kind: "referral_reward",
+          amountTX: Number(mine.amount?.amount ?? 0) / UCORE_PER_TX,
+          detail: address === referrer ? "as referrer" : "as new signup",
+        };
+      }
+      // Only show contract calls the wallet itself made; being an incidental
+      // involved account on someone else's execute is noise.
+      if (v.sender === address) return { kind: "contract", counterparty: v.contract, amountTX: ucore(v.funds) || undefined };
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+async function hasura<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+  const res = await fetch(HASURA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
+  const json = await res.json();
+  if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
+  return json.data as T;
+}
+
+let cache: { ts: number; key: string; body: unknown } | null = null;
+const TTL_MS = 2 * 60 * 1000;
+
+export async function GET(req: Request) {
+  const address = (new URL(req.url).searchParams.get("address") || "").trim();
+  if (!address.startsWith("core1") || address.length < 39) {
+    return NextResponse.json({ error: "Enter a valid core1... address" }, { status: 400 });
+  }
+  if (cache && cache.key === address && Date.now() - cache.ts < TTL_MS) {
+    return NextResponse.json(cache.body);
+  }
+
+  try {
+    const data = await hasura<{ message: { type: string; height: number; transaction_hash: string; value: any }[] }>(
+      MSG_QUERY, { addr: [address] },
+    );
+    const rows = data.message ?? [];
+
+    const items: ActivityItem[] = [];
+    for (const r of rows) {
+      const c = classify(address, r.type, r.value ?? {});
+      if (!c) continue;
+      // Collapse reward claims: Restake-style auto-claims fire one
+      // MsgWithdrawDelegatorReward per validator in a single tx, which
+      // would flood the timeline with dozens of identical rows. Merge
+      // them into one "claimed from N validators" item per tx.
+      if (c.kind === "claim_rewards") {
+        const prev = items[items.length - 1];
+        if (prev?.kind === "claim_rewards" && prev.txHash === r.transaction_hash) {
+          const n = (Number(prev.detail?.match(/^\d+/)?.[0]) || 1) + 1;
+          prev.detail = `${n} validators`;
+          prev.counterparty = undefined;
+          continue;
+        }
+      }
+      items.push({ ...c, height: r.height, txHash: r.transaction_hash, timestamp: null });
+    }
+
+    // Stitch in block timestamps (fast PK batch).
+    const heights = [...new Set(items.map((i) => i.height))];
+    if (heights.length > 0) {
+      const blocks = await hasura<{ block: { height: number; timestamp: string }[] }>(
+        BLOCK_QUERY, { hs: heights },
+      );
+      const tsByHeight = new Map(blocks.block.map((b) => [b.height, b.timestamp]));
+      for (const i of items) i.timestamp = tsByHeight.get(i.height) ?? null;
+    }
+
+    const body = { address, items, updatedAt: new Date().toISOString() };
+    cache = { ts: Date.now(), key: address, body };
+    return NextResponse.json(body);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load activity" },
+      { status: 502 },
+    );
+  }
+}
