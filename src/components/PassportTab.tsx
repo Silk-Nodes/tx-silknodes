@@ -42,6 +42,14 @@ interface StakingEvt {
   amount: number;
 }
 
+interface Referral {
+  referralsMade: number;
+  totalEarnedTX: number;
+  elite: boolean;
+  referredBy: string | null;
+  payoutCount: number;
+}
+
 interface Loaded {
   address: string;
   chain: AddressChainData;
@@ -49,6 +57,7 @@ interface Loaded {
   gov: GovHistory | null;
   pse: PseStanding | null;
   staking: StakingEvt[];
+  referral: Referral | null;
   badges: Badge[];
   monikers: Record<string, string>;
 }
@@ -105,7 +114,7 @@ export default function PassportTab({
     setLoading(true);
     setData(null);
     try {
-      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, stakingRes, monikers] = await Promise.all([
+      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, stakingRes, refRes, monikers] = await Promise.all([
         fetchAddressChainData(address),
         fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -113,12 +122,14 @@ export default function PassportTab({
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
         fetch(`/api/staking-feed?delegator=${address}&sinceDays=3650&limit=300`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchValidatorMonikers(),
       ]);
 
       const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
       const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
       const staking: StakingEvt[] = Array.isArray(stakingRes?.events) ? stakingRes.events : [];
+      const referral: Referral | null = refRes && !refRes.error ? refRes : null;
 
       const est = layeredPSEEstimate({
         userStake: chain.stakedTX,
@@ -149,7 +160,7 @@ export default function PassportTab({
         votedCount: gov?.summary.votedCount ?? 0,
       });
 
-      setData({ address, chain, flows, gov, pse, staking, badges, monikers });
+      setData({ address, chain, flows, gov, pse, staking, referral, badges, monikers });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load wallet passport");
     } finally {
@@ -222,7 +233,7 @@ export default function PassportTab({
   }
 
   if (!data) return null;
-  const { address, chain, flows, gov, pse, staking, badges, monikers } = data;
+  const { address, chain, flows, gov, pse, staking, referral, badges, monikers } = data;
   const nameOf = (v: string) => monikers[v] || shortAddr(v);
   const av = avatar(address);
   const label = flows?.isExchange ? flows.exchangeName : flows?.label;
@@ -378,6 +389,25 @@ export default function PassportTab({
               )}
             </>
           ) : <Empty>No exchange deposits or withdrawals on record for this wallet.</Empty>}
+        </Card>
+
+        {/* Referral earnings (on-chain, tx.market) */}
+        <Card title="Referral earnings" wide>
+          {referral && referral.payoutCount > 0 ? (
+            <>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 32 }}>
+                <KV label="Referrals made" value={String(referral.referralsMade)} />
+                <KV label="Earned" value={TX(referral.totalEarnedTX)} sub={usd(referral.totalEarnedTX)} />
+                <KV label="Tier" value={referral.elite ? "Elite (2x)" : "Base"} tone={referral.elite ? "good" : undefined} />
+                {referral.referredBy && <KV label="Referred by" value={shortAddr(referral.referredBy)} />}
+              </div>
+              <div style={{ marginTop: 14, fontSize: "0.78rem", color: "var(--text-light)", lineHeight: 1.5 }}>
+                On-chain tx.market referral rewards: 500 TX per verified signup, 1000 TX as Elite Club.
+              </div>
+            </>
+          ) : (
+            <Empty>No tx.market referral rewards received on-chain for this wallet.</Empty>
+          )}
         </Card>
 
         {/* Governance */}
