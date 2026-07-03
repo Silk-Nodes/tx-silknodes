@@ -7,8 +7,8 @@
 // changes once per monthly distribution).
 
 import { NextResponse } from "next/server";
+import { hasuraQuery } from "@/lib/hasura";
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const UCORE_PER_TX = 1_000_000;
 
 const QUERY = `query Q($addr: String!) {
@@ -23,16 +23,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Enter a valid core1... address" }, { status: 400 });
   }
   try {
-    const res = await fetch(HASURA_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: QUERY, variables: { addr: address } }),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
-    const json = await res.json();
-    if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
-    const rows: { height: number; amount: string; allocation_type: string }[] = json.data?.pse_transfer ?? [];
+    const data = await hasuraQuery<{ pse_transfer: { height: number; amount: string; allocation_type: string }[] }>(
+      QUERY, { addr: address },
+    );
+    const rows = data.pse_transfer ?? [];
 
     const distributions = rows.map((r) => ({
       height: r.height,

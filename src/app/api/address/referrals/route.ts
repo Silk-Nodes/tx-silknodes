@@ -16,8 +16,8 @@
 // No tx.market login/API needed. Cache 5 min (only changes on new payouts).
 
 import { NextResponse } from "next/server";
+import { hasuraQuery } from "@/lib/hasura";
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const REFERRAL_PAYER = "core15sh9smq7ay5r430yetzn57v2rg666ma0ulzp84";
 const UCORE_PER_TX = 1_000_000;
 const PAGE = 100;
@@ -53,16 +53,10 @@ export async function GET(req: Request) {
   try {
     const entries: Entry[] = [];
     for (let page = 0; page < MAX_PAGES; page++) {
-      const res = await fetch(HASURA_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: QUERY, variables: { addr: [address], off: page * PAGE } }),
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
-      const json = await res.json();
-      if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
-      const rows: { height: number; value: any }[] = json.data?.message ?? [];
+      const data = await hasuraQuery<{ message: { height: number; value: any }[] }>(
+        QUERY, { addr: [address], off: page * PAGE },
+      );
+      const rows = data.message ?? [];
 
       for (const r of rows) {
         const p = r.value?.msg?.payout;

@@ -15,8 +15,8 @@
 import { NextResponse } from "next/server";
 import { Op } from "sequelize";
 import { KnownEntity } from "@/lib/db/models";
+import { hasuraQuery } from "@/lib/hasura";
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const REFERRAL_PAYER = "core15sh9smq7ay5r430yetzn57v2rg666ma0ulzp84";
 // Hardcoded labels for tx.market referral infra (not in known_entities).
 const STATIC_LABELS: Record<string, string> = {
@@ -35,6 +35,13 @@ const MSG_QUERY = `query Q($addr: [String!]!) {
 }`;
 const BLOCK_QUERY = `query B($hs: [bigint!]!) {
   block(where: {height: {_in: $hs}}) { height timestamp }
+}`;
+// Is this wallet a validator's self-delegate? Own query, best-effort: the
+// endpoint rejects an ascending message order (so true first-seen isn't
+// fetchable here) and errors if validator_info is selected in the same
+// document as message, so we keep it standalone.
+const VALIDATOR_QUERY = `query V($addr: String!) {
+  validator_info(where: {self_delegate_address: {_eq: $addr}}) { operator_address }
 }`;
 
 export type ActivityKind =
@@ -102,18 +109,7 @@ function classify(address: string, type: string, v: any): Omit<ActivityItem, "he
   }
 }
 
-async function hasura<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-  const res = await fetch(HASURA_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
-  return json.data as T;
-}
+const hasura = hasuraQuery;
 
 let cache: { ts: number; key: string; body: unknown } | null = null;
 const TTL_MS = 2 * 60 * 1000;
@@ -128,10 +124,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const data = await hasura<{ message: { type: string; height: number; transaction_hash: string; value: any }[] }>(
-      MSG_QUERY, { addr: [address] },
-    );
+    const [data, valData] = await Promise.all([
+      hasura<{ message: { type: string; height: number; transaction_hash: string; value: any }[] }>(MSG_QUERY, { addr: [address] }),
+      hasura<{ validator_info: { operator_address: string }[] }>(VALIDATOR_QUERY, { addr: address }).catch(() => ({ validator_info: [] })),
+    ]);
     const rows = data.message ?? [];
+    const validatorOperator = valData.validator_info?.[0]?.operator_address ?? null;
 
     const items: ActivityItem[] = [];
     for (const r of rows) {
@@ -180,7 +178,12 @@ export async function GET(req: Request) {
       if (lbl) i.counterpartyLabel = lbl;
     }
 
-    const body = { address, items, updatedAt: new Date().toISOString() };
+    const body = {
+      address,
+      items,
+      validatorOperator,
+      updatedAt: new Date().toISOString(),
+    };
     cache = { ts: Date.now(), key: address, body };
     return NextResponse.json(body);
   } catch (err) {

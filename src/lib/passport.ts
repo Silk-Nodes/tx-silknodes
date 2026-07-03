@@ -21,6 +21,11 @@ export interface PassportUnbonding {
   amountTX: number;
   completionTime: string; // ISO
 }
+export interface TokenHolding {
+  denom: string;
+  subunit: string;   // display name (e.g. "ubob", "IBC")
+  amount: string;    // raw base-unit amount (decimals unknown per token)
+}
 export interface AddressChainData {
   balanceTX: number;        // liquid, in wallet
   stakedTX: number;         // total bonded
@@ -29,6 +34,16 @@ export interface AddressChainData {
   unbonding: PassportUnbonding[];
   unbondingTX: number;      // total currently unbonding
   validatorCount: number;
+  otherTokens: TokenHolding[]; // non-TX smart tokens / IBC assets held
+  txsSent: number;          // account sequence (txs this wallet signed)
+  accountNumber: number;    // lower = older account
+}
+
+// Smart-token denom looks like "subunit-issueraddress"; IBC like "ibc/HASH".
+function tokenSubunit(denom: string): string {
+  if (denom.startsWith("ibc/")) return "IBC";
+  const dash = denom.indexOf("-core1");
+  return dash > 0 ? denom.slice(0, dash) : denom;
 }
 
 function ucoreToTX(amount: string | number | undefined | null): number {
@@ -85,16 +100,24 @@ export async function fetchBondedTokens(): Promise<number> {
 // piece degrades independently: a failed sub-request just zeroes that
 // slice rather than failing the whole passport.
 export async function fetchAddressChainData(address: string): Promise<AddressChainData> {
-  const [bal, deleg, unbond, rew] = await Promise.all([
+  const [bal, deleg, unbond, rew, acct] = await Promise.all([
     getJson(`/cosmos/bank/v1beta1/balances/${address}`),
     getJson(`/cosmos/staking/v1beta1/delegations/${address}`),
     getJson(`/cosmos/staking/v1beta1/delegators/${address}/unbonding_delegations`),
     getJson(`/cosmos/distribution/v1beta1/delegators/${address}/rewards`),
+    getJson(`/cosmos/auth/v1beta1/accounts/${address}`),
   ]);
 
-  const balanceTX = ucoreToTX(
-    (bal?.balances ?? []).find((b: any) => b.denom === "ucore")?.amount,
-  );
+  const balances: any[] = bal?.balances ?? [];
+  const balanceTX = ucoreToTX(balances.find((b: any) => b.denom === "ucore")?.amount);
+  const otherTokens: TokenHolding[] = balances
+    .filter((b: any) => b.denom !== "ucore" && Number(b.amount) > 0)
+    .map((b: any) => ({ denom: b.denom, subunit: tokenSubunit(b.denom), amount: b.amount }))
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
+
+  const base = acct?.account?.base_account ?? acct?.account ?? {};
+  const txsSent = Number(base.sequence ?? 0);
+  const accountNumber = Number(base.account_number ?? 0);
 
   const delegations: PassportDelegation[] = (deleg?.delegation_responses ?? []).map(
     (d: any) => ({
@@ -128,6 +151,9 @@ export async function fetchAddressChainData(address: string): Promise<AddressCha
     unbonding,
     unbondingTX,
     validatorCount: delegations.filter((d) => d.amountTX > 0).length,
+    otherTokens,
+    txsSent,
+    accountNumber,
   };
 }
 

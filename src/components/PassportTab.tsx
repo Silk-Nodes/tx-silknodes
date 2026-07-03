@@ -50,6 +50,7 @@ interface PseEarned {
   count: number;
   totalTX: number;
   lastTX: number;
+  distributions: { amountTX: number; height: number }[];
 }
 
 interface Referral {
@@ -68,6 +69,8 @@ interface Loaded {
   pse: PseStanding | null;
   pseEarned: PseEarned | null;
   activity: ActivityItem[];
+  validatorOperator: string | null;
+  firstSeen: string | null;
   referral: Referral | null;
   badges: Badge[];
   monikers: Record<string, string>;
@@ -143,6 +146,8 @@ export default function PassportTab({
       const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
       const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
       const activity: ActivityItem[] = Array.isArray(activityRes?.items) ? activityRes.items : [];
+      const validatorOperator: string | null = activityRes?.validatorOperator ?? null;
+      const firstSeen: string | null = activityRes?.firstSeen?.timestamp ?? null;
       const referral: Referral | null = refRes && !refRes.error ? refRes : null;
       const pseEarned: PseEarned | null = pseEarnedRes && !pseEarnedRes.error && pseEarnedRes.count > 0 ? pseEarnedRes : null;
 
@@ -175,7 +180,7 @@ export default function PassportTab({
         votedCount: gov?.summary.votedCount ?? 0,
       });
 
-      setData({ address, chain, flows, gov, pse, pseEarned, activity, referral, badges, monikers });
+      setData({ address, chain, flows, gov, pse, pseEarned, activity, validatorOperator, firstSeen, referral, badges, monikers });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load wallet passport");
     } finally {
@@ -248,7 +253,7 @@ export default function PassportTab({
   }
 
   if (!data) return null;
-  const { address, chain, flows, gov, pse, pseEarned, activity, referral, badges, monikers } = data;
+  const { address, chain, flows, gov, pse, pseEarned, activity, validatorOperator, firstSeen, referral, badges, monikers } = data;
   const nameOf = (v: string) => monikers[v] || shortAddr(v);
   const av = avatar(address);
   const label = flows?.isExchange ? flows.exchangeName : flows?.label;
@@ -266,7 +271,21 @@ export default function PassportTab({
   const monthlyYieldPct = chain.stakedTX > 0 && pse ? (pse.monthly / chain.stakedTX) * 100 : 0;
   const allTimeNet = flows ? flows.summary.totalReceivedFromExchanges - flows.summary.totalSentToExchanges : 0;
   const oldest = activity[activity.length - 1]?.timestamp ?? null;
-  const firstActivity = oldest ?? (flows?.recent.length ? flows.recent[flows.recent.length - 1].timestamp : null);
+  const firstActivity = firstSeen ?? oldest ?? (flows?.recent.length ? flows.recent[flows.recent.length - 1].timestamp : null);
+
+  // Net TX flow across the visible on-chain window (sends out vs receives in).
+  let flowIn = 0, flowOut = 0;
+  for (const e of activity) {
+    if (!e.amountTX) continue;
+    if (e.kind === "receive" || e.kind === "referral_reward" || e.kind === "claim_rewards") flowIn += e.amountTX;
+    else if (e.kind === "send" || e.kind === "ibc_transfer") flowOut += e.amountTX;
+  }
+  const windowNet = flowIn - flowOut;
+  const hasFlow = flowIn > 0 || flowOut > 0;
+
+  // The validator moniker, if this wallet is a validator's self-delegate.
+  const validatorName = validatorOperator ? (monikers[validatorOperator] || null) : null;
+  const isValidator = !!validatorOperator;
 
   const govCounts: Record<string, number> = { YES: 0, NO: 0, ABSTAIN: 0, NO_WITH_VETO: 0 };
   for (const v of gov?.votes ?? []) govCounts[v.option] = (govCounts[v.option] ?? 0) + 1;
@@ -286,9 +305,11 @@ export default function PassportTab({
                 <a className="psp-copy" href={mintscanAddr(address)} target="_blank" rel="noopener noreferrer">Explorer ↗</a>
               </div>
               <div className="psp-hero-tags">
+                {isValidator && <span className="psp-tag psp-tag-rank" title={validatorOperator ?? undefined}>Validator{validatorName ? `: ${validatorName}` : ""}</span>}
                 {label && <span className="psp-tag psp-tag-label">{label}</span>}
                 {flows?.rank != null && <span className="psp-tag psp-tag-rank">Staker rank #{flows.rank}</span>}
                 {firstActivity && <span className="psp-tag psp-tag-soft">First seen {relativeTimeShort(firstActivity)}</span>}
+                {chain.txsSent > 0 && <span className="psp-tag psp-tag-soft">{formatCompact(chain.txsSent)} txns signed</span>}
               </div>
             </div>
           </div>
@@ -372,6 +393,22 @@ export default function PassportTab({
                 <div className="psp-sharebar-wrap">
                   <div className="psp-sharebar-head"><span>Share of PSE pool</span><span>{pse.sharePct < 0.01 ? "<0.01" : pse.sharePct.toFixed(2)}%</span></div>
                   <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-reward" style={{ width: `${Math.min(100, Math.max(pse.sharePct, 0.4))}%` }} /></div>
+                </div>
+              )}
+              {pseEarned && pseEarned.distributions.length > 1 && (
+                <div className="psp-distbars">
+                  <div className="psp-list-head">Paid per distribution</div>
+                  <div className="psp-distbars-row">
+                    {[...pseEarned.distributions].reverse().map((d) => {
+                      const max = Math.max(...pseEarned.distributions.map((x) => x.amountTX), 1);
+                      return (
+                        <div key={d.height} className="psp-distbar" title={`${TX(d.amountTX)} · block ${d.height}`}>
+                          <div className="psp-distbar-fill" style={{ height: `${Math.max((d.amountTX / max) * 100, 4)}%` }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="psp-distbars-foot"><span>oldest</span><span>latest {TX(pseEarned.lastTX)}</span></div>
                 </div>
               )}
             </>
@@ -465,8 +502,35 @@ export default function PassportTab({
           ) : <Empty>This wallet has not voted on any governance proposals.</Empty>}
         </Card>
 
+        {/* Token holdings (non-TX smart tokens / IBC assets) */}
+        {chain.otherTokens.length > 0 && (
+          <Card title="Other token holdings">
+            <div className="psp-list">
+              {chain.otherTokens.slice(0, 10).map((t) => (
+                <div key={t.denom} className="psp-row">
+                  <span className="psp-row-name"><span className="psp-token-sym mono">{t.subunit}</span></span>
+                  <span className="psp-row-val mono">{formatCompact(Number(t.amount))}</span>
+                </div>
+              ))}
+              {chain.otherTokens.length > 10 && (
+                <div className="psp-row"><span className="psp-row-meta">+{chain.otherTokens.length - 10} more assets</span></div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Recent on-chain activity (full history from the indexer) */}
         <Card title="Recent activity" wide>
+          {hasFlow && (
+            <div className="psp-flowsummary">
+              <span className="psp-flowsummary-item in">In {TX(flowIn)}</span>
+              <span className="psp-flowsummary-item out">Out {TX(flowOut)}</span>
+              <span className={`psp-flowsummary-net ${windowNet >= 0 ? "in" : "out"}`}>
+                Net {windowNet >= 0 ? "+" : "−"}{TX(Math.abs(windowNet))}
+                <span className="psp-row-meta"> · last {activity.length} events</span>
+              </span>
+            </div>
+          )}
           {activity.length > 0 ? (
             <div className="psp-list">
               {activity.slice(0, 15).map((e, i) => {
