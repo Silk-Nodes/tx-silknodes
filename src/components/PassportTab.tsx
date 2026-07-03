@@ -431,8 +431,8 @@ export default function PassportTab({
         </div>
       </Shareable>
 
-      {/* ── Dashboard: masonry of stat cards, then full-width detail cards ── */}
-      <div className="psp-masonry">
+      {/* ── Summary: two bounded, always-similar cards that align cleanly ── */}
+      <div className="psp-summary">
         {/* Portfolio composition */}
         <Card title="Portfolio composition">
           {netWorth > 0 ? (
@@ -497,11 +497,17 @@ export default function PassportTab({
             </>
           ) : enriching ? <CardLoading /> : <Empty>No active PSE score. PSE accrues to community stakers; stake TX to start earning.</Empty>}
         </Card>
+      </div>
 
+      {/* ── Detail: full-width sections. Each can be any height (a wallet
+          may delegate to 1 or 8 validators, trade on 0 or 6 exchanges), so
+          nothing is paired side-by-side and there is never a height
+          mismatch to align. ── */}
+      <div className="psp-sections">
         {/* Delegations */}
         <Card title="Delegations">
           {chain.delegations.length > 0 ? (
-            <div className="psp-bars">
+            <div className="psp-bars psp-cols">
               {chain.delegations.filter((d) => d.amountTX > 0).slice(0, 8).map((d) => {
                 const pct = chain.stakedTX > 0 ? (d.amountTX / chain.stakedTX) * 100 : 0;
                 const wallet = toWallet(d.validatorAddress);
@@ -557,34 +563,28 @@ export default function PassportTab({
           ) : enriching ? <CardLoading /> : <Empty>No exchange deposits or withdrawals on record for this wallet.</Empty>}
         </Card>
 
-        {/* Referral earnings (on-chain, tx.market) */}
-        <Card title="Referral earnings">
-          {referral && referral.payoutCount > 0 ? (
-            <>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 32 }}>
-                <KV label="Referrals made" value={String(referral.referralsMade)} />
-                <KV label="Earned" value={TX(referral.totalEarnedTX)} sub={usd(referral.totalEarnedTX)} />
-                <KV label="Tier" value={referral.elite ? "Elite (2x)" : "Base"} tone={referral.elite ? "good" : undefined} />
-                {referral.referredBy && (
-                  <button className="psp-kv psp-kv-btn" onClick={() => peek(referral.referredBy!)}>
-                    <span className="psp-kv-label">Referred by</span>
-                    <span className="psp-kv-value">{shortAddr(referral.referredBy)} <span className="psp-peek-hint">peek ↗</span></span>
-                  </button>
-                )}
-              </div>
-              <div style={{ marginTop: 14, fontSize: "0.78rem", color: "var(--text-light)", lineHeight: 1.5 }}>
-                On-chain tx.market referral rewards: 500 TX per verified signup, 1000 TX as Elite Club.
-              </div>
-            </>
-          ) : enriching ? <CardLoading /> : (
-            <Empty>No tx.market referral rewards received on-chain for this wallet.</Empty>
-          )}
-        </Card>
+        {/* Referral earnings (on-chain, tx.market). A niche card, so it only
+            shows for wallets that actually earned referral rewards rather
+            than adding an empty "none" section to every other wallet. */}
+        {(referral && referral.payoutCount > 0) && (
+          <Card title="Referral earnings">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 32 }}>
+              <KV label="Referrals made" value={String(referral.referralsMade)} />
+              <KV label="Earned" value={TX(referral.totalEarnedTX)} sub={usd(referral.totalEarnedTX)} />
+              <KV label="Tier" value={referral.elite ? "Elite (2x)" : "Base"} tone={referral.elite ? "good" : undefined} />
+              {referral.referredBy && (
+                <button className="psp-kv psp-kv-btn" onClick={() => peek(referral.referredBy!)}>
+                  <span className="psp-kv-label">Referred by</span>
+                  <span className="psp-kv-value">{shortAddr(referral.referredBy)} <span className="psp-peek-hint">peek ↗</span></span>
+                </button>
+              )}
+            </div>
+            <div style={{ marginTop: 14, fontSize: "0.78rem", color: "var(--text-light)", lineHeight: 1.5 }}>
+              On-chain tx.market referral rewards: 500 TX per verified signup, 1000 TX as Elite Club.
+            </div>
+          </Card>
+        )}
 
-      </div>
-
-      {/* ── Full-width detail cards ── */}
-      <div className="psp-fullstack">
         {/* Governance */}
         <Card title="Governance record">
           {gov && gov.votes.length > 0 ? (
@@ -644,7 +644,7 @@ export default function PassportTab({
             </div>
           )}
           {activity.length > 0 ? (
-            <div className="psp-list">
+            <div className="psp-list psp-cols">
               {activity.slice(0, 15).map((e, i) => {
                 const [tone, verb, who, sign] = describeActivity(e, nameOf);
                 const cpAddr = e.counterparty ? toWallet(e.counterparty) : null;

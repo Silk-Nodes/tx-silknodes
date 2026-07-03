@@ -13231,13 +13231,20 @@ input[type="range"]::-moz-range-thumb {
 .psp-topbar-btn.ghost { background: var(--accent-olive-light); color: var(--text-medium); }
 .psp-topbar-btn.ghost:hover { background: var(--glass-border); filter: none; }
 
-/* Masonry of stat cards, then full-width detail cards. Masonry packs cards
-   of different heights tightly (no stretching, no ragged gaps). */
-.psp-masonry { column-count: 2; column-gap: 16px; }
-.psp-masonry > .psp-card { break-inside: avoid; margin: 0 0 16px; }
-.psp-fullstack { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+/* Summary: two bounded cards that align as an equal-height row.
+   Detail: full-width sections stacked, so a card can be any height without
+   a side-by-side neighbour to misalign against. */
+.psp-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.psp-sections { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+/* Inside a full-width section, let list content flow into responsive
+   columns so a long list (many validators, votes, transfers) fills the
+   width and stays short instead of a tall single column. */
+.psp-sections .psp-cols { display: block; columns: 420px auto; column-gap: 32px; }
+.psp-sections .psp-cols > * { break-inside: avoid; }
+/* multicol ignores flex gap, so bar rows (which spaced via gap) need margin;
+   list rows already self-space with their own padding + divider. */
+.psp-sections .psp-cols .psp-bar-row { margin-bottom: 14px; }
 @media (max-width: 720px) {
-  .psp-masonry { column-count: 1; }
   .psp-topbar-search { flex-basis: 100%; }
 }
 .psp-card-head { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
