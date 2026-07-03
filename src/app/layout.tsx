@@ -36,20 +36,13 @@ export const metadata: Metadata = {
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: `${basePath}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: "ALL in ONE TX | Stake, PSE, Explore, Track",
-      },
-    ],
+    // og:image comes from src/app/opengraph-image.tsx (the shared ogFrame
+    // card), so every route including the root shares one house style.
   },
   twitter: {
     card: "summary_large_image",
     title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
     description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
-    images: [`${basePath}/og-image.png`],
   },
   robots: {
     index: true,
