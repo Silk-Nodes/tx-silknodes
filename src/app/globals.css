@@ -13316,3 +13316,6 @@ input[type="range"]::-moz-range-thumb {
   .psp-avatar { width: 46px; height: 46px; }
   .psp-addr { font-size: 1rem; }
 }
+
+.psp-row-link { text-decoration: none; }
+.psp-row-link:hover { color: var(--text-accent); }

@@ -1,0 +1,58 @@
+// GET /api/address/pse-earned?address=core1...
+//
+// A wallet's REAL PSE distribution history, straight from the indexer's
+// pse_transfer table (recipient_address, amount, score per distribution).
+// The Passport already estimates next-cycle PSE from the live score; this
+// is the actual TX a wallet has been paid to date. Cache 10 min (PSE only
+// changes once per monthly distribution).
+
+import { NextResponse } from "next/server";
+
+const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const UCORE_PER_TX = 1_000_000;
+
+const QUERY = `query Q($addr: String!) {
+  pse_transfer(where: {recipient_address: {_eq: $addr}}, order_by: {height: desc}, limit: 200) {
+    height amount score allocation_type
+  }
+}`;
+
+export async function GET(req: Request) {
+  const address = (new URL(req.url).searchParams.get("address") || "").trim();
+  if (!address.startsWith("core1") || address.length < 39) {
+    return NextResponse.json({ error: "Enter a valid core1... address" }, { status: 400 });
+  }
+  try {
+    const res = await fetch(HASURA_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: QUERY, variables: { addr: address } }),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
+    const json = await res.json();
+    if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
+    const rows: { height: number; amount: string; allocation_type: string }[] = json.data?.pse_transfer ?? [];
+
+    const distributions = rows.map((r) => ({
+      height: r.height,
+      amountTX: Number(r.amount) / UCORE_PER_TX,
+      type: r.allocation_type,
+    }));
+    const totalTX = distributions.reduce((s, d) => s + d.amountTX, 0);
+
+    return NextResponse.json({
+      address,
+      count: distributions.length,
+      totalTX,
+      lastTX: distributions[0]?.amountTX ?? 0,
+      distributions: distributions.slice(0, 12),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load PSE history" },
+      { status: 502 },
+    );
+  }
+}

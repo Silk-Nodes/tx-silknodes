@@ -42,7 +42,14 @@ interface ActivityItem {
   timestamp: string | null;
   amountTX?: number;
   counterparty?: string;
+  counterpartyLabel?: string;
   detail?: string;
+}
+
+interface PseEarned {
+  count: number;
+  totalTX: number;
+  lastTX: number;
 }
 
 interface Referral {
@@ -59,6 +66,7 @@ interface Loaded {
   flows: FlowsAddress | null;
   gov: GovHistory | null;
   pse: PseStanding | null;
+  pseEarned: PseEarned | null;
   activity: ActivityItem[];
   referral: Referral | null;
   badges: Badge[];
@@ -68,6 +76,8 @@ interface Loaded {
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}...${a.slice(-5)}` : a);
 const isValidAddr = (a: string) => a.startsWith("core1") && a.length >= 39;
 const TX = (n: number) => `${formatCompact(n)} TX`;
+const mintscanAddr = (a: string) => `https://www.mintscan.io/tx/address/${a}`;
+const mintscanTx = (h: string) => `https://www.mintscan.io/tx/tx/${h}`;
 
 // A deterministic two-stop gradient + initials, so every wallet gets a
 // stable, recognizable avatar with no external dependency.
@@ -117,7 +127,7 @@ export default function PassportTab({
     setLoading(true);
     setData(null);
     try {
-      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, activityRes, refRes, monikers] = await Promise.all([
+      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, activityRes, refRes, pseEarnedRes, monikers] = await Promise.all([
         fetchAddressChainData(address),
         fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -126,6 +136,7 @@ export default function PassportTab({
         fetchBondedTokens(),
         fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`/api/address/pse-earned?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchValidatorMonikers(),
       ]);
 
@@ -133,6 +144,7 @@ export default function PassportTab({
       const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
       const activity: ActivityItem[] = Array.isArray(activityRes?.items) ? activityRes.items : [];
       const referral: Referral | null = refRes && !refRes.error ? refRes : null;
+      const pseEarned: PseEarned | null = pseEarnedRes && !pseEarnedRes.error && pseEarnedRes.count > 0 ? pseEarnedRes : null;
 
       const est = layeredPSEEstimate({
         userStake: chain.stakedTX,
@@ -163,7 +175,7 @@ export default function PassportTab({
         votedCount: gov?.summary.votedCount ?? 0,
       });
 
-      setData({ address, chain, flows, gov, pse, activity, referral, badges, monikers });
+      setData({ address, chain, flows, gov, pse, pseEarned, activity, referral, badges, monikers });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load wallet passport");
     } finally {
@@ -236,7 +248,7 @@ export default function PassportTab({
   }
 
   if (!data) return null;
-  const { address, chain, flows, gov, pse, activity, referral, badges, monikers } = data;
+  const { address, chain, flows, gov, pse, pseEarned, activity, referral, badges, monikers } = data;
   const nameOf = (v: string) => monikers[v] || shortAddr(v);
   const av = avatar(address);
   const label = flows?.isExchange ? flows.exchangeName : flows?.label;
@@ -271,6 +283,7 @@ export default function PassportTab({
               <div className="psp-hero-addr-row">
                 <span className="psp-addr mono">{shortAddr(address)}</span>
                 <button className="psp-copy" onClick={copyAddr} aria-label="Copy address">{copied ? "Copied" : "Copy"}</button>
+                <a className="psp-copy" href={mintscanAddr(address)} target="_blank" rel="noopener noreferrer">Explorer ↗</a>
               </div>
               <div className="psp-hero-tags">
                 {label && <span className="psp-tag psp-tag-label">{label}</span>}
@@ -341,18 +354,26 @@ export default function PassportTab({
 
         {/* PSE standing */}
         <Card title="PSE standing">
-          {pse && pse.eligible ? (
+          {(pse && pse.eligible) || pseEarned ? (
             <>
               <div className="psp-kv-grid">
-                <KV label="Eligible" value="Yes" tone="good" />
-                <KV label="Monthly yield" value={`${monthlyYieldPct.toFixed(1)}%`} />
-                <KV label="Est. monthly" value={TX(pse.monthly)} sub={usd(pse.monthly)} />
-                <KV label="Est. annual" value={TX(pse.annual)} sub={usd(pse.annual)} />
+                {pseEarned
+                  ? <>
+                      <KV label="Earned to date" value={TX(pseEarned.totalTX)} sub={usd(pseEarned.totalTX)} tone="good" />
+                      <KV label="Distributions" value={String(pseEarned.count)} />
+                    </>
+                  : <KV label="Eligible" value="Yes" tone="good" />}
+                {pse && pse.eligible && <>
+                  <KV label="Est. next" value={TX(pse.monthly)} sub={usd(pse.monthly)} />
+                  <KV label="Monthly yield" value={`${monthlyYieldPct.toFixed(1)}%`} />
+                </>}
               </div>
-              <div className="psp-sharebar-wrap">
-                <div className="psp-sharebar-head"><span>Share of PSE pool</span><span>{pse.sharePct < 0.01 ? "<0.01" : pse.sharePct.toFixed(2)}%</span></div>
-                <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-reward" style={{ width: `${Math.min(100, Math.max(pse.sharePct, 0.4))}%` }} /></div>
-              </div>
+              {pse && pse.eligible && (
+                <div className="psp-sharebar-wrap">
+                  <div className="psp-sharebar-head"><span>Share of PSE pool</span><span>{pse.sharePct < 0.01 ? "<0.01" : pse.sharePct.toFixed(2)}%</span></div>
+                  <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-reward" style={{ width: `${Math.min(100, Math.max(pse.sharePct, 0.4))}%` }} /></div>
+                </div>
+              )}
             </>
           ) : <Empty>No active PSE score. PSE accrues to community stakers; stake TX to start earning.</Empty>}
         </Card>
@@ -457,7 +478,9 @@ export default function PassportTab({
                     </span>
                     <span className="psp-row-val">
                       {e.amountTX ? <>{sign}{TX(e.amountTX)} </> : null}
-                      <span className="psp-row-meta">{e.timestamp ? relativeTimeShort(e.timestamp) : `#${e.height}`}</span>
+                      <a className="psp-row-meta psp-row-link" href={mintscanTx(e.txHash)} target="_blank" rel="noopener noreferrer">
+                        {e.timestamp ? relativeTimeShort(e.timestamp) : `#${e.height}`} ↗
+                      </a>
                     </span>
                   </div>
                 );
@@ -506,17 +529,18 @@ function describeActivity(
   nameOf: (v: string) => string,
 ): [string, string, string, string] {
   const cp = e.counterparty ?? "";
+  const cpName = e.counterpartyLabel ?? shortAddr(cp); // known entity name if any
   switch (e.kind) {
-    case "receive": return ["in", "Received", `from ${shortAddr(cp)}`, "+"];
-    case "send": return ["out", "Sent", `to ${shortAddr(cp)}`, "−"];
+    case "receive": return ["in", "Received", `from ${cpName}`, "+"];
+    case "send": return ["out", "Sent", `to ${cpName}`, "−"];
     case "delegate": return ["in", "Delegated", `to ${nameOf(cp)}`, "+"];
     case "undelegate": return ["out", "Undelegated", `from ${nameOf(cp)}`, "−"];
     case "redelegate": return ["neutral", "Redelegated", `to ${nameOf(cp)}${e.detail ? ` from ${nameOf(e.detail)}` : ""}`, ""];
     case "claim_rewards": return ["in", "Claimed rewards", e.detail ?? (cp ? `from ${nameOf(cp)}` : ""), "+"];
     case "vote": return ["neutral", "Voted", e.detail ?? "", ""];
     case "referral_reward": return ["in", "Referral reward", e.detail ?? "", "+"];
-    case "ibc_transfer": return ["out", "IBC transfer", `to ${shortAddr(cp)}`, "−"];
-    case "contract": return ["neutral", "Contract call", shortAddr(cp), ""];
+    case "ibc_transfer": return ["out", "IBC transfer", `to ${cpName}`, "−"];
+    case "contract": return ["neutral", "Contract call", cpName, ""];
     default: return ["neutral", "Activity", "", ""];
   }
 }

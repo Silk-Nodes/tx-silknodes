@@ -13,9 +13,16 @@
 // Cache 2 min per address.
 
 import { NextResponse } from "next/server";
+import { Op } from "sequelize";
+import { KnownEntity } from "@/lib/db/models";
 
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const REFERRAL_PAYER = "core15sh9smq7ay5r430yetzn57v2rg666ma0ulzp84";
+// Hardcoded labels for tx.market referral infra (not in known_entities).
+const STATIC_LABELS: Record<string, string> = {
+  [REFERRAL_PAYER]: "tx.market",
+  core107466s7llr8rq0794l4e6jyek6rwgyzedatmar92zga9ld6j4x4qwxnlxm: "tx.market payout",
+};
 const UCORE_PER_TX = 1_000_000;
 const LIMIT = 60;
 
@@ -41,8 +48,9 @@ interface ActivityItem {
   txHash: string;
   timestamp: string | null;
   amountTX?: number;
-  counterparty?: string;   // other wallet / validator / contract
-  detail?: string;         // vote option, proposal id, etc.
+  counterparty?: string;      // other wallet / validator / contract
+  counterpartyLabel?: string; // known-entity name (Kraken, tx.market, ...)
+  detail?: string;            // vote option, proposal id, etc.
 }
 
 function ucore(amounts: any[]): number {
@@ -153,6 +161,23 @@ export async function GET(req: Request) {
       );
       const tsByHeight = new Map(blocks.block.map((b) => [b.height, b.timestamp]));
       for (const i of items) i.timestamp = tsByHeight.get(i.height) ?? null;
+    }
+
+    // Label counterparties from known_entities (exchanges etc.) + the
+    // static tx.market map. Best-effort: if the DB is unavailable we just
+    // ship the timeline without labels rather than failing.
+    const cps = [...new Set(items.map((i) => i.counterparty).filter((a): a is string => !!a && a.startsWith("core1")))];
+    const labels: Record<string, string> = {};
+    if (cps.length > 0) {
+      try {
+        const rows = await KnownEntity.findAll({ where: { address: { [Op.in]: cps } }, raw: true });
+        for (const r of rows) labels[(r as any).address] = (r as any).label;
+      } catch { /* no DB (local) -> skip labels */ }
+    }
+    for (const i of items) {
+      if (!i.counterparty) continue;
+      const lbl = STATIC_LABELS[i.counterparty] ?? labels[i.counterparty];
+      if (lbl) i.counterpartyLabel = lbl;
     }
 
     const body = { address, items, updatedAt: new Date().toISOString() };
