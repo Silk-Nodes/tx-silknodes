@@ -3970,7 +3970,9 @@ input[type="range"]::-moz-range-thumb {
   inset: 0;
   background: rgba(15, 27, 7, 0.35);
   backdrop-filter: blur(2px);
-  z-index: 95;
+  /* Above the site nav (z 1000, fixed on mobile) so the panel and its close
+     button aren't buried behind the top banner on small screens. */
+  z-index: 1200;
   animation: fade-in 0.2s ease;
 }
 
@@ -3992,7 +3994,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--bg-base);
   border-left: 1px solid var(--glass-border);
   box-shadow: -12px 0 40px rgba(15, 27, 7, 0.12);
-  z-index: 100;
+  z-index: 1201;
   padding: 32px 28px;
   overflow-y: auto;
   animation: slide-in-right 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -13246,6 +13248,8 @@ input[type="range"]::-moz-range-thumb {
 .psp-sections .psp-cols .psp-bar-row { margin-bottom: 14px; }
 @media (max-width: 720px) {
   .psp-topbar-search { flex-basis: 100%; }
+  /* Comfortable touch targets for the search controls on mobile. */
+  .psp-topbar-input, .psp-topbar-btn { min-height: 44px; }
 }
 .psp-card-head { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
 
