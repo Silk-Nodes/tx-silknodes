@@ -69,7 +69,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the no-flash script below sets data-theme on
+    // <html> before React hydrates, which React would otherwise flag as a
+    // mismatch (its own render has no data-theme) and could reset, desyncing
+    // the theme from the switcher (e.g. moon selected but a light page). This
+    // opts <html> out of that check so the pre-paint theme survives.
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Theme no-flash script MUST run before first paint so the <html>
             gets the correct data-theme attribute before React hydrates.
