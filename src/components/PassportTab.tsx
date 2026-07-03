@@ -102,6 +102,25 @@ const mintscanTx = (h: string) => `https://www.mintscan.io/tx/tx/${h}`;
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+// A small pool of interesting wallets so the page always opens on a real,
+// populated passport (rather than an empty box) and a "shuffle" reveals
+// another. Mix of a top staker, a referral earner, and validator
+// self-delegates so the demo shows off staking, PSE, tokens and governance.
+const FEATURED: string[] = [
+  "core19qcey9fc9xjjewk2wcfetjz69j75z0d9k75853", // top staker: 6M staked, PSE history, many tokens
+  "core1dqpqxdujyhupcam3a48u882ankv52czr5j5xpd", // referral earner
+  "core1x9hd9r7duv2gagztvvqlw94v5gy4zd9x5f7kl9", // 007TX validator
+  "core1uhrrdv6g6v9t38v4qghjucunnxyk8xt34jazzr", // ZenLounge validator
+  "core1p2zujexcdg7vuxjkfvahnwhutqradsjfclyx9m", // BRW Capital validator
+  "core14t9235vp7f23erugflme3lzszykwsfwcgh7gck", // Brouj_TX validator
+  "core1mpf63sa8djm82lvpy8028sxfext9k76c3dr22r", // Coreum Community DAO validator
+  "core1m2zzfv08ndxjnxnxu9tlwa3r2myte5upqs0ff9", // TX_MARSHALLS validator
+];
+const randomFeatured = (exclude?: string): string => {
+  const pool = FEATURED.filter((a) => a !== exclude);
+  return pool[Math.floor(Math.random() * pool.length)] ?? FEATURED[0];
+};
+
 // A deterministic two-stop gradient + initials, so every wallet gets a
 // stable, recognizable avatar with no external dependency.
 function avatar(address: string): { background: string; initials: string } {
@@ -123,7 +142,10 @@ export default function PassportTab({
   txPrice?: number;
 }) {
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  // Start in the loading state: the page auto-opens a featured wallet on
+  // mount, so we show the spinner immediately instead of flashing an empty
+  // entry form for a frame.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Loaded | null>(null);
   const [copied, setCopied] = useState(false);
@@ -250,18 +272,24 @@ export default function PassportTab({
     });
   }, []);
 
+  // On open, land on a real passport: the ?address from the URL if present,
+  // otherwise a random featured wallet, so newcomers immediately see what
+  // the page is for instead of a blank input.
   useEffect(() => {
     if (ranInitial.current || typeof window === "undefined") return;
+    ranInitial.current = true;
     const fromQuery = new URLSearchParams(window.location.search).get("address");
     if (fromQuery && isValidAddr(fromQuery)) {
-      ranInitial.current = true;
       setInput(fromQuery);
       load(fromQuery);
+    } else {
+      load(randomFeatured());
     }
   }, [load]);
 
   const submit = () => load(input);
-  const reset = () => { setData(null); setError(null); setInput(""); };
+  // Jump to another featured wallet (different from the current one).
+  const shuffle = () => { setInput(""); load(randomFeatured(data?.address)); if (typeof window !== "undefined") window.scrollTo({ top: 0 }); };
   // Peek a related wallet in the side panel; a core1 address only.
   const peek = (a?: string) => { if (a && isValidAddr(a)) setPeekAddress(a); };
   // Promote the peeked wallet to the full-page passport.
@@ -279,51 +307,50 @@ export default function PassportTab({
     }).catch(() => {});
   };
 
-  // ─── Entry state ────────────────────────────────────────────────
-  if (!data && !loading) {
+  // Persistent top bar: title + look-up-any-address search + shuffle, shown
+  // on every state so the page's purpose (and a way to try your own wallet)
+  // is always in view.
+  const searchBar = (
+    <div className="psp-topbar">
+      <div className="psp-topbar-lead">
+        <span className="psp-topbar-title">Wallet Passport</span>
+        <span className="psp-topbar-sub">Any TX wallet: holdings, staking, PSE, flows, governance.</span>
+      </div>
+      <div className="psp-topbar-search">
+        <input
+          className="psp-topbar-input"
+          placeholder="Look up any core1... address"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          maxLength={100}
+          spellCheck={false}
+        />
+        <button className="psp-topbar-btn" onClick={submit} disabled={!input.trim()}>View</button>
+        <button className="psp-topbar-btn ghost" onClick={shuffle} title="Show a random wallet">Shuffle</button>
+        {connectedAddress && (
+          <button className="psp-topbar-btn ghost" onClick={() => { setInput(connectedAddress); load(connectedAddress); }}>My wallet</button>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── Loading / error (no data yet) ─────────────────────────────────
+  if (loading || !data) {
     return (
       <div className="psp">
-        <div className="psp-intro">
-          <h1 className="psp-title">Wallet Passport</h1>
-          <p className="psp-sub">
-            Everything about any TX wallet in one place: holdings, staking,
-            PSE standing, exchange behavior, and governance record.
-          </p>
-        </div>
-        <div className="psp-entry">
-          <input
-            className="psp-input"
-            placeholder="Paste any core1... address"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            maxLength={100}
-            spellCheck={false}
-          />
-          <button className="psp-btn-primary" onClick={submit} disabled={!input.trim()}>View passport</button>
-          {connectedAddress && (
-            <>
-              <div className="psp-or">or</div>
-              <button className="psp-btn-secondary" onClick={() => { setInput(connectedAddress); load(connectedAddress); }}>
-                Use my connected wallet
-              </button>
-            </>
-          )}
-          {error && <div className="psp-error" role="alert">{error}</div>}
-        </div>
+        {searchBar}
+        {loading ? (
+          <div className="psp-loading"><span className="psp-spinner" aria-hidden="true" /> Reading the chain for this wallet...</div>
+        ) : (
+          <div className="psp-loading">
+            {error ? <span className="psp-error" role="alert">{error}</span> : "No wallet loaded."}
+            <button className="psp-topbar-btn ghost" onClick={shuffle} style={{ marginLeft: 12 }}>Show a wallet</button>
+          </div>
+        )}
       </div>
     );
   }
-
-  if (loading) {
-    return (
-      <div className="psp">
-        <div className="psp-loading"><span className="psp-spinner" aria-hidden="true" /> Reading the chain for this wallet...</div>
-      </div>
-    );
-  }
-
-  if (!data) return null;
   const { address, chain, flows, gov, pse, pseEarned, activity, validatorOperator, firstSeen, referral, badges, monikers } = data;
   const nameOf = (v: string) => monikers[v] || shortAddr(v);
   const av = avatar(address);
@@ -364,6 +391,7 @@ export default function PassportTab({
 
   return (
     <div className="psp">
+      {searchBar}
       {/* ── Hero (shareable) ── */}
       <Shareable title="TX Wallet Passport" subtitle={shortAddr(address)} caption="Holdings, staking, PSE and governance at a glance" exportWidth={760}>
         <div className="psp-hero">
@@ -403,8 +431,8 @@ export default function PassportTab({
         </div>
       </Shareable>
 
-      {/* ── Dashboard grid ── */}
-      <div className="psp-grid">
+      {/* ── Dashboard: masonry of stat cards, then full-width detail cards ── */}
+      <div className="psp-masonry">
         {/* Portfolio composition */}
         <Card title="Portfolio composition">
           {netWorth > 0 ? (
@@ -530,7 +558,7 @@ export default function PassportTab({
         </Card>
 
         {/* Referral earnings (on-chain, tx.market) */}
-        <Card title="Referral earnings" wide>
+        <Card title="Referral earnings">
           {referral && referral.payoutCount > 0 ? (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 32 }}>
@@ -553,8 +581,12 @@ export default function PassportTab({
           )}
         </Card>
 
+      </div>
+
+      {/* ── Full-width detail cards ── */}
+      <div className="psp-fullstack">
         {/* Governance */}
-        <Card title="Governance record" wide>
+        <Card title="Governance record">
           {gov && gov.votes.length > 0 ? (
             <>
               <div className="psp-gov-top">
@@ -585,7 +617,7 @@ export default function PassportTab({
 
         {/* Token holdings (non-TX smart tokens / IBC assets) */}
         {chain.otherTokens.length > 0 && (
-          <Card title="Other token holdings" wide>
+          <Card title="Other token holdings">
             <div className="psp-tokengrid">
               {chain.otherTokens.map((t) => (
                 <div key={t.denom} className="psp-tokencard" title={t.denom}>
@@ -600,7 +632,7 @@ export default function PassportTab({
         )}
 
         {/* Recent on-chain activity (full history from the indexer) */}
-        <Card title="Recent activity" wide>
+        <Card title="Recent activity">
           {hasFlow && (
             <div className="psp-flowsummary">
               <span className="psp-flowsummary-item in">In {TX(flowIn)}</span>
@@ -636,7 +668,7 @@ export default function PassportTab({
         </Card>
       </div>
 
-      <button className="psp-reset" onClick={reset}>← Look up another wallet</button>
+      <button className="psp-reset" onClick={shuffle}>Show another wallet →</button>
 
       <WalletPanel
         address={peekAddress}
