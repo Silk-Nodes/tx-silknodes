@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
-import { fetchAddressChainData, type AddressChainData } from "@/lib/passport";
+import { fetchAddressChainData, fetchValidatorMonikers, type AddressChainData } from "@/lib/passport";
 
-// A lightweight, slide-in preview of a related wallet, opened by clicking a
-// counterparty anywhere on the Passport. It mirrors the Flows address panel
-// so the two read as a family (same shell classes, Esc-to-close, scroll
-// lock), but shows an on-chain snapshot instead of exchange flow. From here
-// the user can jump the whole page over to that wallet's full passport.
+// One universal wallet preview, used everywhere an address needs a quick
+// look: the Passport (drill into a counterparty), the Flows tab (inspect a
+// searched address), and any future table. It slides in from the right with
+// the shared panel shell, shows an on-chain snapshot + exchange flow +
+// recent activity, and always offers a "View full passport" CTA so any
+// address in the app is one click from its full profile.
+//
+// Self-sufficient: give it an address and it fetches everything itself
+// (chain snapshot, activity, exchange flow, validator monikers). The core
+// snapshot renders immediately from the reliable LCD; the indexer/DB-backed
+// sections stream in after, so a slow indexer never blocks the panel.
 
-const UCORE_PER_TX = "TX";
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}...${a.slice(-5)}` : a);
-const TX = (n: number) => `${formatCompact(n)} ${UCORE_PER_TX}`;
+const TX = (n: number) => `${formatCompact(n)} TX`;
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const mintscanAddr = (a: string) => `https://www.mintscan.io/tx/address/${a}`;
@@ -43,9 +48,15 @@ interface ActivityResponse {
   validatorOperator: string | null;
   firstSeen: { height: number; timestamp: string | null } | null;
 }
+interface FlowResponse {
+  label: string | null;
+  rank: number | null;
+  isExchange: boolean;
+  exchangeName: string | null;
+  summary: { totalSentToExchanges: number; totalReceivedFromExchanges: number; net: number; txCount: number };
+  perExchange: { exchange: string; sentToExchange: number; receivedFromExchange: number; net: number }[];
+}
 
-// Compact one-liner for an activity row. A trimmed version of the main
-// passport's describeActivity, enough for a five-row preview.
 function describe(e: PeekActivity, nameOf: (v: string) => string): [string, string, string] {
   const cp = e.counterparty ?? "";
   const cpName = e.counterpartyLabel ?? shortAddr(cp);
@@ -66,19 +77,28 @@ function describe(e: PeekActivity, nameOf: (v: string) => string): [string, stri
 
 interface Props {
   address: string | null;
-  monikers: Record<string, string>;
+  monikers?: Record<string, string>;
   txPrice?: number;
   onClose: () => void;
+  // Called by the "View full passport" CTA. The caller decides what that
+  // means: the Passport loads it inline; other tabs route to /passport.
   onOpenFull: (address: string) => void;
 }
 
-export default function PassportPeekPanel({ address, monikers, txPrice = 0, onClose, onOpenFull }: Props) {
+export default function WalletPanel({ address, monikers: monikersProp, txPrice = 0, onClose, onOpenFull }: Props) {
   const [chain, setChain] = useState<AddressChainData | null>(null);
   const [activity, setActivity] = useState<ActivityResponse | null>(null);
+  const [flow, setFlow] = useState<FlowResponse | null>(null);
+  const [monikers, setMonikers] = useState<Record<string, string>>(monikersProp ?? {});
   const [loading, setLoading] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Esc to close + lock body scroll while open. Same UX as the Flows panel.
+  useEffect(() => {
+    if (monikersProp) setMonikers(monikersProp);
+  }, [monikersProp]);
+
+  // Esc to close + lock body scroll while open.
   useEffect(() => {
     if (!address) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -94,20 +114,30 @@ export default function PassportPeekPanel({ address, monikers, txPrice = 0, onCl
     if (!address) return;
     let cancelled = false;
     setLoading(true);
+    setEnriching(true);
     setChain(null);
     setActivity(null);
-    (async () => {
-      const [c, a] = await Promise.all([
-        fetchAddressChainData(address).catch(() => null),
-        fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      ]);
+    setFlow(null);
+
+    // Core snapshot first (reliable LCD), so the panel paints right away.
+    fetchAddressChainData(address)
+      .then((c) => { if (!cancelled) { setChain(c); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+
+    // Enrichments stream in.
+    Promise.all([
+      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      monikersProp ? Promise.resolve(monikersProp) : fetchValidatorMonikers().catch(() => ({})),
+    ]).then(([a, f, m]) => {
       if (cancelled) return;
-      setChain(c);
       setActivity(a && !a.error ? a : null);
-      setLoading(false);
-    })();
+      setFlow(f && !f.error ? f : null);
+      if (!monikersProp && m) setMonikers(m);
+    }).finally(() => { if (!cancelled) setEnriching(false); });
+
     return () => { cancelled = true; };
-  }, [address]);
+  }, [address, monikersProp]);
 
   if (!address) return null;
 
@@ -116,6 +146,8 @@ export default function PassportPeekPanel({ address, monikers, txPrice = 0, onCl
   const validatorName = activity?.validatorOperator ? (monikers[activity.validatorOperator] || "Validator") : null;
   const usd = (tx: number) => (txPrice && tx > 0 ? `$${formatCompact(tx * txPrice)}` : null);
   const netWorth = chain ? chain.stakedTX + chain.balanceTX + chain.unbondingTX + chain.rewardsTX : 0;
+  const exchangeLabel = flow?.isExchange ? flow.exchangeName : flow?.label;
+  const flowNet = flow ? flow.summary.totalReceivedFromExchanges - flow.summary.totalSentToExchanges : 0;
 
   const copy = () => {
     navigator.clipboard?.writeText(address).then(() => {
@@ -143,6 +175,8 @@ export default function PassportPeekPanel({ address, monikers, txPrice = 0, onCl
 
         <div className="psp-peek-tags">
           {validatorName && <span className="psp-tag psp-tag-rank">Validator{validatorName !== "Validator" ? `: ${validatorName}` : ""}</span>}
+          {exchangeLabel && <span className="psp-tag psp-tag-label">{exchangeLabel}</span>}
+          {flow?.rank != null && <span className="psp-tag psp-tag-rank">Staker rank #{flow.rank}</span>}
           {activity?.firstSeen?.timestamp && (
             <span className="psp-tag psp-tag-soft">Created {relativeTimeShort(activity.firstSeen.timestamp)} · {fullDate(activity.firstSeen.timestamp)}</span>
           )}
@@ -169,6 +203,26 @@ export default function PassportPeekPanel({ address, monikers, txPrice = 0, onCl
               </div>
             )}
 
+            {flow && flow.summary.txCount > 0 && (
+              <>
+                <div className="psp-peek-section-head">Exchange flow</div>
+                <div className={`psp-verdict ${flowNet >= 0 ? "psp-verdict-accum" : "psp-verdict-distrib"}`}>
+                  {flowNet >= 0
+                    ? <>Net <strong>accumulating</strong> · {TX(Math.abs(flowNet))} pulled off exchanges</>
+                    : <>Net <strong>distributing</strong> · {TX(Math.abs(flowNet))} sent to exchanges</>}
+                </div>
+                {flow.perExchange.slice(0, 4).map((e) => (
+                  <div key={e.exchange} className="psp-row">
+                    <span className="psp-row-name">{e.exchange}</span>
+                    <span className="psp-row-val">
+                      <span className="psp-flow-in">+{formatCompact(e.receivedFromExchange)}</span>{" "}
+                      <span className="psp-flow-out">−{formatCompact(e.sentToExchange)}</span>
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+
             <div className="psp-peek-section-head">Recent activity</div>
             {activity && activity.items.length > 0 ? (
               <div className="psp-list">
@@ -185,11 +239,13 @@ export default function PassportPeekPanel({ address, monikers, txPrice = 0, onCl
                   );
                 })}
               </div>
+            ) : enriching ? (
+              <div className="psp-empty"><span className="psp-spinner sm" aria-hidden="true" /> Reading the chain...</div>
             ) : (
               <div className="psp-empty">No on-chain activity found.</div>
             )}
 
-            <button className="psp-peek-open" onClick={() => onOpenFull(address)}>Open full passport →</button>
+            <button className="psp-peek-open" onClick={() => onOpenFull(address)}>View full passport →</button>
           </>
         )}
       </div>

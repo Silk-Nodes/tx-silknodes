@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
-import PassportPeekPanel from "@/components/PassportPeekPanel";
+import WalletPanel from "@/components/WalletPanel";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
@@ -639,7 +639,7 @@ export default function PassportTab({
 
       <button className="psp-reset" onClick={reset}>← Look up another wallet</button>
 
-      <PassportPeekPanel
+      <WalletPanel
         address={peekAddress}
         monikers={monikers}
         txPrice={txPrice}
