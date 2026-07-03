@@ -13297,6 +13297,11 @@ input[type="range"]::-moz-range-thumb {
 .psp-peek-hint { font-size: 0.62rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; opacity: 0; transition: opacity 0.12s ease; }
 .psp-row-peek:hover .psp-peek-hint, .psp-kv-btn:hover .psp-peek-hint { opacity: 1; }
 .psp-kv-btn { background: none; border: none; padding: 0; margin: 0; text-align: left; cursor: pointer; font: inherit; }
+.psp-cp-link { color: var(--text-accent); text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.12s ease; }
+.psp-row-peek:hover .psp-cp-link { text-decoration-color: currentColor; }
+.psp-bar-row-peek { cursor: pointer; transition: background 0.12s ease; margin: 0 -8px; padding: 4px 8px; border-radius: 8px; }
+.psp-bar-row-peek:hover { background: var(--accent-olive-light); }
+.psp-bar-row-peek:hover .psp-peek-hint { opacity: 1; }
 
 /* Peek side panel (reuses .staking-feed-panel shell) */
 .psp-peek { display: flex; flex-direction: column; gap: 16px; }

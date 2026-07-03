@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
 import PassportPeekPanel from "@/components/PassportPeekPanel";
+import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
 import {
@@ -79,6 +80,21 @@ interface Loaded {
 
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}...${a.slice(-5)}` : a);
 const isValidAddr = (a: string) => a.startsWith("core1") && a.length >= 39;
+
+// A validator's operator address (corevaloper1...) and its self-delegate
+// wallet (core1...) are the same key under different bech32 prefixes, so a
+// prefix swap turns any counterparty we can peek into a real wallet address.
+// Returns null if it isn't a Coreum address we can convert.
+function toWallet(addr: string): string | null {
+  if (addr.startsWith("core1") && !addr.startsWith("corevaloper1")) return addr;
+  if (addr.startsWith("corevaloper1")) {
+    try {
+      const { words } = bech32Decode(addr);
+      return bech32Encode("core", words);
+    } catch { return null; }
+  }
+  return null;
+}
 const TX = (n: number) => `${formatCompact(n)} TX`;
 const mintscanAddr = (a: string) => `https://www.mintscan.io/tx/address/${a}`;
 const mintscanTx = (h: string) => `https://www.mintscan.io/tx/tx/${h}`;
@@ -380,10 +396,11 @@ export default function PassportTab({
             <div className="psp-bars">
               {chain.delegations.filter((d) => d.amountTX > 0).slice(0, 8).map((d) => {
                 const pct = chain.stakedTX > 0 ? (d.amountTX / chain.stakedTX) * 100 : 0;
+                const wallet = toWallet(d.validatorAddress);
                 return (
-                  <div key={d.validatorAddress} className="psp-bar-row">
+                  <div key={d.validatorAddress} className={`psp-bar-row${wallet ? " psp-bar-row-peek" : ""}`} onClick={wallet ? () => peek(wallet) : undefined}>
                     <div className="psp-bar-head">
-                      <span className="psp-bar-name">{nameOf(d.validatorAddress)}</span>
+                      <span className="psp-bar-name">{nameOf(d.validatorAddress)}{wallet && <span className="psp-peek-hint">peek ↗</span>}</span>
                       <span className="psp-bar-val">{TX(d.amountTX)} <span className="psp-bar-pct">{pct.toFixed(0)}%</span></span>
                     </div>
                     <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-staked" style={{ width: `${pct}%` }} /></div>
@@ -561,11 +578,11 @@ export default function PassportTab({
             <div className="psp-list">
               {activity.slice(0, 15).map((e, i) => {
                 const [tone, verb, who, sign] = describeActivity(e, nameOf);
-                const cpAddr = e.counterparty && e.counterparty.startsWith("core1") ? e.counterparty : null;
+                const cpAddr = e.counterparty ? toWallet(e.counterparty) : null;
                 return (
                   <div key={`${e.txHash}-${i}`} className={`psp-row${cpAddr ? " psp-row-peek" : ""}`} onClick={cpAddr ? () => peek(cpAddr) : undefined}>
                     <span className="psp-row-name">
-                      <span className={`psp-evt ${tone}`}>{verb}</span> {who}
+                      <span className={`psp-evt ${tone}`}>{verb}</span> <span className={cpAddr ? "psp-cp-link" : undefined}>{who}</span>
                       {cpAddr && <span className="psp-peek-hint">peek ↗</span>}
                     </span>
                     <span className="psp-row-val">

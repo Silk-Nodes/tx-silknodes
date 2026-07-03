@@ -26,10 +26,7 @@ export async function hasuraQuery<T>(
     try {
       const res = await fetch(HASURA_URL, {
         method: "POST",
-        // Connection: close asks the runtime not to reuse the socket, so a
-        // retry re-rolls onto a (hopefully healthy) backend rather than
-        // getting pinned to the same stale replica by keep-alive.
-        headers: { "Content-Type": "application/json", Connection: "close" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, variables }),
         cache: "no-store",
       });
