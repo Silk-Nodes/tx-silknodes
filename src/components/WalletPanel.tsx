@@ -83,9 +83,13 @@ interface Props {
   // Called by the "View full passport" CTA. The caller decides what that
   // means: the Passport loads it inline; other tabs route to /passport.
   onOpenFull: (address: string) => void;
+  // Optional context from the caller, shown immediately without waiting for
+  // the enrichment fetch. Used by the whale tracker (rank/label) and the
+  // staking feed (a one-line note about the specific event clicked).
+  context?: { rank?: number | null; label?: string | null; note?: string | null };
 }
 
-export default function WalletPanel({ address, monikers: monikersProp, txPrice = 0, onClose, onOpenFull }: Props) {
+export default function WalletPanel({ address, monikers: monikersProp, txPrice = 0, onClose, onOpenFull, context }: Props) {
   const [chain, setChain] = useState<AddressChainData | null>(null);
   const [activity, setActivity] = useState<ActivityResponse | null>(null);
   const [flow, setFlow] = useState<FlowResponse | null>(null);
@@ -175,13 +179,15 @@ export default function WalletPanel({ address, monikers: monikersProp, txPrice =
 
         <div className="psp-peek-tags">
           {validatorName && <span className="psp-tag psp-tag-rank">Validator{validatorName !== "Validator" ? `: ${validatorName}` : ""}</span>}
-          {exchangeLabel && <span className="psp-tag psp-tag-label">{exchangeLabel}</span>}
-          {flow?.rank != null && <span className="psp-tag psp-tag-rank">Staker rank #{flow.rank}</span>}
+          {(context?.label ?? exchangeLabel) && <span className="psp-tag psp-tag-label">{context?.label ?? exchangeLabel}</span>}
+          {(context?.rank ?? flow?.rank) != null && <span className="psp-tag psp-tag-rank">Staker rank #{context?.rank ?? flow?.rank}</span>}
           {activity?.firstSeen?.timestamp && (
             <span className="psp-tag psp-tag-soft">Created {relativeTimeShort(activity.firstSeen.timestamp)} · {fullDate(activity.firstSeen.timestamp)}</span>
           )}
           {chain && chain.txsSent > 0 && <span className="psp-tag psp-tag-soft">{formatCompact(chain.txsSent)} txns</span>}
         </div>
+
+        {context?.note && <div className="psp-peek-note">{context.note}</div>}
 
         {loading && !chain ? (
           <div className="psp-loading"><span className="psp-spinner" aria-hidden="true" /> Reading the chain...</div>
@@ -193,6 +199,29 @@ export default function WalletPanel({ address, monikers: monikersProp, txPrice =
               <PeekStat label="Liquid" value={TX(chain?.balanceTX ?? 0)} />
               <PeekStat label="Rewards" value={TX(chain?.rewardsTX ?? 0)} />
             </div>
+
+            {chain && chain.delegations.length > 0 && (
+              <>
+                <div className="psp-peek-section-head">Stake distribution</div>
+                <div className="psp-bars">
+                  {chain.delegations.filter((d) => d.amountTX > 0).slice(0, 8).map((d) => {
+                    const pct = chain.stakedTX > 0 ? (d.amountTX / chain.stakedTX) * 100 : 0;
+                    return (
+                      <div key={d.validatorAddress} className="psp-bar-row">
+                        <div className="psp-bar-head">
+                          <span className="psp-bar-name">{nameOf(d.validatorAddress)}</span>
+                          <span className="psp-bar-val">{TX(d.amountTX)} <span className="psp-bar-pct">{pct.toFixed(0)}%</span></span>
+                        </div>
+                        <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-staked" style={{ width: `${pct}%` }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {chain.unbonding.length > 0 && (
+                  <div className="psp-peek-unbond">{chain.unbonding.length} pending undelegation{chain.unbonding.length > 1 ? "s" : ""} · {TX(chain.unbondingTX)}</div>
+                )}
+              </>
+            )}
 
             {chain && chain.otherTokens.length > 0 && (
               <div className="psp-peek-tokens">

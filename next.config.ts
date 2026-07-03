@@ -66,6 +66,8 @@ const nextConfig: NextConfig = {
       "analytics-data",
       "pse-score",
       "pse-cohort",
+      "staking-feed",
+      "whale-data",
     ];
     // beforeFiles so the proxy wins over the local (DB-less) API route,
     // which would otherwise handle the request and 500.

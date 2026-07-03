@@ -9,6 +9,8 @@ import {
   filterByTiers,
   computeNetStakeFlow,
   formatRelativeTime,
+  formatEventAmount,
+  resolveValidator,
   isWhaleEvent,
   type FeedTier,
   type StakingEvent,
@@ -17,10 +19,17 @@ import {
 import { formatLargeNumber, type TimeRange } from "@/lib/analytics-utils";
 import Shareable from "@/components/share/Shareable";
 import StakingFeedRow from "./StakingFeedRow";
-import StakingFeedPanel from "./StakingFeedPanel";
 import WhaleTracker from "./WhaleTracker";
-import DelegatorPanel from "./DelegatorPanel";
+import WalletPanel from "@/components/WalletPanel";
+import { useRouter } from "next/navigation";
 import type { TopDelegatorEntry } from "@/hooks/useWhaleData";
+
+const EVENT_NOUN: Record<StakingEventType, string> = {
+  delegate: "Delegated",
+  undelegate: "Undelegated",
+  redelegate: "Redelegated",
+};
+const AMOUNT_SIGN: Record<StakingEventType, string> = { delegate: "+", undelegate: "−", redelegate: "" };
 
 type ActiveTab = "activity" | "whales";
 
@@ -63,6 +72,7 @@ function feedWindowLabel(range: TimeRange): string {
 }
 
 export default function StakingFeed({ globalRange }: { globalRange: TimeRange }) {
+  const router = useRouter();
   const { events, validators, updatedAt, now, isStale, fetchError } = useStakingFeed();
   const { topDelegators, whaleChanges, whaleHistory } = useWhaleData();
 
@@ -82,9 +92,8 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
   // parent <div className="chart-card-v2"> has `backdrop-filter: blur(20px)`
   // which creates a new containing block for `position: fixed` descendants.
   // That means any panel rendered INSIDE the card gets clipped to the
-  // card's bounds instead of the viewport. DelegatorPanel must be a
-  // sibling of the card (not nested) to render as a full-viewport overlay
-  // — same pattern we already use for StakingFeedPanel.
+  // card's bounds instead of the viewport. The WalletPanel must be a
+  // sibling of the card (not nested) to render as a full-viewport overlay.
   const [selectedDelegator, setSelectedDelegator] = useState<TopDelegatorEntry | null>(null);
 
   // Sync tab with URL hash so both tabs have shareable custom links:
@@ -427,20 +436,22 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
         )}
       </div>
 
-      {/* Both panels are siblings of the card so their `position: fixed`
-          escapes the card's backdrop-filter stacking context and fills
-          the viewport identically. */}
-      <StakingFeedPanel
-        event={selectedEvent}
-        validators={validators}
-        onClose={() => setSelectedEvent(null)}
-      />
-      <DelegatorPanel
-        entry={selectedDelegator}
-        events={events}
-        validators={validators}
-        now={now}
-        onClose={() => setSelectedDelegator(null)}
+      {/* One universal WalletPanel for both a clicked delegator (whale rank +
+          label context) and a clicked staking event (a one-line note about
+          the event). Sibling of the card so its `position: fixed` escapes the
+          card's backdrop-filter stacking context and fills the viewport. */}
+      <WalletPanel
+        address={selectedDelegator?.address ?? selectedEvent?.delegator ?? null}
+        monikers={validators}
+        context={
+          selectedDelegator
+            ? { rank: selectedDelegator.rank, label: selectedDelegator.label?.text ?? null }
+            : selectedEvent
+              ? { note: `${EVENT_NOUN[selectedEvent.type]} ${AMOUNT_SIGN[selectedEvent.type]}${formatEventAmount(selectedEvent.amount)} TX · ${resolveValidator(selectedEvent.validator, validators)}` }
+              : undefined
+        }
+        onClose={() => { setSelectedEvent(null); setSelectedDelegator(null); }}
+        onOpenFull={(a) => router.push(`/passport?address=${a}`)}
       />
     </>
   );

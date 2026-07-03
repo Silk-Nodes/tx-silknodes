@@ -13355,6 +13355,8 @@ input[type="range"]::-moz-range-thumb {
 .psp-peek-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
 .psp-token-chip { font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--glass-bg, rgba(0,0,0,0.04)); border: 1px solid var(--glass-border); color: var(--text-medium); }
 .psp-peek-section-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-peek-note { padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.psp-peek-unbond { font-size: 0.76rem; color: var(--danger); font-weight: 600; }
 .psp-flow-in { color: var(--text-accent); font-weight: 600; }
 .psp-flow-out { color: var(--danger); font-weight: 600; }
 .psp-peek-open { margin-top: 4px; padding: 11px 16px; border-radius: var(--radius-pill); border: none; background: var(--accent-lime, #b1fc03); color: #0f1b07; font-weight: 700; font-size: 0.86rem; cursor: pointer; transition: filter 0.12s ease; }
