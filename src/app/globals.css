@@ -13177,6 +13177,7 @@ input[type="range"]::-moz-range-thumb {
 /* Loading */
 .psp-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 20px; color: var(--text-medium); font-size: 0.95rem; }
 .psp-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--glass-border); border-top-color: var(--tx-neon); animation: spin 0.8s linear infinite; }
+.psp-spinner.sm { width: 13px; height: 13px; border-width: 2px; display: inline-block; vertical-align: -1px; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Hero */

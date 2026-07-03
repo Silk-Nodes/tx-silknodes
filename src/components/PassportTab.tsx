@@ -130,6 +130,11 @@ export default function PassportTab({
   // Address currently previewed in the slide-in peek panel (click a
   // counterparty to drill in without leaving the current passport).
   const [peekAddress, setPeekAddress] = useState<string | null>(null);
+  // True while the indexer-backed cards are still streaming in after the
+  // core passport has rendered. Bumped per load() so a stale in-flight
+  // enrichment can't overwrite a newer lookup.
+  const [enriching, setEnriching] = useState(false);
+  const epochRef = useRef(0);
   const ranInitial = useRef(false);
 
   const usd = useCallback(
@@ -149,30 +154,25 @@ export default function PassportTab({
       setError("Enter a valid core1... address");
       return;
     }
+    const epoch = ++epochRef.current;
     setError(null);
     setLoading(true);
     setData(null);
+    setEnriching(true);
+
+    // ── Phase 1: the reliable core, straight from the LCD. This renders the
+    // hero, holdings, delegations and the PSE estimate right away, so the
+    // page never sits on a spinner waiting for the (sometimes slow or
+    // degraded) public indexer.
     try {
-      const [chain, flowsRes, govRes, score, pseNet, bondedTokens, activityRes, refRes, pseEarnedRes, monikers] = await Promise.all([
+      const [chain, score, pseNet, bondedTokens, monikers] = await Promise.all([
         fetchAddressChainData(address),
-        fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchOnChainPSEScore(address),
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
-        fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(`/api/address/pse-earned?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchValidatorMonikers(),
       ]);
-
-      const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
-      const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
-      const activity: ActivityItem[] = Array.isArray(activityRes?.items) ? activityRes.items : [];
-      const validatorOperator: string | null = activityRes?.validatorOperator ?? null;
-      const firstSeen: string | null = activityRes?.firstSeen?.timestamp ?? null;
-      const referral: Referral | null = refRes && !refRes.error ? refRes : null;
-      const pseEarned: PseEarned | null = pseEarnedRes && !pseEarnedRes.error && pseEarnedRes.count > 0 ? pseEarnedRes : null;
+      if (epochRef.current !== epoch) return;
 
       const est = layeredPSEEstimate({
         userStake: chain.stakedTX,
@@ -189,26 +189,65 @@ export default function PassportTab({
         sharePct: est.sharePct,
         eligible: !!score && chain.stakedTX > 0,
       };
-
-      const sent = flows?.summary.totalSentToExchanges ?? 0;
-      const received = flows?.summary.totalReceivedFromExchanges ?? 0;
       const badges = computeBadges({
-        isExchange: flows?.isExchange ?? false,
-        rank: flows?.rank ?? null,
-        stakedTX: chain.stakedTX,
-        balanceTX: chain.balanceTX,
-        netToExchanges: sent - received,
-        exchangeTxCount: flows?.summary.txCount ?? 0,
-        turnoutPct: gov?.summary.turnoutPct ?? 0,
-        votedCount: gov?.summary.votedCount ?? 0,
+        isExchange: false, rank: null,
+        stakedTX: chain.stakedTX, balanceTX: chain.balanceTX,
+        netToExchanges: 0, exchangeTxCount: 0, turnoutPct: 0, votedCount: 0,
       });
 
-      setData({ address, chain, flows, gov, pse, pseEarned, activity, validatorOperator, firstSeen, referral, badges, monikers });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load wallet passport");
-    } finally {
+      setData({
+        address, chain, flows: null, gov: null, pse, pseEarned: null,
+        activity: [], validatorOperator: null, firstSeen: null, referral: null, badges, monikers,
+      });
       setLoading(false);
+    } catch (e) {
+      if (epochRef.current === epoch) {
+        setError(e instanceof Error ? e.message : "Failed to load wallet passport");
+        setLoading(false);
+        setEnriching(false);
+      }
+      return;
     }
+
+    // ── Phase 2: the indexer/DB-backed cards (activity, exchange flow,
+    // governance, referrals, PSE history). These stream in as they resolve;
+    // each is bounded server-side, so a bad indexer moment leaves those
+    // cards empty instead of freezing the whole passport.
+    Promise.all([
+      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/pse-earned?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([flowsRes, govRes, activityRes, refRes, pseEarnedRes]) => {
+      if (epochRef.current !== epoch) return;
+      const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
+      const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
+      const activity: ActivityItem[] = Array.isArray(activityRes?.items) ? activityRes.items : [];
+      const validatorOperator: string | null = activityRes?.validatorOperator ?? null;
+      const firstSeen: string | null = activityRes?.firstSeen?.timestamp ?? null;
+      const referral: Referral | null = refRes && !refRes.error ? refRes : null;
+      const pseEarned: PseEarned | null = pseEarnedRes && !pseEarnedRes.error && pseEarnedRes.count > 0 ? pseEarnedRes : null;
+
+      setData((prev) => {
+        if (!prev) return prev;
+        const sent = flows?.summary.totalSentToExchanges ?? 0;
+        const received = flows?.summary.totalReceivedFromExchanges ?? 0;
+        const badges = computeBadges({
+          isExchange: flows?.isExchange ?? false,
+          rank: flows?.rank ?? null,
+          stakedTX: prev.chain.stakedTX,
+          balanceTX: prev.chain.balanceTX,
+          netToExchanges: sent - received,
+          exchangeTxCount: flows?.summary.txCount ?? 0,
+          turnoutPct: gov?.summary.turnoutPct ?? 0,
+          votedCount: gov?.summary.votedCount ?? 0,
+        });
+        return { ...prev, flows, gov, activity, validatorOperator, firstSeen, referral, pseEarned, badges };
+      });
+    }).finally(() => {
+      if (epochRef.current === epoch) setEnriching(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -334,7 +373,6 @@ export default function PassportTab({
               <div className="psp-hero-addr-row">
                 <span className="psp-addr mono">{shortAddr(address)}</span>
                 <button className="psp-copy" onClick={copyAddr} aria-label="Copy address">{copied ? "Copied" : "Copy"}</button>
-                <a className="psp-copy" href={mintscanAddr(address)} target="_blank" rel="noopener noreferrer">Explorer ↗</a>
               </div>
               <div className="psp-hero-tags">
                 {isValidator && <span className="psp-tag psp-tag-rank" title={validatorOperator ?? undefined}>Validator{validatorName ? `: ${validatorName}` : ""}</span>}
@@ -450,7 +488,7 @@ export default function PassportTab({
                 </div>
               )}
             </>
-          ) : <Empty>No active PSE score. PSE accrues to community stakers; stake TX to start earning.</Empty>}
+          ) : enriching ? <CardLoading /> : <Empty>No active PSE score. PSE accrues to community stakers; stake TX to start earning.</Empty>}
         </Card>
 
         {/* Exchange behavior */}
@@ -488,7 +526,7 @@ export default function PassportTab({
                 </div>
               )}
             </>
-          ) : <Empty>No exchange deposits or withdrawals on record for this wallet.</Empty>}
+          ) : enriching ? <CardLoading /> : <Empty>No exchange deposits or withdrawals on record for this wallet.</Empty>}
         </Card>
 
         {/* Referral earnings (on-chain, tx.market) */}
@@ -510,7 +548,7 @@ export default function PassportTab({
                 On-chain tx.market referral rewards: 500 TX per verified signup, 1000 TX as Elite Club.
               </div>
             </>
-          ) : (
+          ) : enriching ? <CardLoading /> : (
             <Empty>No tx.market referral rewards received on-chain for this wallet.</Empty>
           )}
         </Card>
@@ -542,7 +580,7 @@ export default function PassportTab({
                 ))}
               </div>
             </>
-          ) : <Empty>This wallet has not voted on any governance proposals.</Empty>}
+          ) : enriching ? <CardLoading /> : <Empty>This wallet has not voted on any governance proposals.</Empty>}
         </Card>
 
         {/* Token holdings (non-TX smart tokens / IBC assets) */}
@@ -595,7 +633,7 @@ export default function PassportTab({
                 );
               })}
             </div>
-          ) : <Empty>No on-chain activity found for this wallet.</Empty>}
+          ) : enriching ? <CardLoading /> : <Empty>No on-chain activity found for this wallet.</Empty>}
         </Card>
       </div>
 
@@ -639,6 +677,9 @@ function KV({ label, value, sub, tone }: { label: string; value: string; sub?: s
 }
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="psp-empty">{children}</div>;
+}
+function CardLoading() {
+  return <div className="psp-empty"><span className="psp-spinner sm" aria-hidden="true" /> Reading the chain...</div>;
 }
 // Human line for an activity item: [chip tone, chip verb, subject, amount sign].
 function describeActivity(
