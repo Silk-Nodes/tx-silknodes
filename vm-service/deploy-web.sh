@@ -34,10 +34,19 @@ cd "$REPO_PATH"
 # stuck on whatever was last built. Checkout main first so the pull is
 # always a fast-forward.
 git checkout main
+# `npm install` (below) rewrites package-lock.json on most runs, which leaves
+# the working tree dirty and makes the NEXT deploy's --ff-only pull abort with
+# "local changes would be overwritten". The committed lockfile is the source
+# of truth, so discard any such churn before pulling. -q/|| true so a clean
+# tree (nothing to discard) doesn't error under `set -e`.
+git checkout -q -- package-lock.json 2>/dev/null || true
 git pull --ff-only origin main
 
 echo "==> Installing dependencies..."
-npm install --no-audit --no-fund
+# npm ci installs exactly what the lockfile pins and does NOT rewrite it, so it
+# is reproducible and won't re-dirty the tree. Falls back to npm install if the
+# lockfile is out of sync (ci is strict) so a deploy never hard-fails here.
+npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
 echo "==> Building Next.js (this takes ~20-25 s)..."
 npm run build
