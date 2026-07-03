@@ -44,6 +44,38 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Local-dev convenience: the flows/analytics API routes read the VM's
+  // Postgres, which a laptop can't reach, so those pages show "Could not
+  // load" locally. Setting DEV_API_PROXY=https://tx.silknodes.io in
+  // .env.local proxies just those read-only, DB-backed endpoints to the
+  // live site so the pages render with real data. It never touches the
+  // passport's own indexer/LCD routes (those already work locally), and
+  // it is inert unless the env var is set, so production is unaffected.
+  async rewrites() {
+    const base = process.env.DEV_API_PROXY;
+    if (!base) return [];
+    const root = base.replace(/\/$/, "");
+    const paths = [
+      "flows",
+      "flows-address",
+      "flows-recent",
+      "flows-history",
+      "flows-counterparties",
+      "flows-destinations",
+      "flows-private-destinations",
+      "analytics-data",
+      "pse-score",
+      "pse-cohort",
+    ];
+    // beforeFiles so the proxy wins over the local (DB-less) API route,
+    // which would otherwise handle the request and 500.
+    return {
+      beforeFiles: paths.map((p) => ({
+        source: `/api/${p}`,
+        destination: `${root}/api/${p}`,
+      })),
+    };
+  },
   // Cache policy. Prerendered HTML was served with a 1-year s-maxage and
   // nothing telling browsers to revalidate, so browsers (Safari
   // especially) held the OLD HTML across deploys. That stale HTML

@@ -124,17 +124,17 @@ export default function WalletPanel({ address, monikers: monikersProp, txPrice =
       .then((c) => { if (!cancelled) { setChain(c); setLoading(false); } })
       .catch(() => { if (!cancelled) setLoading(false); });
 
-    // Enrichments stream in.
-    Promise.all([
-      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      monikersProp ? Promise.resolve(monikersProp) : fetchValidatorMonikers().catch(() => ({})),
-    ]).then(([a, f, m]) => {
-      if (cancelled) return;
-      setActivity(a && !a.error ? a : null);
-      setFlow(f && !f.error ? f : null);
-      if (!monikersProp && m) setMonikers(m);
-    }).finally(() => { if (!cancelled) setEnriching(false); });
+    // Enrichments stream in independently, so a slow source (the indexer
+    // for activity) never holds back a fast one (the exchange flow).
+    const tasks = [
+      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        .then((a) => { if (!cancelled) setActivity(a && !a.error ? a : null); }),
+      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        .then((f) => { if (!cancelled) setFlow(f && !f.error ? f : null); }),
+      (monikersProp ? Promise.resolve(monikersProp) : fetchValidatorMonikers().catch(() => ({})))
+        .then((m) => { if (!cancelled && !monikersProp && m) setMonikers(m); }),
+    ];
+    Promise.allSettled(tasks).then(() => { if (!cancelled) setEnriching(false); });
 
     return () => { cancelled = true; };
   }, [address, monikersProp]);
