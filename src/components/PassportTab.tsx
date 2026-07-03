@@ -585,17 +585,16 @@ export default function PassportTab({
 
         {/* Token holdings (non-TX smart tokens / IBC assets) */}
         {chain.otherTokens.length > 0 && (
-          <Card title="Other token holdings">
-            <div className="psp-list">
-              {chain.otherTokens.slice(0, 10).map((t) => (
-                <div key={t.denom} className="psp-row">
-                  <span className="psp-row-name"><span className="psp-token-sym mono">{t.subunit}</span></span>
-                  <span className="psp-row-val mono">{formatCompact(Number(t.amount))}</span>
+          <Card title="Other token holdings" wide>
+            <div className="psp-tokengrid">
+              {chain.otherTokens.map((t) => (
+                <div key={t.denom} className="psp-tokencard" title={t.denom}>
+                  <span className="psp-tokencard-amt mono">
+                    {t.displayAmount >= 1 ? formatCompact(t.displayAmount) : t.displayAmount.toPrecision(2)}
+                  </span>
+                  <span className="psp-tokencard-sym">{t.symbol}</span>
                 </div>
               ))}
-              {chain.otherTokens.length > 10 && (
-                <div className="psp-row"><span className="psp-row-meta">+{chain.otherTokens.length - 10} more assets</span></div>
-              )}
             </div>
           </Card>
         )}

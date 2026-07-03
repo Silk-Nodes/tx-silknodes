@@ -197,7 +197,7 @@ export default function WalletPanel({ address, monikers: monikersProp, txPrice =
             {chain && chain.otherTokens.length > 0 && (
               <div className="psp-peek-tokens">
                 {chain.otherTokens.slice(0, 6).map((t) => (
-                  <span key={t.denom} className="psp-token-chip mono">{t.subunit}</span>
+                  <span key={t.denom} className="psp-token-chip" title={t.denom}>{t.symbol}</span>
                 ))}
                 {chain.otherTokens.length > 6 && <span className="psp-token-chip">+{chain.otherTokens.length - 6}</span>}
               </div>

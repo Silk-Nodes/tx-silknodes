@@ -13284,6 +13284,10 @@ input[type="range"]::-moz-range-thumb {
 
 /* Token holdings */
 .psp-token-sym { font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.psp-tokengrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 4px; }
+.psp-tokencard { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); border: 1px solid var(--glass-border); min-width: 0; }
+.psp-tokencard-amt { font-size: 1rem; font-weight: 700; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-tokencard-sym { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* PSE per-distribution mini bars */
 .psp-distbars { margin-top: 16px; border-top: 1px solid var(--glass-border); padding-top: 12px; }

@@ -23,8 +23,10 @@ export interface PassportUnbonding {
 }
 export interface TokenHolding {
   denom: string;
-  subunit: string;   // display name (e.g. "ubob", "IBC")
-  amount: string;    // raw base-unit amount (decimals unknown per token)
+  symbol: string;        // human ticker (e.g. "TXD", "BADGERS", "ATOM")
+  precision: number;     // token decimals
+  amount: string;        // raw base-unit amount
+  displayAmount: number; // amount scaled by precision
 }
 export interface AddressChainData {
   balanceTX: number;        // liquid, in wallet
@@ -40,10 +42,39 @@ export interface AddressChainData {
 }
 
 // Smart-token denom looks like "subunit-issueraddress"; IBC like "ibc/HASH".
-function tokenSubunit(denom: string): string {
+// The raw subunit is a poor label (a cryptic "txd" / "ubob"), so we resolve
+// the real ticker + decimals: native smart tokens from the asset-ft module,
+// IBC assets from their denom trace. Falls back to the subunit if lookup
+// fails, so a token always shows *something*.
+function rawSubunit(denom: string): string {
   if (denom.startsWith("ibc/")) return "IBC";
   const dash = denom.indexOf("-core1");
   return dash > 0 ? denom.slice(0, dash) : denom;
+}
+
+async function resolveToken(denom: string, amount: string): Promise<TokenHolding> {
+  let symbol = rawSubunit(denom);
+  let precision = 0;
+  if (denom.startsWith("ibc/")) {
+    const trace = await getJson(`/ibc/apps/transfer/v1/denom_traces/${denom.slice(4)}`);
+    const base: string | undefined = trace?.denom_trace?.base_denom;
+    if (base) {
+      // Cosmos convention: a "u" prefix is the micro-unit (6 decimals).
+      symbol = base.replace(/^u/, "").toUpperCase();
+      precision = base.startsWith("u") ? 6 : 0;
+    }
+  } else {
+    const meta = await getJson(`/coreum/asset/ft/v1/tokens/${encodeURIComponent(denom)}`);
+    const t = meta?.token;
+    if (t) {
+      symbol = String(t.symbol || symbol).toUpperCase();
+      precision = Number(t.precision ?? 0);
+    } else {
+      symbol = symbol.toUpperCase();
+    }
+  }
+  const displayAmount = Number(amount) / Math.pow(10, precision);
+  return { denom, symbol, precision, amount, displayAmount };
 }
 
 function ucoreToTX(amount: string | number | undefined | null): number {
@@ -110,10 +141,11 @@ export async function fetchAddressChainData(address: string): Promise<AddressCha
 
   const balances: any[] = bal?.balances ?? [];
   const balanceTX = ucoreToTX(balances.find((b: any) => b.denom === "ucore")?.amount);
-  const otherTokens: TokenHolding[] = balances
-    .filter((b: any) => b.denom !== "ucore" && Number(b.amount) > 0)
-    .map((b: any) => ({ denom: b.denom, subunit: tokenSubunit(b.denom), amount: b.amount }))
-    .sort((a, b) => Number(b.amount) - Number(a.amount));
+  // Resolve real tickers + decimals for the non-TX holdings, capped so a
+  // wallet full of dust airdrops can't fan out into hundreds of lookups.
+  const rawOther = balances.filter((b: any) => b.denom !== "ucore" && Number(b.amount) > 0).slice(0, 24);
+  const otherTokens: TokenHolding[] = (await Promise.all(rawOther.map((b: any) => resolveToken(b.denom, b.amount))))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
 
   const base = acct?.account?.base_account ?? acct?.account ?? {};
   const txsSent = Number(base.sequence ?? 0);
