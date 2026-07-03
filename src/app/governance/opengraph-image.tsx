@@ -1,17 +1,16 @@
-import { ImageResponse } from "next/og";
-import { ogFrame, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
+import { ogFrame, ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
 
-export const alt = "Governance, Made Readable | ALL in ONE TX";
+export const runtime = "nodejs";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+export const alt = "TX Governance";
 
 export default function Image() {
-  return new ImageResponse(
+  return ogImage(
     ogFrame({
-      kicker: "GOVERNANCE",
-      title: "Governance, Made Readable",
-      subtitle: "Plain-English proposals, validator votes, and one-click voting.",
+      eyebrow: "Governance",
+      title: "TX governance, decoded",
+      subtitle: "Proposals with live tallies, validator votes, and delegator overrides, in plain English.",
     }),
-    OG_SIZE,
   );
 }

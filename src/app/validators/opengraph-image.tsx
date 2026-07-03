@@ -1,17 +1,16 @@
-import { ImageResponse } from "next/og";
-import { ogFrame, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
+import { ogFrame, ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
 
-export const alt = "Validator Explorer | ALL in ONE TX";
+export const runtime = "nodejs";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+export const alt = "TX Validators";
 
 export default function Image() {
-  return new ImageResponse(
+  return ogImage(
     ogFrame({
-      kicker: "VALIDATORS",
-      title: "Validator Explorer",
-      subtitle: "Compare validators by stake, commission, uptime, and PSE.",
+      eyebrow: "Validators",
+      title: "Compare every TX validator",
+      subtitle: "Commission, voting power, uptime, and rewards, side by side. Pick where to stake.",
     }),
-    OG_SIZE,
   );
 }

@@ -1,17 +1,16 @@
-import { ImageResponse } from "next/og";
-import { ogFrame, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
+import { ogFrame, ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
 
-export const alt = "ALL in ONE TX";
+export const runtime = "nodejs";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+export const alt = "ALL in ONE TX";
 
 export default function Image() {
-  return new ImageResponse(
+  return ogImage(
     ogFrame({
-      kicker: "ALL in ONE",
-      title: "The TX Network, One Place",
-      subtitle: "Stake, track your PSE, explore validators, and follow exchange flows and governance.",
+      eyebrow: "All in ONE TX",
+      title: "The TX community dashboard",
+      subtitle: "Stake, track PSE, explore validators, follow exchange flows, and read governance. All in one place.",
     }),
-    OG_SIZE,
   );
 }

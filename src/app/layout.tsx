@@ -7,9 +7,15 @@ import { NO_FLASH_SCRIPT } from "@/lib/theme";
 const basePath = "";
 
 export const metadata: Metadata = {
-  title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+  // Per-page titles: each route's layout sets a short title (e.g. "Flows")
+  // and this template appends the brand, so the browser tab reads
+  // "Flows \u00b7 All in ONE TX". Routes with no title use `default`.
+  title: {
+    default: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
+    template: "%s \u00b7 All in ONE TX",
+  },
   description:
-    "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
+    "The all-in-one dashboard for the TX chain: staking, PSE rewards, validators, exchange flows, and governance. Built by Silk Nodes.",
   keywords: [
     "TX", "TX token", "TX staking", "TX blockchain", "Coreum", "Coreum staking",
     "PSE", "Proof of Support Emission", "PSE calculator", "PSE rewards", "PSE score",
@@ -30,19 +36,19 @@ export const metadata: Metadata = {
     apple: `${basePath}/tx-icon.png`,
   },
   openGraph: {
-    title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
-    description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
+    // title/description are intentionally NOT set here so each route's
+    // layout provides its own (og:title falls back to the page title,
+    // og:description to the page description). og:image comes from the
+    // file-based opengraph-image.tsx convention.
     url: "https://tx.silknodes.io/",
     siteName: "ALL in ONE TX",
     type: "website",
     locale: "en_US",
-    // og:image comes from src/app/opengraph-image.tsx (the shared ogFrame
-    // card), so every route including the root shares one house style.
   },
   twitter: {
     card: "summary_large_image",
-    title: "ALL in ONE TX | Stake \u2022 PSE \u2022 Explore \u2022 Track",
-    description: "Stake TX, Check your PSE score, Calculate your staking rewards, Explore validators, Manage delegations, and Track tokenized assets. Built by Silk Nodes on the TX blockchain.",
+    // title/description/image all fall back to the Open Graph values,
+    // which are per-route.
   },
   robots: {
     index: true,

@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 
-const DESCRIPTION = "Professional validator and infrastructure for the TX network.";
-
 export const metadata: Metadata = {
-  title: "Silk Nodes | ALL in ONE TX",
-  description: DESCRIPTION,
-  openGraph: { title: "Silk Nodes", description: DESCRIPTION, url: "https://tx.silknodes.io/silknodes" },
-  twitter: { card: "summary_large_image", title: "Silk Nodes", description: DESCRIPTION },
+  title: "Silk Nodes",
+  description:
+    "5% commission, 99.98% uptime, zero slashing. The team behind ALL in ONE TX.",
+  openGraph: { title: "Stake with Silk Nodes" },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return children;
 }

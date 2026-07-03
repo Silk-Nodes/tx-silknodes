@@ -1,17 +1,16 @@
-import { ImageResponse } from "next/og";
-import { ogFrame, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
+import { ogFrame, ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
 
-export const alt = "PSE Score & Standing | ALL in ONE TX";
+export const runtime = "nodejs";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+export const alt = "TX PSE score";
 
 export default function Image() {
-  return new ImageResponse(
+  return ogImage(
     ogFrame({
-      kicker: "PSE",
-      title: "PSE Score & Standing",
-      subtitle: "Check your PSE score, projected rewards, and where you stand in the distribution.",
+      eyebrow: "Proof of Support Emission",
+      title: "Check your PSE score",
+      subtitle: "Look up any wallet's PSE standing and estimate its monthly and annual rewards.",
     }),
-    OG_SIZE,
   );
 }
