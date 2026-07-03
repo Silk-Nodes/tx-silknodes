@@ -41,7 +41,32 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
       }
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+
+    // "Match system" mode = no explicit choice stored. In that mode, follow
+    // the OS live: if the user flips their system light/dark while the tab is
+    // open, update the theme instead of staying on the value from page load.
+    const mq =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : null;
+    const onSystemChange = () => {
+      let stored: string | null = null;
+      try {
+        stored = localStorage.getItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+      if (stored) return; // user picked a theme explicitly; don't override it
+      const next: Theme = mq && mq.matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      setThemeState(next);
+    };
+    mq?.addEventListener("change", onSystemChange);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      mq?.removeEventListener("change", onSystemChange);
+    };
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
