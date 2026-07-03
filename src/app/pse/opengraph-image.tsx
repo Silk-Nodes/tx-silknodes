@@ -1,16 +1,16 @@
 import { ImageResponse } from "next/og";
 import { ogFrame, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
 
-export const alt = "TX Wallet Passport";
+export const alt = "PSE Score & Standing | ALL in ONE TX";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
 export default function Image() {
   return new ImageResponse(
     ogFrame({
-      kicker: "WALLET PASSPORT",
-      title: "Wallet Passport",
-      subtitle: "Holdings, staking, PSE, exchange flows, governance, and full history for any TX wallet.",
+      kicker: "PSE",
+      title: "PSE Score & Standing",
+      subtitle: "Check your PSE score, projected rewards, and where you stand in the distribution.",
     }),
     OG_SIZE,
   );
