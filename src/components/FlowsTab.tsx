@@ -13,8 +13,9 @@ import {
   ReferenceLine,
 } from "recharts";
 import { formatLargeNumber } from "@/lib/analytics-utils";
-import AddressFlowPanel from "./AddressFlowPanel";
+import WalletPanel from "./WalletPanel";
 import Shareable from "@/components/share/Shareable";
+import { useRouter } from "next/navigation";
 
 // ─── Types mirror the API response shapes ─────────────────────────────
 
@@ -137,6 +138,7 @@ const RECENT_FEED_LIMIT_BY_WINDOW: Record<WindowKey, number> = {
 // ─── Component ────────────────────────────────────────────────────────
 
 export default function FlowsTab() {
+  const router = useRouter();
   const [windowKey, setWindowKey] = useState<WindowKey>("24h");
   const [totals, setTotals] = useState<FlowsResponse | null>(null);
   const [history, setHistory] = useState<FlowsHistoryResponse | null>(null);
@@ -309,7 +311,7 @@ export default function FlowsTab() {
       </div>
 
       {/* ─── Address search (#1). Submits to selectedAddress so the
-          slide-in AddressFlowPanel handles the lookup. Validates
+          slide-in WalletPanel handles the lookup. Validates
           format inline so the user knows immediately whether the
           input is acceptable. Setting selectedAddress to the same
           value twice in a row would be a no-op for React, so we
@@ -481,10 +483,10 @@ export default function FlowsTab() {
       {recent && <RecentFlowsFeed flows={recent.flows} onAddressClick={setSelectedAddress} />}
 
       {/* ─── Address details panel (slides in from right) ─── */}
-      <AddressFlowPanel
+      <WalletPanel
         address={selectedAddress}
-        windowKey={windowKey}
         onClose={() => setSelectedAddress(null)}
+        onOpenFull={(addr) => router.push(`/passport?address=${addr}`)}
       />
 
       {!totals && !error && (

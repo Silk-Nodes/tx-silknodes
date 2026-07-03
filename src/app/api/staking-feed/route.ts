@@ -71,6 +71,13 @@ export async function GET(req: Request) {
     const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
     const sinceDate = new Date(sinceMs);
 
+    // Optional per-wallet filter (powers the Wallet Passport staking
+    // timeline). When present we drop the MIN_AMOUNT_TX floor so a wallet's
+    // own smaller delegations still show up.
+    const delegator = (url.searchParams.get("delegator") || "").trim();
+    const isWalletQuery = delegator.startsWith("core1") && delegator.length >= 39;
+    const amountFloor = isWalletQuery ? 0 : MIN_AMOUNT_TX;
+
     // Fire the queries in parallel. Postgres handles the fanout fine
     // and we halve total latency vs sequential awaits.
     //
@@ -85,8 +92,9 @@ export async function GET(req: Request) {
       await Promise.all([
         StakingEvent.findAll({
           where: {
-            amount: { [Op.gte]: MIN_AMOUNT_TX },
+            amount: { [Op.gte]: amountFloor },
             timestamp: { [Op.gte]: sinceDate },
+            ...(isWalletQuery ? { delegator } : {}),
           },
           order: [["timestamp", "DESC"]],
           limit,

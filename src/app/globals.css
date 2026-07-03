@@ -3979,7 +3979,9 @@ input[type="range"]::-moz-range-thumb {
   inset: 0;
   background: rgba(15, 27, 7, 0.35);
   backdrop-filter: blur(2px);
-  z-index: 95;
+  /* Above the site nav (z 1000, fixed on mobile) so the panel and its close
+     button aren't buried behind the top banner on small screens. */
+  z-index: 1200;
   animation: fade-in 0.2s ease;
 }
 
@@ -4001,7 +4003,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--bg-base);
   border-left: 1px solid var(--glass-border);
   box-shadow: -12px 0 40px rgba(15, 27, 7, 0.12);
-  z-index: 100;
+  z-index: 1201;
   padding: 32px 28px;
   overflow-y: auto;
   animation: slide-in-right 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -13153,3 +13155,272 @@ input[type="range"]::-moz-range-thumb {
      old 2-row-grid nav). */
   .app-shell:has(.whats-new-banner) .nav-spacer { height: 132px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   WALLET PASSPORT
+   Full-width data dashboard for a single address. Uses the shared glass
+   tokens so it themes with the app. Layout: a hero summary, then a
+   responsive two-column grid of insight cards.
+   ════════════════════════════════════════════════════════════════════ */
+.psp { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+
+/* Palette for portfolio / flow / bar fills */
+.psp-fill-staked { background: var(--tx-neon); }
+.psp-fill-liquid { background: #4aa3c4; }
+.psp-fill-unbond { background: #e0a23a; }
+.psp-fill-reward { background: #8fd14f; }
+.psp-fill-in { background: var(--tx-neon); }
+.psp-fill-out { background: #e0795a; }
+
+/* Entry state */
+.psp-intro { text-align: center; margin-top: 8px; }
+.psp-title { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+.psp-sub { color: var(--text-medium); font-size: 0.95rem; line-height: 1.5; max-width: 520px; margin: 0 auto; }
+.psp-entry { display: flex; flex-direction: column; gap: 12px; max-width: 520px; margin: 8px auto 0; width: 100%; }
+.psp-input { width: 100%; padding: 14px 16px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-family: var(--font-mono); font-size: 0.92rem; }
+.psp-input:focus { outline: 2px solid var(--tx-neon); outline-offset: 1px; }
+.psp-btn-primary, .psp-btn-secondary { width: 100%; padding: 13px 18px; border-radius: var(--radius-pill); font-weight: 700; font-size: 0.92rem; cursor: pointer; transition: opacity 0.15s ease, background 0.15s ease; }
+.psp-btn-primary { background: var(--tx-neon); color: var(--tx-dark-green); border: none; }
+.psp-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.psp-btn-secondary { background: transparent; color: var(--text-dark); border: 1px solid var(--glass-border); }
+.psp-btn-secondary:hover { background: var(--accent-olive-light); }
+.psp-or { text-align: center; color: var(--text-light); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.psp-error { color: var(--danger); font-size: 0.85rem; text-align: center; }
+
+/* Loading */
+.psp-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 20px; color: var(--text-medium); font-size: 0.95rem; }
+.psp-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--glass-border); border-top-color: var(--tx-neon); animation: spin 0.8s linear infinite; }
+.psp-spinner.sm { width: 13px; height: 13px; border-width: 2px; display: inline-block; vertical-align: -1px; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Hero */
+.psp-hero { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.psp-hero-top { display: flex; align-items: center; gap: 16px; }
+.psp-avatar { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #fff; font-family: var(--font-mono); letter-spacing: 0.02em; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+.psp-hero-id { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.psp-hero-addr-row { display: flex; align-items: center; gap: 10px; }
+.psp-addr { font-size: 1.2rem; font-weight: 700; font-family: var(--font-mono); }
+.psp-copy { background: var(--accent-olive-light); border: 1px solid var(--glass-border); color: var(--text-medium); border-radius: var(--radius-pill); font-size: 0.68rem; font-weight: 700; padding: 4px 10px; cursor: pointer; }
+.psp-copy:hover { color: var(--text-dark); }
+.psp-hero-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-tag { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); }
+.psp-tag-label { background: var(--accent-olive-light); color: var(--text-dark); }
+.psp-tag-rank { background: var(--tx-neon); color: var(--tx-dark-green); }
+.psp-tag-soft { background: transparent; border: 1px solid var(--glass-border); color: var(--text-light); }
+.psp-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-badge { font-size: 0.72rem; font-weight: 700; padding: 4px 11px; border-radius: var(--radius-pill); border: 1px solid transparent; }
+.psp-badge-good { background: rgba(177,252,3,0.12); color: var(--text-accent); border-color: rgba(177,252,3,0.3); }
+.psp-badge-accent { background: var(--tx-neon); color: var(--tx-dark-green); }
+.psp-badge-warn { background: rgba(239,107,93,0.14); color: var(--danger); border-color: rgba(239,107,93,0.3); }
+.psp-badge-neutral { background: var(--accent-olive-light); color: var(--text-medium); }
+
+/* Headline metric strip */
+.psp-headline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; border-top: 1px solid var(--glass-border); padding-top: 16px; }
+.psp-metric { display: flex; flex-direction: column; gap: 3px; }
+.psp-metric-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); }
+.psp-metric-value { font-size: 1.35rem; font-weight: 700; font-family: var(--font-mono); }
+.psp-metric-accent { color: var(--text-accent); }
+.psp-metric-sub { font-size: 0.72rem; color: var(--text-light); font-family: var(--font-mono); }
+
+/* Grid of cards */
+/* No align-items:start, so the two cards in a row share the taller card's
+   height (default stretch). Without it the content-heavy left column
+   towered over the right and the grid looked ragged/asymmetric. */
+.psp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: start; }
+.psp-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; }
+.psp-card-wide { grid-column: 1 / -1; }
+
+/* Persistent top search bar */
+.psp-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-bottom: 22px; }
+.psp-topbar-lead { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.psp-topbar-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; color: var(--text-dark); }
+.psp-topbar-sub { font-size: 0.8rem; color: var(--text-light); }
+.psp-topbar-search { display: flex; align-items: center; gap: 8px; flex: 1 1 380px; max-width: 620px; }
+.psp-topbar-input { flex: 1 1 auto; min-width: 0; padding: 11px 16px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-family: var(--font-mono); font-size: 0.85rem; }
+.psp-topbar-input:focus { outline: none; border-color: var(--tx-neon); }
+.psp-topbar-btn { padding: 11px 18px; border-radius: var(--radius-pill); border: none; background: var(--tx-neon); color: #0f1b07; font-weight: 700; font-size: 0.82rem; cursor: pointer; white-space: nowrap; transition: filter 0.12s ease; }
+.psp-topbar-btn:hover:not(:disabled) { filter: brightness(1.05); }
+.psp-topbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.psp-topbar-btn.ghost { background: var(--accent-olive-light); color: var(--text-medium); }
+.psp-topbar-btn.ghost:hover { background: var(--glass-border); filter: none; }
+
+/* Summary: two bounded cards that align as an equal-height row.
+   Detail: full-width sections stacked, so a card can be any height without
+   a side-by-side neighbour to misalign against. */
+.psp-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.psp-sections { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+/* Inside a full-width section, let list content flow into responsive
+   columns so a long list (many validators, votes, transfers) fills the
+   width and stays short instead of a tall single column. */
+.psp-sections .psp-cols { display: block; columns: 420px auto; column-gap: 32px; }
+.psp-sections .psp-cols > * { break-inside: avoid; }
+/* multicol ignores flex gap, so bar rows (which spaced via gap) need margin;
+   list rows already self-space with their own padding + divider. */
+.psp-sections .psp-cols .psp-bar-row { margin-bottom: 14px; }
+@media (max-width: 720px) {
+  .psp-topbar-search { flex-basis: 100%; }
+  /* Comfortable touch targets for the search controls on mobile. */
+  .psp-topbar-input, .psp-topbar-btn { min-height: 44px; }
+}
+.psp-card-head { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
+
+/* Stacked composition bar */
+.psp-stack { display: flex; height: 16px; border-radius: var(--radius-pill); overflow: hidden; gap: 2px; background: var(--accent-olive-light); }
+.psp-stack-seg { height: 100%; min-width: 3px; }
+.psp-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+.psp-legend-row { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 10px; }
+.psp-dot { width: 10px; height: 10px; border-radius: 3px; }
+.psp-legend-label { font-size: 0.84rem; color: var(--text-dark); }
+.psp-legend-val { font-size: 0.84rem; font-family: var(--font-mono); font-weight: 600; text-align: right; }
+.psp-legend-pct { font-size: 0.78rem; color: var(--text-light); font-family: var(--font-mono); min-width: 42px; text-align: right; }
+.psp-usd { color: var(--text-light); font-weight: 400; }
+
+/* Horizontal bars (delegations) */
+.psp-bars { display: flex; flex-direction: column; gap: 12px; }
+.psp-bar-row { display: flex; flex-direction: column; gap: 5px; }
+.psp-bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.psp-bar-name { font-size: 0.84rem; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-bar-val { font-size: 0.82rem; font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+.psp-bar-pct { color: var(--text-light); font-weight: 400; }
+.psp-bar-track { height: 8px; border-radius: var(--radius-pill); background: var(--accent-olive-light); overflow: hidden; }
+.psp-bar-track.sm { height: 6px; }
+.psp-bar-fill { height: 100%; border-radius: var(--radius-pill); min-width: 2px; }
+
+/* Share bar (PSE pool / turnout) */
+.psp-sharebar-wrap { margin-top: 16px; }
+.psp-sharebar-head { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-medium); margin-bottom: 6px; }
+
+/* Key-value grid */
+.psp-kv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; }
+.psp-kv { display: flex; flex-direction: column; gap: 2px; }
+.psp-kv-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); }
+.psp-kv-value { font-size: 1rem; font-weight: 600; font-family: var(--font-mono); }
+.psp-kv-good { color: var(--text-accent); }
+
+/* Exchange verdict + per-exchange in/out */
+.psp-verdict { font-size: 0.9rem; padding: 10px 14px; border-radius: var(--radius-md); margin-bottom: 14px; }
+.psp-verdict-accum { background: rgba(177,252,3,0.1); color: var(--text-accent); }
+.psp-verdict-distrib { background: rgba(239,107,93,0.12); color: var(--danger); }
+.psp-xchg-row { display: flex; align-items: center; gap: 12px; }
+.psp-xchg-name { font-size: 0.82rem; width: 86px; flex-shrink: 0; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-xchg-bars { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.psp-xchg-line { display: flex; align-items: center; gap: 8px; }
+.psp-xchg-tag { font-size: 0.6rem; font-weight: 700; width: 24px; flex-shrink: 0; }
+.psp-xchg-tag.in { color: var(--text-accent); }
+.psp-xchg-tag.out { color: var(--danger); }
+.psp-xchg-amt { font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-light); width: 70px; text-align: right; flex-shrink: 0; }
+
+/* Lists / rows */
+.psp-list { margin-top: 16px; border-top: 1px solid var(--glass-border); padding-top: 12px; }
+.psp-list-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 8px; }
+.psp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--glass-border); }
+.psp-row:last-child { border-bottom: none; }
+.psp-row-name { font-size: 0.86rem; color: var(--text-dark); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-prop-id { color: var(--text-light); font-family: var(--font-mono); font-size: 0.78rem; }
+.psp-row-val { font-size: 0.86rem; font-weight: 600; font-family: var(--font-mono); white-space: nowrap; text-align: right; }
+.psp-row-meta { font-size: 0.72rem; color: var(--text-light); font-weight: 400; }
+
+.psp-flowdir { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: var(--radius-pill); }
+.psp-flowdir.inflow { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-flowdir.outflow { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-evt { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: var(--radius-pill); }
+.psp-evt.in { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-evt.out { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-evt.neutral { background: var(--accent-olive-light); color: var(--text-medium); }
+
+/* Token holdings */
+.psp-token-sym { font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.psp-tokengrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 4px; }
+.psp-tokencard { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); border: 1px solid var(--glass-border); min-width: 0; }
+.psp-tokencard-amt { font-size: 1rem; font-weight: 700; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psp-tokencard-sym { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* PSE per-distribution mini bars */
+.psp-distbars { margin-top: 16px; border-top: 1px solid var(--glass-border); padding-top: 12px; }
+.psp-distbars-row { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
+.psp-distbar { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+.psp-distbar-fill { width: 100%; background: var(--text-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+.psp-distbars-foot { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-light); margin-top: 6px; }
+
+/* Clickable "peek" affordance on rows / KVs that open the side panel */
+.psp-row-peek { cursor: pointer; transition: background 0.12s ease; margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 6px; }
+.psp-row-peek:hover { background: var(--accent-olive-light); }
+.psp-peek-hint { font-size: 0.62rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; opacity: 0; transition: opacity 0.12s ease; }
+.psp-row-peek:hover .psp-peek-hint, .psp-kv-btn:hover .psp-peek-hint { opacity: 1; }
+.psp-kv-btn { background: none; border: none; padding: 0; margin: 0; text-align: left; cursor: pointer; font: inherit; }
+.psp-cp-link { color: var(--text-accent); text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.12s ease; }
+.psp-row-peek:hover .psp-cp-link { text-decoration-color: currentColor; }
+.psp-bar-row-peek { cursor: pointer; transition: background 0.12s ease; margin: 0 -8px; padding: 4px 8px; border-radius: 8px; }
+.psp-bar-row-peek:hover { background: var(--accent-olive-light); }
+.psp-bar-row-peek:hover .psp-peek-hint { opacity: 1; }
+
+/* Peek side panel (reuses .staking-feed-panel shell) */
+.psp-peek { display: flex; flex-direction: column; gap: 16px; }
+.psp-avatar.sm { width: 40px; height: 40px; font-size: 0.85rem; border-radius: 10px; }
+.psp-peek-head { display: flex; align-items: center; gap: 12px; padding-right: 32px; }
+.psp-peek-id { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.psp-peek-actions { display: flex; gap: 8px; }
+.psp-peek-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-peek-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.psp-peek-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); }
+.psp-peek-stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-peek-stat-value { font-size: 1.05rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-dark); }
+.psp-peek-stat-value.accent { color: var(--text-accent); }
+.psp-peek-stat-sub { font-size: 0.7rem; color: var(--text-light); }
+.psp-peek-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-token-chip { font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--glass-bg, rgba(0,0,0,0.04)); border: 1px solid var(--glass-border); color: var(--text-medium); }
+.psp-peek-section-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-peek-note { padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.psp-peek-unbond { font-size: 0.76rem; color: var(--danger); font-weight: 600; }
+.psp-flow-in { color: var(--text-accent); font-weight: 600; }
+.psp-flow-out { color: var(--danger); font-weight: 600; }
+.psp-peek-open { margin-top: 4px; padding: 11px 16px; border-radius: var(--radius-pill); border: none; background: var(--accent-lime, #b1fc03); color: #0f1b07; font-weight: 700; font-size: 0.86rem; cursor: pointer; transition: filter 0.12s ease; }
+.psp-peek-open:hover { filter: brightness(1.05); }
+
+/* On-chain flow summary strip */
+.psp-flowsummary { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 12px; border-radius: var(--radius-md, 10px); background: var(--accent-olive-light); font-size: 0.8rem; }
+.psp-flowsummary-item { font-weight: 600; }
+.psp-flowsummary-item.in { color: var(--text-accent); }
+.psp-flowsummary-item.out { color: var(--danger); }
+.psp-flowsummary-net { margin-left: auto; font-weight: 700; }
+.psp-flowsummary-net.in { color: var(--text-accent); }
+.psp-flowsummary-net.out { color: var(--danger); }
+
+/* Governance */
+.psp-gov-top { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: center; }
+.psp-votebar { display: flex; height: 22px; border-radius: var(--radius-pill); overflow: hidden; gap: 2px; }
+.psp-votebar-seg { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #0f1b07; min-width: 22px; }
+.psp-status { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.psp-status-passed { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-status-rejected, .psp-status-failed { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-status-voting { background: var(--accent-olive-light); color: var(--text-medium); }
+
+/* Vote chips */
+.psp-vote { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); white-space: nowrap; }
+.psp-vote-yes { background: rgba(177,252,3,0.14); color: var(--text-accent); }
+.psp-vote-no { background: rgba(239,107,93,0.14); color: var(--danger); }
+.psp-vote-abstain { background: var(--accent-olive-light); color: var(--text-medium); }
+.psp-vote-no_with_veto { background: rgba(239,107,93,0.24); color: var(--danger); }
+
+/* In a stretched card the empty-state message fills the leftover height and
+   sits centered, so a sparse card reads as intentional rather than broken. */
+.psp-empty { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; flex: 1; display: flex; align-items: center; min-height: 60px; }
+.psp-reset { align-self: flex-start; background: none; border: none; color: var(--text-medium); cursor: pointer; font-size: 0.85rem; padding: 4px 0; }
+.psp-reset:hover { color: var(--text-accent); }
+
+@media (max-width: 900px) {
+  .psp-grid { grid-template-columns: 1fr; }
+  .psp-headline { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .psp-title { font-size: 1.6rem; }
+  .psp-card, .psp-hero { padding: 16px; }
+  .psp-headline { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .psp-metric-value { font-size: 1.15rem; }
+  .psp-gov-top { grid-template-columns: 1fr; gap: 12px; }
+  .psp-avatar { width: 46px; height: 46px; }
+  .psp-addr { font-size: 1rem; }
+}
+
+.psp-row-link { text-decoration: none; }
+.psp-row-link:hover { color: var(--text-accent); }
