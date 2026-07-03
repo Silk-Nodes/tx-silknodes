@@ -428,27 +428,6 @@ export default function PassportTab({
           ) : <Empty>No holdings found for this wallet.</Empty>}
         </Card>
 
-        {/* Delegations */}
-        <Card title="Delegations">
-          {chain.delegations.length > 0 ? (
-            <div className="psp-bars">
-              {chain.delegations.filter((d) => d.amountTX > 0).slice(0, 8).map((d) => {
-                const pct = chain.stakedTX > 0 ? (d.amountTX / chain.stakedTX) * 100 : 0;
-                const wallet = toWallet(d.validatorAddress);
-                return (
-                  <div key={d.validatorAddress} className={`psp-bar-row${wallet ? " psp-bar-row-peek" : ""}`} onClick={wallet ? () => peek(wallet) : undefined}>
-                    <div className="psp-bar-head">
-                      <span className="psp-bar-name">{nameOf(d.validatorAddress)}{wallet && <span className="psp-peek-hint">peek ↗</span>}</span>
-                      <span className="psp-bar-val">{TX(d.amountTX)} <span className="psp-bar-pct">{pct.toFixed(0)}%</span></span>
-                    </div>
-                    <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-staked" style={{ width: `${pct}%` }} /></div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : <Empty>This wallet has no active delegations.</Empty>}
-        </Card>
-
         {/* PSE standing */}
         <Card title="PSE standing">
           {(pse && pse.eligible) || pseEarned ? (
@@ -489,6 +468,27 @@ export default function PassportTab({
               )}
             </>
           ) : enriching ? <CardLoading /> : <Empty>No active PSE score. PSE accrues to community stakers; stake TX to start earning.</Empty>}
+        </Card>
+
+        {/* Delegations */}
+        <Card title="Delegations">
+          {chain.delegations.length > 0 ? (
+            <div className="psp-bars">
+              {chain.delegations.filter((d) => d.amountTX > 0).slice(0, 8).map((d) => {
+                const pct = chain.stakedTX > 0 ? (d.amountTX / chain.stakedTX) * 100 : 0;
+                const wallet = toWallet(d.validatorAddress);
+                return (
+                  <div key={d.validatorAddress} className={`psp-bar-row${wallet ? " psp-bar-row-peek" : ""}`} onClick={wallet ? () => peek(wallet) : undefined}>
+                    <div className="psp-bar-head">
+                      <span className="psp-bar-name">{nameOf(d.validatorAddress)}{wallet && <span className="psp-peek-hint">peek ↗</span>}</span>
+                      <span className="psp-bar-val">{TX(d.amountTX)} <span className="psp-bar-pct">{pct.toFixed(0)}%</span></span>
+                    </div>
+                    <div className="psp-bar-track"><div className="psp-bar-fill psp-fill-staked" style={{ width: `${pct}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <Empty>This wallet has no active delegations.</Empty>}
         </Card>
 
         {/* Exchange behavior */}

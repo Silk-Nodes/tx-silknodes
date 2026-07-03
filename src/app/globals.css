@@ -13213,7 +13213,10 @@ input[type="range"]::-moz-range-thumb {
 /* No align-items:start, so the two cards in a row share the taller card's
    height (default stretch). Without it the content-heavy left column
    towered over the right and the grid looked ragged/asymmetric. */
-.psp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+/* align-items:start so a short card (e.g. PSE standing) keeps its natural
+   height instead of stretching to match a tall neighbour (e.g. a busy
+   Exchange behavior card) and showing an empty stretched box. */
+.psp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: start; }
 .psp-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; }
 .psp-card-wide { grid-column: 1 / -1; }
 .psp-card-head { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
