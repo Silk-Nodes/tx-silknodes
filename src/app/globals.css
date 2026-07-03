@@ -13291,6 +13291,32 @@ input[type="range"]::-moz-range-thumb {
 .psp-distbar-fill { width: 100%; background: var(--text-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
 .psp-distbars-foot { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-light); margin-top: 6px; }
 
+/* Clickable "peek" affordance on rows / KVs that open the side panel */
+.psp-row-peek { cursor: pointer; transition: background 0.12s ease; margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 6px; }
+.psp-row-peek:hover { background: var(--accent-olive-light); }
+.psp-peek-hint { font-size: 0.62rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; opacity: 0; transition: opacity 0.12s ease; }
+.psp-row-peek:hover .psp-peek-hint, .psp-kv-btn:hover .psp-peek-hint { opacity: 1; }
+.psp-kv-btn { background: none; border: none; padding: 0; margin: 0; text-align: left; cursor: pointer; font: inherit; }
+
+/* Peek side panel (reuses .staking-feed-panel shell) */
+.psp-peek { display: flex; flex-direction: column; gap: 16px; }
+.psp-avatar.sm { width: 40px; height: 40px; font-size: 0.85rem; border-radius: 10px; }
+.psp-peek-head { display: flex; align-items: center; gap: 12px; padding-right: 32px; }
+.psp-peek-id { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.psp-peek-actions { display: flex; gap: 8px; }
+.psp-peek-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-peek-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.psp-peek-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--accent-olive-light); }
+.psp-peek-stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-peek-stat-value { font-size: 1.05rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-dark); }
+.psp-peek-stat-value.accent { color: var(--text-accent); }
+.psp-peek-stat-sub { font-size: 0.7rem; color: var(--text-light); }
+.psp-peek-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+.psp-token-chip { font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--glass-bg, rgba(0,0,0,0.04)); border: 1px solid var(--glass-border); color: var(--text-medium); }
+.psp-peek-section-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); }
+.psp-peek-open { margin-top: 4px; padding: 11px 16px; border-radius: var(--radius-pill); border: none; background: var(--accent-lime, #b1fc03); color: #0f1b07; font-weight: 700; font-size: 0.86rem; cursor: pointer; transition: filter 0.12s ease; }
+.psp-peek-open:hover { filter: brightness(1.05); }
+
 /* On-chain flow summary strip */
 .psp-flowsummary { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 12px; border-radius: var(--radius-md, 10px); background: var(--accent-olive-light); font-size: 0.8rem; }
 .psp-flowsummary-item { font-weight: 600; }

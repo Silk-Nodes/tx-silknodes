@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
+import PassportPeekPanel from "@/components/PassportPeekPanel";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
 import {
@@ -81,6 +82,9 @@ const isValidAddr = (a: string) => a.startsWith("core1") && a.length >= 39;
 const TX = (n: number) => `${formatCompact(n)} TX`;
 const mintscanAddr = (a: string) => `https://www.mintscan.io/tx/address/${a}`;
 const mintscanTx = (h: string) => `https://www.mintscan.io/tx/tx/${h}`;
+// "6 Apr 2023" — short, unambiguous, locale-independent order.
+const fullDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 // A deterministic two-stop gradient + initials, so every wallet gets a
 // stable, recognizable avatar with no external dependency.
@@ -107,6 +111,9 @@ export default function PassportTab({
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Loaded | null>(null);
   const [copied, setCopied] = useState(false);
+  // Address currently previewed in the slide-in peek panel (click a
+  // counterparty to drill in without leaving the current passport).
+  const [peekAddress, setPeekAddress] = useState<string | null>(null);
   const ranInitial = useRef(false);
 
   const usd = useCallback(
@@ -200,6 +207,15 @@ export default function PassportTab({
 
   const submit = () => load(input);
   const reset = () => { setData(null); setError(null); setInput(""); };
+  // Peek a related wallet in the side panel; a core1 address only.
+  const peek = (a?: string) => { if (a && isValidAddr(a)) setPeekAddress(a); };
+  // Promote the peeked wallet to the full-page passport.
+  const openFull = (a: string) => {
+    setPeekAddress(null);
+    setInput(a);
+    load(a);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  };
   const copyAddr = () => {
     if (!data) return;
     navigator.clipboard?.writeText(data.address).then(() => {
@@ -308,7 +324,12 @@ export default function PassportTab({
                 {isValidator && <span className="psp-tag psp-tag-rank" title={validatorOperator ?? undefined}>Validator{validatorName ? `: ${validatorName}` : ""}</span>}
                 {label && <span className="psp-tag psp-tag-label">{label}</span>}
                 {flows?.rank != null && <span className="psp-tag psp-tag-rank">Staker rank #{flows.rank}</span>}
-                {firstActivity && <span className="psp-tag psp-tag-soft">First seen {relativeTimeShort(firstActivity)}</span>}
+                {firstActivity && (
+                  <span className="psp-tag psp-tag-soft" title={firstSeen ? `Wallet created ${fullDate(firstActivity)}` : undefined}>
+                    {firstSeen ? "Created" : "First seen"} {relativeTimeShort(firstActivity)}
+                    {firstSeen ? ` · ${fullDate(firstActivity)}` : ""}
+                  </span>
+                )}
                 {chain.txsSent > 0 && <span className="psp-tag psp-tag-soft">{formatCompact(chain.txsSent)} txns signed</span>}
               </div>
             </div>
@@ -461,7 +482,12 @@ export default function PassportTab({
                 <KV label="Referrals made" value={String(referral.referralsMade)} />
                 <KV label="Earned" value={TX(referral.totalEarnedTX)} sub={usd(referral.totalEarnedTX)} />
                 <KV label="Tier" value={referral.elite ? "Elite (2x)" : "Base"} tone={referral.elite ? "good" : undefined} />
-                {referral.referredBy && <KV label="Referred by" value={shortAddr(referral.referredBy)} />}
+                {referral.referredBy && (
+                  <button className="psp-kv psp-kv-btn" onClick={() => peek(referral.referredBy!)}>
+                    <span className="psp-kv-label">Referred by</span>
+                    <span className="psp-kv-value">{shortAddr(referral.referredBy)} <span className="psp-peek-hint">peek ↗</span></span>
+                  </button>
+                )}
               </div>
               <div style={{ marginTop: 14, fontSize: "0.78rem", color: "var(--text-light)", lineHeight: 1.5 }}>
                 On-chain tx.market referral rewards: 500 TX per verified signup, 1000 TX as Elite Club.
@@ -535,14 +561,16 @@ export default function PassportTab({
             <div className="psp-list">
               {activity.slice(0, 15).map((e, i) => {
                 const [tone, verb, who, sign] = describeActivity(e, nameOf);
+                const cpAddr = e.counterparty && e.counterparty.startsWith("core1") ? e.counterparty : null;
                 return (
-                  <div key={`${e.txHash}-${i}`} className="psp-row">
+                  <div key={`${e.txHash}-${i}`} className={`psp-row${cpAddr ? " psp-row-peek" : ""}`} onClick={cpAddr ? () => peek(cpAddr) : undefined}>
                     <span className="psp-row-name">
                       <span className={`psp-evt ${tone}`}>{verb}</span> {who}
+                      {cpAddr && <span className="psp-peek-hint">peek ↗</span>}
                     </span>
                     <span className="psp-row-val">
                       {e.amountTX ? <>{sign}{TX(e.amountTX)} </> : null}
-                      <a className="psp-row-meta psp-row-link" href={mintscanTx(e.txHash)} target="_blank" rel="noopener noreferrer">
+                      <a className="psp-row-meta psp-row-link" href={mintscanTx(e.txHash)} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()}>
                         {e.timestamp ? relativeTimeShort(e.timestamp) : `#${e.height}`} ↗
                       </a>
                     </span>
@@ -555,6 +583,14 @@ export default function PassportTab({
       </div>
 
       <button className="psp-reset" onClick={reset}>← Look up another wallet</button>
+
+      <PassportPeekPanel
+        address={peekAddress}
+        monikers={monikers}
+        txPrice={txPrice}
+        onClose={() => setPeekAddress(null)}
+        onOpenFull={openFull}
+      />
     </div>
   );
 }

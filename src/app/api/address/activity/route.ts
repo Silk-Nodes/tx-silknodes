@@ -36,12 +36,17 @@ const MSG_QUERY = `query Q($addr: [String!]!) {
 const BLOCK_QUERY = `query B($hs: [bigint!]!) {
   block(where: {height: {_in: $hs}}) { height timestamp }
 }`;
-// Is this wallet a validator's self-delegate? Own query, best-effort: the
-// endpoint rejects an ascending message order (so true first-seen isn't
-// fetchable here) and errors if validator_info is selected in the same
-// document as message, so we keep it standalone.
+// Is this wallet a validator's self-delegate? Own query: the endpoint errors
+// if validator_info is selected in the same document as message, so keep it
+// standalone.
 const VALIDATOR_QUERY = `query V($addr: String!) {
   validator_info(where: {self_delegate_address: {_eq: $addr}}) { operator_address }
+}`;
+// Wallet creation: the oldest message it was ever involved in. Ascending
+// order works on the healthy backends, so the shared client's retry carries
+// it through the stale ones.
+const FIRSTSEEN_QUERY = `query F($arr: [String!]!) {
+  message(where: {involved_accounts_addresses: {_contains: $arr}}, order_by: {height: asc}, limit: 1) { height }
 }`;
 
 export type ActivityKind =
@@ -124,12 +129,14 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [data, valData] = await Promise.all([
+    const [data, valData, firstData] = await Promise.all([
       hasura<{ message: { type: string; height: number; transaction_hash: string; value: any }[] }>(MSG_QUERY, { addr: [address] }),
       hasura<{ validator_info: { operator_address: string }[] }>(VALIDATOR_QUERY, { addr: address }).catch(() => ({ validator_info: [] })),
+      hasura<{ message: { height: number }[] }>(FIRSTSEEN_QUERY, { arr: [address] }).catch(() => ({ message: [] })),
     ]);
     const rows = data.message ?? [];
     const validatorOperator = valData.validator_info?.[0]?.operator_address ?? null;
+    const firstSeenHeight = firstData.message?.[0]?.height ?? null;
 
     const items: ActivityItem[] = [];
     for (const r of rows) {
@@ -151,14 +158,16 @@ export async function GET(req: Request) {
       items.push({ ...c, height: r.height, txHash: r.transaction_hash, timestamp: null });
     }
 
-    // Stitch in block timestamps (fast PK batch).
-    const heights = [...new Set(items.map((i) => i.height))];
+    // Stitch in block timestamps (fast PK batch) + resolve first-seen time.
+    let firstSeenTs: string | null = null;
+    const heights = [...new Set([...items.map((i) => i.height), ...(firstSeenHeight ? [firstSeenHeight] : [])])];
     if (heights.length > 0) {
       const blocks = await hasura<{ block: { height: number; timestamp: string }[] }>(
         BLOCK_QUERY, { hs: heights },
       );
       const tsByHeight = new Map(blocks.block.map((b) => [b.height, b.timestamp]));
       for (const i of items) i.timestamp = tsByHeight.get(i.height) ?? null;
+      if (firstSeenHeight) firstSeenTs = tsByHeight.get(firstSeenHeight) ?? null;
     }
 
     // Label counterparties from known_entities (exchanges etc.) + the
@@ -182,6 +191,7 @@ export async function GET(req: Request) {
       address,
       items,
       validatorOperator,
+      firstSeen: firstSeenHeight ? { height: firstSeenHeight, timestamp: firstSeenTs } : null,
       updatedAt: new Date().toISOString(),
     };
     cache = { ts: Date.now(), key: address, body };

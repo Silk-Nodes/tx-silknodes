@@ -9,17 +9,27 @@
 
 export const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 
+// A stale replica returns this exact validation error for a field that
+// really does exist; it means "you hit a bad backend", so it is always
+// worth retrying rather than surfacing.
+function isStaleReplicaError(e: unknown): boolean {
+  return e instanceof Error && /not found in type: 'query_root'/.test(e.message);
+}
+
 export async function hasuraQuery<T>(
   query: string,
   variables: Record<string, unknown>,
-  attempts = 4,
+  attempts = 8,
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const res = await fetch(HASURA_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Connection: close asks the runtime not to reuse the socket, so a
+        // retry re-rolls onto a (hopefully healthy) backend rather than
+        // getting pinned to the same stale replica by keep-alive.
+        headers: { "Content-Type": "application/json", Connection: "close" },
         body: JSON.stringify({ query, variables }),
         cache: "no-store",
       });
@@ -29,7 +39,12 @@ export async function hasuraQuery<T>(
       return json.data as T;
     } catch (e) {
       lastErr = e;
-      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+      if (attempt < attempts - 1) {
+        // Short backoff with jitter. Stale-replica errors clear fast, so
+        // stay quick; back off a little harder on genuine network/HTTP errors.
+        const base = isStaleReplicaError(e) ? 80 : 200 * (attempt + 1);
+        await new Promise((r) => setTimeout(r, base + Math.floor(60 * (attempt % 3))));
+      }
     }
   }
   throw lastErr;
