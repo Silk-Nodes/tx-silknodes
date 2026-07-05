@@ -1,0 +1,23 @@
+[Unit]
+Description=Silk Nodes production data health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__
+ExecStart=__NODE_PATH__ __REPO_PATH__/scripts/check-feed-freshness.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-health
+Environment=NODE_ENV=production
+# BASE_URL defaults to https://tx.silknodes.io in the script; override here if
+# you ever want to point the check at a staging origin.
+# Set HEALTH_WEBHOOK_URL (Discord/Slack incoming webhook) to get an alert on
+# failure. The "-" prefix keeps the timer firing even if the file is absent.
+EnvironmentFile=-/home/%i/.silknodes-health.env
+TimeoutStartSec=2min
+
+[Install]
+WantedBy=multi-user.target

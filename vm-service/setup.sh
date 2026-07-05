@@ -21,6 +21,9 @@ FLOWS_SERVICE_FILE="/etc/systemd/system/${FLOWS_SERVICE_NAME}.service"
 FLOWS_PRUNE_SERVICE_NAME="silknodes-prune-exchange-flows"
 FLOWS_PRUNE_SERVICE_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.service"
 FLOWS_PRUNE_TIMER_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.timer"
+HEALTH_SERVICE_NAME="silknodes-health"
+HEALTH_SERVICE_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.service"
+HEALTH_TIMER_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.timer"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
@@ -142,6 +145,14 @@ echo "Installing $FLOWS_PRUNE_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-prune-exchange-flows.service" "$FLOWS_PRUNE_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-prune-exchange-flows.timer" "$FLOWS_PRUNE_TIMER_FILE"
 
+# Install the production data health check (one-shot + timer every 30 min).
+# Hits the live API and, if HEALTH_WEBHOOK_URL is set in
+# ~/.silknodes-health.env, alerts on failure. Replaces the old GitHub Actions
+# check so monitoring runs on the VM with no GitHub notifications.
+echo "Installing $HEALTH_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-health.service" "$HEALTH_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-health.timer" "$HEALTH_TIMER_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -170,6 +181,8 @@ sudo systemctl enable "$FLOWS_SERVICE_NAME"
 sudo systemctl start "$FLOWS_SERVICE_NAME"
 sudo systemctl enable "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl start "${FLOWS_PRUNE_SERVICE_NAME}.timer"
+sudo systemctl enable "${HEALTH_SERVICE_NAME}.timer"
+sudo systemctl start "${HEALTH_SERVICE_NAME}.timer"
 
 sleep 2
 echo
