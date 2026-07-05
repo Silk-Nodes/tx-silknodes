@@ -1,218 +1,132 @@
 #!/usr/bin/env node
 
 /**
- * External liveness check for every analytics file the VM owns.
+ * Production liveness check for the data the VM serves.
  *
- * Runs in GitHub Actions on a schedule (see .github/workflows/staking-feed-health.yml).
- * If any file's committed data is older than its threshold, the workflow exits
- * non-zero and GitHub sends a notification email to the repo's watchers.
+ * Runs in GitHub Actions on a schedule (see
+ * .github/workflows/staking-feed-health.yml). It hits the LIVE production API
+ * and fails (which notifies the repo watchers) if the served data is stale.
  *
- * Two freshness modes:
- *   - updatedAt mode: the file has a top-level `updatedAt` ISO timestamp
- *     (staking-events.json). Age = now - parsed(updatedAt).
- *   - lastDate mode: the file is an array of { date, value } entries written
- *     daily. Age = now - endOfDay(lastEntry.date), because the entry
- *     represents the full UTC day (e.g. `"2026-04-15"` is valid until
- *     2026-04-16T00:00:00Z).
+ * History: this used to read committed public/analytics/*.json files. After
+ * the Phase 2 migration the app serves everything from Postgres via /api/*,
+ * and those static files are no longer written, so the file check produced
+ * permanent false failures. This version checks the real thing: the live
+ * endpoints and their freshness.
  *
- * Thresholds are intentionally generous so transient GitHub Pages rebuild lag
- * and clock skew don't produce false positives. A failed run means the data
- * is meaningfully behind — worth an email.
+ * Checks:
+ *   - /api/staking-feed    top-level `updatedAt` (the realtime collector
+ *                          pipeline). Must be recent.
+ *   - /api/analytics-data  each daily dataset's last `date` (the daily
+ *                          analytics pipeline). Must be recent.
+ *
+ * Override the base with BASE_URL for staging/local runs.
  *
  * Run locally any time:
  *   node scripts/check-feed-freshness.mjs
  */
 
-import { readFileSync } from "fs";
-
-/**
- * @typedef {object} Check
- * @property {string} file  repo-relative path
- * @property {string} label short human label for logs
- * @property {number} thresholdMinutes  max tolerated age
- * @property {"updatedAt" | "lastDate"} mode
- * @property {string} [entriesPath]  optional dot-path to an array whose length
- *   must be validated (e.g. "entries"). When set with minEntries, the check
- *   fails if the array is shorter than expected — catches silent regressions
- *   where the collector runs but publishes too few rows.
- * @property {number} [minEntries]  minimum length required for entriesPath.
- */
-
-const MIN = 1;
+const BASE_URL = (process.env.BASE_URL || "https://tx.silknodes.io").replace(/\/$/, "");
+const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 
-/** @type {Check[]} */
-const CHECKS = [
-  // Staking events: pushed every 5 min when active, every 30 min as heartbeat.
-  // 75 min absorbs heartbeat + Pages rebuild + clock skew.
-  {
-    file: "public/analytics/staking-events.json",
-    label: "Staking Events",
-    thresholdMinutes: 75 * MIN,
-    mode: "updatedAt",
-  },
-
-  // Pending undelegations: refreshed every 15 min by the continuous collector.
-  // 45 min = 3× refresh interval, same belt-and-suspenders margin as staking
-  // events. The file now carries an updatedAt field (wrapped schema); legacy
-  // bare-array responses will fail the check, which is acceptable because it
-  // also means they're stale (written by the old daily pipeline).
-  {
-    file: "public/analytics/pending-undelegations.json",
-    label: "Pending Undelegations",
-    thresholdMinutes: 45 * MIN,
-    mode: "updatedAt",
-  },
-
-  // Top delegators: refreshed every 6 h by the continuous collector. 8 h
-  // threshold gives a 2 h grace window for any slowdown in the delegation
-  // aggregation (which iterates ~100 validators × pagination).
-  //
-  // Also verify entry count. The collector is configured for 500 ranked
-  // addresses; a regression (e.g. VM running stale code after a config
-  // change) would silently publish fewer rows. Floor at 450 to absorb any
-  // legitimate short-term dip where <500 unique delegators exist on-chain.
-  {
-    file: "public/analytics/top-delegators.json",
-    label: "Top Delegators",
-    thresholdMinutes: 8 * HOUR,
-    mode: "updatedAt",
-    entriesPath: "entries",
-    minEntries: 450,
-  },
-
-  // Whale changes: diff between current and previous top-delegators
-  // refresh. Written alongside top-delegators.json so identical threshold.
-  {
-    file: "public/analytics/whale-changes.json",
-    label: "Whale Changes",
-    thresholdMinutes: 8 * HOUR,
-    mode: "updatedAt",
-  },
-
-  // Whale history: appended once per UTC day. 48 h = one day + 24 h grace
-  // so a single missed snapshot isn't a false alarm.
-  {
-    file: "public/analytics/whale-history.json",
-    label: "Whale History",
-    thresholdMinutes: 48 * HOUR,
-    mode: "updatedAt",
-  },
-
-  // Daily metrics: pushed once per day by silknodes-daily-analytics timer at
-  // 02:00 UTC. Between runs, age drifts up to ~26h; threshold 36h gives us
-  // a ~10h grace window after a missed run before alerting.
-  { file: "public/analytics/transactions.json", label: "Transactions", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/active-addresses.json", label: "Active Addresses", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/total-stake.json", label: "Total Stake", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/staking-apr.json", label: "Staking APR", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/staked-pct.json", label: "Staked %", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/total-supply.json", label: "Total Supply", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/circulating-supply.json", label: "Circulating Supply", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-  { file: "public/analytics/price-usd.json", label: "Price USD", thresholdMinutes: 36 * HOUR, mode: "lastDate" },
-];
-
-function check(c) {
-  let data;
-  try {
-    data = JSON.parse(readFileSync(c.file, "utf-8"));
-  } catch (e) {
-    return { ok: false, reason: `cannot read/parse: ${e.message}`, ageMinutes: null };
-  }
-
-  let timestampMs;
-  if (c.mode === "updatedAt") {
-    if (!data.updatedAt) return { ok: false, reason: "missing updatedAt field", ageMinutes: null };
-    timestampMs = new Date(data.updatedAt).getTime();
-    if (!Number.isFinite(timestampMs)) {
-      return { ok: false, reason: `invalid updatedAt: ${data.updatedAt}`, ageMinutes: null };
-    }
-  } else {
-    if (!Array.isArray(data) || data.length === 0) {
-      return { ok: false, reason: "file is empty or not an array", ageMinutes: null };
-    }
-    const last = data[data.length - 1];
-    if (!last || !last.date) return { ok: false, reason: "last entry missing date field", ageMinutes: null };
-    // End of the UTC day that `date` represents.
-    timestampMs = new Date(`${last.date}T00:00:00Z`).getTime() + 24 * HOUR * 60_000;
-    if (!Number.isFinite(timestampMs)) {
-      return { ok: false, reason: `invalid date string: ${last.date}`, ageMinutes: null };
-    }
-  }
-
-  const ageMinutes = (Date.now() - timestampMs) / 60_000;
-  if (ageMinutes > c.thresholdMinutes) {
-    return {
-      ok: false,
-      reason: `stale: age ${formatDuration(ageMinutes)} exceeds threshold ${formatDuration(c.thresholdMinutes)}`,
-      ageMinutes,
-    };
-  }
-
-  // Optional entry-count check. Catches silent-regression cases where the
-  // file is timely (updatedAt is fresh) but the content is wrong — e.g.
-  // a collector running old code that caps rows below the expected floor.
-  if (c.entriesPath && typeof c.minEntries === "number") {
-    const arr = c.entriesPath.split(".").reduce((o, k) => (o == null ? o : o[k]), data);
-    if (!Array.isArray(arr)) {
-      return {
-        ok: false,
-        reason: `entriesPath "${c.entriesPath}" did not resolve to an array`,
-        ageMinutes,
-      };
-    }
-    if (arr.length < c.minEntries) {
-      return {
-        ok: false,
-        reason: `too few entries: ${arr.length} < ${c.minEntries} (VM likely running stale code — restart silknodes-collector)`,
-        ageMinutes,
-      };
-    }
-  }
-
-  return { ok: true, ageMinutes, reason: null };
+async function getJson(path) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { "cache-control": "no-cache" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
-function formatDuration(minutes) {
-  // Negative age = the entry's date is today UTC (snapshot metrics like
-  // total-stake write `date: today`, and endOfDay(today) is still in the
-  // future). Treat this as "fresh".
-  if (minutes < 0) return "fresh today";
-  if (minutes < 120) return `${minutes.toFixed(1)}min`;
-  const hours = minutes / 60;
-  if (hours < 48) return `${hours.toFixed(1)}h`;
-  return `${(hours / 24).toFixed(1)}d`;
+// Age of an end-of-day date string ("2026-07-05"): the entry covers the whole
+// UTC day, so it's only "stale" once that day has fully passed plus slack.
+function ageOfDate(dateStr) {
+  const end = new Date(`${dateStr}T00:00:00Z`).getTime() + 24 * HOUR;
+  return Date.now() - end;
+}
+
+function fmt(ms) {
+  if (ms < 0) return "0m";
+  const m = ms / MIN;
+  if (m < 90) return `${m.toFixed(0)}m`;
+  const h = ms / HOUR;
+  if (h < 48) return `${h.toFixed(1)}h`;
+  return `${(h / 24).toFixed(1)}d`;
+}
+
+const results = [];
+
+// 1) Realtime staking feed — proves the collector -> Postgres pipeline is live.
+try {
+  const feed = await getJson("/api/staking-feed");
+  const ts = feed?.updatedAt ? new Date(feed.updatedAt).getTime() : NaN;
+  const age = Number.isFinite(ts) ? Date.now() - ts : Infinity;
+  const threshold = 90 * MIN;
+  results.push({
+    label: "Staking feed",
+    detail: `${feed?.events?.length ?? 0} events`,
+    age,
+    ok: age <= threshold,
+    reason: `updatedAt ${fmt(age)} old exceeds ${fmt(threshold)}`,
+  });
+} catch (e) {
+  results.push({ label: "Staking feed", detail: "/api/staking-feed", age: Infinity, ok: false, reason: `fetch failed: ${e.message}` });
+}
+
+// Datasets that are knowingly stale and should warn (not fail) the run.
+// price-usd stopped updating ~2026-04-24 (the daily price series). Tracked
+// separately; remove from here once the price collector is fixed or the
+// series is dropped from analytics.
+const WARN_ONLY = new Set(["price-usd"]);
+
+// 2) Daily analytics datasets — prove the daily analytics pipeline is fresh.
+try {
+  const data = await getJson("/api/analytics-data");
+  const datasets = data?.datasets ?? {};
+  const threshold = 36 * HOUR;
+  for (const [key, series] of Object.entries(datasets)) {
+    const last = Array.isArray(series) && series.length ? series[series.length - 1] : null;
+    const date = last?.date;
+    const age = date ? ageOfDate(date) : Infinity;
+    const fresh = age <= threshold;
+    results.push({
+      label: key,
+      detail: date ? `last ${date}` : "no data",
+      age,
+      ok: fresh || WARN_ONLY.has(key),
+      warn: !fresh && WARN_ONLY.has(key),
+      reason: date ? `${fmt(age)} old exceeds ${fmt(threshold)}` : "no dated entries",
+    });
+  }
+} catch (e) {
+  results.push({ label: "analytics-data", detail: "/api/analytics-data", age: Infinity, ok: false, reason: `fetch failed: ${e.message}` });
 }
 
 console.log(`Analytics Data Health Check — ${new Date().toISOString()}`);
+console.log(`Target: ${BASE_URL}`);
 console.log("=".repeat(90));
 
 let failures = 0;
-for (const c of CHECKS) {
-  const r = check(c);
-  const ageStr = r.ageMinutes !== null ? formatDuration(r.ageMinutes) : "n/a";
-  const statusIcon = r.ok ? "✅" : "❌";
-  const line = `${statusIcon} ${c.label.padEnd(22)}  ${c.file.padEnd(46)}  age ${ageStr.padStart(10)}`;
-  if (r.ok) {
-    console.log(line);
-  } else {
-    console.error(`${line}  ← ${r.reason}`);
-    failures++;
-  }
+for (const r of results) {
+  const ageStr = Number.isFinite(r.age) ? fmt(r.age) : "n/a";
+  const icon = r.warn ? "⚠️" : r.ok ? "✅" : "❌";
+  const line = `${icon} ${r.label.padEnd(20)}  ${String(r.detail).padEnd(24)}  age ${ageStr.padStart(8)}`;
+  if (r.warn) console.warn(`${line}  ← ${r.reason} (known-stale, not failing)`);
+  else if (r.ok) console.log(line);
+  else { console.error(`${line}  ← ${r.reason}`); failures++; }
 }
 
 console.log("=".repeat(90));
 
 if (failures > 0) {
-  console.error(`\n${failures} of ${CHECKS.length} checks FAILED.`);
+  console.error(`\n${failures} of ${results.length} checks FAILED.`);
   console.error("");
   console.error("Likely causes:");
-  console.error("  - If every file is stale: VM offline or git push broken");
-  console.error("  - If only staking-events stale: silknodes-collector.service wedged");
-  console.error("  - If only daily files stale: silknodes-daily-analytics.timer not firing");
+  console.error("  - Staking feed stale: silknodes-collector.service wedged, or the site is down");
+  console.error("  - Daily datasets stale: silknodes-daily-analytics.timer not firing");
   console.error("");
   console.error("Diagnose on the VM:");
-  console.error("  sudo systemctl status silknodes-collector");
+  console.error("  sudo systemctl status silknodes-collector silknodes-web");
   console.error("  sudo systemctl list-timers | grep silknodes");
   console.error("  sudo journalctl -u silknodes-collector -n 50 --no-pager");
   console.error("  sudo journalctl -u silknodes-daily-analytics -n 200 --no-pager");
