@@ -1,9 +1,11 @@
 name: Analytics Data Health Check
 
-# External liveness check for every analytics file the VM owns. Reads the
-# committed JSONs from main and fails (sending a notification email) if any
-# file's data is older than its threshold. See scripts/check-feed-freshness.mjs
-# for the list of files and per-file thresholds.
+# External liveness check for the data the VM serves. Hits the LIVE
+# production API (tx.silknodes.io) and fails (sending a notification) if the
+# served data is stale. See scripts/check-feed-freshness.mjs for the endpoints
+# and thresholds. (Previously read committed public/analytics/*.json files,
+# which the Phase 2 migration stopped writing, causing permanent false
+# failures.)
 #
 # Schedule: every 20 minutes. Avoids :00 and :30 to spread API load across
 # the hour. At most 3 consecutive missed daily runs would go unnoticed before
