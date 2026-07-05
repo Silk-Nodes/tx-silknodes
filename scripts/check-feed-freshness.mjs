@@ -3,15 +3,16 @@
 /**
  * Production liveness check for the data the VM serves.
  *
- * Runs in GitHub Actions on a schedule (see
- * .github/workflows/staking-feed-health.yml). It hits the LIVE production API
- * and fails (which notifies the repo watchers) if the served data is stale.
+ * Runs on the VM via a systemd timer (vm-service/silknodes-health.timer). It
+ * hits the LIVE production API and exits non-zero if the served data is stale.
+ * Set HEALTH_WEBHOOK_URL (a Discord/Slack incoming webhook) to get an alert on
+ * failure. No GitHub Actions involved.
  *
- * History: this used to read committed public/analytics/*.json files. After
- * the Phase 2 migration the app serves everything from Postgres via /api/*,
- * and those static files are no longer written, so the file check produced
- * permanent false failures. This version checks the real thing: the live
- * endpoints and their freshness.
+ * History: this used to read committed public/analytics/*.json files (checked
+ * by a GitHub Actions workflow). After the Phase 2 migration the app serves
+ * everything from Postgres via /api/*, and those static files are no longer
+ * written, so the file check produced permanent false failures and GitHub
+ * notifications. This version checks the real thing: the live endpoints.
  *
  * Checks:
  *   - /api/staking-feed    top-level `updatedAt` (the realtime collector
@@ -118,6 +119,24 @@ for (const r of results) {
 
 console.log("=".repeat(90));
 
+// Optional alerting: when HEALTH_WEBHOOK_URL is set (a Discord/Slack-style
+// incoming webhook), POST a one-line summary on failure. This lets the VM
+// timer notify directly, with no GitHub Actions involved.
+async function alert(message) {
+  const url = process.env.HEALTH_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: message }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e) {
+    console.error(`(webhook alert failed: ${e.message})`);
+  }
+}
+
 if (failures > 0) {
   console.error(`\n${failures} of ${results.length} checks FAILED.`);
   console.error("");
@@ -130,6 +149,8 @@ if (failures > 0) {
   console.error("  sudo systemctl list-timers | grep silknodes");
   console.error("  sudo journalctl -u silknodes-collector -n 50 --no-pager");
   console.error("  sudo journalctl -u silknodes-daily-analytics -n 200 --no-pager");
+  const failed = results.filter((r) => !r.ok && !r.warn).map((r) => `${r.label} (${r.reason})`);
+  await alert(`⚠️ tx.silknodes.io health check FAILED (${failures}): ${failed.join("; ")}`);
   process.exit(1);
 }
 

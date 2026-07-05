@@ -1,0 +1,16 @@
+[Unit]
+Description=Periodic Silk Nodes production data health check
+Requires=silknodes-health.service
+
+[Timer]
+# Every 30 minutes. Matches how often the old GitHub Actions check ran, but
+# now on the VM with no GitHub notifications.
+OnCalendar=*:0/30
+# Run shortly after boot too, so a reboot doesn't leave a long blind window.
+OnBootSec=3min
+Persistent=true
+AccuracySec=1min
+Unit=silknodes-health.service
+
+[Install]
+WantedBy=timers.target
