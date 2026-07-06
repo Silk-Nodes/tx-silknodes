@@ -49,6 +49,9 @@ import SupplyChart from "@/components/SupplyChart";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import SeoSection from "@/components/SeoSection";
+import type { SEO_PAGES } from "@/lib/seo-content";
+type SeoPageKey = keyof typeof SEO_PAGES;
 import { useRWATokens } from "@/hooks/useRWATokens";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
@@ -116,6 +119,18 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/silknodes": "silknodes",
   "/portfolio": "portfolio",
   "/feedback": "feedback",
+};
+
+// Which SEO content block (intro + FAQ + JSON-LD) to render per tab. Only the
+// pages with authored content appear; others render nothing.
+const TAB_TO_SEO: Partial<Record<TabId, SeoPageKey>> = {
+  today: "home",
+  pse: "pse",
+  governance: "governance",
+  validators: "validators",
+  flows: "flows",
+  calculator: "calculator",
+  passport: "passport",
 };
 
 // Resolve the tab from a pathname. Used to seed the initial state so the
@@ -405,7 +420,13 @@ export default function HomePage() {
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand" onClick={handleBrandClick} style={{ cursor: "pointer", position: "relative" }}>
-          All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
+          <span className="brand-mark" aria-label="ALL in ONE TX">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path className="brand-mark-primary" d="M9 9 L22 24 L9 39" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path className="brand-mark-accent" d="M39 9 L26 24 L39 39" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="brand-word">ALL <span className="brand-in">in</span> ONE</span>
           {showBrandPopover && (
             <div
               ref={brandPopoverRef}
@@ -847,6 +868,11 @@ export default function HomePage() {
         )}
 
       </div>
+
+      {/* ════════ SEO CONTENT (crawlable intro + FAQ + JSON-LD) ════════ */}
+      {proposalIdFromUrl === null && TAB_TO_SEO[activeTab] && (
+        <SeoSection page={TAB_TO_SEO[activeTab]!} />
+      )}
 
       {/* ════════ FOOTER ════════ */}
       {/* Removed the duplicate "All in ONE" wordmark since the same brand

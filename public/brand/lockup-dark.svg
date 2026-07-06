@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="330" height="72" viewBox="0 0 330 72" fill="none">
+  
+  <g transform="translate(0,10)">
+    <path d="M9 9 L22 24 L9 39" stroke="#F4F6EC" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path d="M39 9 L26 24 L39 39" stroke="#B1FC03" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"></path>
+  </g>
+  <text x="66" y="42" font-family="&#39;Space Grotesk&#39;,sans-serif" font-size="40" letter-spacing="-0.5" fill="#F4F6EC"><tspan font-weight="700">ALL</tspan><tspan font-weight="500" fill="#B1FC03"> in </tspan><tspan font-weight="700">ONE</tspan></text>
+  <text x="67" y="64" font-family="&#39;IBM Plex Mono&#39;,monospace" font-weight="500" font-size="12" letter-spacing="3" fill="#F4F6EC" opacity="0.5">TX · BY SILK NODES</text>
+</svg>
