@@ -27,6 +27,9 @@
   --accent-lime: #B1FC03;
   --accent-olive: #4a7a1a;
   --accent-olive-light: rgba(74,122,26,0.1);
+  /* Brand mark accent (the "<" half of the >< logo). Olive-lime reads on the
+     light/warm header; the dark theme overrides it to full neon below. */
+  --brand-accent: #8FCB02;
   --danger: #b44a3e;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
@@ -102,6 +105,7 @@
   --accent-lime: #B1FC03;
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
+  --brand-accent: #B1FC03;
   --danger: #ef6b5d;
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
@@ -925,6 +929,24 @@ body {
   height: 100%;
   object-fit: cover;
 }
+
+/* New borderless brand mark: the >< chevron, icon-first before the wordmark.
+   Primary stroke follows the text colour (flips per theme); the accent stroke
+   uses --brand-accent so the "<" half stays lime/olive in every theme. */
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  color: var(--text-dark);
+}
+.brand-mark svg { width: 100%; height: 100%; display: block; }
+.brand-mark-primary { stroke: currentColor; }
+.brand-mark-accent { stroke: var(--brand-accent); }
+.brand-word { font-weight: 700; letter-spacing: -0.02em; }
+.brand-word .brand-in { color: var(--brand-accent); font-weight: 500; }
 
 .nav-tabs {
   display: flex;

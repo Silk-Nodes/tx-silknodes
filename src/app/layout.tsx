@@ -31,9 +31,12 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: `${basePath}/tx-icon.png`,
-    shortcut: `${basePath}/tx-icon.png`,
-    apple: `${basePath}/tx-icon.png`,
+    icon: [
+      { url: `${basePath}/brand/app-icon-lime.svg`, type: "image/svg+xml" },
+      { url: `${basePath}/brand/favicon-32.png`, type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: `${basePath}/brand/favicon-32.png`,
+    apple: `${basePath}/brand/apple-touch-icon.png`,
   },
   openGraph: {
     // title/description are intentionally NOT set here so each route's
@@ -92,8 +95,9 @@ export default function RootLayout({
           httpEquiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-src https://restake.app; connect-src 'self' https://api.coingecko.com https://api.silknodes.io https://rest-coreum.ecostake.com https://rpc-coreum.ecostake.com wss://rpc-coreum.ecostake.com https://full-node.mainnet-1.coreum.dev:1317 https://hasura.mainnet-1.coreum.dev https://api.web3forms.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.clarity.ms; object-src 'none'; base-uri 'self';"
         />
-        <link rel="icon" href={`${basePath}/tx-icon.png`} type="image/png" />
-        <link rel="apple-touch-icon" href={`${basePath}/tx-icon.png`} />
+        <link rel="icon" href={`${basePath}/brand/app-icon-lime.svg`} type="image/svg+xml" />
+        <link rel="icon" href={`${basePath}/brand/favicon-32.png`} type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href={`${basePath}/brand/apple-touch-icon.png`} />
         <link rel="manifest" href={`${basePath}/manifest.json`} />
 
         {/* Preconnect for faster API calls */}

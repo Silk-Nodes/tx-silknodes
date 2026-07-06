@@ -30,7 +30,7 @@ let _logo: string | null = null;
 function logoSrc(): string {
   if (_logo === null) {
     try {
-      const buf = readFileSync(join(process.cwd(), "public", "tx-icon.png"));
+      const buf = readFileSync(join(process.cwd(), "public", "brand", "app-icon-lime.png"));
       _logo = `data:image/png;base64,${buf.toString("base64")}`;
     } catch {
       _logo = "";
@@ -67,13 +67,15 @@ export function ogFrame(opts: {
           site URL on the right, aligned on the same baseline. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center" }}>
-          <div style={{ display: "flex", fontSize: 32, fontWeight: 700, letterSpacing: -0.5 }}>
-            All in ONE
-          </div>
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo} width={58} height={58} style={{ borderRadius: 14, marginLeft: 16 }} alt="" />
+            <img src={logo} width={58} height={58} style={{ borderRadius: 14, marginRight: 18 }} alt="" />
           ) : null}
+          <div style={{ display: "flex", fontSize: 32, fontWeight: 700, letterSpacing: -0.5 }}>
+            <div style={{ display: "flex" }}>ALL&nbsp;</div>
+            <div style={{ display: "flex", color: NEON, fontWeight: 500 }}>in&nbsp;</div>
+            <div style={{ display: "flex" }}>ONE</div>
+          </div>
         </div>
         <div style={{ display: "flex", fontSize: 27, fontWeight: 600, color: NEON }}>tx.silknodes.io</div>
       </div>

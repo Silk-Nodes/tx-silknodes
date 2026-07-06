@@ -8,7 +8,7 @@ export const alt = "ALL in ONE TX";
 export default function Image() {
   return ogImage(
     ogFrame({
-      eyebrow: "All in ONE TX",
+      eyebrow: "TX network",
       title: "The TX community dashboard",
       subtitle: "Stake, track PSE, explore validators, follow exchange flows, and read governance. All in one place.",
     }),

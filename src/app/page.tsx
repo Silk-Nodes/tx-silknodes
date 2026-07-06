@@ -420,7 +420,13 @@ export default function HomePage() {
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand" onClick={handleBrandClick} style={{ cursor: "pointer", position: "relative" }}>
-          All in ONE <div className="brand-icon"><img src={`${BASE_PATH}/tx-icon.svg`} alt="TX Network logo" /></div>
+          <span className="brand-mark" aria-label="ALL in ONE TX">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path className="brand-mark-primary" d="M9 9 L22 24 L9 39" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path className="brand-mark-accent" d="M39 9 L26 24 L39 39" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="brand-word">ALL <span className="brand-in">in</span> ONE</span>
           {showBrandPopover && (
             <div
               ref={brandPopoverRef}
