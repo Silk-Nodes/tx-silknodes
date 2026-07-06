@@ -179,58 +179,10 @@ export default function RootLayout({
           }}
         />
 
-        {/* FAQ structured data for rich snippets */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "FAQPage",
-              mainEntity: [
-                {
-                  "@type": "Question",
-                  name: "What is ALL in ONE TX?",
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: "ALL in ONE TX is a free, open-source staking dashboard for the TX token on Coreum blockchain. It lets you stake TX, check PSE scores, calculate rewards, explore validators, and track tokenized assets in one place.",
-                  },
-                },
-                {
-                  "@type": "Question",
-                  name: "What is PSE (Proof of Support Emission)?",
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: "PSE is Coreum's unique reward mechanism that distributes TX tokens to stakers based on their support duration and amount. Early stakers capture higher PSE rewards as the emission decreases over time.",
-                  },
-                },
-                {
-                  "@type": "Question",
-                  name: "How do I stake TX tokens?",
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: "Connect your Keplr or Leap wallet on the ALL in ONE TX dashboard, choose a validator like Silk Nodes (5% commission), enter your delegation amount, and confirm the transaction. Your tokens begin earning staking rewards and PSE rewards immediately.",
-                  },
-                },
-                {
-                  "@type": "Question",
-                  name: "What is Silk Nodes commission rate?",
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: "Silk Nodes charges a 5% commission rate, which is lower than the typical 8-10% charged by most validators. This means delegators keep more of their staking rewards.",
-                  },
-                },
-                {
-                  "@type": "Question",
-                  name: "What are tokenized real-world assets (RWA) on Coreum?",
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: "Coreum enables tokenization of real-world assets like stocks, real estate, and bonds using its smart token standard. These are compliant, programmable financial assets built at the protocol level, not through smart contracts.",
-                  },
-                },
-              ],
-            }),
-          }}
-        />
+        {/* Per-page FAQ + breadcrumb structured data is emitted by
+            <SeoSection> (src/components/SeoSection.tsx) so each route carries
+            its own, page-specific FAQPage rather than one global block
+            duplicated on every route. */}
 
         {/* Microsoft Clarity - Heatmaps & Session Recording
             To enable: replace YOUR_CLARITY_ID with your project ID from clarity.microsoft.com
