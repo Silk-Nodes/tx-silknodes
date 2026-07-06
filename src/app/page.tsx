@@ -118,6 +118,16 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/feedback": "feedback",
 };
 
+// Resolve the tab from a pathname. Used to seed the initial state so the
+// SERVER renders the correct tab per route (not always "today"), which is
+// what search-engine and non-JS crawlers see. Kept pure so the client's first
+// render computes the same value and there's no hydration mismatch.
+function tabFromPathname(pathname: string | null): TabId {
+  if (!pathname) return "today";
+  if (/^\/governance\/\d+/.test(pathname)) return "governance";
+  return PATHNAME_TO_TAB[pathname] ?? "today";
+}
+
 export default function HomePage() {
   const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
   const {
@@ -126,7 +136,11 @@ export default function HomePage() {
     loading: walletLoading, error: walletError, clearError,
     txPending, txResult, clearTxResult, availableWallets,
   } = useWallet();
-  const [activeTab, setActiveTab] = useState<TabId>("today");
+  const pathname = usePathname();
+  const router = useRouter();
+  // Seed the tab from the URL so each route server-renders its own content
+  // (crawlable per-page) instead of always prerendering "today".
+  const [activeTab, setActiveTab] = useState<TabId>(() => tabFromPathname(pathname));
   // Keep the active tab centered in the mobile nav strip. With 7 items the
   // strip scrolls horizontally, and the active tab could otherwise sit
   // half-off the edge (e.g. Passport). Scrolls only the strip, never the
@@ -161,8 +175,6 @@ export default function HomePage() {
   // shell (nav, banner, footer) intact and just swap the governance tab
   // body to show the proposal detail instead of the landing. Same shell,
   // shareable URL, browser back/forward work natively.
-  const pathname = usePathname();
-  const router = useRouter();
   const proposalIdFromUrl = useMemo(() => {
     if (!pathname) return null;
     const m = pathname.match(/^\/governance\/(\d+)\/?$/);
