@@ -313,7 +313,7 @@ export default function PassportTab({
   const searchBar = (
     <div className="psp-topbar">
       <div className="psp-topbar-lead">
-        <span className="psp-topbar-title">Wallet Passport</span>
+        <h1 className="psp-topbar-title">Wallet Passport</h1>
         <span className="psp-topbar-sub">Any TX wallet: holdings, staking, PSE, flows, governance.</span>
       </div>
       <div className="psp-topbar-search">

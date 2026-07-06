@@ -10698,6 +10698,7 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 6px;
 }
 .today-hero-eyebrow {
+  margin: 0;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -13233,7 +13234,7 @@ input[type="range"]::-moz-range-thumb {
 /* Persistent top search bar */
 .psp-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-bottom: 22px; }
 .psp-topbar-lead { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.psp-topbar-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; color: var(--text-dark); }
+.psp-topbar-title { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; color: var(--text-dark); }
 .psp-topbar-sub { font-size: 0.8rem; color: var(--text-light); }
 .psp-topbar-search { display: flex; align-items: center; gap: 8px; flex: 1 1 380px; max-width: 620px; }
 .psp-topbar-input { flex: 1 1 auto; min-width: 0; padding: 11px 16px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-family: var(--font-mono); font-size: 0.85rem; }

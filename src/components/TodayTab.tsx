@@ -71,9 +71,9 @@ export default function TodayTab({
     <div className="today">
       {/* ─── Hero ────────────────────────────────────────────────────── */}
       <header className="today-hero">
-        <div className="today-hero-eyebrow">
+        <h1 className="today-hero-eyebrow">
           {isConnected ? "Welcome back" : "TX Network today"}
-        </div>
+        </h1>
         <div className="today-hero-date">{formatDate(new Date())}</div>
       </header>
 
