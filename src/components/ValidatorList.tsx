@@ -6,6 +6,7 @@ const BASE_PATH = "";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Tooltip from "@/components/Tooltip";
 import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
+import { useValidatorFlows } from "@/hooks/useValidatorFlows";
 
 interface ValidatorEntry {
   operatorAddress: string;
@@ -26,7 +27,20 @@ interface ChainEconomics {
   txPrice: number;
 }
 
-type SortField = "moniker" | "tokens" | "commission" | "monthlyIncome" | "delegatorApr";
+type SortField = "moniker" | "tokens" | "commission" | "monthlyIncome" | "delegatorApr" | "netFlow";
+
+// Rolling window for the stake-flow column. One constant so the header
+// label, tooltip copy, and API request can't drift apart.
+const FLOW_WINDOW_DAYS = 30;
+
+// Signed, abbreviated TX amount for the flow column ("+8.6M", "-105.0M").
+function fmtFlow(num: number): string {
+  const sign = num > 0 ? "+" : num < 0 ? "-" : "";
+  const abs = Math.abs(num);
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}${abs.toFixed(0)}`;
+}
 type SortDir = "asc" | "desc";
 
 const LCD = SILK_LCD;
@@ -64,6 +78,9 @@ export default function ValidatorList({
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // 30-day stake flow per validator, loaded independently of the validator
+  // set so the table paints immediately and the Flow column fills in after.
+  const { flows } = useValidatorFlows(FLOW_WINDOW_DAYS);
   const [search, setSearch] = useState("");
   const [commissionFilter, setCommissionFilter] = useState<string>("all");
 
@@ -158,7 +175,11 @@ export default function ValidatorList({
   }, [stakingData, tokenData]);
 
   const validatorsWithIncome = useMemo(() => {
-    if (!economics) return validators.map((v) => ({ ...v, monthlyIncome: 0, delegatorApr: 0, votingPowerPct: 0, monthlyIncomeUsd: 0 }));
+    // netFlow rides along on each row so the generic `a[sortField]` sort
+    // below handles the Stake Flow column with no special-casing.
+    const withFlow = (v: ValidatorEntry) => flows[v.operatorAddress]?.net ?? 0;
+
+    if (!economics) return validators.map((v) => ({ ...v, monthlyIncome: 0, delegatorApr: 0, votingPowerPct: 0, monthlyIncomeUsd: 0, netFlow: withFlow(v) }));
 
     const { annualProvisions, communityTax, totalBonded, txPrice } = economics;
     const totalRewardsAnnual = annualProvisions * (1 - communityTax);
@@ -177,9 +198,10 @@ export default function ValidatorList({
         monthlyIncomeUsd: monthlyIncome * txPrice,
         delegatorApr,
         votingPowerPct: votingPowerShare * 100,
+        netFlow: withFlow(v),
       };
     });
-  }, [validators, economics]);
+  }, [validators, economics, flows]);
 
   // Find Silk node data
   const silkNode = validatorsWithIncome.find((v) => v.operatorAddress === SILK_OPERATOR);
@@ -412,6 +434,7 @@ export default function ValidatorList({
               <th onClick={() => handleSort("commission")}>Commission{sortIcon("commission")}</th>
               <th onClick={() => handleSort("delegatorApr")}>Your APR{sortIcon("delegatorApr")}</th>
               <th onClick={() => handleSort("monthlyIncome")}>Validator Income{sortIcon("monthlyIncome")}</th>
+              <th onClick={() => handleSort("netFlow")}>{FLOW_WINDOW_DAYS}d Stake Flow{sortIcon("netFlow")}</th>
             </tr>
           </thead>
           <tbody>
@@ -493,6 +516,44 @@ export default function ValidatorList({
                     <div style={{ fontSize: "0.6rem", color: "var(--accent-olive)", opacity: 0.7, marginTop: 1 }}>
                       ~{fmtUsd(v.monthlyIncomeUsd)}/mo
                     </div>
+                  </td>
+                  <td>
+                    {(() => {
+                      const f = flows[v.operatorAddress];
+                      // No row means no staking events in the window. That is
+                      // genuinely "no movement", not missing data.
+                      if (!f) {
+                        return (
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", opacity: 0.3 }}>
+                            &ndash;
+                          </div>
+                        );
+                      }
+                      const breakdown =
+                        `Delegated in +${fmt(f.delegatedIn)} TX · ` +
+                        `Redelegated in +${fmt(f.redelegatedIn)} TX · ` +
+                        `Undelegated out -${fmt(f.undelegatedOut)} TX · ` +
+                        `Redelegated out -${fmt(f.redelegatedOut)} TX`;
+                      return (
+                        <Tooltip text={breakdown}>
+                          <div style={{ cursor: "help" }}>
+                            <div style={{
+                              fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 700,
+                              color: f.net > 0
+                                ? "var(--accent-olive)"
+                                : f.net < 0
+                                ? "#b44a3e"
+                                : "var(--text-dark)",
+                            }}>
+                              {fmtFlow(f.net)} TX
+                            </div>
+                            <div style={{ fontSize: "0.55rem", opacity: 0.3, marginTop: 1 }}>
+                              {f.net > 0 ? "gaining" : f.net < 0 ? "losing" : "flat"}
+                            </div>
+                          </div>
+                        </Tooltip>
+                      );
+                    })()}
                   </td>
                 </tr>
               );
