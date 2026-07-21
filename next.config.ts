@@ -68,6 +68,7 @@ const nextConfig: NextConfig = {
       "pse-cohort",
       "staking-feed",
       "whale-data",
+      "validator-flows",
     ];
     // beforeFiles so the proxy wins over the local (DB-less) API route,
     // which would otherwise handle the request and 500.
