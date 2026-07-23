@@ -13,10 +13,11 @@ introduce a `_migrations` tracking table and a small runner script.
 
 ```bash
 cd /home/zoltan/tx-silknodes
-PGPASSWORD=$(cat ~/.silknodes-db-password) \
-  psql -h localhost -U silknodes -d tx_silknodes \
-  -v ON_ERROR_STOP=1 \
-  -f vm-service/migrations/001_initial.sql
+# Credentials live in ~/.silknodes-db.env as PG* vars (the same file the
+# systemd units load). Sourcing it exports PGUSER/PGPASSWORD/PGDATABASE,
+# which psql picks up automatically.
+set -a; . ~/.silknodes-db.env; set +a
+psql -v ON_ERROR_STOP=1 -f vm-service/migrations/001_initial.sql
 ```
 
 Expected output: a series of `CREATE TABLE` / `CREATE INDEX` lines, no
@@ -25,8 +26,8 @@ errors. Re-running is harmless.
 ## Verify
 
 ```bash
-PGPASSWORD=$(cat ~/.silknodes-db-password) \
-  psql -h localhost -U silknodes -d tx_silknodes -c "\dt"
+set -a; . ~/.silknodes-db.env; set +a
+psql -c "\dt"
 ```
 
 You should see all the tables listed:

@@ -41,6 +41,7 @@ import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
 import PassportTab from "@/components/PassportTab";
+import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
@@ -196,6 +197,20 @@ export default function HomePage() {
     return m ? Number(m[1]) : null;
   }, [pathname]);
 
+  // Same trick for /validators/corevaloper1... and /passport/core1...:
+  // the URL carries the entity, the tab body swaps to its detail view.
+  const validatorFromUrl = useMemo(() => {
+    if (!pathname) return null;
+    const m = pathname.match(/^\/validators\/(corevaloper1[a-z0-9]+)\/?$/);
+    return m ? m[1] : null;
+  }, [pathname]);
+
+  const passportFromUrl = useMemo(() => {
+    if (!pathname) return null;
+    const m = pathname.match(/^\/passport\/(core1[a-z0-9]+)\/?$/);
+    return m ? m[1] : null;
+  }, [pathname]);
+
   // Whenever the URL points to a proposal, force the governance tab so
   // the surrounding nav highlights the right item and the user can switch
   // away cleanly via clicking another tab.
@@ -205,6 +220,14 @@ export default function HomePage() {
     }
   }, [proposalIdFromUrl, activeTab]);
 
+  useEffect(() => {
+    if (validatorFromUrl && activeTab !== "validators") setActiveTab("validators");
+  }, [validatorFromUrl, activeTab]);
+
+  useEffect(() => {
+    if (passportFromUrl && activeTab !== "passport") setActiveTab("passport");
+  }, [passportFromUrl, activeTab]);
+
   // Resolve active tab from the URL. Each top-level tab has its own
   // pathname (/pse, /governance, /analytics, etc.) so users can bookmark,
   // share, and use the browser back button naturally. For backward
@@ -213,6 +236,7 @@ export default function HomePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (proposalIdFromUrl !== null) return; // proposal detail owns the tab
+    if (validatorFromUrl || passportFromUrl) return; // detail views own the tab
 
     // First try matching the exact pathname.
     if (pathname && pathname in PATHNAME_TO_TAB) {
@@ -228,7 +252,7 @@ export default function HomePage() {
       setActiveTab(requested);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, proposalIdFromUrl]);
+  }, [pathname, proposalIdFromUrl, validatorFromUrl, passportFromUrl]);
 
   // ─── Cookie consent ───
   useEffect(() => {
@@ -711,6 +735,8 @@ export default function HomePage() {
         {activeTab === "flows" && <FlowsTab />}
         {activeTab === "passport" && (
           <PassportTab
+            key={passportFromUrl ?? "self"}
+            initialAddress={passportFromUrl ?? undefined}
             connectedAddress={wallet.connected ? wallet.address : undefined}
             txPrice={tokenData?.price ?? 0}
           />
@@ -797,7 +823,11 @@ export default function HomePage() {
         )}
 
         {activeTab === "validators" && (
-          <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} />
+          validatorFromUrl ? (
+            <ValidatorDetailView address={validatorFromUrl} />
+          ) : (
+            <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} />
+          )
         )}
 
         {activeTab === "rwa" && (

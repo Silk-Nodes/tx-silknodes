@@ -135,9 +135,14 @@ function avatar(address: string): { background: string; initials: string } {
 }
 
 export default function PassportTab({
+  initialAddress,
   connectedAddress,
   txPrice = 0,
 }: {
+  // Set when the URL is /passport/core1..., so anything listing a wallet
+  // (validator delegator tables, flow counterparties) can deep-link
+  // straight into that wallet's passport.
+  initialAddress?: string;
   connectedAddress?: string;
   txPrice?: number;
 }) {
@@ -278,6 +283,13 @@ export default function PassportTab({
   useEffect(() => {
     if (ranInitial.current || typeof window === "undefined") return;
     ranInitial.current = true;
+    // Path wins over ?address= : /passport/core1... is the canonical,
+    // shareable form and is what deep links from other pages use.
+    if (initialAddress && isValidAddr(initialAddress)) {
+      setInput(initialAddress);
+      load(initialAddress);
+      return;
+    }
     const fromQuery = new URLSearchParams(window.location.search).get("address");
     if (fromQuery && isValidAddr(fromQuery)) {
       setInput(fromQuery);
@@ -285,7 +297,7 @@ export default function PassportTab({
     } else {
       load(randomFeatured());
     }
-  }, [load]);
+  }, [load, initialAddress]);
 
   const submit = () => load(input);
   // Jump to another featured wallet (different from the current one).
