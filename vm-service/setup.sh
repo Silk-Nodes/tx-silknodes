@@ -24,6 +24,9 @@ FLOWS_PRUNE_TIMER_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.timer"
 HEALTH_SERVICE_NAME="silknodes-health"
 HEALTH_SERVICE_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.service"
 HEALTH_TIMER_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.timer"
+VSNAP_SERVICE_NAME="silknodes-validator-snapshots"
+VSNAP_SERVICE_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.service"
+VSNAP_TIMER_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.timer"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
@@ -153,6 +156,14 @@ echo "Installing $HEALTH_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-health.service" "$HEALTH_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-health.timer" "$HEALTH_TIMER_FILE"
 
+# Install the daily validator snapshot collector (one-shot + daily timer).
+# Records per-validator tokens, commission, uptime, and delegator count so
+# the validator detail pages can show history. This cannot be backfilled
+# from chain state, so the timer wants to be running as early as possible.
+echo "Installing $VSNAP_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.service" "$VSNAP_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.timer" "$VSNAP_TIMER_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -183,6 +194,8 @@ sudo systemctl enable "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl start "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl enable "${HEALTH_SERVICE_NAME}.timer"
 sudo systemctl start "${HEALTH_SERVICE_NAME}.timer"
+sudo systemctl enable "${VSNAP_SERVICE_NAME}.timer"
+sudo systemctl start "${VSNAP_SERVICE_NAME}.timer"
 
 sleep 2
 echo
