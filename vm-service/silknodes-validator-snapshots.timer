@@ -1,0 +1,23 @@
+[Unit]
+Description=Run Silk Nodes Validator Daily Snapshot Collector daily
+# Non-instance form, matching silknodes-health.timer. setup.sh's install_unit
+# substitutes %i -> the actual user at install time, so these files are not
+# systemd templates once installed. Using the `name@%i.service` form here
+# would expand to `name@zoltan.service`, which resolves only if the service
+# was installed as a template (`name@.service`). It isn't, so that form
+# silently fails: the timer enables, then has nothing to fire.
+Requires=silknodes-validator-snapshots.service
+
+[Timer]
+# 03:50 UTC daily. Sits after the 02:00 daily metrics and 03:30 PSE cohort
+# runs so the three don't compete for connection-pool slots.
+OnCalendar=*-*-* 03:50:00 UTC
+# Persistent so a reboot or downtime across the window still produces the
+# day's snapshot on next boot. This data cannot be backfilled from chain
+# state, so a missed day is a permanent hole in the history.
+Persistent=true
+AccuracySec=1min
+Unit=silknodes-validator-snapshots.service
+
+[Install]
+WantedBy=timers.target
