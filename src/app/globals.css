@@ -30,6 +30,15 @@
   /* Brand mark accent (the "<" half of the >< logo). Olive-lime reads on the
      light/warm header; the dark theme overrides it to full neon below. */
   --brand-accent: #8FCB02;
+  /* Inline link text. Darker than --accent-olive so small link text clears
+     WCAG AA (4.98:1) on the cream background. */
+  --link-color: #436e17;
+  /* Governance vote colours. Tuned per theme so the small vote chips clear
+     WCAG AA: the shared --accent-* tokens land at 2.7-4.3:1 here. */
+  --vote-yes: #436e17;
+  --vote-no: #993528;
+  --vote-abstain: #66655f;
+  --vote-veto: #7d2419;
   --danger: #b44a3e;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
@@ -106,6 +115,11 @@
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
   --brand-accent: #B1FC03;
+  --link-color: #8fbc8f;
+  --vote-yes: #8fbc8f;
+  --vote-no: #e0795a;
+  --vote-abstain: #a3a29d;
+  --vote-veto: #d96a50;
   --danger: #ef6b5d;
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
@@ -929,6 +943,36 @@ body {
   height: 100%;
   object-fit: cover;
 }
+
+/* Inline text link.
+   Without this, `className="link"` matched nothing and anchors fell back to
+   the browser default blue/purple, which is off-palette in light mode and
+   nearly unreadable on the dark theme (and :visited turned them violet).
+   Themed via --accent-olive so it flips with the theme like everything else. */
+/* Own token rather than --accent-olive: that value is tuned for fills and
+   bars, and at link text sizes it only reaches 4.24:1 on the cream
+   background (under the 4.5 WCAG AA floor). --link-color is the same hue
+   nudged darker to 4.98:1 in light, and reuses the sage in dark (9.09:1). */
+.link {
+  color: var(--link-color);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.link:visited { color: var(--link-color); }
+.link:hover { color: var(--text-dark); border-bottom-color: currentColor; }
+/* Opt-out for links that inherit a parent's colour (e.g. a validator name
+   inside an already-styled table cell). */
+.link-plain { color: inherit; text-decoration: none; }
+.link-plain:visited { color: inherit; }
+.link-plain:hover { color: var(--accent-olive); }
+
+/* Governance vote chips. Classes rather than inline colours so both themes
+   resolve their own AA-safe value. */
+.vote-yes { color: var(--vote-yes); }
+.vote-no { color: var(--vote-no); }
+.vote-abstain { color: var(--vote-abstain); }
+.vote-veto { color: var(--vote-veto); }
 
 /* New borderless brand mark: the >< chevron, icon-first before the wordmark.
    Primary stroke follows the text colour (flips per theme); the accent stroke

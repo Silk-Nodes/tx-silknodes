@@ -30,6 +30,10 @@ const UCORE = 1_000_000;
 const FLOW_DAYS = 30;
 const TOP_DELEGATORS = 15;
 const TOP_COUNTERPARTIES = 5;
+// Recent stake events shown on the page. The collector stores only moves
+// >= 5000 TX (MIN_AMOUNT_TX), so this is "significant events", not every tx.
+const EVENT_LIMIT = 40;
+const EVENT_MIN_TX = 5000;
 const TIMEOUT_MS = 15_000;
 
 const toTX = (v: string | number | null | undefined): number => {
@@ -156,6 +160,7 @@ export async function GET(
     topSources: [], topDestinations: [],
   };
   let history: unknown[] = [];
+  let events: unknown[] = [];
   try {
     const [totals] = await sequelize.query<{
       delegated_in: string; redelegated_in: string; undelegated_out: string; redelegated_out: string;
@@ -213,6 +218,21 @@ export async function GET(
        ORDER BY date ASC`,
       { replacements: { v: address }, type: QueryTypes.SELECT },
     );
+
+    // Individual stake events, newest first. Note these are only moves of
+    // >= 5000 TX: the VM collector applies that floor at write time, so
+    // smaller delegations are not in the table at all. The UI says so
+    // rather than implying this is every event.
+    events = await sequelize.query(
+      `SELECT tx_hash AS "txHash", height, timestamp, type, delegator, amount,
+              source_validator AS "sourceValidator",
+              CASE WHEN source_validator = :v THEN true ELSE false END AS outgoing
+       FROM staking_events
+       WHERE validator = :v OR source_validator = :v
+       ORDER BY height DESC
+       LIMIT :lim`,
+      { replacements: { v: address, lim: EVENT_LIMIT }, type: QueryTypes.SELECT },
+    );
   } catch (err) {
     console.error("[validator] db section failed", err);
   }
@@ -262,6 +282,8 @@ export async function GET(
     },
     flow30d,
     flowWindowDays: FLOW_DAYS,
+    events,
+    eventMinTx: EVENT_MIN_TX,
     governance: {
       votedCount: votes?.proposal_vote?.length ?? 0,
       votes: (votes?.proposal_vote || []).map((x) => ({

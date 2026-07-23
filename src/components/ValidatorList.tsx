@@ -448,7 +448,7 @@ export default function ValidatorList({
                   <td style={{ color: "var(--ink-muted)", textAlign: "center", fontSize: "0.75rem" }}>{globalIndex + 1}</td>
                   <td>
                     <div style={{ fontWeight: isSilk ? 700 : 500, fontSize: "0.85rem" }}>
-                      <Link href={`/validators/${v.operatorAddress}`} className="link" style={{ color: "inherit" }}>
+                      <Link href={`/validators/${v.operatorAddress}`} className="link-plain">
                         {v.moniker}
                       </Link>
                       {isSilk && <span className="silk-badge">Our Node</span>}

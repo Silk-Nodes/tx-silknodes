@@ -40,6 +40,22 @@ interface ValidatorDetail {
   };
   governance: { votedCount: number; votes: { proposalId: number; vote: string }[] };
   history: { date: string; tokens: string; delegatorCount: number | null }[];
+  events: {
+    txHash: string; height: number; timestamp: string;
+    type: "delegate" | "undelegate" | "redelegate";
+    delegator: string; amount: string; sourceValidator: string | null; outgoing: boolean;
+  }[];
+  eventMinTx: number;
+}
+
+// Relative time, matching how the rest of the app labels recent activity.
+function ago(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `${Math.max(m, 0)}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function fmt(n: number): string {
@@ -54,11 +70,13 @@ function fmtFlow(n: number): string {
 }
 const short = (a: string) => (a ? `${a.slice(0, 12)}...${a.slice(-6)}` : "");
 
-const VOTE_COLOR: Record<string, string> = {
-  YES: "var(--accent-olive)",
-  NO: "#b44a3e",
-  ABSTAIN: "var(--text-light)",
-  NO_WITH_VETO: "#8b2f24",
+// Class rather than inline colour so each theme resolves its own AA-safe
+// value (the shared accent tokens only reach 2.7-4.3:1 at this text size).
+const VOTE_CLASS: Record<string, string> = {
+  YES: "vote-yes",
+  NO: "vote-no",
+  ABSTAIN: "vote-abstain",
+  NO_WITH_VETO: "vote-veto",
 };
 
 export default function ValidatorDetailView({ address }: { address: string }) {
@@ -258,6 +276,73 @@ export default function ValidatorDetailView({ address }: { address: string }) {
         </table>
       </div>
 
+      {/* ── stake events ─────────────────────────────────────────── */}
+      <h2 className="section-sub" style={{ margin: "22px 0 8px" }}>
+        Stake events
+        <span style={{ fontWeight: 400, opacity: 0.5 }}>
+          {" "}&middot; moves of {fmt(data.eventMinTx)} TX or more
+        </span>
+      </h2>
+      {data.events.length === 0 ? (
+        <div style={{ fontSize: "0.78rem", opacity: 0.4 }}>
+          No stake moves above {fmt(data.eventMinTx)} TX recorded for this validator.
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table className="data-table" style={{ minWidth: 620, width: "100%" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Type</th>
+                <th style={{ textAlign: "left" }}>Wallet</th>
+                <th>Amount</th>
+                <th>Height</th>
+                <th style={{ textAlign: "right" }}>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.events.map((e) => {
+                // A redelegation is a gain for the destination and a loss for
+                // the source, so the same row means opposite things depending
+                // on which side of it this validator sits.
+                const inbound = e.type === "delegate" || (e.type === "redelegate" && !e.outgoing);
+                const label =
+                  e.type === "delegate" ? "Delegated"
+                    : e.type === "undelegate" ? "Undelegated"
+                      : e.outgoing ? "Redelegated out" : "Redelegated in";
+                const color = inbound ? "var(--accent-olive)" : "#b44a3e";
+                return (
+                  <tr key={`${e.txHash}-${e.height}-${e.delegator}`}>
+                    <td>
+                      <span style={{
+                        fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.04em",
+                        textTransform: "uppercase", padding: "2px 7px", borderRadius: 5,
+                        color, background: inbound ? "rgba(177,252,3,0.12)" : "rgba(180,74,62,0.10)",
+                      }}>
+                        {label}
+                      </span>
+                    </td>
+                    <td>
+                      <Link href={`/passport/${e.delegator}`} className="link" style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem" }}>
+                        {short(e.delegator)}
+                      </Link>
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", fontWeight: 600, color }}>
+                      {inbound ? "+" : "-"}{fmt(Number(e.amount))} TX
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", opacity: 0.5 }}>
+                      {e.height.toLocaleString()}
+                    </td>
+                    <td style={{ textAlign: "right", fontSize: "0.7rem", opacity: 0.5, whiteSpace: "nowrap" }}>
+                      {ago(e.timestamp)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* ── governance record ────────────────────────────────────── */}
       <h2 className="section-sub" style={{ margin: "22px 0 8px" }}>
         Governance
@@ -271,11 +356,10 @@ export default function ValidatorDetailView({ address }: { address: string }) {
             <Link
               key={g.proposalId}
               href={`/governance/${g.proposalId}`}
-              className="link"
+              className={`link ${VOTE_CLASS[g.vote] || ""}`}
               style={{
                 fontSize: "0.68rem", fontFamily: "var(--font-mono)",
                 padding: "4px 8px", borderRadius: 6, border: "1px solid var(--glass-border)",
-                color: VOTE_COLOR[g.vote] || "var(--text-dark)",
               }}
               title={`Proposal #${g.proposalId}: ${g.vote}`}
             >
