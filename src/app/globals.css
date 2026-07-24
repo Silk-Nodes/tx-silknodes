@@ -953,10 +953,17 @@ body {
 .link-plain:hover { color: var(--accent-olive); }
 
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
-.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
+/* align-items:stretch (not flex-start) lets the data column grow to the same
+   height as the sticky card, so the two columns bottom-align even on the thin
+   tabs (Stake Flow, History) instead of leaving dead space on the right. The
+   rail opts out with align-self:flex-start so it keeps its natural height and
+   stays pinned; only .vd-main stretches. */
+.vd-layout { display: flex; gap: 20px; align-items: stretch; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
-   instead of forcing the whole page wider (no horizontal page scroll). */
-.vd-main { flex: 1 1 0; min-width: 0; }
+   instead of forcing the whole page wider (no horizontal page scroll).
+   flex column so the active tab panel can flex:1 and fill the stretched
+   height (see the fill rules below). */
+.vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 /* Sticky rail. max-height + internal scroll so a card taller than the
    viewport still stays pinned (its own overflow scrolls) instead of getting
    cut off. The top nav scrolls with the page (not fixed), so top:16px is
@@ -971,6 +978,8 @@ body {
   top: 96px;
   max-height: calc(100vh - 112px);
   overflow-y: auto;
+  /* Keep the natural height + stay pinned while .vd-main stretches to match. */
+  align-self: flex-start;
 }
 /* Below 860px the rail can't stay narrow beside the data, so it stacks on
    top and goes static (a sticky full-width card would pin over the content).
@@ -1001,6 +1010,31 @@ body {
   display: flex; gap: 2px; overflow-x: auto;
   border-bottom: 1px solid var(--glass-border);
   margin-bottom: 16px;
+  /* Pin the tab bar under the floating nav pill (sticky at top:12px, ~64px
+     tall) so it stays visible while a long delegator/events table scrolls.
+     Opaque page background + padding so rows slide cleanly under a crisp edge. */
+  position: sticky;
+  top: 84px;
+  z-index: 20;
+  background: var(--bg-base);
+  padding-top: 8px;
+}
+
+/* Fill the data column to the sticky card's height (desktop only; below 861px
+   the rail stacks on top and there is nothing to bottom-align to). The active
+   panel grows, and the fill containers inside it (charts, flow cards) grow with
+   it so the space reads as intentional rather than blank. */
+@media (min-width: 861px) {
+  .vd-main > [role="tabpanel"]:not([hidden]) {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+  }
+  .vd-fill { flex: 1 1 auto; min-height: 0; grid-auto-rows: 1fr; }
+  .vd-hist-card { display: flex; flex-direction: column; }
+  .vd-hist-chart { flex: 1 1 auto; min-height: 150px; }
+}
+@media (max-width: 860px) {
+  /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */
+  .vd-tabs { top: 56px; }
 }
 .vd-tab {
   padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;

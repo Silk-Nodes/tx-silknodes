@@ -133,12 +133,12 @@ function MiniHistoryChart({
 }) {
   const gid = `vd-hist-${title.replace(/\s+/g, "")}`;
   return (
-    <div className="vd-card" style={{ padding: "12px 14px" }}>
+    <div className="vd-card vd-hist-card" style={{ padding: "12px 14px" }}>
       <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.55, marginBottom: 8 }}>
         {title}
         <span style={{ float: "right", fontFamily: "var(--font-mono)", opacity: 0.8 }}>{format(data[data.length - 1].value)}</span>
       </div>
-      <div style={{ width: "100%", height: 130 }}>
+      <div className="vd-hist-chart" style={{ width: "100%", height: 150 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <defs>
@@ -539,7 +539,7 @@ export default function ValidatorDetailView({
                   : <>No stake currently unbonding</>}
               </span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            <div className="vd-fill" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
                 {[
                   ["Delegated in", flow30d.delegatedIn, true],
@@ -669,10 +669,14 @@ export default function ValidatorDetailView({
           {/* History */}
           <section role="tabpanel" hidden={tab !== "history"}>
             {history.length < 2 ? (
-              <div style={{ fontSize: "0.75rem", opacity: 0.5, padding: "8px 0" }}>
-                Collecting daily snapshots since {history[0]?.date ?? "recently"}. Voting power and delegator
-                trends appear here once there are a few days of data, this history is recorded going forward and
-                can&apos;t be backfilled, so check back soon.
+              // flex:1 + centered so the empty state fills the stretched panel
+              // instead of leaving blank below it during the collecting window.
+              <div style={{ flex: "1 1 auto", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: "0.75rem", opacity: 0.5, padding: "8px 0", minHeight: 120 }}>
+                <span style={{ maxWidth: 420 }}>
+                  Collecting daily snapshots since {history[0]?.date ?? "recently"}. Voting power and delegator
+                  trends appear here once there are a few days of data, this history is recorded going forward and
+                  can&apos;t be backfilled, so check back soon.
+                </span>
               </div>
             ) : tab === "history" ? (
               // Mount the charts only when this tab is visible. Recharts sizes
@@ -682,7 +686,7 @@ export default function ValidatorDetailView({
                 <div style={{ fontSize: "0.66rem", opacity: 0.5, marginBottom: 10 }}>
                   {history.length} daily snapshots since {history[0].date}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                <div className="vd-fill" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
                   <MiniHistoryChart
                     title="Voting Power"
                     data={history.map((h) => ({ date: h.date, value: Number(h.tokens) }))}
