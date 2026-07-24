@@ -978,6 +978,11 @@ body {
 @media (max-width: 860px) {
   .vd-layout { flex-direction: column; }
   .vd-rail { position: static; flex-basis: auto; width: 100%; max-height: none; overflow-y: visible; }
+  /* Stacked column: flex:1 1 0 sizes the main column's HEIGHT, not its width,
+     so a wide child (a table's min-content, the tab bar) can push it past the
+     viewport and get clipped. Pin it to the container width and let its own
+     overflow-x:auto children (tables, .vd-tabs) scroll internally. */
+  .vd-main { width: 100%; min-width: 0; }
 }
 
 .vd-card {
