@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
+import Tooltip from "@/components/Tooltip";
 import { SILK_NODES_VALIDATOR } from "@/lib/chain-config";
 
 const FLOW_DAYS = 30;
@@ -442,20 +443,22 @@ export default function ValidatorDetailView({
           )}
 
           {/* Operator economics: kept in the data column, not the sticky card,
-              so the card stays lean. */}
-          <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14, display: "flex", flexWrap: "wrap", gap: "10px 28px" }}>
+              so the card stays lean. Label + value only; the explanation lives
+              in a hover tooltip to keep the strip minimal. */}
+          <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14, display: "flex", flexWrap: "wrap", gap: "10px 32px" }}>
             {[
-              ["Reward pool", `${fmt(rew.outstandingPoolTx)} TX`, "accruing to delegators + commission"],
-              rew.estMonthlyCommissionTx !== null ? ["Commission income", `~${fmt(rew.estMonthlyCommissionTx)} TX/mo`, "estimated"] : null,
-              ["Unclaimed commission", `${fmt(rew.commissionAccruedTx)} TX`, "not yet withdrawn"],
+              ["Reward pool", `${fmt(rew.outstandingPoolTx)} TX`, "Undistributed rewards accruing to this validator's delegators plus its commission."],
+              rew.estMonthlyCommissionTx !== null ? ["Commission income", `~${fmt(rew.estMonthlyCommissionTx)} TX/mo`, "Estimated monthly commission the operator earns, from its share of staking rewards."] : null,
+              ["Unclaimed commission", `${fmt(rew.commissionAccruedTx)} TX`, "Commission earned but not yet withdrawn by the operator."],
             ].filter(Boolean).map((row) => {
               const [label, value, note] = row as string[];
               return (
-                <div key={label}>
-                  <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.5 }}>{label}</div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", fontWeight: 700 }}>{value}</div>
-                  <div style={{ fontSize: "0.56rem", opacity: 0.4 }}>{note}</div>
-                </div>
+                <Tooltip key={label} text={note}>
+                  <div style={{ cursor: "help" }}>
+                    <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.5, borderBottom: "1px dotted var(--glass-border)", display: "inline-block", paddingBottom: 1 }}>{label}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, marginTop: 3 }}>{value}</div>
+                  </div>
+                </Tooltip>
               );
             })}
           </div>
