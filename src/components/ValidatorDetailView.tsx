@@ -77,8 +77,14 @@ function fmtFlow(n: number): string {
 }
 const short = (a: string) => (a ? `${a.slice(0, 12)}...${a.slice(-6)}` : "");
 
+// Reuse the app's own governance vote styling (yes -> --text-accent,
+// no -> --accent-orange, veto -> --danger, abstain -> --text-light) so votes
+// look identical to the governance page, not a parallel colour system.
 const VOTE_CLASS: Record<string, string> = {
-  YES: "vote-yes", NO: "vote-no", ABSTAIN: "vote-abstain", NO_WITH_VETO: "vote-veto",
+  YES: "gov-mini-label vote-yes",
+  NO: "gov-mini-label vote-no",
+  ABSTAIN: "gov-mini-label vote-abstain",
+  NO_WITH_VETO: "gov-mini-label vote-veto",
 };
 
 // A labelled address with click-to-copy. Full value stays in the DOM (so it's
@@ -202,7 +208,7 @@ export default function ValidatorDetailView({
   const c = delegators.concentration;
   const conc = [
     { pct: c.top1Pct, color: "var(--tx-neon)" },
-    { pct: Math.max(c.top5Pct - c.top1Pct, 0), color: "var(--link-color)" },
+    { pct: Math.max(c.top5Pct - c.top1Pct, 0), color: "var(--text-accent)" },
     { pct: Math.max(c.top10Pct - c.top5Pct, 0), color: "#7d8a55" },
     { pct: Math.max(100 - c.top10Pct, 0), color: "rgba(120,138,85,0.25)" },
   ];
@@ -233,11 +239,11 @@ export default function ValidatorDetailView({
                 fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                 padding: "3px 8px", borderRadius: 6,
                 background: active ? "rgba(177,252,3,0.14)" : "rgba(180,74,62,0.12)",
-                color: active ? "var(--link-color)" : "#b44a3e",
+                color: active ? "var(--text-accent)" : "var(--danger)",
               }}>
                 {v.jailed ? "Jailed" : active ? "Active" : "Inactive"}
               </span>
-              {uptime.tombstoned && <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "#b44a3e" }}>TOMBSTONED</span>}
+              {uptime.tombstoned && <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--danger)" }}>TOMBSTONED</span>}
               {v.rank && <span style={{ fontSize: "0.62rem", opacity: 0.6, fontFamily: "var(--font-mono)" }}>Rank #{v.rank}{v.validatorCount ? ` of ${v.validatorCount}` : ""}</span>}
             </div>
 
@@ -252,7 +258,7 @@ export default function ValidatorDetailView({
                   Connect wallet to delegate
                 </button>
               ) : justDelegated ? (
-                <div style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--link-color)", padding: "10px 0", fontWeight: 600 }}>
+                <div style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-accent)", padding: "10px 0", fontWeight: 600 }}>
                   Delegation submitted
                 </div>
               ) : !showDelegate ? (
@@ -298,13 +304,13 @@ export default function ValidatorDetailView({
             </div>
 
             <StatRow label="Voting Power" value={`${fmt(v.tokens)} TX`} sub={`${v.votingPowerPct.toFixed(2)}% of bonded`} />
-            <StatRow label="Delegator APR" value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"} sub="+ PSE on top" color="var(--link-color)" />
+            <StatRow label="Delegator APR" value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"} sub="+ PSE on top" color="var(--text-accent)" />
             <StatRow label="Commission" value={`${(v.commissionRate * 100).toFixed(1)}%`} sub={`max ${(v.commissionMaxRate * 100).toFixed(0)}% · ${(v.commissionMaxChangeRate * 100).toFixed(0)}%/day`} />
             <StatRow
               label="Uptime"
               value={uptime.uptimePct !== null ? `${uptime.uptimePct.toFixed(2)}%` : "n/a"}
               sub={uptime.missedBlocks !== null && uptime.signedBlocksWindow ? `${uptime.missedBlocks.toLocaleString()} missed / ${uptime.signedBlocksWindow.toLocaleString()}` : undefined}
-              color={uptime.uptimePct !== null && uptime.uptimePct < 95 ? "#b44a3e" : undefined}
+              color={uptime.uptimePct !== null && uptime.uptimePct < 95 ? "var(--danger)" : undefined}
             />
             <StatRow label="Self Bonded" value={`${fmt(selfBond.amount)} TX`} sub={`${selfBond.pct.toFixed(2)}% of stake`} />
             <StatRow label="Delegators" value={delegators.count.toLocaleString()} sub={delegators.truncated ? "top 500 shown" : "wallets"} />
@@ -312,7 +318,7 @@ export default function ValidatorDetailView({
               label={`${FLOW_DAYS}d Net Flow`}
               value={`${fmtFlow(flow30d.net)} TX`}
               sub={flow30d.net > 0 ? "gaining" : flow30d.net < 0 ? "losing" : "flat"}
-              color={flow30d.net > 0 ? "var(--link-color)" : flow30d.net < 0 ? "#b44a3e" : undefined}
+              color={flow30d.net > 0 ? "var(--text-accent)" : flow30d.net < 0 ? "var(--danger)" : undefined}
             />
 
             {v.website && (
@@ -402,14 +408,14 @@ export default function ValidatorDetailView({
                 ].map(([label, amt, positive]) => (
                   <div key={label as string} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.78rem" }}>
                     <span style={{ opacity: 0.6 }}>{label as string}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: positive ? "var(--link-color)" : "#b44a3e" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: positive ? "var(--text-accent)" : "var(--danger)" }}>
                       {positive ? "+" : "-"}{fmt(amt as number)} TX
                     </span>
                   </div>
                 ))}
                 <div style={{ borderTop: "1px solid var(--glass-border)", marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between", fontSize: "0.82rem", fontWeight: 700 }}>
                   <span>Net</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: flow30d.net >= 0 ? "var(--link-color)" : "#b44a3e" }}>{fmtFlow(flow30d.net)} TX</span>
+                  <span style={{ fontFamily: "var(--font-mono)", color: flow30d.net >= 0 ? "var(--text-accent)" : "var(--danger)" }}>{fmtFlow(flow30d.net)} TX</span>
                 </div>
               </div>
               <div className="chart-card" style={{ padding: "14px 16px" }}>
@@ -418,7 +424,7 @@ export default function ValidatorDetailView({
                   flow30d.topSources.map((s) => (
                     <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "0.75rem" }}>
                       <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--link-color)" }}>+{fmt(s.amount)}</span>
+                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)" }}>+{fmt(s.amount)}</span>
                     </div>
                   ))}
               </div>
@@ -428,7 +434,7 @@ export default function ValidatorDetailView({
                   flow30d.topDestinations.map((s) => (
                     <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "0.75rem" }}>
                       <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "#b44a3e" }}>-{fmt(s.amount)}</span>
+                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--danger)" }}>-{fmt(s.amount)}</span>
                     </div>
                   ))}
               </div>
@@ -498,7 +504,7 @@ export default function ValidatorDetailView({
                     {events.map((e) => {
                       const inbound = e.type === "delegate" || (e.type === "redelegate" && !e.outgoing);
                       const label = e.type === "delegate" ? "Delegated" : e.type === "undelegate" ? "Undelegated" : e.outgoing ? "Redelegated out" : "Redelegated in";
-                      const color = inbound ? "var(--link-color)" : "#b44a3e";
+                      const color = inbound ? "var(--text-accent)" : "var(--danger)";
                       return (
                         <tr key={`${e.txHash}-${e.height}-${e.delegator}`}>
                           <td>

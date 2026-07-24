@@ -30,15 +30,6 @@
   /* Brand mark accent (the "<" half of the >< logo). Olive-lime reads on the
      light/warm header; the dark theme overrides it to full neon below. */
   --brand-accent: #8FCB02;
-  /* Inline link text. Darker than --accent-olive so small link text clears
-     WCAG AA (4.98:1) on the cream background. */
-  --link-color: #436e17;
-  /* Governance vote colours. Tuned per theme so the small vote chips clear
-     WCAG AA: the shared --accent-* tokens land at 2.7-4.3:1 here. */
-  --vote-yes: #436e17;
-  --vote-no: #993528;
-  --vote-abstain: #66655f;
-  --vote-veto: #7d2419;
   --danger: #b44a3e;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
@@ -115,11 +106,6 @@
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
   --brand-accent: #B1FC03;
-  --link-color: #8fbc8f;
-  --vote-yes: #8fbc8f;
-  --vote-no: #e0795a;
-  --vote-abstain: #a3a29d;
-  --vote-veto: #d96a50;
   --danger: #ef6b5d;
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
@@ -949,17 +935,16 @@ body {
    the browser default blue/purple, which is off-palette in light mode and
    nearly unreadable on the dark theme (and :visited turned them violet).
    Themed via --accent-olive so it flips with the theme like everything else. */
-/* Own token rather than --accent-olive: that value is tuned for fills and
-   bars, and at link text sizes it only reaches 4.24:1 on the cream
-   background (under the 4.5 WCAG AA floor). --link-color is the same hue
-   nudged darker to 4.98:1 in light, and reuses the sage in dark (9.09:1). */
+/* Inline text link, using the app's canonical link colour (--text-accent),
+   the same token the governance and passport pages use, so links look
+   identical across the app. */
 .link {
-  color: var(--link-color);
+  color: var(--text-accent);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
-.link:visited { color: var(--link-color); }
+.link:visited { color: var(--text-accent); }
 .link:hover { color: var(--text-dark); border-bottom-color: currentColor; }
 /* Opt-out for links that inherit a parent's colour (e.g. a validator name
    inside an already-styled table cell). */
@@ -967,34 +952,41 @@ body {
 .link-plain:visited { color: inherit; }
 .link-plain:hover { color: var(--accent-olive); }
 
-/* Governance vote chips. Classes rather than inline colours so both themes
-   resolve their own AA-safe value. */
-.vote-yes { color: var(--vote-yes); }
-.vote-no { color: var(--vote-no); }
-.vote-abstain { color: var(--vote-abstain); }
-.vote-veto { color: var(--vote-veto); }
-
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
 .vd-layout { display: flex; gap: 20px; align-items: flex-start; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
    instead of forcing the whole page wider (no horizontal page scroll). */
 .vd-main { flex: 1 1 0; min-width: 0; }
-.vd-rail { flex: 0 0 336px; position: sticky; top: 16px; }
-/* The top nav scrolls with the page (not fixed), so top:16px is safe. Below
-   860px the rail can't stay narrow beside the data, so it stacks on top and
-   goes static (sticky + full width would pin the whole card over content). */
+/* Sticky rail. max-height + internal scroll so a card taller than the
+   viewport still stays pinned (its own overflow scrolls) instead of getting
+   cut off. The top nav scrolls with the page (not fixed), so top:16px is
+   safe. */
+.vd-rail {
+  flex: 0 0 320px;
+  position: sticky;
+  /* The top nav is itself position:sticky (~70px tall when pinned), so the
+     rail must sit below it, otherwise the card's top slides under the bar.
+     max-height reserves that space too, so a tall card scrolls internally
+     rather than overflowing past the viewport. */
+  top: 96px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+/* Below 860px the rail can't stay narrow beside the data, so it stacks on
+   top and goes static (a sticky full-width card would pin over the content).
+   Also drop the max-height so the stacked card shows in full. */
 @media (max-width: 860px) {
   .vd-layout { flex-direction: column; }
-  .vd-rail { position: static; flex-basis: auto; width: 100%; }
+  .vd-rail { position: static; flex-basis: auto; width: 100%; max-height: none; overflow-y: visible; }
 }
 
 .vd-card {
   border: 1px solid var(--glass-border);
   border-radius: 14px;
-  padding: 18px;
+  padding: 14px 16px;
   background: var(--glass-bg);
 }
-.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; }
+.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; }
 .vd-stat + .vd-stat { border-top: 1px solid var(--glass-border); }
 .vd-stat-label { font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
 .vd-stat-value { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; text-align: right; }
