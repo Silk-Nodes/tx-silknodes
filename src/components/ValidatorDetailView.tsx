@@ -31,6 +31,13 @@ interface ValidatorDetail {
     commissionRate: number; commissionMaxRate: number; commissionMaxChangeRate: number;
     commissionUpdatedAt: string; minSelfDelegation: number; jailed: boolean; status: string;
   };
+  benchmarks: {
+    avgCommission: number | null; avgDelegatorApr: number | null;
+    commissionVsAvg: number | null; aprVsAvg: number | null;
+  };
+  rewards: {
+    outstandingPoolTx: number; commissionAccruedTx: number; estMonthlyCommissionTx: number | null;
+  };
   uptime: {
     missedBlocks: number | null; signedBlocksWindow: number | null;
     uptimePct: number | null; tombstoned: boolean | null; jailedUntil: string | null;
@@ -191,7 +198,12 @@ export default function ValidatorDetailView({
   }
 
   const { validator: v, uptime, selfBond, delegators, flow30d, governance, history, events } = data;
+  const bench = data.benchmarks;
+  const rew = data.rewards;
   const active = v.status === "BOND_STATUS_BONDED" && !v.jailed;
+  // Trust: tombstoned is a permanent double-sign slash; its absence plus a
+  // not-jailed state is the honest "clean record" signal we can prove.
+  const cleanRecord = uptime.tombstoned === false && !v.jailed;
   const isSilk = v.operatorAddress === SILK_NODES_VALIDATOR;
   // In-app delegation to THIS validator via the dashboard's own wallet flow,
   // no external Keplr web page. delegate() is threaded down from the page's
@@ -245,6 +257,14 @@ export default function ValidatorDetailView({
               </span>
               {uptime.tombstoned && <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--danger)" }}>TOMBSTONED</span>}
               {v.rank && <span style={{ fontSize: "0.62rem", opacity: 0.6, fontFamily: "var(--font-mono)" }}>Rank #{v.rank}{v.validatorCount ? ` of ${v.validatorCount}` : ""}</span>}
+              {cleanRecord && (
+                <span title="Never tombstoned (double-sign slashed) and not jailed" style={{
+                  fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
+                  padding: "3px 8px", borderRadius: 6, background: "rgba(177,252,3,0.12)", color: "var(--text-accent)",
+                }}>
+                  No slashing
+                </span>
+              )}
             </div>
 
             {/* Delegate via the dashboard's own wallet flow. */}
@@ -304,8 +324,19 @@ export default function ValidatorDetailView({
             </div>
 
             <StatRow label="Voting Power" value={`${fmt(v.tokens)} TX`} sub={`${v.votingPowerPct.toFixed(2)}% of bonded`} />
-            <StatRow label="Delegator APR" value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"} sub="+ PSE on top" color="var(--text-accent)" />
-            <StatRow label="Commission" value={`${(v.commissionRate * 100).toFixed(1)}%`} sub={`max ${(v.commissionMaxRate * 100).toFixed(0)}% · ${(v.commissionMaxChangeRate * 100).toFixed(0)}%/day`} />
+            <StatRow
+              label="Delegator APR"
+              value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"}
+              sub={bench.avgDelegatorApr !== null ? `+ PSE · avg ${bench.avgDelegatorApr.toFixed(2)}%` : "+ PSE on top"}
+              color="var(--text-accent)"
+            />
+            <StatRow
+              label="Commission"
+              value={`${(v.commissionRate * 100).toFixed(1)}%`}
+              sub={bench.avgCommission !== null
+                ? `avg ${bench.avgCommission.toFixed(1)}% · max ${(v.commissionMaxRate * 100).toFixed(0)}%`
+                : `max ${(v.commissionMaxRate * 100).toFixed(0)}% · ${(v.commissionMaxChangeRate * 100).toFixed(0)}%/day`}
+            />
             <StatRow
               label="Uptime"
               value={uptime.uptimePct !== null ? `${uptime.uptimePct.toFixed(2)}%` : "n/a"}
@@ -356,6 +387,25 @@ export default function ValidatorDetailView({
               </p>
             </div>
           )}
+
+          {/* Operator economics: kept in the data column, not the sticky card,
+              so the card stays lean. */}
+          <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14, display: "flex", flexWrap: "wrap", gap: "10px 28px" }}>
+            {[
+              ["Reward pool", `${fmt(rew.outstandingPoolTx)} TX`, "accruing to delegators + commission"],
+              rew.estMonthlyCommissionTx !== null ? ["Commission income", `~${fmt(rew.estMonthlyCommissionTx)} TX/mo`, "estimated"] : null,
+              ["Unclaimed commission", `${fmt(rew.commissionAccruedTx)} TX`, "not yet withdrawn"],
+            ].filter(Boolean).map((row) => {
+              const [label, value, note] = row as string[];
+              return (
+                <div key={label}>
+                  <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", fontWeight: 700 }}>{value}</div>
+                  <div style={{ fontSize: "0.56rem", opacity: 0.4 }}>{note}</div>
+                </div>
+              );
+            })}
+          </div>
           <div className="vd-tabs" role="tablist">
             {TABS.map((t) => (
               <button key={t.id} role="tab" aria-selected={tab === t.id}

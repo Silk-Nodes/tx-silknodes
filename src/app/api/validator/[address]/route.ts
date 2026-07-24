@@ -104,7 +104,7 @@ export async function GET(
       `query($v:String!){ validator_info(where:{operator_address:{_eq:$v}}){ consensus_address self_delegate_address } }`,
       { v: address },
     ),
-    getJSON<{ validators: { operator_address: string; tokens: string }[] }>(
+    getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
       `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
     ),
     getJSON<{ annual_provisions: string }>(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
@@ -136,13 +136,26 @@ export async function GET(
   // share (1 - commission). This is base staking APR, PSE is on top.
   const annualProvisions = toTX(provRes?.annual_provisions);
   const communityTax = Number(distRes?.params?.community_tax ?? 0);
-  const delegatorApr =
+  const perTokenApr =
     totalBonded > 0 && annualProvisions > 0
-      ? (annualProvisions * (1 - communityTax) / totalBonded) * (1 - commissionRate) * 100
+      ? (annualProvisions * (1 - communityTax) / totalBonded) * 100
       : null;
+  const delegatorApr = perTokenApr !== null ? perTokenApr * (1 - commissionRate) : null;
+
+  // Network benchmarks so each stat reads with context. Commission average is
+  // a straight mean across the bonded set; the average delegator APR applies
+  // that average commission to the same per-token rate.
+  const setCommissions = (setRes?.validators || []).map((x) =>
+    Number(x.commission?.commission_rates?.rate ?? 0),
+  );
+  const avgCommission = setCommissions.length
+    ? setCommissions.reduce((s, c) => s + c, 0) / setCommissions.length
+    : null;
+  const avgDelegatorApr =
+    perTokenApr !== null && avgCommission !== null ? perTokenApr * (1 - avgCommission) : null;
 
   // ── uptime, delegators, self-bond, votes ──────────────────────────
-  const [signing, delegations, selfDel, votes, slashParams] = await Promise.all([
+  const [signing, delegations, selfDel, votes, slashParams, commRes, outRes] = await Promise.all([
     consensusAddress
       ? getJSON<{ val_signing_info: Record<string, any> }>(
           `${LCD}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`,
@@ -166,6 +179,12 @@ export async function GET(
         )
       : Promise.resolve(null),
     getJSON<{ params: { signed_blocks_window: string } }>(`${LCD}/cosmos/slashing/v1beta1/params`),
+    getJSON<{ commission: { commission: { denom: string; amount: string }[] } }>(
+      `${LCD}/cosmos/distribution/v1beta1/validators/${address}/commission`,
+    ),
+    getJSON<{ rewards: { rewards: { denom: string; amount: string }[] } }>(
+      `${LCD}/cosmos/distribution/v1beta1/validators/${address}/outstanding_rewards`,
+    ),
   ]);
 
   // Delegator concentration. The LCD caps us at 500 rows; for validators
@@ -185,6 +204,21 @@ export async function GET(
   const selfBonded = toTX(selfDel?.delegation_response?.balance?.amount);
   const window = Number(slashParams?.params?.signed_blocks_window ?? 0);
   const missed = signing?.val_signing_info ? Number(signing.val_signing_info.missed_blocks_counter) : null;
+
+  // Reward economics. The distribution endpoints return decimal-coin amounts
+  // (extra fractional precision), so take the integer part before converting.
+  const ucoreOf = (arr?: { denom: string; amount: string }[]) => {
+    const c = (arr || []).find((x) => x.denom === "ucore");
+    return c ? toTX(c.amount) : 0;
+  };
+  const commissionAccrued = ucoreOf(commRes?.commission?.commission);
+  const outstandingPool = ucoreOf(outRes?.rewards?.rewards);
+  // Estimated monthly commission = this validator's slice of annual rewards
+  // (net of community tax) times its commission rate, over 12.
+  const estMonthlyCommission =
+    totalBonded > 0 && annualProvisions > 0
+      ? (annualProvisions * (1 - communityTax) * (tokens / totalBonded) * commissionRate) / 12
+      : null;
 
   // ── flows from Postgres ───────────────────────────────────────────
   let flow30d: Record<string, unknown> = {
@@ -291,6 +325,18 @@ export async function GET(
       minSelfDelegation: toTX(v.min_self_delegation),
       jailed: Boolean(v.jailed),
       status: v.status || "",
+    },
+    // Network benchmarks so the UI can render "vs avg" context.
+    benchmarks: {
+      avgCommission: avgCommission !== null ? avgCommission * 100 : null,
+      avgDelegatorApr,
+      commissionVsAvg: avgCommission !== null ? (commissionRate - avgCommission) * 100 : null,
+      aprVsAvg: delegatorApr !== null && avgDelegatorApr !== null ? delegatorApr - avgDelegatorApr : null,
+    },
+    rewards: {
+      outstandingPoolTx: outstandingPool,
+      commissionAccruedTx: commissionAccrued,
+      estMonthlyCommissionTx: estMonthlyCommission,
     },
     uptime: {
       missedBlocks: missed,
