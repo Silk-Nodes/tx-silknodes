@@ -133,12 +133,12 @@ function MiniHistoryChart({
 }) {
   const gid = `vd-hist-${title.replace(/\s+/g, "")}`;
   return (
-    <div className="vd-card" style={{ padding: "12px 14px" }}>
-      <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.55, marginBottom: 8 }}>
+    <div className="vd-card" style={{ padding: "14px 16px" }}>
+      <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.55, marginBottom: 10 }}>
         {title}
         <span style={{ float: "right", fontFamily: "var(--font-mono)", opacity: 0.8 }}>{format(data[data.length - 1].value)}</span>
       </div>
-      <div style={{ width: "100%", height: 130 }}>
+      <div style={{ width: "100%", height: 210 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <defs>
@@ -539,41 +539,67 @@ export default function ValidatorDetailView({
                   : <>No stake currently unbonding</>}
               </span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-              <div className="vd-card" style={{ padding: "14px 16px" }}>
-                {[
-                  ["Delegated in", flow30d.delegatedIn, true],
-                  ["Redelegated in", flow30d.redelegatedIn, true],
-                  ["Undelegated out", flow30d.undelegatedOut, false],
-                  ["Redelegated out", flow30d.redelegatedOut, false],
-                ].map(([label, amt, positive]) => (
-                  <div key={label as string} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.78rem" }}>
-                    <span style={{ opacity: 0.6 }}>{label as string}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: positive ? "var(--text-accent)" : "var(--danger)" }}>
-                      {positive ? "+" : "-"}{fmt(amt as number)} TX
+            {/* Flow as a diverging horizontal bar chart: inflows green, outflows
+                red, each bar scaled to the largest single move. Turns four flat
+                numbers into a readable shape and gives the panel real body. */}
+            {(() => {
+              const rows = [
+                { label: "Delegated in", val: flow30d.delegatedIn, inflow: true },
+                { label: "Redelegated in", val: flow30d.redelegatedIn, inflow: true },
+                { label: "Undelegated out", val: flow30d.undelegatedOut, inflow: false },
+                { label: "Redelegated out", val: flow30d.redelegatedOut, inflow: false },
+              ];
+              const max = Math.max(...rows.map((r) => Math.abs(r.val)), 1);
+              const totalIn = flow30d.delegatedIn + flow30d.redelegatedIn;
+              const totalOut = flow30d.undelegatedOut + flow30d.redelegatedOut;
+              return (
+                <div className="vd-card" style={{ padding: "16px 18px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
+                    <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.5 }}>
+                      {FLOW_DAYS}-day stake flow
+                    </span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 700, color: flow30d.net >= 0 ? "var(--text-accent)" : "var(--danger)" }}>
+                      Net {fmtFlow(flow30d.net)} TX
                     </span>
                   </div>
-                ))}
-                <div style={{ borderTop: "1px solid var(--glass-border)", marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between", fontSize: "0.82rem", fontWeight: 700 }}>
-                  <span>Net</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: flow30d.net >= 0 ? "var(--text-accent)" : "var(--danger)" }}>{fmtFlow(flow30d.net)} TX</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {rows.map((r) => (
+                      <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ width: 116, flexShrink: 0, fontSize: "0.72rem", opacity: 0.7 }}>{r.label}</span>
+                        <div className="vd-flowbar-track">
+                          <div className="vd-flowbar-fill" style={{ width: `${r.val === 0 ? 0 : Math.max((Math.abs(r.val) / max) * 100, 2)}%`, background: r.inflow ? "var(--text-accent)" : "var(--danger)" }} />
+                        </div>
+                        <span style={{ width: 92, flexShrink: 0, textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "0.76rem", fontWeight: 600, color: r.inflow ? "var(--text-accent)" : "var(--danger)" }}>
+                          {r.inflow ? "+" : "-"}{fmt(Math.abs(r.val))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 24, marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--glass-border)", fontSize: "0.68rem", opacity: 0.75 }}>
+                    <span>In <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)", fontWeight: 600 }}>+{fmt(totalIn)}</span></span>
+                    <span>Out <span style={{ fontFamily: "var(--font-mono)", color: "var(--danger)", fontWeight: 600 }}>-{fmt(totalOut)}</span></span>
+                  </div>
                 </div>
-              </div>
+              );
+            })()}
+            {/* Redelegation counterparties: who this validator won stake from and
+                lost it to, both from data we index ourselves. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
-                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 8 }}>Won stake from</div>
+                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 10 }}>Won stake from</div>
                 {flow30d.topSources.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations in</div> :
                   flow30d.topSources.map((s) => (
-                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "0.75rem" }}>
+                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.75rem" }}>
                       <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
                       <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)" }}>+{fmt(s.amount)}</span>
                     </div>
                   ))}
               </div>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
-                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 8 }}>Lost stake to</div>
+                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 10 }}>Lost stake to</div>
                 {flow30d.topDestinations.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations out</div> :
                   flow30d.topDestinations.map((s) => (
-                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "0.75rem" }}>
+                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.75rem" }}>
                       <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
                       <span style={{ fontFamily: "var(--font-mono)", color: "var(--danger)" }}>-{fmt(s.amount)}</span>
                     </div>
@@ -669,10 +695,14 @@ export default function ValidatorDetailView({
           {/* History */}
           <section role="tabpanel" hidden={tab !== "history"}>
             {history.length < 2 ? (
-              <div style={{ fontSize: "0.75rem", opacity: 0.5, padding: "8px 0" }}>
-                Collecting daily snapshots since {history[0]?.date ?? "recently"}. Voting power and delegator
-                trends appear here once there are a few days of data, this history is recorded going forward and
-                can&apos;t be backfilled, so check back soon.
+              // flex:1 + centered so the empty state fills the stretched panel
+              // instead of leaving blank below it during the collecting window.
+              <div style={{ flex: "1 1 auto", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: "0.75rem", opacity: 0.5, padding: "8px 0", minHeight: 120 }}>
+                <span style={{ maxWidth: 420 }}>
+                  Collecting daily snapshots since {history[0]?.date ?? "recently"}. Voting power and delegator
+                  trends appear here once there are a few days of data, this history is recorded going forward and
+                  can&apos;t be backfilled, so check back soon.
+                </span>
               </div>
             ) : tab === "history" ? (
               // Mount the charts only when this tab is visible. Recharts sizes

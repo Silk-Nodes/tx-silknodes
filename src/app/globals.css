@@ -953,6 +953,10 @@ body {
 .link-plain:hover { color: var(--accent-olive); }
 
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
+/* The left rail is a compact identity + delegate card; the right column holds
+   a metrics band + the tabbed data and is naturally the taller of the two, so
+   the rail behaves as a normal short sticky sidebar (no forced fill, no dead
+   space). align-items:flex-start keeps each column its natural height. */
 .vd-layout { display: flex; gap: 20px; align-items: flex-start; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
    instead of forcing the whole page wider (no horizontal page scroll). */
@@ -1001,7 +1005,24 @@ body {
   display: flex; gap: 2px; overflow-x: auto;
   border-bottom: 1px solid var(--glass-border);
   margin-bottom: 16px;
+  /* Pin the tab bar under the floating nav pill (sticky at top:12px, ~64px
+     tall) so it stays visible while a long delegator/events table scrolls.
+     Opaque page background + padding so rows slide cleanly under a crisp edge. */
+  position: sticky;
+  top: 84px;
+  z-index: 20;
+  background: var(--bg-base);
+  padding-top: 8px;
 }
+
+@media (max-width: 860px) {
+  /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */
+  .vd-tabs { top: 56px; }
+}
+
+/* Stake-flow diverging bars. */
+.vd-flowbar-track { flex: 1; height: 20px; border-radius: 6px; background: rgba(120, 138, 85, 0.14); overflow: hidden; }
+.vd-flowbar-fill { height: 100%; border-radius: 6px; min-width: 2px; }
 .vd-tab {
   padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
   background: none; border: none; border-bottom: 2px solid transparent;
