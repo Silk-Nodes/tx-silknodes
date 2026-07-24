@@ -1028,9 +1028,16 @@ body {
   .vd-main > [role="tabpanel"]:not([hidden]) {
     flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
   }
+  /* vd-fill: children stretch to fill the panel (charts look better big). */
   .vd-fill { flex: 1 1 auto; min-height: 0; grid-auto-rows: 1fr; }
   .vd-hist-card { display: flex; flex-direction: column; }
   .vd-hist-chart { flex: 1 1 auto; min-height: 150px; }
+  /* vd-fill-center: the container fills the panel so the column still
+     bottom-aligns, but its cards keep their natural height and sit centered.
+     Used for the stake-flow cards, whose content is short: stretching them
+     leaves an empty void inside each card, centering keeps them compact with
+     balanced space above and below instead. */
+  .vd-fill-center { flex: 1 1 auto; min-height: 0; align-content: center; }
 }
 @media (max-width: 860px) {
   /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */

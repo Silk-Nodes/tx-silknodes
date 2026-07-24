@@ -539,7 +539,7 @@ export default function ValidatorDetailView({
                   : <>No stake currently unbonding</>}
               </span>
             </div>
-            <div className="vd-fill" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            <div className="vd-fill-center" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
                 {[
                   ["Delegated in", flow30d.delegatedIn, true],
