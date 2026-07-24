@@ -27,7 +27,7 @@ interface TopDelegator { address: string; amount: number; pct: number }
 interface ValidatorDetail {
   validator: {
     operatorAddress: string; consensusAddress: string; selfDelegateAddress: string;
-    moniker: string; identity: string; website: string; securityContact: string; details: string;
+    moniker: string; identity: string; avatarUrl: string; website: string; securityContact: string; details: string;
     tokens: number; votingPowerPct: number;
     rank: number | null; validatorCount: number | null; delegatorApr: number | null;
     commissionRate: number; commissionMaxRate: number; commissionMaxChangeRate: number;
@@ -40,6 +40,8 @@ interface ValidatorDetail {
   rewards: {
     outstandingPoolTx: number; commissionAccruedTx: number; estMonthlyCommissionTx: number | null;
   };
+  unbonding: { amountTx: number; walletCount: number };
+  delegatorFlow30d: { joined: number; reduced: number };
   uptime: {
     missedBlocks: number | null; signedBlocksWindow: number | null;
     uptimePct: number | null; tombstoned: boolean | null; jailedUntil: string | null;
@@ -299,7 +301,22 @@ export default function ValidatorDetailView({
         {/* ── LEFT: sticky validator card ─────────────────────────── */}
         <aside className="vd-rail">
           <div className="vd-card">
-            <h1 className="page-title" style={{ fontSize: "1.6rem", marginBottom: 6 }}>{v.moniker}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              {v.avatarUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={v.avatarUrl} alt="" width={38} height={38}
+                  style={{ borderRadius: 9, flexShrink: 0, objectFit: "cover" }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+              )}
+              <h1 className="page-title" style={{ fontSize: "1.5rem", margin: 0, lineHeight: 1.1 }}>
+                {v.moniker}
+                {v.avatarUrl && (
+                  <Tooltip text="Identity verified on Keybase">
+                    <span style={{ color: "var(--text-accent)", marginLeft: 6, fontSize: "0.85rem", cursor: "help" }}>&#10003;</span>
+                  </Tooltip>
+                )}
+              </h1>
+            </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
               <span style={{
                 fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
@@ -508,6 +525,20 @@ export default function ValidatorDetailView({
 
           {/* Stake Flow */}
           <section role="tabpanel" hidden={tab !== "flow"}>
+            {/* People + currently-leaving, complementing the TX flow below. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 24px", fontSize: "0.74rem", marginBottom: 12 }}>
+              <span>
+                <strong style={{ color: "var(--text-accent)" }}>{data.delegatorFlow30d.joined}</strong> wallets added
+                {" · "}
+                <strong style={{ color: "var(--danger)" }}>{data.delegatorFlow30d.reduced}</strong> reduced
+                <span style={{ opacity: 0.5 }}> (30d)</span>
+              </span>
+              <span style={{ opacity: data.unbonding.amountTx > 0 ? 1 : 0.55 }}>
+                {data.unbonding.amountTx > 0
+                  ? <>Currently unbonding: <strong style={{ color: "var(--danger)" }}>{fmt(data.unbonding.amountTx)} TX</strong> from {data.unbonding.walletCount} wallet{data.unbonding.walletCount === 1 ? "" : "s"}</>
+                  : <>No stake currently unbonding</>}
+              </span>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
                 {[

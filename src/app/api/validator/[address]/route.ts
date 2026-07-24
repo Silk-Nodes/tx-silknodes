@@ -119,6 +119,7 @@ export async function GET(
   const consensusAddress = info?.validator_info?.[0]?.consensus_address || "";
   const selfDelegateAddress = info?.validator_info?.[0]?.self_delegate_address || "";
   const commissionRate = Number(v.commission?.commission_rates?.rate ?? 0);
+  const identity = v.description?.identity || "";
 
   // Rank by voting power across the bonded set, and total bonded from the
   // same list (falls back to the pool endpoint if the set didn't load).
@@ -155,7 +156,7 @@ export async function GET(
     perTokenApr !== null && avgCommission !== null ? perTokenApr * (1 - avgCommission) : null;
 
   // ── uptime, delegators, self-bond, votes ──────────────────────────
-  const [signing, delegations, selfDel, votes, slashParams, commRes, outRes] = await Promise.all([
+  const [signing, delegations, selfDel, votes, slashParams, commRes, outRes, unbRes, kbRes] = await Promise.all([
     consensusAddress
       ? getJSON<{ val_signing_info: Record<string, any> }>(
           `${LCD}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`,
@@ -185,6 +186,15 @@ export async function GET(
     getJSON<{ rewards: { rewards: { denom: string; amount: string }[] } }>(
       `${LCD}/cosmos/distribution/v1beta1/validators/${address}/outstanding_rewards`,
     ),
+    getJSON<{ unbonding_responses: { entries: { balance: string }[] }[]; pagination: { total: string } }>(
+      `${LCD}/cosmos/staking/v1beta1/validators/${address}/unbonding_delegations?pagination.limit=500&pagination.count_total=true`,
+    ),
+    // Keybase avatar from the identity key. Best-effort, degrades to no avatar.
+    identity
+      ? getJSON<{ them: { pictures?: { primary?: { url?: string } } }[] }>(
+          `https://keybase.io/_/api/1.0/user/lookup.json?key_suffix=${encodeURIComponent(identity)}&fields=pictures`,
+        )
+      : Promise.resolve(null),
   ]);
 
   // Delegator concentration. The LCD caps us at 500 rows; for validators
@@ -220,6 +230,15 @@ export async function GET(
       ? (annualProvisions * (1 - communityTax) * (tokens / totalBonded) * commissionRate) / 12
       : null;
 
+  // Keybase avatar (may be absent) and the stake currently unbonding away.
+  const avatarUrl = kbRes?.them?.[0]?.pictures?.primary?.url || "";
+  const unbondingResponses = unbRes?.unbonding_responses || [];
+  const unbondingTx = unbondingResponses.reduce(
+    (s, r) => s + (r.entries || []).reduce((e, x) => e + toTX(x.balance), 0),
+    0,
+  );
+  const unbondingWallets = unbRes?.pagination?.total ? Number(unbRes.pagination.total) : unbondingResponses.length;
+
   // ── flows from Postgres ───────────────────────────────────────────
   let flow30d: Record<string, unknown> = {
     delegatedIn: 0, redelegatedIn: 0, undelegatedOut: 0, redelegatedOut: 0, net: 0,
@@ -227,6 +246,7 @@ export async function GET(
   };
   let history: unknown[] = [];
   let events: unknown[] = [];
+  let delegatorFlow = { joined: 0, reduced: 0 };
   try {
     const [totals] = await sequelize.query<{
       delegated_in: string; redelegated_in: string; undelegated_out: string; redelegated_out: string;
@@ -299,6 +319,23 @@ export async function GET(
        LIMIT :lim`,
       { replacements: { v: address, lim: EVENT_LIMIT }, type: QueryTypes.SELECT },
     );
+
+    // Delegator churn by wallet count (distinct wallets), not TX. "joined" =
+    // wallets that added stake here (delegate or redelegate in); "reduced" =
+    // wallets that pulled stake out (undelegate, or redelegate to elsewhere).
+    const [flow] = await sequelize.query<{ joined: string; reduced: string }>(
+      `SELECT
+         COUNT(DISTINCT delegator) FILTER (WHERE type IN ('delegate','redelegate') AND validator = :v) AS joined,
+         COUNT(DISTINCT delegator) FILTER (
+           WHERE (type = 'undelegate' AND validator = :v)
+              OR (type = 'redelegate' AND source_validator = :v)
+         ) AS reduced
+       FROM staking_events
+       WHERE (validator = :v OR source_validator = :v)
+         AND timestamp >= NOW() - (:days || ' days')::interval`,
+      { replacements: { v: address, days: FLOW_DAYS }, type: QueryTypes.SELECT },
+    );
+    delegatorFlow = { joined: Number(flow?.joined ?? 0), reduced: Number(flow?.reduced ?? 0) };
   } catch (err) {
     console.error("[validator] db section failed", err);
   }
@@ -310,6 +347,7 @@ export async function GET(
       selfDelegateAddress,
       moniker: v.description?.moniker || address.slice(0, 16),
       identity: v.description?.identity || "",
+      avatarUrl,
       website: v.description?.website || "",
       securityContact: v.description?.security_contact || "",
       details: v.description?.details || "",
@@ -338,6 +376,8 @@ export async function GET(
       commissionAccruedTx: commissionAccrued,
       estMonthlyCommissionTx: estMonthlyCommission,
     },
+    unbonding: { amountTx: unbondingTx, walletCount: unbondingWallets },
+    delegatorFlow30d: delegatorFlow,
     uptime: {
       missedBlocks: missed,
       signedBlocksWindow: window || null,
