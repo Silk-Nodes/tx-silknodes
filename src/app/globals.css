@@ -986,7 +986,7 @@ body {
   padding: 14px 16px;
   background: var(--glass-bg);
 }
-.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; }
+.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; }
 .vd-stat + .vd-stat { border-top: 1px solid var(--glass-border); }
 .vd-stat-label { font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
 .vd-stat-value { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; text-align: right; }

@@ -907,7 +907,12 @@ export default function HomePage() {
       </div>
 
       {/* ════════ SEO CONTENT (crawlable intro + FAQ + JSON-LD) ════════ */}
-      {proposalIdFromUrl === null && TAB_TO_SEO[activeTab] && (
+      {/* Only on the tab's landing view. Detail views (a proposal, a specific
+          validator, a wallet passport) carry their own metadata and content;
+          the tab-level SEO block below them is both off-topic and, on the
+          validator detail page, the extra content that dragged the sticky
+          card up when scrolled into. */}
+      {proposalIdFromUrl === null && !validatorFromUrl && !passportFromUrl && TAB_TO_SEO[activeTab] && (
         <SeoSection page={TAB_TO_SEO[activeTab]!} />
       )}
 

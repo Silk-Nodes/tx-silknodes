@@ -342,16 +342,17 @@ export default function ValidatorDetailView({
               )}
             </div>
           </div>
-
-          {v.details && (
-            <p style={{ fontSize: "0.72rem", opacity: 0.6, lineHeight: 1.6, marginTop: 12, padding: "0 2px" }}>
-              {v.details}
-            </p>
-          )}
         </aside>
 
         {/* ── RIGHT: tabbed data ──────────────────────────────────── */}
         <div className="vd-main">
+          {/* Description lives here, not in the sticky card, so the card stays
+              short enough to stay pinned through a long delegator list. */}
+          {v.details && (
+            <p style={{ fontSize: "0.76rem", opacity: 0.6, lineHeight: 1.6, marginBottom: 14 }}>
+              {v.details}
+            </p>
+          )}
           <div className="vd-tabs" role="tablist">
             {TABS.map((t) => (
               <button key={t.id} role="tab" aria-selected={tab === t.id}
