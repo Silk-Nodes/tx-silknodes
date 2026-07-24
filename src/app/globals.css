@@ -953,17 +953,14 @@ body {
 .link-plain:hover { color: var(--accent-olive); }
 
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
-/* align-items:stretch (not flex-start) lets the data column grow to the same
-   height as the sticky card, so the two columns bottom-align even on the thin
-   tabs (Stake Flow, History) instead of leaving dead space on the right. The
-   rail opts out with align-self:flex-start so it keeps its natural height and
-   stays pinned; only .vd-main stretches. */
-.vd-layout { display: flex; gap: 20px; align-items: stretch; }
+/* The left rail is a compact identity + delegate card; the right column holds
+   a metrics band + the tabbed data and is naturally the taller of the two, so
+   the rail behaves as a normal short sticky sidebar (no forced fill, no dead
+   space). align-items:flex-start keeps each column its natural height. */
+.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
-   instead of forcing the whole page wider (no horizontal page scroll).
-   flex column so the active tab panel can flex:1 and fill the stretched
-   height (see the fill rules below). */
-.vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+   instead of forcing the whole page wider (no horizontal page scroll). */
+.vd-main { flex: 1 1 0; min-width: 0; }
 /* Sticky rail. max-height + internal scroll so a card taller than the
    viewport still stays pinned (its own overflow scrolls) instead of getting
    cut off. The top nav scrolls with the page (not fixed), so top:16px is
@@ -978,8 +975,6 @@ body {
   top: 96px;
   max-height: calc(100vh - 112px);
   overflow-y: auto;
-  /* Keep the natural height + stay pinned while .vd-main stretches to match. */
-  align-self: flex-start;
 }
 /* Below 860px the rail can't stay narrow beside the data, so it stacks on
    top and goes static (a sticky full-width card would pin over the content).
@@ -1020,25 +1015,25 @@ body {
   padding-top: 8px;
 }
 
-/* Fill the data column to the sticky card's height (desktop only; below 861px
-   the rail stacks on top and there is nothing to bottom-align to). The active
-   panel grows, and the fill containers inside it (charts, flow cards) grow with
-   it so the space reads as intentional rather than blank. */
-@media (min-width: 861px) {
-  .vd-main > [role="tabpanel"]:not([hidden]) {
-    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
-  }
-  /* vd-fill: children stretch to fill the panel (charts look better big). */
-  .vd-fill { flex: 1 1 auto; min-height: 0; grid-auto-rows: 1fr; }
-  .vd-hist-card { display: flex; flex-direction: column; }
-  .vd-hist-chart { flex: 1 1 auto; min-height: 150px; }
-  /* vd-fill-center: the container fills the panel so the column still
-     bottom-aligns, but its cards keep their natural height and sit centered.
-     Used for the stake-flow cards, whose content is short: stretching them
-     leaves an empty void inside each card, centering keeps them compact with
-     balanced space above and below instead. */
-  .vd-fill-center { flex: 1 1 auto; min-height: 0; align-content: center; }
+/* Metrics band across the top of the data column: the operational stats that
+   used to crowd the identity card, now a compact hairline-divided grid. This
+   is what makes the right column the taller one so the rail reads as a normal
+   short sidebar. 1px gap over a border-coloured background paints the hairlines
+   between cells; the outer card supplies the border + rounding. */
+.vd-statband {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px;
+  background: var(--glass-border);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 14px;
 }
+.vd-statcell { background: var(--glass-bg); padding: 11px 14px; }
+.vd-statcell .vd-stat-label { display: block; margin-bottom: 3px; }
+.vd-statcell .vd-stat-value { text-align: left; font-size: 1.05rem; }
+.vd-statcell .vd-stat-sub { margin-top: 1px; }
 @media (max-width: 860px) {
   /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */
   .vd-tabs { top: 56px; }

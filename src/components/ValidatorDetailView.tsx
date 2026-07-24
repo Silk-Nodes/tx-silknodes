@@ -185,6 +185,17 @@ function StatRow({ label, value, sub, color }: { label: string; value: string; s
   );
 }
 
+// One cell of the metrics band atop the data column (label over value over sub).
+function StatCell({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div className="vd-statcell">
+      <span className="vd-stat-label">{label}</span>
+      <div className="vd-stat-value" style={color ? { color } : undefined}>{value}</div>
+      {sub && <div className="vd-stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
 interface WalletLike { connected: boolean; address: string }
 interface ValidatorDetailProps {
   address: string;
@@ -394,6 +405,10 @@ export default function ValidatorDetailView({
               )}
             </div>
 
+            {/* Left card keeps only the "why delegate" numbers next to the CTA;
+                the operational metrics live in the band atop the data column so
+                this card stays compact and shorter than the data (normal sticky
+                sidebar), instead of towering over the thin tabs. */}
             <StatRow label="Voting Power" value={`${fmt(v.tokens)} TX`} sub={`${v.votingPowerPct.toFixed(2)}% of bonded`} />
             <StatRow
               label="Delegator APR"
@@ -407,20 +422,6 @@ export default function ValidatorDetailView({
               sub={bench.avgCommission !== null
                 ? `avg ${bench.avgCommission.toFixed(1)}% · max ${(v.commissionMaxRate * 100).toFixed(0)}%`
                 : `max ${(v.commissionMaxRate * 100).toFixed(0)}% · ${(v.commissionMaxChangeRate * 100).toFixed(0)}%/day`}
-            />
-            <StatRow
-              label="Uptime"
-              value={uptime.uptimePct !== null ? `${uptime.uptimePct.toFixed(2)}%` : "n/a"}
-              sub={uptime.missedBlocks !== null && uptime.signedBlocksWindow ? `${uptime.missedBlocks.toLocaleString()} missed / ${uptime.signedBlocksWindow.toLocaleString()}` : undefined}
-              color={uptime.uptimePct !== null && uptime.uptimePct < 95 ? "var(--danger)" : undefined}
-            />
-            <StatRow label="Self Bonded" value={`${fmt(selfBond.amount)} TX`} sub={`${selfBond.pct.toFixed(2)}% of stake`} />
-            <StatRow label="Delegators" value={delegators.count.toLocaleString()} sub={delegators.truncated ? "top 500 shown" : "wallets"} />
-            <StatRow
-              label={`${FLOW_DAYS}d Net Flow`}
-              value={`${fmtFlow(flow30d.net)} TX`}
-              sub={flow30d.net > 0 ? "gaining" : flow30d.net < 0 ? "losing" : "flat"}
-              color={flow30d.net > 0 ? "var(--text-accent)" : flow30d.net < 0 ? "var(--danger)" : undefined}
             />
 
             {v.website && (
@@ -448,6 +449,25 @@ export default function ValidatorDetailView({
 
         {/* ── RIGHT: tabbed data ──────────────────────────────────── */}
         <div className="vd-main">
+          {/* Metrics band: the operational stats moved out of the identity card.
+              Makes the data column the taller one so the rail is a normal short
+              sidebar, and reads as a compact dashboard header. */}
+          <div className="vd-statband">
+            <StatCell
+              label="Uptime"
+              value={uptime.uptimePct !== null ? `${uptime.uptimePct.toFixed(2)}%` : "n/a"}
+              sub={uptime.missedBlocks !== null && uptime.signedBlocksWindow ? `${uptime.missedBlocks.toLocaleString()} missed / ${uptime.signedBlocksWindow.toLocaleString()}` : undefined}
+              color={uptime.uptimePct !== null && uptime.uptimePct < 95 ? "var(--danger)" : undefined}
+            />
+            <StatCell label="Self Bonded" value={`${fmt(selfBond.amount)} TX`} sub={`${selfBond.pct.toFixed(2)}% of stake`} />
+            <StatCell label="Delegators" value={delegators.count.toLocaleString()} sub={delegators.truncated ? "top 500 shown" : "wallets"} />
+            <StatCell
+              label={`${FLOW_DAYS}d Net Flow`}
+              value={`${fmtFlow(flow30d.net)} TX`}
+              sub={flow30d.net > 0 ? "gaining" : flow30d.net < 0 ? "losing" : "flat"}
+              color={flow30d.net > 0 ? "var(--text-accent)" : flow30d.net < 0 ? "var(--danger)" : undefined}
+            />
+          </div>
           {/* Description lives here, not in the sticky card, so the card stays
               short enough to stay pinned through a long delegator list. Wrapped
               in a bordered card so it reads as an intentional panel. */}
@@ -539,7 +559,7 @@ export default function ValidatorDetailView({
                   : <>No stake currently unbonding</>}
               </span>
             </div>
-            <div className="vd-fill-center" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               <div className="vd-card" style={{ padding: "14px 16px" }}>
                 {[
                   ["Delegated in", flow30d.delegatedIn, true],
@@ -686,7 +706,7 @@ export default function ValidatorDetailView({
                 <div style={{ fontSize: "0.66rem", opacity: 0.5, marginBottom: 10 }}>
                   {history.length} daily snapshots since {history[0].date}
                 </div>
-                <div className="vd-fill" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
                   <MiniHistoryChart
                     title="Voting Power"
                     data={history.map((h) => ({ date: h.date, value: Number(h.tokens) }))}
