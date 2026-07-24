@@ -824,7 +824,14 @@ export default function HomePage() {
 
         {activeTab === "validators" && (
           validatorFromUrl ? (
-            <ValidatorDetailView address={validatorFromUrl} />
+            <ValidatorDetailView
+              address={validatorFromUrl}
+              wallet={wallet}
+              delegate={delegate}
+              txPending={txPending}
+              txResult={txResult}
+              onConnectPrompt={() => setShowWalletModal(true)}
+            />
           ) : (
             <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} />
           )

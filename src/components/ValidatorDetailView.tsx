@@ -116,11 +116,47 @@ function StatRow({ label, value, sub, color }: { label: string; value: string; s
   );
 }
 
-export default function ValidatorDetailView({ address }: { address: string }) {
+interface WalletLike { connected: boolean; address: string }
+interface ValidatorDetailProps {
+  address: string;
+  wallet?: WalletLike;
+  delegate?: (validatorAddress: string, amount: number) => void | Promise<unknown>;
+  txPending?: boolean;
+  txResult?: { hash: string; type: string } | null;
+  onConnectPrompt?: () => void;
+}
+
+// Proposal id -> title, for the governance tab. The bare "#44 YES" chips left
+// most of the panel empty; joining titles turns it into a readable record.
+interface GovMeta { title: string }
+
+export default function ValidatorDetailView({
+  address, wallet, delegate, txPending, txResult, onConnectPrompt,
+}: ValidatorDetailProps) {
   const [data, setData] = useState<ValidatorDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("delegators");
+  const [showDelegate, setShowDelegate] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
+  const [totalProposals, setTotalProposals] = useState(0);
+
+  // Titles for the governance tab. One call, reused across every vote row.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/governance", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.proposals) return;
+        const map: Record<number, GovMeta> = {};
+        for (const p of d.proposals) map[p.id] = { title: p.title || `Proposal #${p.id}` };
+        setGovMeta(map);
+        setTotalProposals(d.proposals.length);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,9 +187,16 @@ export default function ValidatorDetailView({ address }: { address: string }) {
   const { validator: v, uptime, selfBond, delegators, flow30d, governance, history, events } = data;
   const active = v.status === "BOND_STATUS_BONDED" && !v.jailed;
   const isSilk = v.operatorAddress === SILK_NODES_VALIDATOR;
-  const keplrUrl =
-    "https://wallet.keplr.app/chains/coreum?modal=validator&chain=coreum-mainnet-1&validator_address=" +
-    v.operatorAddress;
+  // In-app delegation to THIS validator via the dashboard's own wallet flow,
+  // no external Keplr web page. delegate() is threaded down from the page's
+  // single wallet instance (the hook is per-instance local state).
+  const connected = Boolean(wallet?.connected);
+  const submitDelegate = () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0 || !delegate) return;
+    delegate(v.operatorAddress, amt);
+  };
+  const justDelegated = txResult?.type === "delegate";
 
   // Concentration strip: top-1 / next-4 / next-5 / everyone else.
   const c = delegators.concentration;
@@ -198,13 +241,61 @@ export default function ValidatorDetailView({ address }: { address: string }) {
               {v.rank && <span style={{ fontSize: "0.62rem", opacity: 0.6, fontFamily: "var(--font-mono)" }}>Rank #{v.rank}{v.validatorCount ? ` of ${v.validatorCount}` : ""}</span>}
             </div>
 
-            <button
-              onClick={() => window.open(keplrUrl, "_blank")}
-              className={`btn ${isSilk ? "primary" : ""}`}
-              style={{ width: "100%", marginTop: 0, marginBottom: 14, height: 40, fontSize: "0.78rem", fontWeight: 700 }}
-            >
-              Delegate{isSilk ? " to Silk Nodes" : ""}
-            </button>
+            {/* Delegate via the dashboard's own wallet flow. */}
+            <div style={{ marginBottom: 14 }}>
+              {!connected ? (
+                <button
+                  onClick={() => onConnectPrompt?.()}
+                  className={`btn ${isSilk ? "primary" : ""}`}
+                  style={{ width: "100%", marginTop: 0, height: 40, fontSize: "0.78rem", fontWeight: 700 }}
+                >
+                  Connect wallet to delegate
+                </button>
+              ) : justDelegated ? (
+                <div style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--link-color)", padding: "10px 0", fontWeight: 600 }}>
+                  Delegation submitted
+                </div>
+              ) : !showDelegate ? (
+                <button
+                  onClick={() => setShowDelegate(true)}
+                  className={`btn ${isSilk ? "primary" : ""}`}
+                  style={{ width: "100%", marginTop: 0, height: 40, fontSize: "0.78rem", fontWeight: 700 }}
+                >
+                  Delegate{isSilk ? " to Silk Nodes" : ""}
+                </button>
+              ) : (
+                <div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="number" inputMode="decimal" min="0" placeholder="Amount"
+                      value={amount} onChange={(e) => setAmount(e.target.value)}
+                      autoFocus
+                      style={{
+                        flex: 1, minWidth: 0, height: 40, padding: "0 10px", fontSize: "0.8rem",
+                        fontFamily: "var(--font-mono)", borderRadius: 8,
+                        border: "1px solid var(--glass-border)", background: "var(--glass-bg)", color: "var(--text-dark)",
+                      }}
+                    />
+                    <button
+                      onClick={submitDelegate}
+                      disabled={txPending || !amount}
+                      className="btn primary"
+                      style={{ marginTop: 0, height: 40, padding: "0 16px", fontSize: "0.75rem", fontWeight: 700, opacity: txPending || !amount ? 0.6 : 1 }}
+                    >
+                      {txPending ? "..." : "Confirm"}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setShowDelegate(false); setAmount(""); }}
+                    className="link-plain"
+                    style={{ background: "none", border: "none", fontSize: "0.62rem", opacity: 0.5, cursor: "pointer", marginTop: 6, padding: 0 }}
+                  >
+                    cancel
+                  </button>
+                  <span style={{ fontSize: "0.6rem", opacity: 0.4, marginLeft: 10 }}>TX will be staked to {v.moniker}</span>
+                </div>
+              )}
+            </div>
 
             <StatRow label="Voting Power" value={`${fmt(v.tokens)} TX`} sub={`${v.votingPowerPct.toFixed(2)}% of bonded`} />
             <StatRow label="Delegator APR" value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"} sub="+ PSE on top" color="var(--link-color)" />
@@ -225,9 +316,13 @@ export default function ValidatorDetailView({ address }: { address: string }) {
             />
 
             {v.website && (
-              <a href={v.website} target="_blank" rel="noopener noreferrer" className="link" style={{ display: "block", marginTop: 12, fontSize: "0.7rem" }}>
-                {v.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-              </a>
+              <div style={{ marginTop: 12 }}>
+                {/* inline-block so the hover underline hugs the text instead
+                    of stretching the full card width. */}
+                <a href={v.website} target="_blank" rel="noopener noreferrer" className="link" style={{ display: "inline-block", fontSize: "0.7rem" }}>
+                  {v.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                </a>
+              </div>
             )}
 
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--glass-border)" }}>
@@ -344,17 +439,45 @@ export default function ValidatorDetailView({ address }: { address: string }) {
           <section role="tabpanel" hidden={tab !== "governance"}>
             {governance.votes.length === 0 ? (
               <div style={{ fontSize: "0.78rem", opacity: 0.4 }}>No recorded votes.</div>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {governance.votes.map((g) => (
-                  <Link key={g.proposalId} href={`/governance/${g.proposalId}`} className={`link ${VOTE_CLASS[g.vote] || ""}`}
-                    style={{ fontSize: "0.68rem", fontFamily: "var(--font-mono)", padding: "4px 8px", borderRadius: 6, border: "1px solid var(--glass-border)" }}
-                    title={`Proposal #${g.proposalId}: ${g.vote}`}>
-                    #{g.proposalId} {g.vote === "NO_WITH_VETO" ? "VETO" : g.vote}
-                  </Link>
-                ))}
-              </div>
-            )}
+            ) : (() => {
+              const tally = governance.votes.reduce<Record<string, number>>((a, g) => { a[g.vote] = (a[g.vote] || 0) + 1; return a; }, {});
+              const pct = totalProposals > 0 ? Math.round((governance.votedCount / totalProposals) * 100) : null;
+              return (
+                <>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: "0.72rem", marginBottom: 14, opacity: 0.8 }}>
+                    <span><strong>{governance.votedCount}</strong>{totalProposals ? ` of ${totalProposals}` : ""} proposals voted{pct !== null ? ` (${pct}% participation)` : ""}</span>
+                    <span style={{ opacity: 0.5 }}>
+                      {tally.YES ? `${tally.YES} Yes` : ""}{tally.NO ? ` · ${tally.NO} No` : ""}
+                      {tally.ABSTAIN ? ` · ${tally.ABSTAIN} Abstain` : ""}{tally.NO_WITH_VETO ? ` · ${tally.NO_WITH_VETO} Veto` : ""}
+                    </span>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="data-table" style={{ minWidth: 460, width: "100%" }}>
+                      <thead>
+                        <tr><th style={{ textAlign: "left", width: 48 }}>#</th><th style={{ textAlign: "left" }}>Proposal</th><th style={{ textAlign: "right" }}>Vote</th></tr>
+                      </thead>
+                      <tbody>
+                        {governance.votes.map((g) => (
+                          <tr key={g.proposalId}>
+                            <td style={{ opacity: 0.5, fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{g.proposalId}</td>
+                            <td>
+                              <Link href={`/governance/${g.proposalId}`} className="link" style={{ fontSize: "0.76rem" }}>
+                                {govMeta[g.proposalId]?.title || `Proposal #${g.proposalId}`}
+                              </Link>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <span className={VOTE_CLASS[g.vote] || ""} style={{ fontSize: "0.66rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                                {g.vote === "NO_WITH_VETO" ? "VETO" : g.vote}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              );
+            })()}
           </section>
 
           {/* Events */}

@@ -157,8 +157,11 @@ export async function GET(
         )
       : Promise.resolve(null),
     selfDelegateAddress
-      ? hasura<{ proposal_vote: { proposal_id: number; option: string }[] }>(
-          `query($v:String!){ proposal_vote(where:{voter_address:{_eq:$v}}, order_by:{proposal_id:desc}){ proposal_id option } }`,
+      ? hasura<{ proposal_vote: { proposal_id: number; option: string; height: number }[] }>(
+          // Ordered by height desc so that when a validator changed its vote
+          // (the chain keeps both rows), the first row seen per proposal is
+          // the latest, current vote. Deduped below.
+          `query($v:String!){ proposal_vote(where:{voter_address:{_eq:$v}}, order_by:{height:desc}){ proposal_id option height } }`,
           { v: selfDelegateAddress },
         )
       : Promise.resolve(null),
@@ -316,13 +319,18 @@ export async function GET(
     flowWindowDays: FLOW_DAYS,
     events,
     eventMinTx: EVENT_MIN_TX,
-    governance: {
-      votedCount: votes?.proposal_vote?.length ?? 0,
-      votes: (votes?.proposal_vote || []).map((x) => ({
-        proposalId: x.proposal_id,
-        vote: VOTE_LABEL[x.option] || "UNKNOWN",
-      })),
-    },
+    governance: (() => {
+      // Dedupe to one (latest) vote per proposal, then order newest-first.
+      const seen = new Set<number>();
+      const deduped: { proposalId: number; vote: string }[] = [];
+      for (const x of votes?.proposal_vote || []) {
+        if (seen.has(x.proposal_id)) continue; // height-desc, so first = latest
+        seen.add(x.proposal_id);
+        deduped.push({ proposalId: x.proposal_id, vote: VOTE_LABEL[x.option] || "UNKNOWN" });
+      }
+      deduped.sort((a, b) => b.proposalId - a.proposalId);
+      return { votedCount: deduped.length, votes: deduped };
+    })(),
     history,
   });
 }
