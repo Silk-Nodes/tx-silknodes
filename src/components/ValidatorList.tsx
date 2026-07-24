@@ -4,6 +4,7 @@
 const BASE_PATH = "";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
 import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
 import { useValidatorFlows } from "@/hooks/useValidatorFlows";
@@ -447,7 +448,9 @@ export default function ValidatorList({
                   <td style={{ color: "var(--ink-muted)", textAlign: "center", fontSize: "0.75rem" }}>{globalIndex + 1}</td>
                   <td>
                     <div style={{ fontWeight: isSilk ? 700 : 500, fontSize: "0.85rem" }}>
-                      {v.moniker}
+                      <Link href={`/validators/${v.operatorAddress}`} className="link-plain">
+                        {v.moniker}
+                      </Link>
                       {isSilk && <span className="silk-badge">Our Node</span>}
                     </div>
                     {v.website && (

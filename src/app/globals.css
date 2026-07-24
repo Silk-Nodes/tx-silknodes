@@ -930,6 +930,91 @@ body {
   object-fit: cover;
 }
 
+/* Inline text link.
+   Without this, `className="link"` matched nothing and anchors fell back to
+   the browser default blue/purple, which is off-palette in light mode and
+   nearly unreadable on the dark theme (and :visited turned them violet).
+   Themed via --accent-olive so it flips with the theme like everything else. */
+/* Inline text link, using the app's canonical link colour (--text-accent),
+   the same token the governance and passport pages use, so links look
+   identical across the app. */
+.link {
+  color: var(--text-accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.link:visited { color: var(--text-accent); }
+.link:hover { color: var(--text-dark); border-bottom-color: currentColor; }
+/* Opt-out for links that inherit a parent's colour (e.g. a validator name
+   inside an already-styled table cell). */
+.link-plain { color: inherit; text-decoration: none; }
+.link-plain:visited { color: inherit; }
+.link-plain:hover { color: var(--accent-olive); }
+
+/* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
+.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
+/* min-width:0 lets the main column's tables shrink and scroll internally
+   instead of forcing the whole page wider (no horizontal page scroll). */
+.vd-main { flex: 1 1 0; min-width: 0; }
+/* Sticky rail. max-height + internal scroll so a card taller than the
+   viewport still stays pinned (its own overflow scrolls) instead of getting
+   cut off. The top nav scrolls with the page (not fixed), so top:16px is
+   safe. */
+.vd-rail {
+  flex: 0 0 320px;
+  position: sticky;
+  /* The top nav is itself position:sticky (~70px tall when pinned), so the
+     rail must sit below it, otherwise the card's top slides under the bar.
+     max-height reserves that space too, so a tall card scrolls internally
+     rather than overflowing past the viewport. */
+  top: 96px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+/* Below 860px the rail can't stay narrow beside the data, so it stacks on
+   top and goes static (a sticky full-width card would pin over the content).
+   Also drop the max-height so the stacked card shows in full. */
+@media (max-width: 860px) {
+  .vd-layout { flex-direction: column; }
+  .vd-rail { position: static; flex-basis: auto; width: 100%; max-height: none; overflow-y: visible; }
+  /* Stacked column: flex:1 1 0 sizes the main column's HEIGHT, not its width,
+     so a wide child (a table's min-content, the tab bar) can push it past the
+     viewport and get clipped. Pin it to the container width and let its own
+     overflow-x:auto children (tables, .vd-tabs) scroll internally. */
+  .vd-main { width: 100%; min-width: 0; }
+}
+
+.vd-card {
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--glass-bg);
+}
+.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; }
+.vd-stat + .vd-stat { border-top: 1px solid var(--glass-border); }
+.vd-stat-label { font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
+.vd-stat-value { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; text-align: right; }
+.vd-stat-sub { font-size: 0.58rem; opacity: 0.45; }
+
+.vd-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 16px;
+}
+.vd-tab {
+  padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-medium); cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease;
+}
+.vd-tab:hover { color: var(--text-dark); }
+.vd-tab.active { color: var(--text-dark); border-bottom-color: var(--accent-olive); }
+.vd-tab-count { opacity: 0.5; font-weight: 500; }
+
+/* Concentration bar: top-1 / next-4 / next-5 / rest of stake as one strip. */
+.vd-conc-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: rgba(120,138,85,0.12); }
+.vd-conc-seg { height: 100%; }
+
 /* New borderless brand mark: the >< chevron, icon-first before the wordmark.
    Primary stroke follows the text colour (flips per theme); the accent stroke
    uses --brand-accent so the "<" half stays lime/olive in every theme. */
