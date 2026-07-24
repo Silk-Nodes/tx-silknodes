@@ -974,6 +974,50 @@ body {
 .vote-abstain { color: var(--vote-abstain); }
 .vote-veto { color: var(--vote-veto); }
 
+/* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
+.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
+/* min-width:0 lets the main column's tables shrink and scroll internally
+   instead of forcing the whole page wider (no horizontal page scroll). */
+.vd-main { flex: 1 1 0; min-width: 0; }
+.vd-rail { flex: 0 0 336px; position: sticky; top: 16px; }
+/* The top nav scrolls with the page (not fixed), so top:16px is safe. Below
+   860px the rail can't stay narrow beside the data, so it stacks on top and
+   goes static (sticky + full width would pin the whole card over content). */
+@media (max-width: 860px) {
+  .vd-layout { flex-direction: column; }
+  .vd-rail { position: static; flex-basis: auto; width: 100%; }
+}
+
+.vd-card {
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--glass-bg);
+}
+.vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; }
+.vd-stat + .vd-stat { border-top: 1px solid var(--glass-border); }
+.vd-stat-label { font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
+.vd-stat-value { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; text-align: right; }
+.vd-stat-sub { font-size: 0.58rem; opacity: 0.45; }
+
+.vd-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 16px;
+}
+.vd-tab {
+  padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-medium); cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease;
+}
+.vd-tab:hover { color: var(--text-dark); }
+.vd-tab.active { color: var(--text-dark); border-bottom-color: var(--accent-olive); }
+.vd-tab-count { opacity: 0.5; font-weight: 500; }
+
+/* Concentration bar: top-1 / next-4 / next-5 / rest of stake as one strip. */
+.vd-conc-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: rgba(120,138,85,0.12); }
+.vd-conc-seg { height: 100%; }
+
 /* New borderless brand mark: the >< chevron, icon-first before the wordmark.
    Primary stroke follows the text colour (flips per theme); the accent stroke
    uses --brand-accent so the "<" half stays lime/olive in every theme. */

@@ -94,13 +94,21 @@ export async function GET(
   }
 
   // ── live chain state ──────────────────────────────────────────────
-  const [vRes, poolRes, info] = await Promise.all([
+  // The bonded set is fetched to rank this validator and to derive total
+  // bonded, and the mint/distribution params give the delegator APR. All
+  // parallel; each degrades independently.
+  const [vRes, poolRes, info, setRes, provRes, distRes] = await Promise.all([
     getJSON<{ validator: Record<string, any> }>(`${LCD}/cosmos/staking/v1beta1/validators/${address}`),
     getJSON<{ pool: { bonded_tokens: string } }>(`${LCD}/cosmos/staking/v1beta1/pool`),
     hasura<{ validator_info: { consensus_address: string; self_delegate_address: string }[] }>(
       `query($v:String!){ validator_info(where:{operator_address:{_eq:$v}}){ consensus_address self_delegate_address } }`,
       { v: address },
     ),
+    getJSON<{ validators: { operator_address: string; tokens: string }[] }>(
+      `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
+    ),
+    getJSON<{ annual_provisions: string }>(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
+    getJSON<{ params: { community_tax: string } }>(`${LCD}/cosmos/distribution/v1beta1/params`),
   ]);
 
   if (!vRes?.validator) {
@@ -108,9 +116,30 @@ export async function GET(
   }
   const v = vRes.validator;
   const tokens = toTX(v.tokens);
-  const totalBonded = toTX(poolRes?.pool?.bonded_tokens);
   const consensusAddress = info?.validator_info?.[0]?.consensus_address || "";
   const selfDelegateAddress = info?.validator_info?.[0]?.self_delegate_address || "";
+  const commissionRate = Number(v.commission?.commission_rates?.rate ?? 0);
+
+  // Rank by voting power across the bonded set, and total bonded from the
+  // same list (falls back to the pool endpoint if the set didn't load).
+  const setSorted = (setRes?.validators || [])
+    .map((x) => ({ op: x.operator_address, t: toTX(x.tokens) }))
+    .sort((a, b) => b.t - a.t);
+  const rank = setSorted.findIndex((x) => x.op === address) + 1; // 0 -> unknown
+  const validatorCount = setSorted.length;
+  const totalBonded = setSorted.length
+    ? setSorted.reduce((s, x) => s + x.t, 0)
+    : toTX(poolRes?.pool?.bonded_tokens);
+
+  // Delegator APR: the per-token reward rate (annual provisions net of
+  // community tax, over total bonded) times this validator's take-home
+  // share (1 - commission). This is base staking APR, PSE is on top.
+  const annualProvisions = toTX(provRes?.annual_provisions);
+  const communityTax = Number(distRes?.params?.community_tax ?? 0);
+  const delegatorApr =
+    totalBonded > 0 && annualProvisions > 0
+      ? (annualProvisions * (1 - communityTax) / totalBonded) * (1 - commissionRate) * 100
+      : null;
 
   // ── uptime, delegators, self-bond, votes ──────────────────────────
   const [signing, delegations, selfDel, votes, slashParams] = await Promise.all([
@@ -249,7 +278,10 @@ export async function GET(
       details: v.description?.details || "",
       tokens,
       votingPowerPct: totalBonded > 0 ? (tokens / totalBonded) * 100 : 0,
-      commissionRate: Number(v.commission?.commission_rates?.rate ?? 0),
+      rank: rank > 0 ? rank : null,
+      validatorCount: validatorCount || null,
+      delegatorApr,
+      commissionRate,
       commissionMaxRate: Number(v.commission?.commission_rates?.max_rate ?? 0),
       commissionMaxChangeRate: Number(v.commission?.commission_rates?.max_change_rate ?? 0),
       commissionUpdatedAt: v.commission?.update_time || "",
