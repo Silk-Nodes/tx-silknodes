@@ -79,6 +79,38 @@ const VOTE_CLASS: Record<string, string> = {
   NO_WITH_VETO: "vote-veto",
 };
 
+// A labelled address with click-to-copy. Full value stays in the DOM (so
+// it's selectable and copyable), but the display is middle-truncated so the
+// identifier row doesn't wrap or blow out the header on mobile.
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    }).catch(() => {});
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: "0.68rem", lineHeight: 1.7 }}>
+      <span style={{ opacity: 0.4, minWidth: 88, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.58rem" }}>
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={copy}
+        title={`Copy ${value}`}
+        className="link-plain"
+        style={{
+          fontFamily: "var(--font-mono)", fontSize: "0.68rem", cursor: "pointer",
+          background: "none", border: "none", padding: 0, textAlign: "left",
+        }}
+      >
+        {short(value)} <span style={{ opacity: 0.5 }}>{copied ? "copied" : "copy"}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function ValidatorDetailView({ address }: { address: string }) {
   const [data, setData] = useState<ValidatorDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,6 +188,28 @@ export default function ValidatorDetailView({ address }: { address: string }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Identifiers next to the name: operator + self-delegate addresses
+          (click to copy), self-delegation floor, and when commission last
+          changed. Previously buried at the bottom of the page. */}
+      <div style={{ margin: "10px 0 16px", padding: "10px 14px", borderRadius: 8, background: "var(--panel-subtle, rgba(120,138,85,0.06))", maxWidth: 520 }}>
+        <CopyRow label="Operator" value={v.operatorAddress} />
+        {v.selfDelegateAddress && <CopyRow label="Self-delegate" value={v.selfDelegateAddress} />}
+        <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", lineHeight: 1.7 }}>
+          <span style={{ opacity: 0.4, minWidth: 88, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.58rem" }}>
+            Min self-del
+          </span>
+          <span style={{ fontFamily: "var(--font-mono)" }}>{fmt(v.minSelfDelegation)} TX</span>
+        </div>
+        {v.commissionUpdatedAt && (
+          <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", lineHeight: 1.7 }}>
+            <span style={{ opacity: 0.4, minWidth: 88, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.58rem" }}>
+              Comm. changed
+            </span>
+            <span style={{ fontFamily: "var(--font-mono)" }}>{v.commissionUpdatedAt.slice(0, 10)}</span>
+          </div>
+        )}
       </div>
 
       {v.details && (
@@ -383,14 +437,6 @@ export default function ValidatorDetailView({ address }: { address: string }) {
           {history.length} daily snapshots since {history[0].date}.
         </div>
       )}
-
-      {/* ── addresses ────────────────────────────────────────────── */}
-      <div style={{ marginTop: 26, fontSize: "0.62rem", opacity: 0.35, lineHeight: 1.8, wordBreak: "break-all" }}>
-        <div>Operator: {v.operatorAddress}</div>
-        {v.selfDelegateAddress && <div>Self-delegate: {v.selfDelegateAddress}</div>}
-        <div>Min self delegation: {fmt(v.minSelfDelegation)} TX</div>
-        {v.commissionUpdatedAt && <div>Commission last changed: {v.commissionUpdatedAt.slice(0, 10)}</div>}
-      </div>
     </div>
   );
 }
