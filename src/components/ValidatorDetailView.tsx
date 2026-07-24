@@ -85,14 +85,15 @@ function fmtFlow(n: number): string {
 }
 const short = (a: string) => (a ? `${a.slice(0, 12)}...${a.slice(-6)}` : "");
 
-// Reuse the app's own governance vote styling (yes -> --text-accent,
-// no -> --accent-orange, veto -> --danger, abstain -> --text-light) so votes
-// look identical to the governance page, not a parallel colour system.
-const VOTE_CLASS: Record<string, string> = {
-  YES: "gov-mini-label vote-yes",
-  NO: "gov-mini-label vote-no",
-  ABSTAIN: "gov-mini-label vote-abstain",
-  NO_WITH_VETO: "gov-mini-label vote-veto",
+// Vote colours from the app's theme tokens (all theme-aware, all readable):
+// yes -> accent, no/veto -> danger, abstain -> muted. Inline rather than the
+// .gov-mini-label classes, whose --accent-orange "no" is tuned for a tinted
+// chip and only reaches 1.5:1 as plain text on the cream background.
+const VOTE_COLOR: Record<string, string> = {
+  YES: "var(--text-accent)",
+  NO: "var(--danger)",
+  ABSTAIN: "var(--text-light)",
+  NO_WITH_VETO: "var(--danger)",
 };
 
 // A labelled address with click-to-copy. Full value stays in the DOM (so it's
@@ -578,7 +579,7 @@ export default function ValidatorDetailView({
                               </Link>
                             </td>
                             <td style={{ textAlign: "right" }}>
-                              <span className={VOTE_CLASS[g.vote] || ""} style={{ fontSize: "0.66rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                              <span style={{ fontSize: "0.66rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: VOTE_COLOR[g.vote] || "var(--text-dark)" }}>
                                 {g.vote === "NO_WITH_VETO" ? "VETO" : g.vote}
                               </span>
                             </td>
