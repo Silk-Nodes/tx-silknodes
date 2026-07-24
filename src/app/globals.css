@@ -1015,29 +1015,14 @@ body {
   padding-top: 8px;
 }
 
-/* Metrics band across the top of the data column: the operational stats that
-   used to crowd the identity card, now a compact hairline-divided grid. This
-   is what makes the right column the taller one so the rail reads as a normal
-   short sidebar. 1px gap over a border-coloured background paints the hairlines
-   between cells; the outer card supplies the border + rounding. */
-.vd-statband {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 1px;
-  background: var(--glass-border);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-.vd-statcell { background: var(--glass-bg); padding: 11px 14px; }
-.vd-statcell .vd-stat-label { display: block; margin-bottom: 3px; }
-.vd-statcell .vd-stat-value { text-align: left; font-size: 1.05rem; }
-.vd-statcell .vd-stat-sub { margin-top: 1px; }
 @media (max-width: 860px) {
   /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */
   .vd-tabs { top: 56px; }
 }
+
+/* Stake-flow diverging bars. */
+.vd-flowbar-track { flex: 1; height: 20px; border-radius: 6px; background: rgba(120, 138, 85, 0.14); overflow: hidden; }
+.vd-flowbar-fill { height: 100%; border-radius: 6px; min-width: 2px; }
 .vd-tab {
   padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
   background: none; border: none; border-bottom: 2px solid transparent;
