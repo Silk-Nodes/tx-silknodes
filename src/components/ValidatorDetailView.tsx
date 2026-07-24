@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
 import { SILK_NODES_VALIDATOR } from "@/lib/chain-config";
 
 const FLOW_DAYS = 30;
@@ -113,6 +114,57 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", cursor: "pointer", background: "none", border: "none", padding: 0, textAlign: "left" }}>
         {short(value)} <span style={{ opacity: 0.5 }}>{copied ? "copied" : "copy"}</span>
       </button>
+    </div>
+  );
+}
+
+// Compact area chart for the History tab. Colours use the app's --text-accent
+// via SVG var() so it flips with the theme. Formatter controls the axis/tooltip.
+function MiniHistoryChart({
+  title, data, format,
+}: {
+  title: string;
+  data: { date: string; value: number }[];
+  format: (n: number) => string;
+}) {
+  const gid = `vd-hist-${title.replace(/\s+/g, "")}`;
+  return (
+    <div className="vd-card" style={{ padding: "12px 14px" }}>
+      <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.55, marginBottom: 8 }}>
+        {title}
+        <span style={{ float: "right", fontFamily: "var(--font-mono)", opacity: 0.8 }}>{format(data[data.length - 1].value)}</span>
+      </div>
+      <div style={{ width: "100%", height: 130 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--text-accent)" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="var(--text-accent)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 4" stroke="var(--glass-border)" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(d: string) => { const dt = new Date(d + "T00:00:00"); return `${dt.getMonth() + 1}/${dt.getDate()}`; }}
+              tick={{ fill: "var(--text-light)", fontSize: 9, fontFamily: "var(--font-mono)" }}
+              axisLine={false} tickLine={false} minTickGap={24} dy={4}
+            />
+            <YAxis
+              tickFormatter={format}
+              tick={{ fill: "var(--text-light)", fontSize: 9, fontFamily: "var(--font-mono)" }}
+              axisLine={false} tickLine={false} width={46} tickCount={3} domain={["auto", "auto"]}
+            />
+            <RTooltip
+              contentStyle={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", borderRadius: 8, fontSize: 11 }}
+              labelFormatter={(d: string) => d}
+              formatter={(v: number) => [format(v), title]}
+            />
+            <Area type="monotone" dataKey="value" stroke="var(--text-accent)" strokeWidth={2}
+              fill={`url(#${gid})`} dot={{ r: 2 }} animationDuration={500} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -582,13 +634,35 @@ export default function ValidatorDetailView({
           {/* History */}
           <section role="tabpanel" hidden={tab !== "history"}>
             {history.length < 2 ? (
-              <div style={{ fontSize: "0.75rem", opacity: 0.45 }}>
-                Daily snapshots started {history[0]?.date ?? "recently"}. Voting power and delegator history
-                will appear here as data accumulates.
+              <div style={{ fontSize: "0.75rem", opacity: 0.5, padding: "8px 0" }}>
+                Collecting daily snapshots since {history[0]?.date ?? "recently"}. Voting power and delegator
+                trends appear here once there are a few days of data, this history is recorded going forward and
+                can&apos;t be backfilled, so check back soon.
               </div>
-            ) : (
-              <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{history.length} daily snapshots since {history[0].date}.</div>
-            )}
+            ) : tab === "history" ? (
+              // Mount the charts only when this tab is visible. Recharts sizes
+              // to its container, and a chart in a display:none panel measures
+              // 0x0 and draws nothing. Charts carry no SEO text, so lazy is fine.
+              <>
+                <div style={{ fontSize: "0.66rem", opacity: 0.5, marginBottom: 10 }}>
+                  {history.length} daily snapshots since {history[0].date}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                  <MiniHistoryChart
+                    title="Voting Power"
+                    data={history.map((h) => ({ date: h.date, value: Number(h.tokens) }))}
+                    format={(n) => `${fmt(n)}`}
+                  />
+                  {history.some((h) => h.delegatorCount != null) && (
+                    <MiniHistoryChart
+                      title="Delegators"
+                      data={history.filter((h) => h.delegatorCount != null).map((h) => ({ date: h.date, value: h.delegatorCount as number }))}
+                      format={(n) => n.toLocaleString()}
+                    />
+                  )}
+                </div>
+              </>
+            ) : null}
           </section>
         </div>
       </div>
