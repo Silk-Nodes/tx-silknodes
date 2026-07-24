@@ -347,11 +347,14 @@ export default function ValidatorDetailView({
         {/* ── RIGHT: tabbed data ──────────────────────────────────── */}
         <div className="vd-main">
           {/* Description lives here, not in the sticky card, so the card stays
-              short enough to stay pinned through a long delegator list. */}
+              short enough to stay pinned through a long delegator list. Wrapped
+              in a bordered card so it reads as an intentional panel. */}
           {v.details && (
-            <p style={{ fontSize: "0.76rem", opacity: 0.6, lineHeight: 1.6, marginBottom: 14 }}>
-              {v.details}
-            </p>
+            <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14 }}>
+              <p style={{ fontSize: "0.8rem", opacity: 0.78, lineHeight: 1.6, margin: 0 }}>
+                {v.details}
+              </p>
+            </div>
           )}
           <div className="vd-tabs" role="tablist">
             {TABS.map((t) => (
@@ -400,7 +403,7 @@ export default function ValidatorDetailView({
           {/* Stake Flow */}
           <section role="tabpanel" hidden={tab !== "flow"}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-              <div className="chart-card" style={{ padding: "14px 16px" }}>
+              <div className="vd-card" style={{ padding: "14px 16px" }}>
                 {[
                   ["Delegated in", flow30d.delegatedIn, true],
                   ["Redelegated in", flow30d.redelegatedIn, true],
@@ -419,7 +422,7 @@ export default function ValidatorDetailView({
                   <span style={{ fontFamily: "var(--font-mono)", color: flow30d.net >= 0 ? "var(--text-accent)" : "var(--danger)" }}>{fmtFlow(flow30d.net)} TX</span>
                 </div>
               </div>
-              <div className="chart-card" style={{ padding: "14px 16px" }}>
+              <div className="vd-card" style={{ padding: "14px 16px" }}>
                 <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 8 }}>Won stake from</div>
                 {flow30d.topSources.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations in</div> :
                   flow30d.topSources.map((s) => (
@@ -429,7 +432,7 @@ export default function ValidatorDetailView({
                     </div>
                   ))}
               </div>
-              <div className="chart-card" style={{ padding: "14px 16px" }}>
+              <div className="vd-card" style={{ padding: "14px 16px" }}>
                 <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 8 }}>Lost stake to</div>
                 {flow30d.topDestinations.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations out</div> :
                   flow30d.topDestinations.map((s) => (
