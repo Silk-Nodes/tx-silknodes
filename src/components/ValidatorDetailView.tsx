@@ -444,21 +444,22 @@ export default function ValidatorDetailView({
               )}
             </div>
           </div>
-        </aside>
 
-        {/* ── RIGHT: tabbed data ──────────────────────────────────── */}
-        <div className="vd-main">
-          {/* Description lives here, not in the sticky card, so the card stays
-              short enough to stay pinned through a long delegator list. Wrapped
-              in a bordered card so it reads as an intentional panel. */}
+          {/* The operator's own description sits under the profile card, in the
+              rail: it is identity, not data, and putting it here uses the rail's
+              spare height while letting the data column start at the economics
+              strip, so the two columns end up closer to the same height. */}
           {v.details && (
-            <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14 }}>
-              <p style={{ fontSize: "0.8rem", opacity: 0.78, lineHeight: 1.6, margin: 0 }}>
+            <div className="vd-card" style={{ padding: "12px 16px", marginTop: 12 }}>
+              <p style={{ fontSize: "0.76rem", opacity: 0.75, lineHeight: 1.6, margin: 0 }}>
                 {v.details}
               </p>
             </div>
           )}
+        </aside>
 
+        {/* ── RIGHT: tabbed data ──────────────────────────────────── */}
+        <div className="vd-main">
           {/* Operator economics: kept in the data column, not the sticky card,
               so the card stays lean. Label + value only; the explanation lives
               in a hover tooltip to keep the strip minimal. */}
@@ -585,26 +586,36 @@ export default function ValidatorDetailView({
             {/* Redelegation counterparties: who this validator won stake from and
                 lost it to, both from data we index ourselves. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-              <div className="vd-card" style={{ padding: "14px 16px" }}>
-                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 10 }}>Won stake from</div>
-                {flow30d.topSources.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations in</div> :
-                  flow30d.topSources.map((s) => (
-                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.75rem" }}>
-                      <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-accent)" }}>+{fmt(s.amount)}</span>
-                    </div>
-                  ))}
-              </div>
-              <div className="vd-card" style={{ padding: "14px 16px" }}>
-                <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 10 }}>Lost stake to</div>
-                {flow30d.topDestinations.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>No redelegations out</div> :
-                  flow30d.topDestinations.map((s) => (
-                    <div key={s.address} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "0.75rem" }}>
-                      <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85 }}>{s.moniker || short(s.address)}</Link>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--danger)" }}>-{fmt(s.amount)}</span>
-                    </div>
-                  ))}
-              </div>
+              {([
+                ["Won stake from", flow30d.topSources, true, "No redelegations in"],
+                ["Lost stake to", flow30d.topDestinations, false, "No redelegations out"],
+              ] as [string, Counterparty[], boolean, string][]).map(([title, list, inflow, empty]) => {
+                // Each row carries a proportional bar so the relative size of a
+                // counterparty is readable at a glance, in the same visual
+                // language as the flow chart above.
+                const top = Math.max(...list.map((s) => s.amount), 1);
+                return (
+                  <div key={title} className="vd-card" style={{ padding: "14px 16px" }}>
+                    <div style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.45, marginBottom: 10 }}>{title}</div>
+                    {list.length === 0 ? <div style={{ fontSize: "0.72rem", opacity: 0.35 }}>{empty}</div> :
+                      list.map((s) => (
+                        <div key={s.address} style={{ padding: "5px 0" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: "0.75rem", marginBottom: 4 }}>
+                            <Link href={`/validators/${s.address}`} className="link" style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {s.moniker || short(s.address)}
+                            </Link>
+                            <span style={{ fontFamily: "var(--font-mono)", flexShrink: 0, color: inflow ? "var(--text-accent)" : "var(--danger)" }}>
+                              {inflow ? "+" : "-"}{fmt(s.amount)}
+                            </span>
+                          </div>
+                          <div className="vd-flowbar-track" style={{ height: 6 }}>
+                            <div className="vd-flowbar-fill" style={{ width: `${Math.max((s.amount / top) * 100, 2)}%`, background: inflow ? "var(--text-accent)" : "var(--danger)" }} />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                );
+              })}
             </div>
           </section>
 
@@ -712,7 +723,10 @@ export default function ValidatorDetailView({
                 <div style={{ fontSize: "0.66rem", opacity: 0.5, marginBottom: 10 }}>
                   {history.length} daily snapshots since {history[0].date}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                {/* Stacked full width rather than side by side: a time series
+                    reads better wide, the charts get materially bigger, and the
+                    tab fills out to roughly the height of the profile rail. */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
                   <MiniHistoryChart
                     title="Voting Power"
                     data={history.map((h) => ({ date: h.date, value: Number(h.tokens) }))}

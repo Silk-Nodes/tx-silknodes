@@ -73,10 +73,20 @@ const nextConfig: NextConfig = {
     // beforeFiles so the proxy wins over the local (DB-less) API route,
     // which would otherwise handle the request and 500.
     return {
-      beforeFiles: paths.map((p) => ({
-        source: `/api/${p}`,
-        destination: `${root}/api/${p}`,
-      })),
+      beforeFiles: [
+        ...paths.map((p) => ({
+          source: `/api/${p}`,
+          destination: `${root}/api/${p}`,
+        })),
+        // Validator detail is a dynamic route, so it needs its own param
+        // rewrite. Without it the stake-flow, history and events sections
+        // render empty locally (they read the VM's Postgres) and layout work
+        // has to be judged against placeholder-free panels.
+        {
+          source: "/api/validator/:address",
+          destination: `${root}/api/validator/:address`,
+        },
+      ],
     };
   },
   // Cache policy. Prerendered HTML was served with a 1-year s-maxage and
