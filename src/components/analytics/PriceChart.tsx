@@ -29,8 +29,33 @@ function todayUTC(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+// Days between consecutive points, UTC.
+function daysBetween(a: string, b: string): number {
+  return Math.round(
+    (Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000,
+  );
+}
+
+// Insert a null-valued marker wherever the series skips more than a day, so
+// recharts breaks the line (with connectNulls off) instead of drawing one
+// straight segment across the missing stretch. A single missing day is left
+// alone: a one-day blip bridged is fine, a three-month hole bridged is a lie.
+const MAX_BRIDGED_GAP_DAYS = 2;
+function withGaps(series: DataPoint[]): DataPoint[] {
+  const out: DataPoint[] = [];
+  for (let i = 0; i < series.length; i++) {
+    if (i > 0 && daysBetween(series[i - 1].date, series[i].date) > MAX_BRIDGED_GAP_DAYS) {
+      out.push({ date: `${series[i - 1].date} gap`, value: null as unknown as number });
+    }
+    out.push(series[i]);
+  }
+  return out;
+}
+
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
+  // Gap markers carry no value and a synthetic label; nothing to show.
+  if (payload[0]?.value == null || String(label).endsWith(" gap")) return null;
   const d = new Date(label + "T00:00:00");
   const formatted = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return (
@@ -92,9 +117,15 @@ export default function PriceChart() {
   // Append (or replace) today's point with the live price so the chart's
   // trailing edge reflects reality. During the initial fetch (before
   // useTokenData resolves) we fall back to the historical series unchanged.
+  //
+  // Gaps are made explicit rather than bridged: when the collector misses days
+  // (it lost the whole 2026-04-24 to 2026-07-27 stretch to CoinGecko rate
+  // limits) recharts would otherwise join the two ends with one straight line,
+  // drawing a smooth three-month "trend" that never happened. Inserting a null
+  // day breaks the line instead, so a hole reads as a hole.
   const priceData = useMemo<DataPoint[]>(() => {
     if (historicalPriceData.length === 0) return [];
-    if (!livePrice) return historicalPriceData;
+    if (!livePrice) return withGaps(historicalPriceData);
 
     const today = todayUTC();
     const last = historicalPriceData[historicalPriceData.length - 1];
@@ -102,18 +133,19 @@ export default function PriceChart() {
     if (last.date === today) {
       // Cron already wrote today; overwrite with the live value so we don't
       // show a stale intra-day snapshot that disagrees with the header.
-      return [
+      return withGaps([
         ...historicalPriceData.slice(0, -1),
         { date: today, value: livePrice },
-      ];
+      ]);
     }
-    return [...historicalPriceData, { date: today, value: livePrice }];
+    return withGaps([...historicalPriceData, { date: today, value: livePrice }]);
   }, [livePrice, historicalPriceData]);
 
   if (priceData.length === 0) return null;
 
-  // Display value: prefer live, fall back to last JSON point during load.
-  const latest = priceData[priceData.length - 1];
+  // Display value: prefer live, fall back to last real point during load. The
+  // trailing entry can be a null gap marker, so walk back to the last value.
+  const latest = [...priceData].reverse().find((d) => d.value != null) ?? priceData[priceData.length - 1];
   const displayPrice = livePrice || latest.value;
 
   // 24h change: prefer CoinGecko's 24h window from the hook. This is the
@@ -160,6 +192,7 @@ export default function PriceChart() {
             <XAxis
               dataKey="date"
               tickFormatter={(d: string) => {
+                if (String(d).endsWith(" gap")) return "";
                 const dt = new Date(d + "T00:00:00");
                 return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()]} ${dt.getDate()}`;
               }}
@@ -186,6 +219,8 @@ export default function PriceChart() {
               strokeWidth={2.5}
               fill={`url(#${gradientId})`}
               dot={false}
+              // Leave holes open, see withGaps().
+              connectNulls={false}
               activeDot={{ r: 5, fill: lineColor, stroke: "#fff", strokeWidth: 2 }}
               animationDuration={800}
               animationEasing="ease-out"
