@@ -1048,31 +1048,11 @@ body {
   padding-top: 8px;
 }
 
-/* Table wrapper for the detail tabs. No overflow on desktop, so the sticky
-   column headers below anchor to the viewport (an overflow-x:auto ancestor
-   would swallow them, see the big-list convention). Below 1020px the events
-   table's 600px min-width can exceed the column, so there the wrapper scrolls
-   horizontally instead of widening the page. */
+/* Table wrapper for the detail tabs. Vertical scrolling belongs to the PANEL
+   (see the symmetry block below), so this wrapper only handles horizontal
+   overflow where the events table's 600px min-width can exceed the column. */
 @media (max-width: 1020px) {
   .vd-tablewrap { overflow-x: auto; }
-}
-@media (min-width: 1021px) {
-  /* Big-list convention: column headers stay visible while the PAGE scrolls.
-     top = tab bar bottom (70 + 44) minus 1px tucked under it so no seam shows.
-     Opaque page background; the bottom rule moves from border (which detaches
-     from sticky cells under border-collapse) to a box-shadow. These headers
-     are not sortable, so kill the pointer/hover affordance the site-wide
-     .data-table th carries. */
-  .vd-main .data-table th {
-    position: sticky;
-    top: 113px;
-    z-index: 5;
-    background: var(--bg-base);
-    border-bottom: none;
-    box-shadow: 0 1px 0 var(--glass-border);
-    cursor: default;
-  }
-  .vd-main .data-table th:hover { color: var(--text-light); }
 }
 
 @media (max-width: 860px) {
@@ -1082,12 +1062,46 @@ body {
   .vd-tabs { top: 83px; }
 }
 
-/* Slack absorption, desktop only (below 861px the rail stacks on top and there
-   is nothing to align to, so everything keeps its natural height). */
+/* Desktop symmetry: the data column is EXACTLY the rail's height on every
+   tab, and long content (delegator/vote/event lists) scrolls INSIDE the
+   active panel instead of growing the page. Both columns therefore start and
+   end on the same lines regardless of tab or scroll position, and switching
+   tabs never changes the page length.
+
+   Mechanism: grid row height is driven by the rail alone because .vd-main
+   declares height:0 (contributing nothing), then min-height:100% fills the
+   now-definite row. The classic follower-column trick.
+
+   Below 861px the rail stacks on top, panels keep natural height and the
+   page scrolls normally. */
 @media (min-width: 861px) {
+  .vd-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); }
+  .vd-main { height: 0; min-height: 100%; }
   .vd-main > [role="tabpanel"]:not([hidden]) {
     flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+    /* The panel is the one scroll container for overflowing tab content. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
+  /* Column headers pin to the top of the scrolling panel (big-list
+     convention, inner-box variant as in /validators/set). Opaque fill; the
+     bottom rule is a box-shadow because a border detaches from sticky cells
+     under border-collapse. Not sortable here, so no pointer/hover. */
+  .vd-main .data-table th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg-base);
+    border-bottom: none;
+    box-shadow: 0 1px 0 var(--glass-border);
+    cursor: default;
+    /* The site-wide th color (--text-light) only reaches 3.2:1 on the light
+       bg-base these opaque headers sit on; --text-medium clears 4.5:1 in both
+       themes. Hover matches base because these headers are not sortable. */
+    color: var(--text-medium);
+  }
+  .vd-main .data-table th:hover { color: var(--text-medium); }
   /* The one element per panel allowed to soak up leftover height. */
   .vd-absorb { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   /* Bar rows share the slack evenly, so bars sit further apart and read taller
