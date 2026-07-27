@@ -89,6 +89,10 @@ const LCD_FALLBACK = "https://full-node.mainnet-1.coreum.dev:1317";
 const TX_API = "https://api.mainnet-1.tx.org/api/chain-data/v1";
 const COINGECKO_API = "https://api.coingecko.com/api/v3";
 const COINGECKO_ID = "tx";
+// Optional free demo key. Without it CoinGecko rate-limits this VM's IP, which
+// is what silently killed the price series between 2026-04-24 and 2026-07-27:
+// every other metric kept collecting, only the CoinGecko call failed daily.
+const COINGECKO_KEY = process.env.COINGECKO_API_KEY || "";
 const DENOM = "ucore";
 const DECIMALS = 6;
 
@@ -141,13 +145,25 @@ async function fetchJson(url, attempts = 3) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
+      // A free CoinGecko demo key (COINGECKO_API_KEY in the env file) lifts the
+      // anonymous per-IP limit that this VM keeps hitting. Header is ignored by
+      // every other host, so it is safe to attach only for CoinGecko URLs.
+      const headers = {};
+      if (COINGECKO_KEY && url.startsWith(COINGECKO_API)) {
+        headers["x-cg-demo-api-key"] = COINGECKO_KEY;
+      }
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (e) {
       lastErr = e;
       if (i < attempts - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, i)));
+        // 429 needs a much longer pause than a transient network blip: the
+        // old 1s/2s backoff burned all three attempts inside ~7s and the day's
+        // price was lost. CoinGecko's anonymous window is per minute.
+        const rateLimited = /HTTP 429/.test(String(e.message));
+        const waitMs = rateLimited ? 20000 * (i + 1) : 1000 * Math.pow(2, i);
+        await new Promise((r) => setTimeout(r, waitMs));
       }
     }
   }
@@ -386,12 +402,38 @@ async function fetchCirculatingSupply() {
 // (the continuous collector). It refreshes every 15 min there so the dashboard
 // doesn't show matured-but-not-yet-refreshed entries for up to 24h.
 
+// Three endpoints, cheapest first. The old code used only /coins/{id}, the
+// heaviest and most aggressively rate-limited of the three, and threw on the
+// first failure, so a single 429 cost that day's price permanently.
 async function fetchPrice() {
-  const url = `${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`;
-  const data = await fetchJson(url);
-  const price = data?.market_data?.current_price?.usd;
-  if (!price || price <= 0) throw new Error("CoinGecko returned no price");
-  return price;
+  const sources = [
+    {
+      name: "simple/price",
+      url: `${COINGECKO_API}/simple/price?ids=${COINGECKO_ID}&vs_currencies=usd`,
+      pick: (d) => d?.[COINGECKO_ID]?.usd,
+    },
+    {
+      name: "coins/{id}",
+      url: `${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`,
+      pick: (d) => d?.market_data?.current_price?.usd,
+    },
+    {
+      name: "market_chart",
+      url: `${COINGECKO_API}/coins/${COINGECKO_ID}/market_chart?vs_currency=usd&days=1&interval=daily`,
+      pick: (d) => d?.prices?.[d.prices.length - 1]?.[1],
+    },
+  ];
+
+  for (const s of sources) {
+    try {
+      const price = s.pick(await fetchJson(s.url, 2));
+      if (price > 0) return price;
+      log("warn", `CoinGecko ${s.name} returned no usable price`);
+    } catch (e) {
+      log("warn", `CoinGecko ${s.name} failed: ${e.message}`);
+    }
+  }
+  throw new Error("CoinGecko returned no price from any endpoint");
 }
 
 // ═══ FILE HELPERS ═══
