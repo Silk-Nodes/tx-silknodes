@@ -842,8 +842,13 @@ body {
   font-family: var(--font-main);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  /* `overflow-x: clip`, not `hidden`. `hidden` on one axis forces the other to
+     compute to `auto`, which turns <body> into a scroll container: every
+     position:sticky descendant then resolves against the body's scrollport
+     instead of the viewport, so sticky headers and rails behave erratically or
+     not at all. `clip` still prevents horizontal page scroll but creates no
+     scroll container, so sticky works normally. Leave overflow-y alone. */
+  overflow-x: clip;
 }
 
 /* ═══════════════════════════════════════════
@@ -953,31 +958,30 @@ body {
 .link-plain:hover { color: var(--accent-olive); }
 
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
-.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
+/* Both columns end on the same line. align-items:stretch makes the data column
+   match the rail's height when a tab's content is shorter (Stake Flow, History);
+   when the tab is longer (Delegators, Events) the rail simply stays short and
+   sticky. The rail opts out of stretching with align-self:flex-start.
+
+   The slack is only ever absorbed by a CHART (.vd-absorb), never by a list or
+   text card: taller bars read as intentional, a stretched list just shows an
+   empty void, which is what earlier attempts got wrong. */
+.vd-layout { display: flex; gap: 20px; align-items: stretch; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
    instead of forcing the whole page wider (no horizontal page scroll). */
-.vd-main { flex: 1 1 0; min-width: 0; }
-/* Sticky rail. max-height + internal scroll so a card taller than the
-   viewport still stays pinned (its own overflow scrolls) instead of getting
-   cut off. The top nav scrolls with the page (not fixed), so top:16px is
-   safe. */
-.vd-rail {
-  flex: 0 0 320px;
-  position: sticky;
-  /* The top nav is itself position:sticky (~70px tall when pinned), so the
-     rail must sit below it, otherwise the card's top slides under the bar.
-     max-height reserves that space too, so a tall card scrolls internally
-     rather than overflowing past the viewport. */
-  top: 96px;
-  max-height: calc(100vh - 112px);
-  overflow-y: auto;
-}
+.vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+/* The rail is a plain static column: profile card + description, nothing
+   sticky. It used to pin the profile card, but with the symmetric fixed-height
+   layout the page itself barely scrolls (long lists scroll INSIDE the panel),
+   so pinning bought nothing and cost stability: the non-sticky description
+   slid up underneath the pinned card whenever the page moved. Static, the
+   whole left side travels as one solid block, in step with the right column. */
+.vd-rail { flex: 0 0 320px; }
 /* Below 860px the rail can't stay narrow beside the data, so it stacks on
-   top and goes static (a sticky full-width card would pin over the content).
-   Also drop the max-height so the stacked card shows in full. */
+   top of the data column at full width. */
 @media (max-width: 860px) {
   .vd-layout { flex-direction: column; }
-  .vd-rail { position: static; flex-basis: auto; width: 100%; max-height: none; overflow-y: visible; }
+  .vd-rail { flex-basis: auto; width: 100%; }
   /* Stacked column: flex:1 1 0 sizes the main column's HEIGHT, not its width,
      so a wide child (a table's min-content, the tab bar) can push it past the
      viewport and get clipped. Pin it to the container width and let its own
@@ -1001,7 +1005,111 @@ body {
   display: flex; gap: 2px; overflow-x: auto;
   border-bottom: 1px solid var(--glass-border);
   margin-bottom: 16px;
+  /* Pin the tab bar under the floating nav pill so it stays visible while a
+     long delegator/events table scrolls. top must equal the pinned nav's
+     BOTTOM edge (12px offset + 58px pill = 70): the earlier 84 left a 14px
+     transparent slit between nav and tab bar with table text scrolling
+     through it. Opaque page background + padding so rows slide cleanly under
+     a crisp edge. */
+  position: sticky;
+  top: 70px;
+  z-index: 20;
+  background: var(--bg-base);
+  padding-top: 8px;
 }
+
+/* Table wrapper for the detail tabs. Vertical scrolling belongs to the PANEL
+   (see the symmetry block below), so this wrapper only handles horizontal
+   overflow where the events table's 600px min-width can exceed the column. */
+@media (max-width: 1020px) {
+  .vd-tablewrap { overflow-x: auto; }
+}
+
+@media (max-width: 860px) {
+  /* Mobile nav pins full-width at top:0 and is 83px tall; the tab bar must
+     start at its bottom edge. The earlier 56 slid the bar's top 24px (half
+     the labels) underneath the nav. */
+  .vd-tabs { top: 83px; }
+}
+
+/* Desktop symmetry: the data column is EXACTLY the rail's height on every
+   tab, and long content (delegator/vote/event lists) scrolls INSIDE the
+   active panel instead of growing the page. Both columns therefore start and
+   end on the same lines regardless of tab or scroll position, and switching
+   tabs never changes the page length.
+
+   Mechanism: grid row height is driven by the rail alone because .vd-main
+   declares height:0 (contributing nothing), then min-height:100% fills the
+   now-definite row. The classic follower-column trick.
+
+   Below 861px the rail stacks on top, panels keep natural height and the
+   page scrolls normally. */
+@media (min-width: 861px) {
+  .vd-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); }
+  .vd-main { height: 0; min-height: 100%; }
+  /* Everything in the fixed-height column keeps its natural size. Without
+     this, a tab with a huge content basis (the 40-row events table) creates
+     enough flex-shrink pressure to crush its SIBLINGS: the tab bar compressed
+     to zero height and vanished whenever Events was open. */
+  .vd-main > * { flex: 0 0 auto; }
+  .vd-main > [role="tabpanel"]:not([hidden]) {
+    /* basis 0, not auto: the panel takes exactly the leftover space and its
+       content scrolls, instead of its content size pressuring the layout. */
+    flex: 1 1 0; display: flex; flex-direction: column; min-height: 0;
+    /* The panel is the one scroll container for overflowing tab content. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  /* Same rule one level down: captions, summary lines and tables keep their
+     natural height inside the scrolling panel... */
+  .vd-main > [role="tabpanel"]:not([hidden]) > * { flex: 0 0 auto; }
+  /* ...except the designated absorbers, which size purely from the space the
+     panel actually has (basis 0). This is also what makes History FIT the box:
+     with basis auto the chart grid overshot by the caption's height, so the
+     panel scrolled internally and clipped the first chart's title. */
+  .vd-main > [role="tabpanel"]:not([hidden]) > .vd-absorb,
+  .vd-main > [role="tabpanel"]:not([hidden]) > .vd-absorb-grid {
+    flex: 1 1 0; min-height: 0;
+  }
+  /* Column headers pin to the top of the scrolling panel (big-list
+     convention, inner-box variant as in /validators/set). Opaque fill; the
+     bottom rule is a box-shadow because a border detaches from sticky cells
+     under border-collapse. Not sortable here, so no pointer/hover. */
+  .vd-main .data-table th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg-base);
+    border-bottom: none;
+    box-shadow: 0 1px 0 var(--glass-border);
+    cursor: default;
+    /* The site-wide th color (--text-light) only reaches 3.2:1 on the light
+       bg-base these opaque headers sit on; --text-medium clears 4.5:1 in both
+       themes. Hover matches base because these headers are not sortable. */
+    color: var(--text-medium);
+  }
+  .vd-main .data-table th:hover { color: var(--text-medium); }
+  /* The one element per panel allowed to soak up leftover height. */
+  .vd-absorb { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  /* Bar rows share the slack evenly, so bars sit further apart and read taller
+     rather than leaving a gap at the bottom of the card. */
+  .vd-absorb-rows { flex: 1 1 auto; justify-content: space-evenly; min-height: 0; }
+  /* History: charts split the column equally and each fills its card. */
+  .vd-absorb-grid { flex: 1 1 auto; min-height: 0; grid-auto-rows: 1fr; }
+  .vd-hist-card { display: flex; flex-direction: column; }
+  /* flex-basis 0 (not auto) so the charts size purely from the space the
+     column has, letting the tab land exactly on the rail's height instead of
+     overshooting by its own natural height. The floor is low enough that two
+     stacked charts still fit a short rail without the panel scrolling.
+     Falls back to the inline height on mobile, where the card is not a flex
+     container. */
+  .vd-hist-chart { flex: 1 1 0; min-height: 150px; }
+}
+
+/* Stake-flow diverging bars. */
+.vd-flowbar-track { flex: 1; height: 20px; border-radius: 6px; background: rgba(120, 138, 85, 0.14); overflow: hidden; }
+.vd-flowbar-fill { height: 100%; border-radius: 6px; min-width: 2px; }
 .vd-tab {
   padding: 9px 15px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
   background: none; border: none; border-bottom: 2px solid transparent;
@@ -2261,7 +2369,11 @@ input[type="range"]::-moz-range-thumb {
   .compare-cost { font-size: 0.68rem !important; }
 
   /* Prevent any overflow on tab content. */
-  .tab-content > div { overflow-x: hidden; }
+  /* clip, not hidden: hidden on one axis forces the other to auto, which
+     makes this div a scroll container and silently kills position:sticky for
+     everything inside it (the validator tab bar vanished on mobile). clip
+     prevents the same horizontal overflow without creating a scroll root. */
+  .tab-content > div { overflow-x: clip; }
   /* Validators: scroll the wide 6-column table inside its own container
      instead of letting it overflow the whole page. A sticky header can't
      survive a horizontal-scroll container, so make the header static on

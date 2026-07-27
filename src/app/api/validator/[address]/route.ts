@@ -28,7 +28,7 @@ const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const UCORE = 1_000_000;
 const FLOW_DAYS = 30;
-const TOP_DELEGATORS = 15;
+const TOP_DELEGATORS = 25;
 const TOP_COUNTERPARTIES = 5;
 // Recent stake events shown on the page. The collector stores only moves
 // >= 5000 TX (MIN_AMOUNT_TX), so this is "significant events", not every tx.
