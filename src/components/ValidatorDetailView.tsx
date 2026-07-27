@@ -13,7 +13,7 @@
 // this validator won stake from and lost it to) and delegator concentration,
 // both from data we index ourselves.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
 import Tooltip from "@/components/Tooltip";
@@ -207,6 +207,10 @@ export default function ValidatorDetailView({
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("delegators");
   const [showDelegate, setShowDelegate] = useState(false);
+  // Static anchor just above the (sticky) tab bar; used to snap the scroll
+  // back when switching tabs from deep inside a long list, so the new tab
+  // opens at its top instead of wherever the old list happened to be.
+  const tabsAnchorRef = useRef<HTMLDivElement>(null);
   const [amount, setAmount] = useState("");
   const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
   const [totalProposals, setTotalProposals] = useState(0);
@@ -483,10 +487,27 @@ export default function ValidatorDetailView({
               );
             })}
           </div>
+          <div ref={tabsAnchorRef} />
           <div className="vd-tabs" role="tablist">
             {TABS.map((t) => (
               <button key={t.id} role="tab" aria-selected={tab === t.id}
-                className={`vd-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                className={`vd-tab ${tab === t.id ? "active" : ""}`}
+                onClick={() => {
+                  setTab(t.id);
+                  // If the user is deep in a long list, snap back so the new
+                  // tab starts at its top (right under the pinned tab bar)
+                  // instead of landing mid-list. The anchor is static, so its
+                  // rect is reliable even while the tab bar itself is stuck.
+                  const a = tabsAnchorRef.current;
+                  const tabsEl = a?.nextElementSibling;
+                  if (a && tabsEl) {
+                    // Read the bar's own sticky offset (70 desktop, 83 mobile)
+                    // so the snap lands the bar exactly at its pinned spot.
+                    const stickyTop = parseFloat(getComputedStyle(tabsEl).top) || 70;
+                    const target = a.getBoundingClientRect().top + window.scrollY - stickyTop;
+                    if (window.scrollY > target) window.scrollTo({ top: Math.max(target, 0) });
+                  }
+                }}>
                 {t.label}
                 {t.count !== undefined && <span className="vd-tab-count"> {t.count}</span>}
               </button>
@@ -503,8 +524,17 @@ export default function ValidatorDetailView({
               <div className="vd-conc-bar">
                 {conc.map((s, i) => <div key={i} className="vd-conc-seg" style={{ width: `${s.pct}%`, background: s.color }} />)}
               </div>
+              {/* Legend: the bar's four segments meant nothing without labels. */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 5, fontSize: "0.6rem", opacity: 0.55 }}>
+                {[["top 1", conc[0].color], ["top 2-5", conc[1].color], ["top 6-10", conc[2].color], ["rest", conc[3].color]].map(([label, color]) => (
+                  <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div style={{ overflowX: "auto" }}>
+            <div className="vd-tablewrap">
               <table className="data-table" style={{ minWidth: 460, width: "100%" }}>
                 <thead>
                   <tr><th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>Wallet</th><th>Staked</th><th>Share</th></tr>
@@ -525,6 +555,13 @@ export default function ValidatorDetailView({
                 </tbody>
               </table>
             </div>
+            {/* The tab counts ALL delegators but the table is a top list; say
+                so instead of silently truncating. */}
+            {delegators.count > delegators.top.length && (
+              <div style={{ fontSize: "0.66rem", opacity: 0.45, marginTop: 8 }}>
+                Top {delegators.top.length} of {delegators.count.toLocaleString()} delegators by stake
+              </div>
+            )}
           </section>
 
           {/* Stake Flow */}
@@ -638,7 +675,7 @@ export default function ValidatorDetailView({
                       {tally.ABSTAIN ? ` · ${tally.ABSTAIN} Abstain` : ""}{tally.NO_WITH_VETO ? ` · ${tally.NO_WITH_VETO} Veto` : ""}
                     </span>
                   </div>
-                  <div style={{ overflowX: "auto" }}>
+                  <div className="vd-tablewrap">
                     <table className="data-table" style={{ minWidth: 460, width: "100%" }}>
                       <thead>
                         <tr><th style={{ textAlign: "left", width: 48 }}>#</th><th style={{ textAlign: "left" }}>Proposal</th><th style={{ textAlign: "right" }}>Vote</th></tr>
@@ -673,7 +710,7 @@ export default function ValidatorDetailView({
             {events.length === 0 ? (
               <div style={{ fontSize: "0.78rem", opacity: 0.4 }}>No stake moves above {fmt(data.eventMinTx)} TX recorded.</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="vd-tablewrap">
                 <table className="data-table" style={{ minWidth: 600, width: "100%" }}>
                   <thead>
                     <tr>
