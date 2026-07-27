@@ -953,14 +953,18 @@ body {
 .link-plain:hover { color: var(--accent-olive); }
 
 /* ── Validator detail: sticky card rail + tabbed data panel ──────────── */
-/* The left rail is a compact identity + delegate card; the right column holds
-   a metrics band + the tabbed data and is naturally the taller of the two, so
-   the rail behaves as a normal short sticky sidebar (no forced fill, no dead
-   space). align-items:flex-start keeps each column its natural height. */
-.vd-layout { display: flex; gap: 20px; align-items: flex-start; }
+/* Both columns end on the same line. align-items:stretch makes the data column
+   match the rail's height when a tab's content is shorter (Stake Flow, History);
+   when the tab is longer (Delegators, Events) the rail simply stays short and
+   sticky. The rail opts out of stretching with align-self:flex-start.
+
+   The slack is only ever absorbed by a CHART (.vd-absorb), never by a list or
+   text card: taller bars read as intentional, a stretched list just shows an
+   empty void, which is what earlier attempts got wrong. */
+.vd-layout { display: flex; gap: 20px; align-items: stretch; }
 /* min-width:0 lets the main column's tables shrink and scroll internally
    instead of forcing the whole page wider (no horizontal page scroll). */
-.vd-main { flex: 1 1 0; min-width: 0; }
+.vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 /* Sticky rail. max-height + internal scroll so a card taller than the
    viewport still stays pinned (its own overflow scrolls) instead of getting
    cut off. The top nav scrolls with the page (not fixed), so top:16px is
@@ -975,6 +979,8 @@ body {
   top: 96px;
   max-height: calc(100vh - 112px);
   overflow-y: auto;
+  /* Keep the rail its natural height (and pinned) while .vd-main stretches. */
+  align-self: flex-start;
 }
 /* Below 860px the rail can't stay narrow beside the data, so it stacks on
    top and goes static (a sticky full-width card would pin over the content).
@@ -1018,6 +1024,27 @@ body {
 @media (max-width: 860px) {
   /* Mobile nav pins to the top (top:0), so the sticky tab bar sits just below. */
   .vd-tabs { top: 56px; }
+}
+
+/* Slack absorption, desktop only (below 861px the rail stacks on top and there
+   is nothing to align to, so everything keeps its natural height). */
+@media (min-width: 861px) {
+  .vd-main > [role="tabpanel"]:not([hidden]) {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+  }
+  /* The one element per panel allowed to soak up leftover height. */
+  .vd-absorb { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  /* Bar rows share the slack evenly, so bars sit further apart and read taller
+     rather than leaving a gap at the bottom of the card. */
+  .vd-absorb-rows { flex: 1 1 auto; justify-content: space-evenly; min-height: 0; }
+  /* History: charts split the column equally and each fills its card. */
+  .vd-absorb-grid { flex: 1 1 auto; min-height: 0; grid-auto-rows: 1fr; }
+  .vd-hist-card { display: flex; flex-direction: column; }
+  /* flex-basis 0 (not auto) so the charts size purely from the space the
+     column has, letting the tab land exactly on the rail's height instead of
+     overshooting by its own natural height. Falls back to the inline height
+     on mobile, where the card is not a flex container. */
+  .vd-hist-chart { flex: 1 1 0; min-height: 190px; }
 }
 
 /* Stake-flow diverging bars. */

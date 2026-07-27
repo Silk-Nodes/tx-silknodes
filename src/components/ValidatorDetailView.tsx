@@ -133,12 +133,12 @@ function MiniHistoryChart({
 }) {
   const gid = `vd-hist-${title.replace(/\s+/g, "")}`;
   return (
-    <div className="vd-card" style={{ padding: "14px 16px" }}>
+    <div className="vd-card vd-hist-card" style={{ padding: "14px 16px" }}>
       <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.55, marginBottom: 10 }}>
         {title}
         <span style={{ float: "right", fontFamily: "var(--font-mono)", opacity: 0.8 }}>{format(data[data.length - 1].value)}</span>
       </div>
-      <div style={{ width: "100%", height: 210 }}>
+      <div className="vd-hist-chart" style={{ width: "100%", height: 210 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <defs>
@@ -554,7 +554,7 @@ export default function ValidatorDetailView({
               const totalIn = flow30d.delegatedIn + flow30d.redelegatedIn;
               const totalOut = flow30d.undelegatedOut + flow30d.redelegatedOut;
               return (
-                <div className="vd-card" style={{ padding: "16px 18px", marginBottom: 10 }}>
+                <div className="vd-card vd-absorb" style={{ padding: "16px 18px", marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
                     <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.5 }}>
                       {FLOW_DAYS}-day stake flow
@@ -563,7 +563,7 @@ export default function ValidatorDetailView({
                       Net {fmtFlow(flow30d.net)} TX
                     </span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div className="vd-absorb-rows" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {rows.map((r) => (
                       <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <span style={{ width: 116, flexShrink: 0, fontSize: "0.72rem", opacity: 0.7 }}>{r.label}</span>
@@ -726,7 +726,7 @@ export default function ValidatorDetailView({
                 {/* Stacked full width rather than side by side: a time series
                     reads better wide, the charts get materially bigger, and the
                     tab fills out to roughly the height of the profile rail. */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                <div className="vd-absorb-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
                   <MiniHistoryChart
                     title="Voting Power"
                     data={history.map((h) => ({ date: h.date, value: Number(h.tokens) }))}
