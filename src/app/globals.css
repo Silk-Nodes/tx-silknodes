@@ -972,22 +972,29 @@ body {
 .vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 /* Sticky rail.
 
-   Deliberately NOT scrollable. It used to carry max-height + overflow-y:auto
-   so a rail taller than the viewport could scroll internally, but that made
-   the rail its own scroll container: scrolling the page with the pointer over
-   it scrolled the CARD instead, sliding the avatar, moniker and rank out of
-   view. The identity is the one thing that must never move.
+   A sticky element can never leave its containing block, so it releases as soon
+   as its pinned bottom meets the layout's bottom. The taller the rail, the
+   sooner that happens: on a 580px viewport an unconstrained 682px rail held for
+   only 58% of the scroll, then slid away mid-list. That is the "not stable"
+   behaviour, and no amount of tuning the rail's contents fixes it.
 
-   Without internal scroll the rail simply pins at top:96 and, on a short
-   viewport, its lower part (the description) sits below the fold until the
-   page reaches its end and the rail releases. Identity and the delegate CTA
-   stay put the whole way, which is the right priority. */
+   So cap the rail to the viewport and let it scroll internally when it does not
+   fit. Its pinned bottom then stays above the fold, which pushes the release
+   point past the end of the data list, so the card holds for as long as there
+   is anything to read beside it.
+
+   overscroll-behavior:contain keeps that inner scroll from chaining into the
+   page, which is what made it feel jumpy before. */
 .vd-rail {
   flex: 0 0 320px;
   position: sticky;
   /* The top nav is itself position:sticky (~70px tall when pinned), so the
      rail must sit below it, otherwise the card's top slides under the bar. */
   top: 96px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   /* Keep the rail its natural height (and pinned) while .vd-main stretches. */
   align-self: flex-start;
 }
@@ -996,7 +1003,7 @@ body {
    Also drop the max-height so the stacked card shows in full. */
 @media (max-width: 860px) {
   .vd-layout { flex-direction: column; }
-  .vd-rail { position: static; flex-basis: auto; width: 100%; }
+  .vd-rail { position: static; flex-basis: auto; width: 100%; max-height: none; overflow-y: visible; }
   /* Stacked column: flex:1 1 0 sizes the main column's HEIGHT, not its width,
      so a wide child (a table's min-content, the tab bar) can push it past the
      viewport and get clipped. Pin it to the container width and let its own
