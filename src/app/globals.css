@@ -1077,12 +1077,30 @@ body {
 @media (min-width: 861px) {
   .vd-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); }
   .vd-main { height: 0; min-height: 100%; }
+  /* Everything in the fixed-height column keeps its natural size. Without
+     this, a tab with a huge content basis (the 40-row events table) creates
+     enough flex-shrink pressure to crush its SIBLINGS: the tab bar compressed
+     to zero height and vanished whenever Events was open. */
+  .vd-main > * { flex: 0 0 auto; }
   .vd-main > [role="tabpanel"]:not([hidden]) {
-    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+    /* basis 0, not auto: the panel takes exactly the leftover space and its
+       content scrolls, instead of its content size pressuring the layout. */
+    flex: 1 1 0; display: flex; flex-direction: column; min-height: 0;
     /* The panel is the one scroll container for overflowing tab content. */
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+  }
+  /* Same rule one level down: captions, summary lines and tables keep their
+     natural height inside the scrolling panel... */
+  .vd-main > [role="tabpanel"]:not([hidden]) > * { flex: 0 0 auto; }
+  /* ...except the designated absorbers, which size purely from the space the
+     panel actually has (basis 0). This is also what makes History FIT the box:
+     with basis auto the chart grid overshot by the caption's height, so the
+     panel scrolled internally and clipped the first chart's title. */
+  .vd-main > [role="tabpanel"]:not([hidden]) > .vd-absorb,
+  .vd-main > [role="tabpanel"]:not([hidden]) > .vd-absorb-grid {
+    flex: 1 1 0; min-height: 0;
   }
   /* Column headers pin to the top of the scrolling panel (big-list
      convention, inner-box variant as in /validators/set). Opaque fill; the
@@ -1112,9 +1130,11 @@ body {
   .vd-hist-card { display: flex; flex-direction: column; }
   /* flex-basis 0 (not auto) so the charts size purely from the space the
      column has, letting the tab land exactly on the rail's height instead of
-     overshooting by its own natural height. Falls back to the inline height
-     on mobile, where the card is not a flex container. */
-  .vd-hist-chart { flex: 1 1 0; min-height: 190px; }
+     overshooting by its own natural height. The floor is low enough that two
+     stacked charts still fit a short rail without the panel scrolling.
+     Falls back to the inline height on mobile, where the card is not a flex
+     container. */
+  .vd-hist-chart { flex: 1 1 0; min-height: 150px; }
 }
 
 /* Stake-flow diverging bars. */
