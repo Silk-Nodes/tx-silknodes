@@ -304,10 +304,10 @@ export default function ValidatorDetailView({
       <div className="vd-layout">
         {/* ── LEFT: sticky validator card ─────────────────────────── */}
         <aside className="vd-rail">
-          {/* This card is the sticky one, not the whole rail: pinning only the
-              identity keeps it locked on far shorter windows (needs 659px of
-              height instead of 774px), matching the production behaviour. */}
-          <div className="vd-card vd-rail-card">
+          {/* Static on purpose: the page barely scrolls (lists scroll inside
+              the data panel), so a sticky card only made the description slide
+              underneath it. Static, the whole rail moves as one block. */}
+          <div className="vd-card">
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               {v.avatarUrl && (
                 // eslint-disable-next-line @next/next/no-img-element

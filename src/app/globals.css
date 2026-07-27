@@ -970,43 +970,18 @@ body {
 /* min-width:0 lets the main column's tables shrink and scroll internally
    instead of forcing the whole page wider (no horizontal page scroll). */
 .vd-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
-/* The rail is a plain full-height column; the PROFILE CARD inside it is what
-   sticks. That split matters: a sticky element can never leave its containing
-   block, so pinning the whole rail (profile 547px + description 103px = 662px)
-   meant it needed a 774px-tall window to hold its position, and it slid away on
-   anything shorter. Pinning just the profile card drops that requirement to
-   659px, the same as the production layout that holds rock solid, while the
-   description still lives here under the card and simply scrolls away.
-
-   .vd-rail stretches to the layout's full height so the sticky card has the
-   tall containing block it needs to stay pinned all the way down the list. */
+/* The rail is a plain static column: profile card + description, nothing
+   sticky. It used to pin the profile card, but with the symmetric fixed-height
+   layout the page itself barely scrolls (long lists scroll INSIDE the panel),
+   so pinning bought nothing and cost stability: the non-sticky description
+   slid up underneath the pinned card whenever the page moved. Static, the
+   whole left side travels as one solid block, in step with the right column. */
 .vd-rail { flex: 0 0 320px; }
-.vd-rail-card {
-  position: sticky;
-  /* The description scrolls up and passes behind this card, so the card has to
-     paint above it AND be opaque. --glass-bg is translucent in the light theme,
-     which let the description text show through the stats; compositing it over
-     --bg-base keeps the same tint while blocking what slides underneath. */
-  z-index: 2;
-  /* The top nav is itself position:sticky (~70px tall when pinned), so the
-     card must sit below it, otherwise its top slides under the bar. */
-  top: 96px;
-  /* Safety net for very short windows: the card scrolls internally rather than
-     running off the bottom. overscroll-behavior stops that inner scroll from
-     chaining into the page. */
-  max-height: calc(100vh - 112px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
 /* Below 860px the rail can't stay narrow beside the data, so it stacks on
-   top and goes static (a sticky full-width card would pin over the content).
-   Also drop the max-height so the stacked card shows in full. */
+   top of the data column at full width. */
 @media (max-width: 860px) {
   .vd-layout { flex-direction: column; }
   .vd-rail { flex-basis: auto; width: 100%; }
-  /* Stacked: a sticky full-width card would pin over the content below it. */
-  .vd-rail-card { position: static; max-height: none; overflow-y: visible; }
   /* Stacked column: flex:1 1 0 sizes the main column's HEIGHT, not its width,
      so a wide child (a table's min-content, the tab bar) can push it past the
      viewport and get clipped. Pin it to the container width and let its own
@@ -1019,11 +994,6 @@ body {
   border-radius: 14px;
   padding: 14px 16px;
   background: var(--glass-bg);
-}
-/* Two classes so this beats the plain `.vd-card` background declared above,
-   which would otherwise win on source order and leave the card translucent. */
-.vd-card.vd-rail-card {
-  background: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--bg-base);
 }
 .vd-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; }
 .vd-stat + .vd-stat { border-top: 1px solid var(--glass-border); }
