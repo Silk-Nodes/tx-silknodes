@@ -214,9 +214,13 @@ export async function fetchOnChainExcludedAddresses(): Promise<string[]> {
   if (excludedFetchPromise) return excludedFetchPromise;
 
   excludedFetchPromise = (async () => {
+    // Third host added after an outage took BOTH of the first two offline at
+    // once (coreum.dev cert expired, our own node unreachable). ecostake
+    // serves the tx/pse module, verified.
     const endpoints = [
       "https://api.silknodes.io/coreum/tx/pse/v1/params",
       "https://full-node.mainnet-1.coreum.dev:1317/tx/pse/v1/params",
+      "https://rest-coreum.ecostake.com/tx/pse/v1/params",
     ];
     for (const url of endpoints) {
       try {
@@ -245,6 +249,7 @@ export async function fetchOnChainPSEScore(address: string): Promise<string | nu
   const endpoints = [
     `https://api.silknodes.io/coreum/tx/pse/v1/score/${address}`,
     `https://full-node.mainnet-1.coreum.dev:1317/tx/pse/v1/score/${address}`,
+    `https://rest-coreum.ecostake.com/tx/pse/v1/score/${address}`,
   ];
   for (const url of endpoints) {
     try {
