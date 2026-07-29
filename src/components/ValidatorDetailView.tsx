@@ -237,7 +237,18 @@ export default function ValidatorDetailView({
     setError("");
     fetch(`/api/validator/${address}`, { cache: "no-store" })
       .then((r) => {
-        if (!r.ok) throw new Error(r.status === 404 ? "Validator not found" : `HTTP ${r.status}`);
+        // 503 means the chain nodes are unreachable, not that the validator
+        // is missing. Showing "Validator not found" for an outage sent people
+        // hunting for a delisted validator that was there all along.
+        if (!r.ok) {
+          throw new Error(
+            r.status === 404
+              ? "Validator not found"
+              : r.status === 503
+                ? "Can't reach the chain right now. This is on our side, not yours. Please retry in a moment."
+                : `HTTP ${r.status}`,
+          );
+        }
         return r.json();
       })
       .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
