@@ -22,7 +22,16 @@ export const dynamic = "force-dynamic";
 export const revalidate = 300; // 5 min - settled props don't move; cache wins.
 
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
-const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
+// Ordered pool rather than a single host. This route degrades silently on
+// failure (fetchDelegations returns zeros so the page still renders), which
+// means an LCD outage showed every voter with 0 TX delegated as though that
+// were the real number. Failing over keeps the figures honest.
+const LCD_HOSTS = [
+  "https://full-node.mainnet-1.coreum.dev:1317",
+  "https://rest-coreum.ecostake.com",
+  "https://coreum-lcd.silknodes.io",
+];
+const LCD = LCD_HOSTS[0];
 const UCORE_PER_TX = 1_000_000;
 const CONCURRENCY = 8; // parallel LCD calls
 
@@ -86,23 +95,30 @@ async function pmap<T, R>(items: T[], fn: (item: T) => Promise<R>, concurrency: 
 }
 
 async function fetchDelegations(addr: string): Promise<{ totalTX: number; delegations: { operatorAddress: string; delegatedTX: number }[] }> {
-  try {
-    const url = `${LCD}/cosmos/staking/v1beta1/delegations/${addr}?pagination.limit=200`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return { totalTX: 0, delegations: [] };
-    const json = await res.json();
-    const rows = (json.delegation_responses as DelegationResponseRaw[] ?? []);
-    const delegations = rows.map((r) => ({
-      operatorAddress: r.delegation.validator_address,
-      delegatedTX: Number(r.balance.amount) / UCORE_PER_TX,
-    }));
-    const totalTX = delegations.reduce((sum, d) => sum + d.delegatedTX, 0);
-    return { totalTX, delegations };
-  } catch {
-    // If LCD blows up on one address, return zeros so the page still
-    // renders the row with the basic data we know.
-    return { totalTX: 0, delegations: [] };
+  const path = `/cosmos/staking/v1beta1/delegations/${addr}?pagination.limit=200`;
+  for (const host of LCD_HOSTS) {
+    try {
+      const res = await fetch(`${host}${path}`, { cache: "no-store" });
+      // 404 is a real answer (address has no delegations); anything else
+      // non-ok is a node problem, so try the next host rather than
+      // reporting an empty delegation list as fact.
+      if (res.status === 404) return { totalTX: 0, delegations: [] };
+      if (!res.ok) continue;
+      const json = await res.json();
+      const rows = (json.delegation_responses as DelegationResponseRaw[] ?? []);
+      const delegations = rows.map((r) => ({
+        operatorAddress: r.delegation.validator_address,
+        delegatedTX: Number(r.balance.amount) / UCORE_PER_TX,
+      }));
+      const totalTX = delegations.reduce((sum, d) => sum + d.delegatedTX, 0);
+      return { totalTX, delegations };
+    } catch {
+      // transport error, fall through to the next host
+    }
   }
+  // Whole pool unreachable. Still return zeros so the page renders the row
+  // with the basic data we know, matching the previous behaviour.
+  return { totalTX: 0, delegations: [] };
 }
 
 export async function GET(
