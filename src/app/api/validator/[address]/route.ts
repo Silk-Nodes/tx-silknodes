@@ -24,7 +24,20 @@ import { sequelize } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
+// Ordered LCD pool, not a single host. The page used to hardcode the first
+// one, so whenever that node went down EVERY validator page returned
+// "validator not found" as though the validator had ceased to exist. Public
+// nodes do go down: at the time of writing both coreum.dev and our own
+// coreum-lcd.silknodes.io were refusing connections while ecostake served
+// fine. LCD_HOSTS[0] stays primary; the rest are only tried on failure.
+const LCD_HOSTS = [
+  "https://full-node.mainnet-1.coreum.dev:1317",
+  "https://rest-coreum.ecostake.com",
+  "https://coreum-lcd.silknodes.io",
+];
+// Kept so existing `${LCD}/path` template literals still resolve; every call
+// goes through getJSON, which retries the same path across the pool.
+const LCD = LCD_HOSTS[0];
 const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const UCORE = 1_000_000;
 const FLOW_DAYS = 30;
@@ -41,18 +54,36 @@ const toTX = (v: string | number | null | undefined): number => {
   try { return Number(BigInt(String(v).split(".")[0])) / UCORE; } catch { return 0; }
 };
 
-async function getJSON<T>(url: string): Promise<T | null> {
+async function fetchOnce<T>(url: string): Promise<T | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
-    if (!res.ok) return null;
+    // A 404 is a real answer ("this validator does not exist") and must not
+    // trigger failover, otherwise a genuinely bad address costs three slow
+    // round trips. Only transport errors and 5xx fall through to the pool.
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
-  } catch {
-    return null;
   } finally {
     clearTimeout(t);
   }
+}
+
+async function getJSON<T>(url: string): Promise<T | null> {
+  // Only LCD calls get the failover treatment; other hosts pass through.
+  if (!url.startsWith(LCD)) {
+    try { return await fetchOnce<T>(url); } catch { return null; }
+  }
+  const path = url.slice(LCD.length);
+  for (const host of LCD_HOSTS) {
+    try {
+      return await fetchOnce<T>(`${host}${path}`);
+    } catch {
+      // try the next host
+    }
+  }
+  return null;
 }
 
 async function hasura<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
@@ -112,6 +143,18 @@ export async function GET(
   ]);
 
   if (!vRes?.validator) {
+    // Distinguish "no such validator" from "we could not reach the chain".
+    // Reporting an LCD outage as 404 made every validator page claim the
+    // validator did not exist, which is both wrong and alarming to read.
+    // Stateless signal, safe under concurrency: /pool is address-independent,
+    // so if it also came back empty the whole LCD pool is down, whereas a
+    // genuinely unknown address fails on its own while /pool still answers.
+    if (!poolRes?.pool) {
+      return NextResponse.json(
+        { error: "chain node unreachable, please retry in a moment" },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: "validator not found" }, { status: 404 });
   }
   const v = vRes.validator;
