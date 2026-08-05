@@ -1,0 +1,24 @@
+[Unit]
+Description=Silk Nodes Slashing / Jailing Event Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-slashing-events.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-slashing-events
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+EnvironmentFile=-/home/%i/.silknodes-db.env
+# Three paged LCD listings, one Hasura query, then a bounded block scan
+# (MAX_BLOCKS caps it). Nominal run is seconds; 10 min is a generous ceiling
+# for a slow public endpoint without letting a hung request wedge the timer.
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=multi-user.target

@@ -27,6 +27,9 @@ HEALTH_TIMER_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.timer"
 VSNAP_SERVICE_NAME="silknodes-validator-snapshots"
 VSNAP_SERVICE_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.service"
 VSNAP_TIMER_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.timer"
+SLASH_SERVICE_NAME="silknodes-slashing-events"
+SLASH_SERVICE_FILE="/etc/systemd/system/${SLASH_SERVICE_NAME}.service"
+SLASH_TIMER_FILE="/etc/systemd/system/${SLASH_SERVICE_NAME}.timer"
 CURRENT_USER="$(whoami)"
 
 echo "=== Silk Nodes VM Services Setup ==="
@@ -164,6 +167,14 @@ echo "Installing $VSNAP_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.service" "$VSNAP_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.timer" "$VSNAP_TIMER_FILE"
 
+# Slashing / jailing events. Same "cannot be backfilled" property as the
+# snapshots: the chain exposes only current state, so jail history exists
+# only from the moment this starts running. Hourly, because TX's downtime
+# jail lasts 60 seconds and a daily poll would miss whole episodes.
+echo "Installing $SLASH_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-slashing-events.service" "$SLASH_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-slashing-events.timer" "$SLASH_TIMER_FILE"
+
 sudo systemctl daemon-reload
 
 # Initial fetch (without pushing) to populate data file
@@ -196,6 +207,8 @@ sudo systemctl enable "${HEALTH_SERVICE_NAME}.timer"
 sudo systemctl start "${HEALTH_SERVICE_NAME}.timer"
 sudo systemctl enable "${VSNAP_SERVICE_NAME}.timer"
 sudo systemctl start "${VSNAP_SERVICE_NAME}.timer"
+sudo systemctl enable "${SLASH_SERVICE_NAME}.timer"
+sudo systemctl start "${SLASH_SERVICE_NAME}.timer"
 
 sleep 2
 echo
