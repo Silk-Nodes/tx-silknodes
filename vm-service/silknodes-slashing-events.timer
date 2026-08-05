@@ -1,0 +1,22 @@
+[Unit]
+Description=Run Silk Nodes Slashing Event Collector hourly
+# Non-instance form, matching the other timers. setup.sh's install_unit
+# substitutes %i -> the actual user at install time, so these are not systemd
+# templates once installed.
+Requires=silknodes-slashing-events.service
+
+[Timer]
+# Hourly, not daily. Downtime jail duration on TX is 60 seconds, so a
+# validator can be jailed and unjailed well inside a day. A daily poll would
+# miss the entire episode and the history would claim nothing happened.
+# Hourly still misses sub-hour round trips, which is why the block-event path
+# exists alongside the state diff.
+OnCalendar=*-*-* *:07:00 UTC
+# Persistent so downtime across a window still runs on next boot. This data
+# cannot be backfilled from chain state: a missed window is a permanent hole.
+Persistent=true
+AccuracySec=1min
+Unit=silknodes-slashing-events.service
+
+[Install]
+WantedBy=timers.target
