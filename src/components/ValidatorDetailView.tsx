@@ -696,7 +696,15 @@ export default function ValidatorDetailView({
                           <tr key={g.proposalId}>
                             <td style={{ opacity: 0.5, fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}>{g.proposalId}</td>
                             <td>
-                              <Link href={`/governance/${g.proposalId}`} className="link" style={{ fontSize: "0.76rem" }}>
+                              {/* Carry where we came from so the proposal page
+                                  can offer a way back to THIS validator rather
+                                  than dumping the reader on the governance
+                                  list, which loses their place entirely. */}
+                              <Link
+                                href={`/governance/${g.proposalId}?from=${encodeURIComponent(`/validators/${v.operatorAddress}`)}&label=${encodeURIComponent(v.moniker)}`}
+                                className="link"
+                                style={{ fontSize: "0.76rem" }}
+                              >
                                 {govMeta[g.proposalId]?.title || `Proposal #${g.proposalId}`}
                               </Link>
                             </td>
