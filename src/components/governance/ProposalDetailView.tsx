@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useProposalDetail, type ValidatorVote, type ProposalDetailData } from "@/hooks/useProposalDetail";
@@ -33,7 +35,36 @@ interface Props {
 // itself has no top-level shell. The page-level wrapper styles still come
 // from .prop-page-shell so existing CSS continues to work, just without
 // the bg-gradient + min-height that would conflict with the parent.
+// Where the reader came from, if they arrived from a specific page rather
+// than the governance list. Read from ?from= / ?label=.
+//
+// The value is validated hard rather than trusted: it comes from the URL, so
+// an unchecked `from` would let any link render a "Back to ..." control
+// pointing anywhere, including off-site. Only same-origin relative paths that
+// match a known internal shape are accepted, and the label is length-capped
+// and stripped of markup-ish characters since it is rendered as text.
+const ORIGIN_ALLOW = [
+  { re: /^\/validators\/corevaloper1[a-z0-9]{38,}$/, fallbackLabel: "validator" },
+];
+function useOrigin(): { href: string; label: string } | null {
+  // useSearchParams, not window.location. During a client-side navigation the
+  // component can render before the browser URL is committed, so reading
+  // window.location inside a useMemo([]) froze the PREVIOUS page's (empty)
+  // query and the back control never switched. This hook is reactive.
+  const p = useSearchParams();
+  return useMemo(() => {
+    const from = p.get("from");
+    if (!from || !from.startsWith("/") || from.startsWith("//")) return null;
+    const rule = ORIGIN_ALLOW.find((r) => r.re.test(from));
+    if (!rule) return null;
+    const raw = (p.get("label") || "").replace(/[<>{}]/g, "").trim();
+    const label = raw.length > 0 && raw.length <= 40 ? raw : rule.fallbackLabel;
+    return { href: from, label };
+  }, [p]);
+}
+
 export default function ProposalDetailView({ id, onBack }: Props) {
+  const origin = useOrigin();
   const { data, loading, error } = useProposalDetail(Number.isFinite(id) ? id : null);
   const wallet = useCosmosWallet();
   const { delegations } = useUserDelegations(wallet.address);
@@ -73,7 +104,14 @@ export default function ProposalDetailView({ id, onBack }: Props) {
       <StickyContextStrip proposal={proposal} quorumPct={quorumPct} />
       <div className="prop-page">
         <div className="prop-page-top-row">
-          {onBack ? (
+          {origin ? (
+            // Arrived from somewhere specific (a validator's voting record),
+            // so offer the way back there. Sending the reader to the
+            // governance list would lose their place entirely.
+            <Link href={origin.href} className="prop-page-back">
+              ← Back to {origin.label}
+            </Link>
+          ) : onBack ? (
             <button type="button" onClick={onBack} className="prop-page-back">
               ← Back to governance
             </button>
