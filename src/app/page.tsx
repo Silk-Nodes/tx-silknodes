@@ -238,18 +238,29 @@ export default function HomePage() {
     if (proposalIdFromUrl !== null) return; // proposal detail owns the tab
     if (validatorFromUrl || passportFromUrl) return; // detail views own the tab
 
-    // First try matching the exact pathname.
+    // ?tab= is checked FIRST for "/" specifically. "/" is itself a key in
+    // PATHNAME_TO_TAB (mapping to "today"), so the pathname branch used to
+    // match it, set the tab to today and return before the query was ever
+    // read. Every /?tab=foo link therefore landed on the Today page, which
+    // is what sent "back to governance" to the landing page.
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("tab") as TabId | null;
+    const validRequested = requested && TABS.some((t) => t.id === requested) ? requested : null;
+    if (pathname === "/" && validRequested) {
+      if (validRequested !== activeTab) setActiveTab(validRequested);
+      return;
+    }
+
+    // Otherwise match the exact pathname.
     if (pathname && pathname in PATHNAME_TO_TAB) {
       const next = PATHNAME_TO_TAB[pathname];
       if (next !== activeTab) setActiveTab(next);
       return;
     }
 
-    // Fall back to ?tab= query for /?tab=foo style links.
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get("tab") as TabId | null;
-    if (requested && TABS.some((t) => t.id === requested) && requested !== activeTab) {
-      setActiveTab(requested);
+    // Fall back to ?tab= query on any other pathname.
+    if (validRequested && validRequested !== activeTab) {
+      setActiveTab(validRequested);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, proposalIdFromUrl, validatorFromUrl, passportFromUrl]);
@@ -852,10 +863,11 @@ export default function HomePage() {
             <ProposalDetailView
               id={proposalIdFromUrl}
               onBack={() => {
-                // Navigate back to /governance landing without losing the
-                // current shell. Use router.push so the URL updates and
-                // the proposalIdFromUrl memo recomputes to null.
-                router.push("/?tab=governance");
+                // Push the real /governance route, not "/?tab=governance".
+                // Governance has its own pathname like every other tab, so
+                // this gives a clean shareable URL and does not depend on the
+                // query-param fallback at all.
+                router.push("/governance");
               }}
             />
           ) : (
