@@ -78,7 +78,7 @@ export default function ProposalDetailView({ id, onBack }: Props) {
               ← Back to governance
             </button>
           ) : (
-            <a href="/?tab=governance" className="prop-page-back">
+            <a href="/governance" className="prop-page-back">
               ← Back to governance
             </a>
           )}
