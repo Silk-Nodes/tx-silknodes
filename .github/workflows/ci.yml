@@ -1,0 +1,56 @@
+# Verification for every pull request.
+#
+# Until now nothing ran on any PR: the only workflow in this repo is the
+# disabled GitHub Pages deploy. Every merge, including Dependabot's dependency
+# bumps, went in on trust that someone had checked locally.
+#
+# Deliberately small. Typecheck plus build is about a minute, catches the
+# failures that actually reach production (a type error, a broken import, a
+# route that will not compile), and is fast enough that nobody is tempted to
+# merge past it. A slow or flaky pipeline gets bypassed, and a bypassed check
+# protects nothing.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push supersedes the run in flight for the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm ci installs exactly what the lockfile pins and fails if the two
+      # have drifted, which is itself worth catching.
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # DEV_API_PROXY is deliberately blanked. next.config.ts bakes rewrites at
+      # BUILD time, so a plain build picks it up from the environment and
+      # silently proxies API routes to production. That has bitten local
+      # verification before; CI must build the real thing.
+      - name: Build
+        run: npm run build
+        env:
+          DEV_API_PROXY: ""
+          # Enough for the build to resolve config; no real credentials are
+          # needed because nothing queries the database at build time.
+          NEXT_TELEMETRY_DISABLED: "1"
