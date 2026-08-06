@@ -86,6 +86,42 @@ async function getJSON<T>(url: string): Promise<T | null> {
   return null;
 }
 
+// Walk every page of a paginated LCD list endpoint.
+//
+// This exists because the delegations endpoint returns rows in STORE order,
+// not sorted by amount. Fetching a single capped page and sorting it looks
+// like "the top delegators" but is not: for BRW Capital the largest delegator
+// sat at index 546 of 607, so a 500-row fetch omitted the biggest holder
+// entirely and computed concentration against a partial total. 7 of 52
+// validators have more than 500 delegators, including 007TX at 2130.
+async function getAllPages<T>(
+  path: string,
+  pick: (page: any) => T[],
+  maxPages = 8,
+): Promise<{ rows: T[]; total: number; complete: boolean }> {
+  const rows: T[] = [];
+  let key: string | null = null;
+  let total = 0;
+  for (let page = 0; page < maxPages; page++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const q = key
+      ? `${sep}pagination.limit=1000&pagination.key=${encodeURIComponent(key)}`
+      : `${sep}pagination.limit=1000&pagination.count_total=true`;
+    const d: any = await getJSON<any>(`${LCD}${path}${q}`);
+    if (!d) break;
+    const batch = pick(d) || [];
+    rows.push(...batch);
+    if (page === 0) total = Number(d?.pagination?.total ?? 0) || 0;
+    key = d?.pagination?.next_key ?? null;
+    if (!key || batch.length === 0) {
+      return { rows, total: total || rows.length, complete: true };
+    }
+  }
+  // Hit the page ceiling. Report it rather than silently presenting a
+  // partial set as if it were the whole thing.
+  return { rows, total: total || rows.length, complete: false };
+}
+
 async function hasura<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -205,8 +241,10 @@ export async function GET(
           `${LCD}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`,
         )
       : Promise.resolve(null),
-    getJSON<{ delegation_responses: any[]; pagination: { total: string } }>(
-      `${LCD}/cosmos/staking/v1beta1/validators/${address}/delegations?pagination.limit=500&pagination.count_total=true`,
+    // Every page, not the first 500. See getAllPages.
+    getAllPages<any>(
+      `/cosmos/staking/v1beta1/validators/${address}/delegations`,
+      (d) => d?.delegation_responses ?? [],
     ),
     selfDelegateAddress
       ? getJSON<{ delegation_response: { balance: { amount: string } } }>(
@@ -240,10 +278,15 @@ export async function GET(
       : Promise.resolve(null),
   ]);
 
-  // Delegator concentration. The LCD caps us at 500 rows; for validators
-  // with more delegators the shares are still ranked, so the top-N and
-  // concentration ratios remain correct even if the tail is truncated.
-  const delRows = (delegations?.delegation_responses || [])
+  // Delegator concentration, computed over the COMPLETE delegator set.
+  //
+  // The previous version fetched one 500-row page and asserted in a comment
+  // that "the shares are still ranked, so the top-N and concentration ratios
+  // remain correct even if the tail is truncated". That assumption was wrong:
+  // the LCD returns rows in store order, not by amount. It cost BRW Capital
+  // its single largest delegator (index 546 of 607) and computed every
+  // percentage against a partial denominator.
+  const delRows = (delegations?.rows || [])
     .map((d) => ({
       address: d.delegation?.delegator_address as string,
       amount: toTX(d.balance?.amount),
@@ -435,8 +478,11 @@ export async function GET(
       pct: tokens > 0 ? (selfBonded / tokens) * 100 : 0,
     },
     delegators: {
-      count: delegations?.pagination?.total ? Number(delegations.pagination.total) : delRows.length,
-      truncated: delRows.length >= 500,
+      count: delegations?.total || delRows.length,
+      // Only true if we genuinely could not read every page (the ceiling in
+      // getAllPages). It used to be `delRows.length >= 500`, which was both
+      // the wrong signal and silently normal for large validators.
+      truncated: delegations ? !delegations.complete : false,
       top: delRows.slice(0, TOP_DELEGATORS).map((d) => ({
         address: d.address,
         amount: d.amount,

@@ -11,6 +11,10 @@
 
 import { NextResponse } from "next/server";
 
+// Chain LCD, ordered pool. Used only to backfill proposals the Hasura indexer
+// skipped; Hasura remains the primary source for tallies and votes.
+const GOV_LCD = "https://rest-coreum.ecostake.com";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // 1 min — governance state doesn't change often
 
@@ -143,6 +147,59 @@ export async function GET() {
       };
     });
 
+    // ── backfill proposals the indexer skipped ────────────────────────
+    // Hasura is a third-party indexer and it is not complete: it is missing
+    // proposals 40 and 42 outright (both the proposal row AND every vote on
+    // them). That made the site report "41 proposals" when the chain has 43,
+    // and every validator's participation was measured against the wrong
+    // denominator.
+    //
+    // The proposals themselves are still readable from the chain, so merge
+    // them in. Their VOTES are not recoverable from anywhere: the SDK prunes
+    // votes once a proposal settles (verified, /proposals/44/votes returns 0),
+    // so an indexer is the only possible source and ours never saw them.
+    // Tally totals still come through, because the chain keeps final_tally.
+    const known = new Set(proposals.map((p) => Number(p.id)));
+    // Ids the indexer never saw. Reported to the client so the UI can say
+    // participation may be understated instead of quietly undercounting.
+    // Self-clearing: if Hasura ever backfills, this goes empty on its own.
+    const indexerGaps: number[] = [];
+    try {
+      const chainRes = await fetch(
+        `${GOV_LCD}/cosmos/gov/v1/proposals?pagination.limit=300`,
+        { signal: AbortSignal.timeout(15000), cache: "no-store" },
+      );
+      if (chainRes.ok) {
+        const chainJson = await chainRes.json();
+        for (const cp of chainJson?.proposals ?? []) {
+          const id = Number(cp.id);
+          if (known.has(id)) continue;
+          indexerGaps.push(id);
+          const t = cp.final_tally_result ?? {};
+          const yes = ucoreToTX(t.yes_count), no = ucoreToTX(t.no_count);
+          const abstain = ucoreToTX(t.abstain_count), noWithVeto = ucoreToTX(t.no_with_veto_count);
+          proposals.push({
+            id,
+            title: cp.title || cp.messages?.[0]?.content?.title || `Proposal #${id}`,
+            description: cp.summary || cp.messages?.[0]?.content?.description || "",
+            rawStatus: cp.status,
+            rawType: cp.messages?.[0]?.["@type"] ?? "",
+            content: cp.messages?.[0] ?? null,
+            proposer: cp.proposer ?? "",
+            submitTime: cp.submit_time ?? null,
+            votingStartTime: cp.voting_start_time ?? null,
+            votingEndTime: cp.voting_end_time ?? null,
+            tally: { yes, no, abstain, noWithVeto,
+                     totalVoted: yes + no + abstain + noWithVeto, bondedSnapshot: 0 },
+          } as (typeof proposals)[number]);
+        }
+        proposals.sort((a, b) => Number(b.id) - Number(a.id));
+      }
+    } catch {
+      // Chain unreachable: fall back to the indexer's list rather than failing
+      // the whole route. The count is then understated, not wrong-shaped.
+    }
+
     const rawParams = (json.data?.gov_params?.[0] as HasuraGovParams | undefined)?.params;
     const params = {
       quorum: rawParams ? Number(rawParams.quorum) : 0.4,
@@ -153,7 +210,7 @@ export async function GET() {
     };
 
     return NextResponse.json(
-      { proposals, params },
+      { proposals, params, indexerGaps: indexerGaps.sort((a, b) => a - b) },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
