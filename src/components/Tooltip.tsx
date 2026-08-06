@@ -18,7 +18,24 @@ export default function Tooltip({ text, children, position = "top" }: TooltipPro
     if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
     const top = position === "top" ? rect.top - 8 : rect.bottom + 8;
-    const left = rect.left + rect.width / 2;
+
+    // The bubble is centred on the trigger and translated -50%, so a trigger
+    // near either edge pushes half the bubble off screen. Measured at 393px
+    // wide: a tooltip on a right-hand column ran to 430px against a 393px
+    // viewport, so the end of the sentence was unreadable. Clamp the centre
+    // so the bubble always lands inside the viewport.
+    //
+    // HALF_MAX mirrors the 280px max-width in globals.css. Using the maximum
+    // rather than the measured width can nudge a narrow bubble further from
+    // its trigger than strictly needed, which is a much smaller problem than
+    // text disappearing off the edge.
+    const HALF_MAX = 140;
+    const MARGIN = 10;
+    const raw = rect.left + rect.width / 2;
+    const left = Math.min(
+      Math.max(raw, HALF_MAX + MARGIN),
+      window.innerWidth - HALF_MAX - MARGIN,
+    );
     setCoords({ top, left });
   }, [position]);
 

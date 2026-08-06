@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCompact } from "@/lib/ui-format";
+import Tooltip from "@/components/Tooltip";
 import {
   fetchAddressChainData,
   fetchBondedTokens,
@@ -357,6 +358,7 @@ export default function PortfolioPanel({
               label="Share of network"
               value={bonded > 0 ? `${((totals.staked / bonded) * 100).toFixed(3)}%` : "-"}
               sub={bonded > 0 ? `of ${formatCompact(bonded)} TX bonded` : undefined}
+              tip="Your combined staked TX as a share of all bonded stake on the chain."
             />
             <Metric
               label="PSE per month"
@@ -364,6 +366,7 @@ export default function PortfolioPanel({
               sub={pse
                 ? `${pse.sharePct < 0.0001 ? "<0.0001" : pse.sharePct.toFixed(4)}% of the pool`
                 : "score unavailable"}
+              tip="Estimated share of the monthly PSE pool, from your wallets' real on-chain scores. Score is stake multiplied by staking duration, so splitting stake across wallets changes nothing. Blank when the network score cannot be read, rather than showing a guess."
             />
             <Metric
               label="Wallets"
@@ -379,6 +382,7 @@ export default function PortfolioPanel({
               label="Unbonding takes"
               value={unbondingDays !== null ? `${unbondingDays} days` : "-"}
               sub="chain parameter"
+              tip="How long unstaked TX is locked before it can be moved. Read live from the chain's staking parameters, since governance can change it."
             />
           </div>
 
@@ -399,12 +403,13 @@ export default function PortfolioPanel({
               appears unless it applies. */}
           {(idleWorth || totals.jailedStake.amountTX > 0 || totals.unlocks.length > 0) && (
             <div className="pfp-section">
-              <div className="psp-list-head">Worth knowing</div>
-              <p className="pfp-note">
-                Only shows what currently applies to your wallets. Nothing here is a
-                recommendation, and Silk Nodes runs a validator, so it states the numbers
-                and leaves the decision alone.
-              </p>
+              <div className="psp-list-head">
+                Worth knowing
+                <Tooltip
+                  position="bottom"
+                  text="Only what currently applies to your wallets. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone."
+                />
+              </div>
               <div className="pfp-findings">
                 {totals.jailedStake.amountTX > 0 && (
                   <div className="pfp-finding pfp-finding-warn">
@@ -412,8 +417,12 @@ export default function PortfolioPanel({
                     {totals.jailedStake.validators.length === 1
                       ? nameOf(totals.jailedStake.validators[0].validatorAddress)
                       : `${totals.jailedStake.validators.length} validators`}{" "}
-                    that {totals.jailedStake.validators.length === 1 ? "is" : "are"} jailed or outside
-                    the active set. Stake there earns nothing until that changes.
+                    that {totals.jailedStake.validators.length === 1 ? "is" : "are"} jailed or
+                    inactive, earning nothing.
+                    <Tooltip
+                      position="top"
+                      text="A jailed validator has been removed from the active set for downtime or misbehaviour and stops producing blocks. Stake delegated to it earns no rewards until you redelegate, which does not happen automatically."
+                    />
                     {totals.jailedStake.validators.length > 1 && (
                       <span className="pfp-finding-list">
                         {totals.jailedStake.validators
@@ -430,9 +439,14 @@ export default function PortfolioPanel({
                   <div className="pfp-finding">
                     <strong>{TX(totals.liquid)}</strong> is liquid and not staked
                     {apr !== null && (
-                      <>, which at the current network rate of {apr.toFixed(1)}% before commission
-                      is about {TX((totals.liquid * apr) / 100)} a year</>
+                      <>, worth about {TX((totals.liquid * apr) / 100)} a year if staked</>
                     )}.
+                    {apr !== null && (
+                      <Tooltip
+                        position="top"
+                        text={`At the current network rate of ${apr.toFixed(1)}%, derived live from annual provisions less community tax over total bonded stake. Quoted before commission, since what you receive depends on the validators you pick.`}
+                      />
+                    )}
                   </div>
                 )}
                 {totals.unlocks.length > 0 && (
@@ -450,13 +464,13 @@ export default function PortfolioPanel({
 
           {totals.exposure.length > 0 && (
             <div className="pfp-section">
-              <div className="psp-list-head">Validator exposure across every wallet</div>
-              <p className="pfp-note">
-                Your stake grouped by validator rather than by wallet. Delegating from four
-                wallets to the same validator is the same concentration as delegating once,
-                and only this view shows it. If a validator is jailed or slashed, everything
-                on this line is affected together.
-              </p>
+              <div className="psp-list-head">
+                Validator exposure across every wallet
+                <Tooltip
+                  position="bottom"
+                  text="Your stake grouped by validator instead of by wallet. Delegating from four wallets to one validator is the same concentration as delegating once, and only this view shows it. If that validator is jailed or slashed, all of it is affected together."
+                />
+              </div>
               {/* The whole reason the panel exists. Concentration is invisible
                   one wallet at a time, so it is stated in words as well as
                   drawn, and only when it is actually high. We run a validator,
@@ -486,11 +500,13 @@ export default function PortfolioPanel({
 
           {totals.tokens.length > 0 && (
             <div className="pfp-section">
-              <div className="psp-list-head">Other tokens held</div>
-              <p className="pfp-note">
-                Non-TX balances across all your wallets, merged by ticker. These are smart
-                tokens issued on TX and assets bridged in over IBC.
-              </p>
+              <div className="psp-list-head">
+                Other tokens held
+                <Tooltip
+                  position="bottom"
+                  text="Non-TX balances across all your wallets, merged by ticker. Smart tokens issued on TX, and assets bridged in over IBC."
+                />
+              </div>
               <div className="psp-kv-grid">
                 {totals.tokens.slice(0, 8).map((t) => (
                   <div className="psp-kv" key={t.symbol}>
@@ -571,37 +587,30 @@ export default function PortfolioPanel({
             )}
           </div>
 
-          {/* People assume splitting stake across wallets costs them PSE. It
-              does not, and a combined view is exactly where that comes up. */}
-          <div className="pfp-foot">
-            <p>
-              <strong>How these numbers are built.</strong> Every figure is read from the
-              chain in your browser, one wallet at a time, and added up here. Nothing about
-              which wallets you track is sent to us.
-            </p>
-            <p>
-              <strong>PSE.</strong> Score is stake multiplied by how long it has been staked,
-              which is linear, so splitting the same stake across several wallets earns
-              exactly what holding it in one would. Rewards are still paid per address, and
-              the monthly figure is an estimate of your share of the pool, not a promise.
-            </p>
-            <p>
-              <strong>Staking rate.</strong> The network rate is derived live from annual
-              provisions less community tax, over total bonded stake. It is quoted before
-              commission, because what you actually receive depends on the commission of the
-              validators you pick.
-            </p>
-          </div>
+          {/* The detail lives in the tooltip. Long explanatory paragraphs
+              were pushing the actual numbers off the screen. */}
+          <p className="pfp-foot">
+            Read from the chain in your browser, one wallet at a time.
+            <Tooltip
+              position="top"
+              text="Every figure here is fetched directly from the chain by your browser and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission."
+            />
+          </p>
         </>
       )}
     </div>
   );
 }
 
-function Metric({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+function Metric({ label, value, sub, accent, tip }: {
+  label: string; value: string; sub?: string; accent?: boolean; tip?: string;
+}) {
   return (
     <div className="psp-metric">
-      <span className="psp-metric-label">{label}</span>
+      <span className="psp-metric-label">
+        {label}
+        {tip && <Tooltip text={tip} position="bottom" />}
+      </span>
       <span className={`psp-metric-value${accent ? " psp-metric-accent" : ""}`}>{value}</span>
       {sub && <span className="psp-metric-sub">{sub}</span>}
     </div>

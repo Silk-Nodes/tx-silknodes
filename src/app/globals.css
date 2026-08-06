@@ -2223,7 +2223,9 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.5;
   white-space: normal;
   width: max-content;
-  max-width: 280px;
+  /* Never wider than the viewport allows on a phone, where 280px plus the
+     centring offset was enough to run past the edge. */
+  max-width: min(280px, calc(100vw - 24px));
   box-shadow: 0 12px 32px rgba(0,0,0,0.35);
   pointer-events: none;
   animation: tooltipFade 0.15s ease;
@@ -13731,7 +13733,7 @@ input[type="range"]::-moz-range-thumb {
    quieter than the row above it. */
 .pfp-headline-sub { border-top: none; padding-top: 0; margin-top: -4px; }
 .pfp-headline-sub .psp-metric-value { font-size: 1.05rem; }
-.pfp-note { font-size: 0.8rem; line-height: 1.5; color: var(--text-medium); margin: 0 0 12px; max-width: 74ch; }
+
 
 .pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -13744,9 +13746,7 @@ input[type="range"]::-moz-range-thumb {
 .pfp-row-actions { display: flex; gap: 6px; }
 .pfp-danger:hover { border-color: var(--danger); color: var(--danger); }
 .pfp-clear { align-self: flex-start; margin-top: 4px; }
-.pfp-foot { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 8px; }
-.pfp-foot p { font-size: 0.78rem; color: var(--text-medium); margin: 0; max-width: 74ch; line-height: 1.55; }
-.pfp-foot strong { color: var(--text-dark); }
+.pfp-foot { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--glass-border); font-size: 0.78rem; color: var(--text-medium); line-height: 1.5; }
 
 @media (max-width: 760px) {
   .pfp-headline { grid-template-columns: repeat(2, 1fr); gap: 12px; }
