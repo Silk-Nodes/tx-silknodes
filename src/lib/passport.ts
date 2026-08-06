@@ -97,6 +97,72 @@ async function getJson(path: string): Promise<any | null> {
 // Validator operator_address -> moniker, straight from the chain, so the
 // passport can label delegations without depending on a prop that may not
 // be loaded yet on this route. Paginates the full bonded+unbonded set.
+export interface ValidatorMeta {
+  moniker: string;
+  /** Jailed validators sign nothing, so stake delegated to them earns nothing. */
+  jailed: boolean;
+  /** Cosmos SDK BOND_STATUS_BONDED = 3. Anything else is out of the active set. */
+  bonded: boolean;
+}
+
+/**
+ * Every validator's name and current standing, in one pass.
+ *
+ * The jailed and status fields ride along in the same response we already
+ * fetch for monikers, so knowing that a delegation is currently earning
+ * nothing costs no extra request.
+ */
+export async function fetchValidatorMeta(): Promise<Record<string, ValidatorMeta>> {
+  const map: Record<string, ValidatorMeta> = {};
+  try {
+    let nextKey: string | null = null;
+    do {
+      const q: string = nextKey
+        ? `?pagination.limit=200&pagination.key=${encodeURIComponent(nextKey)}`
+        : `?pagination.limit=200`;
+      const data = await getJson(`/cosmos/staking/v1beta1/validators${q}`);
+      for (const v of data?.validators ?? []) {
+        if (!v.operator_address) continue;
+        map[v.operator_address] = {
+          moniker: v.description?.moniker ?? v.operator_address,
+          jailed: Boolean(v.jailed),
+          bonded: v.status === "BOND_STATUS_BONDED" || v.status === 3,
+        };
+      }
+      nextKey = data?.pagination?.next_key || null;
+    } while (nextKey);
+  } catch {
+    // Names and standing are decoration on top of the amounts; a failure here
+    // leaves addresses showing instead of monikers rather than blanking data.
+  }
+  return map;
+}
+
+/**
+ * Network staking APR before commission.
+ *
+ * Same derivation the validator API route uses: annual provisions net of
+ * community tax, over total bonded. Computed rather than hardcoded so it
+ * cannot drift from the chain, and quoted as "before commission" because the
+ * validator's cut depends on which one the reader would pick.
+ */
+export async function fetchStakingApr(): Promise<number | null> {
+  try {
+    const [prov, dist, pool] = await Promise.all([
+      getJson(`/cosmos/mint/v1beta1/annual_provisions`),
+      getJson(`/cosmos/distribution/v1beta1/params`),
+      getJson(`/cosmos/staking/v1beta1/pool`),
+    ]);
+    const annual = ucoreToTX(prov?.annual_provisions);
+    const tax = Number(dist?.params?.community_tax ?? 0);
+    const bonded = ucoreToTX(pool?.pool?.bonded_tokens);
+    if (!(annual > 0) || !(bonded > 0)) return null;
+    return (annual * (1 - tax) / bonded) * 100;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchValidatorMonikers(): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   try {

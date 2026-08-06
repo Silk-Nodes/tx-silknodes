@@ -23,7 +23,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCompact } from "@/lib/ui-format";
-import { fetchAddressChainData, fetchValidatorMonikers, type AddressChainData } from "@/lib/passport";
+import {
+  fetchAddressChainData,
+  fetchStakingApr,
+  fetchValidatorMeta,
+  type AddressChainData,
+  type ValidatorMeta,
+} from "@/lib/passport";
 import {
   MAX_WALLETS,
   addWallet,
@@ -38,6 +44,8 @@ import {
 
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 10)}...${a.slice(-6)}` : a);
 const TX = (n: number) => `${formatCompact(n)} TX`;
+const fullDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 interface WalletRow {
   wallet: SavedWallet;
@@ -57,7 +65,8 @@ export default function PortfolioPanel({
 }) {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
   const [rows, setRows] = useState<WalletRow[]>([]);
-  const [monikers, setMonikers] = useState<Record<string, string>>({});
+  const [vmeta, setVmeta] = useState<Record<string, ValidatorMeta>>({});
+  const [apr, setApr] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
@@ -72,8 +81,14 @@ export default function PortfolioPanel({
   }, []);
 
   useEffect(() => {
-    fetchValidatorMonikers().then(setMonikers).catch(() => {});
+    fetchValidatorMeta().then(setVmeta).catch(() => {});
+    fetchStakingApr().then(setApr).catch(() => {});
   }, []);
+
+  const nameOf = useCallback(
+    (addr: string) => vmeta[addr]?.moniker ?? shortAddr(addr),
+    [vmeta],
+  );
 
   const refresh = useCallback(async (list: SavedWallet[]) => {
     if (list.length === 0) {
@@ -127,6 +142,15 @@ export default function PortfolioPanel({
         pct: staked > 0 ? (amountTX / staked) * 100 : 0,
       }))
       .sort((a, b) => b.amountTX - a.amountTX);
+    // Stake sitting with a validator that is jailed or out of the active set
+    // earns nothing. One wallet at a time this is easy to miss; it is the kind
+    // of thing that quietly runs for weeks.
+    const idle = exposure.filter((e) => {
+      const m = vmeta[e.validatorAddress];
+      return m && (m.jailed || !m.bonded);
+    });
+    const idleStakeTX = idle.reduce((n, e) => n + e.amountTX, 0);
+
     const tokens = [...byToken.entries()]
       // Dust rounds to "0" once formatted, which reads as a bug rather than a
       // tiny balance. Filter on what will actually be rendered, not on the raw
@@ -134,12 +158,22 @@ export default function PortfolioPanel({
       .filter(([, amt]) => formatCompact(amt) !== "0")
       .map(([symbol, amount]) => ({ symbol, amount }))
       .sort((a, b) => b.amount - a.amount);
+    // Every pending unbonding across every wallet, soonest first. The chain
+    // gives a completion time per entry and nothing surfaces it, so a holder
+    // has no way to know when their capital comes back without checking each
+    // wallet by hand.
+    const unlocks = rows
+      .flatMap((r) => (r.data?.unbonding ?? []).map((u) => ({ ...u, wallet: r.wallet })))
+      .sort((a, b) => new Date(a.completionTime).getTime() - new Date(b.completionTime).getTime());
+
     return {
       liquid, staked, unbonding, rewards,
       total: liquid + staked + unbonding + rewards,
       exposure, tokens, failed,
+      jailedStake: { validators: idle, amountTX: idleStakeTX },
+      unlocks,
     };
-  }, [rows]);
+  }, [rows, vmeta]);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,6 +219,9 @@ export default function PortfolioPanel({
     connectedAddress && !wallets.some((w) => w.address === connectedAddress);
   const sortedRows = [...rows].sort((a, b) => (b.data?.stakedTX ?? 0) - (a.data?.stakedTX ?? 0));
   const top = totals.exposure[0];
+  // Below a token amount the "you could be earning" line is noise, not a
+  // nudge. One TX a year is not a finding.
+  const idleWorth = totals.liquid >= 100;
 
   return (
     <div className="psp-card psp-card-wide pfp-card">
@@ -269,6 +306,53 @@ export default function PortfolioPanel({
             </div>
           )}
 
+          {/* What to do about it, rather than only what you hold. Each line is
+              a fact with its own number; none of them is advice, and none
+              appears unless it applies. */}
+          {(idleWorth || totals.jailedStake.amountTX > 0 || totals.unlocks.length > 0) && (
+            <div className="pfp-section">
+              <div className="psp-list-head">Worth knowing</div>
+              <div className="pfp-findings">
+                {totals.jailedStake.amountTX > 0 && (
+                  <div className="pfp-finding pfp-finding-warn">
+                    <strong>{TX(totals.jailedStake.amountTX)}</strong> is delegated to{" "}
+                    {totals.jailedStake.validators.length === 1
+                      ? nameOf(totals.jailedStake.validators[0].validatorAddress)
+                      : `${totals.jailedStake.validators.length} validators`}{" "}
+                    that {totals.jailedStake.validators.length === 1 ? "is" : "are"} jailed or outside
+                    the active set. Stake there earns nothing until that changes.
+                    {totals.jailedStake.validators.length > 1 && (
+                      <span className="pfp-finding-list">
+                        {totals.jailedStake.validators
+                          .slice(0, 4)
+                          .map((v) => `${nameOf(v.validatorAddress)} (${TX(v.amountTX)})`)
+                          .join(" · ")}
+                        {totals.jailedStake.validators.length > 4 &&
+                          ` · +${totals.jailedStake.validators.length - 4} more`}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {idleWorth && (
+                  <div className="pfp-finding">
+                    <strong>{TX(totals.liquid)}</strong> is liquid and not staked
+                    {apr !== null && (
+                      <>, which at the current network rate of {apr.toFixed(1)}% before commission
+                      is about {TX((totals.liquid * apr) / 100)} a year</>
+                    )}.
+                  </div>
+                )}
+                {totals.unlocks.length > 0 && (
+                  <div className="pfp-finding">
+                    <strong>{TX(totals.unbonding)}</strong> unbonding.
+                    {" "}Next {TX(totals.unlocks[0].amountTX)} unlocks {fullDate(totals.unlocks[0].completionTime)}
+                    {totals.unlocks.length > 1 && `, then ${totals.unlocks.length - 1} more`}.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {totals.exposure.length > 0 && (
             <div className="pfp-section">
               <div className="psp-list-head">
@@ -280,14 +364,14 @@ export default function PortfolioPanel({
                   so this says what the number is and stops there. */}
               {top && top.pct >= 33 && (
                 <div className="pfp-flag">
-                  {top.pct.toFixed(0)}% of your staked TX sits with {monikers[top.validatorAddress] ?? shortAddr(top.validatorAddress)}.
+                  {top.pct.toFixed(0)}% of your staked TX sits with {nameOf(top.validatorAddress)}.
                 </div>
               )}
               <div className="psp-bars pfp-bars">
                 {totals.exposure.slice(0, 10).map((e) => (
                   <div key={e.validatorAddress} className="psp-bar-row">
                     <div className="psp-bar-head">
-                      <span className="psp-bar-name">{monikers[e.validatorAddress] ?? shortAddr(e.validatorAddress)}</span>
+                      <span className="psp-bar-name">{nameOf(e.validatorAddress)}</span>
                       <span className="psp-bar-val">
                         {TX(e.amountTX)} <span className="psp-bar-pct">{e.pct.toFixed(0)}%</span>
                       </span>

@@ -13717,6 +13717,16 @@ input[type="range"]::-moz-range-thumb {
    and nothing more persuasive than that. */
 .pfp-flag { font-size: 0.82rem; color: var(--text-dark); background: var(--accent-olive-light); border-left: 2px solid var(--tx-neon); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 12px; }
 
+.pfp-findings { display: flex; flex-direction: column; gap: 8px; }
+.pfp-finding { font-size: 0.84rem; line-height: 1.5; color: var(--text-medium); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 10px 14px; }
+.pfp-finding strong { color: var(--text-dark); font-family: var(--font-mono); font-weight: 700; }
+/* Stake earning nothing is the one that costs money while you do not look at
+   it, so it gets a colour the others do not. */
+.pfp-finding-warn { border-left: 2px solid var(--danger); }
+/* --text-light measured 3.24:1 on the light background here, under the 4.5
+   floor. Secondary text at this size needs --text-medium (9.33:1). */
+.pfp-finding-list { display: block; margin-top: 5px; font-size: 0.78rem; color: var(--text-medium); font-family: var(--font-mono); }
+
 .pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
