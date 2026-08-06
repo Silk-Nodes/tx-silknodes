@@ -110,12 +110,27 @@ export default function PortfolioPanel({
       return;
     }
     setLoading(true);
-    const settled = await Promise.all(
-      list.map(async (wallet): Promise<WalletRow> => {
-        try {
-          return { wallet, data: await fetchAddressChainData(wallet.address), failed: false };
-        } catch {
-          return { wallet, data: null, failed: true };
+    // Bounded concurrency, for the same reason the API routes got it: each
+    // wallet is five LCD reads plus one per token held, so ten wallets fired
+    // through Promise.all is well over a hundred simultaneous requests to
+    // public nodes we do not own. Three at a time keeps a full portfolio
+    // responsive without making a burst of traffic from every page load.
+    const CONCURRENCY = 3;
+    const settled: WalletRow[] = new Array(list.length);
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, list.length) }, async () => {
+        for (;;) {
+          const i = next++;
+          if (i >= list.length) return;
+          const wallet = list[i];
+          try {
+            settled[i] = { wallet, data: await fetchAddressChainData(wallet.address), failed: false };
+          } catch {
+            settled[i] = { wallet, data: null, failed: true };
+          }
+          // Render each wallet as it lands rather than waiting for the slowest.
+          setRows(settled.filter(Boolean));
         }
       }),
     );
@@ -175,9 +190,15 @@ export default function PortfolioPanel({
   const totals = useMemo(() => {
     let liquid = 0, staked = 0, unbonding = 0, rewards = 0, failed = 0;
     const byValidator = new Map<string, number>();
-    // Non-TX holdings merged by ticker, so three wallets holding the same
-    // smart token read as one line instead of three.
-    const byToken = new Map<string, number>();
+    // Non-TX holdings merged by DENOM, not by ticker.
+    //
+    // Ticker is not unique on this chain and it is not close. 45 symbols are
+    // claimed by more than one token: UUSDC resolves to 82 distinct denoms
+    // (different IBC paths), XRP to two unrelated ones, and anyone can issue a
+    // smart token using a ticker someone else already uses. Summing by symbol
+    // would silently add unrelated balances together and present the result as
+    // one holding, which is worse than not showing it at all.
+    const byToken = new Map<string, { symbol: string; amount: number }>();
     for (const r of rows) {
       if (!r.data) { failed++; continue; }
       liquid += r.data.balanceTX;
@@ -188,7 +209,11 @@ export default function PortfolioPanel({
         byValidator.set(d.validatorAddress, (byValidator.get(d.validatorAddress) ?? 0) + d.amountTX);
       }
       for (const t of r.data.otherTokens) {
-        byToken.set(t.symbol, (byToken.get(t.symbol) ?? 0) + t.displayAmount);
+        const prev = byToken.get(t.denom);
+        byToken.set(t.denom, {
+          symbol: t.symbol,
+          amount: (prev?.amount ?? 0) + t.displayAmount,
+        });
       }
     }
     const exposure = [...byValidator.entries()]
@@ -210,13 +235,21 @@ export default function PortfolioPanel({
     });
     const idleStakeTX = idle.reduce((n, e) => n + e.amountTX, 0);
 
-    const tokens = [...byToken.entries()]
+    const tokenRows = [...byToken.entries()]
       // Dust rounds to "0" once formatted, which reads as a bug rather than a
       // tiny balance. Filter on what will actually be rendered, not on the raw
       // amount: formatCompact(0.4) is "0", so a >0 test does not catch it.
-      .filter(([, amt]) => formatCompact(amt) !== "0")
-      .map(([symbol, amount]) => ({ symbol, amount }))
+      .filter(([, t]) => formatCompact(t.amount) !== "0")
+      .map(([denom, t]) => ({ denom, symbol: t.symbol, amount: t.amount }))
       .sort((a, b) => b.amount - a.amount);
+    // Where a ticker is genuinely shared by two held tokens, say so rather
+    // than showing two identical-looking rows.
+    const symbolCounts = new Map<string, number>();
+    for (const t of tokenRows) symbolCounts.set(t.symbol, (symbolCounts.get(t.symbol) ?? 0) + 1);
+    const tokens = tokenRows.map((t) => ({
+      ...t,
+      ambiguous: (symbolCounts.get(t.symbol) ?? 0) > 1,
+    }));
     // Every pending unbonding across every wallet, soonest first. The chain
     // gives a completion time per entry and nothing surfaces it, so a holder
     // has no way to know when their capital comes back without checking each
@@ -504,13 +537,21 @@ export default function PortfolioPanel({
                 Other tokens held
                 <Tooltip
                   position="bottom"
-                  text="Non-TX balances across all your wallets, merged by ticker. Smart tokens issued on TX, and assets bridged in over IBC."
+                  text="Non-TX balances across all your wallets. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: 45 of them are claimed by more than one token, so summing by name would add unrelated balances together."
                 />
               </div>
               <div className="psp-kv-grid">
                 {totals.tokens.slice(0, 8).map((t) => (
-                  <div className="psp-kv" key={t.symbol}>
-                    <span className="psp-kv-label">{t.symbol}</span>
+                  <div className="psp-kv" key={t.denom}>
+                    <span className="psp-kv-label">
+                      {t.symbol}
+                      {t.ambiguous && (
+                        <span className="pfp-denom-hint" title={t.denom}>
+                          {" "}
+                          {t.denom.startsWith("ibc/") ? "ibc" : t.denom.slice(-6)}
+                        </span>
+                      )}
+                    </span>
                     <span className="psp-kv-value">{formatCompact(t.amount)}</span>
                   </div>
                 ))}

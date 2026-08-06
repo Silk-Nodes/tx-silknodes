@@ -59,11 +59,29 @@ export default function Tooltip({ text, children, position = "top" }: TooltipPro
 
   return (
     <>
+      {/* Reachable by keyboard, not only by pointer. The trigger was a bare
+          span with mouse handlers, so anyone navigating by keyboard or using a
+          screen reader could not open a tooltip at all. That was survivable
+          when tooltips were extra colour; it is not now that they carry the
+          explanations for the numbers on screen. */}
       <span
         ref={wrapperRef}
         className="tooltip-wrapper"
+        role="button"
+        tabIndex={0}
+        aria-label={`Explain: ${text}`}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setVisible((v) => !v);
+          } else if (e.key === "Escape") {
+            setVisible(false);
+          }
+        }}
         onClick={(e) => {
           e.stopPropagation();
           setVisible((v) => !v);
