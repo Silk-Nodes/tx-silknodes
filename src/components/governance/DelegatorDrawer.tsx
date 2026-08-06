@@ -112,7 +112,7 @@ export default function DelegatorDrawer({ override, validators, onClose }: Props
             <span className={`vvt-vote-badge vvt-vote-${override.voteOption.toLowerCase()}`}>
               {VOTE_LABEL[override.voteOption]}
             </span>{" "}
-            on {new Date(override.votedAt).toLocaleString()}
+            {override.votedAt ? `on ${new Date(override.votedAt).toLocaleString()}` : ""}
           </div>
         </header>
 

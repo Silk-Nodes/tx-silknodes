@@ -18,6 +18,10 @@
 
 import { NextResponse } from "next/server";
 
+// The chain's own vote record, filling the gaps the Hasura indexer has.
+// See scripts/backfill-votes.mjs.
+import HISTORICAL_VOTES from "@/data/historical-votes.json";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 300; // 5 min - settled props don't move; cache wins.
 
@@ -54,7 +58,9 @@ interface DelegationResponseRaw {
 interface EnrichedOverride {
   voterAddress: string;
   voteOption: string;
-  votedAt: string;
+  // Null for votes recovered from the chain: settled votes are deleted by the
+  // SDK, so only the transaction survives and it carries no indexer timestamp.
+  votedAt: string | null;
   bondedTotalTX: number;
   delegations: {
     operatorAddress: string;
@@ -151,7 +157,24 @@ export async function GET(
     const validatorSet = new Set(
       data.validator_info.map((v) => v.self_delegate_address).filter(Boolean),
     );
-    const delegatorVotes = data.proposal_vote.filter((v) => !validatorSet.has(v.voter_address));
+    const delegatorVotes: { voter_address: string; option: string; timestamp: string | null }[] =
+      data.proposal_vote.filter((v) => !validatorSet.has(v.voter_address));
+
+    // Merge in the votes the indexer lost. Without this, every proposal Hasura
+    // has no votes for renders "No delegator override votes on this proposal"
+    // directly underneath a header counting 137 of them, because the detail
+    // route already recovers the count from the chain and this one did not.
+    // The chain snapshot keeps no timestamp, so these sort last rather than
+    // pretending to a position in the voting timeline.
+    const seenVoters = new Set(delegatorVotes.map((v) => v.voter_address));
+    const archived: Record<string, string> =
+      (HISTORICAL_VOTES as Record<string, Record<string, string>>)[String(id)] ?? {};
+    for (const [voter, opt] of Object.entries(archived)) {
+      if (validatorSet.has(voter) || seenVoters.has(voter)) continue;
+      // Stored normalized ("YES"); the enrichment below strips the raw prefix,
+      // so hand it back in the raw shape it expects.
+      delegatorVotes.push({ voter_address: voter, option: `VOTE_OPTION_${opt}`, timestamp: null });
+    }
 
     if (delegatorVotes.length === 0) {
       return NextResponse.json({ overrides: [] }, { headers: { "cache-control": "no-store" } });

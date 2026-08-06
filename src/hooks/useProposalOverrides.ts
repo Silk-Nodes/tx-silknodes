@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 export interface OverrideEnrichment {
   voterAddress: string;
   voteOption: string;
-  votedAt: string;
+  votedAt: string | null;
   bondedTotalTX: number;
   delegations: {
     operatorAddress: string;
