@@ -34,7 +34,7 @@ const EXPENSIVE = [
 
 // Keys issued to external consumers, as label:secret pairs.
 //
-//   API_KEYS=mart:8f3c...,partner:19ab...
+//   API_KEYS=monitoring:8f3c...,partner:19ab...
 //
 // The label is what gets logged and revoked, so an abusive integrator can be
 // cut off by editing one env var without touching anyone else.
