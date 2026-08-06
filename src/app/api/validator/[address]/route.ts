@@ -144,6 +144,35 @@ async function hasura<T>(query: string, variables?: Record<string, unknown>): Pr
   }
 }
 
+
+// Votes this validator cast, read from the chain's transaction index rather
+// than the indexer.
+//
+// Needed because Hasura is missing entire proposals (40 and 42 at time of
+// writing) including every vote on them, and those votes are otherwise
+// unrecoverable: the SDK deletes votes once a proposal settles, so the vote
+// TRANSACTION is the only surviving evidence. Bounded by whatever tx history
+// the public node retains, which in practice covers the recent proposals
+// where the indexer gaps actually are. Best effort: failure just leaves the
+// indexer's list untouched.
+async function chainVotes(voter: string): Promise<Map<number, string>> {
+  const found = new Map<number, string>();
+  for (const action of ["/cosmos.gov.v1beta1.MsgVote", "/cosmos.gov.v1.MsgVote"]) {
+    const q = `message.sender='${voter}' AND message.action='${action}'`;
+    const url = `${LCD}/cosmos/tx/v1beta1/txs?query=${encodeURIComponent(q)}&pagination.limit=100`;
+    const d: any = await getJSON<any>(url);
+    for (const tx of d?.txs ?? []) {
+      for (const m of tx?.body?.messages ?? []) {
+        if (!String(m["@type"] ?? "").includes("MsgVote")) continue;
+        const pid = Number(m.proposal_id);
+        const opt = m.option ?? m.options?.[0]?.option;
+        if (Number.isFinite(pid) && opt) found.set(pid, opt);
+      }
+    }
+  }
+  return found;
+}
+
 const VOTE_LABEL: Record<string, string> = {
   VOTE_OPTION_YES: "YES",
   VOTE_OPTION_NO: "NO",
@@ -235,7 +264,7 @@ export async function GET(
     perTokenApr !== null && avgCommission !== null ? perTokenApr * (1 - avgCommission) : null;
 
   // ── uptime, delegators, self-bond, votes ──────────────────────────
-  const [signing, delegations, selfDel, votes, slashParams, commRes, outRes, unbRes, kbRes] = await Promise.all([
+  const [signing, delegations, selfDel, votes, tenure, onChainVotes, slashParams, commRes, outRes, unbRes, kbRes] = await Promise.all([
     consensusAddress
       ? getJSON<{ val_signing_info: Record<string, any> }>(
           `${LCD}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`,
@@ -260,6 +289,18 @@ export async function GET(
           { v: selfDelegateAddress },
         )
       : Promise.resolve(null),
+    // Which proposals this validator was actually IN THE SET for. Without
+    // this, participation is measured against every proposal that ever
+    // existed, so a validator that joined at proposal 12 is scored against 11
+    // votes it could never have cast. TX Forge read 31 of 43 (72%) when its
+    // real record is a perfect one for its whole tenure.
+    consensusAddress
+      ? hasura<{ proposal_validator_status_snapshot: { proposal_id: number }[] }>(
+          `query($c:String!){ proposal_validator_status_snapshot(where:{validator_address:{_eq:$c}}){ proposal_id } }`,
+          { c: consensusAddress },
+        )
+      : Promise.resolve(null),
+    selfDelegateAddress ? chainVotes(selfDelegateAddress) : Promise.resolve(new Map<number, string>()),
     getJSON<{ params: { signed_blocks_window: string } }>(`${LCD}/cosmos/slashing/v1beta1/params`),
     getJSON<{ commission: { commission: { denom: string; amount: string }[] } }>(
       `${LCD}/cosmos/distribution/v1beta1/validators/${address}/commission`,
@@ -503,8 +544,31 @@ export async function GET(
         seen.add(x.proposal_id);
         deduped.push({ proposalId: x.proposal_id, vote: VOTE_LABEL[x.option] || "UNKNOWN" });
       }
+      // Merge votes the indexer never saw. Only ADDS proposals; the indexer
+      // stays authoritative for anything it did record, since it has the full
+      // history while the tx index is bounded by node retention.
+      let recovered = 0;
+      for (const [pid, opt] of onChainVotes as Map<number, string>) {
+        if (seen.has(pid)) continue;
+        seen.add(pid);
+        deduped.push({ proposalId: pid, vote: VOTE_LABEL[opt] || "UNKNOWN" });
+        recovered++;
+      }
       deduped.sort((a, b) => b.proposalId - a.proposalId);
-      return { votedCount: deduped.length, votes: deduped };
+
+      // Tenure. The lowest proposal this validator appears in the set for is
+      // when it joined; anything earlier was never its to vote on. Reported so
+      // the client can score participation over the tenure instead of over all
+      // history, which is what other explorers do and why ours looked worse.
+      const snapIds = (tenure?.proposal_validator_status_snapshot || [])
+        .map((r) => Number(r.proposal_id))
+        .filter((n) => Number.isFinite(n));
+      const votedIds = deduped.map((d) => d.proposalId);
+      const firstSeen = [...snapIds, ...votedIds].length
+        ? Math.min(...[...snapIds, ...votedIds])
+        : null;
+
+      return { votedCount: deduped.length, votes: deduped, firstProposalId: firstSeen, recoveredFromChain: recovered };
     })(),
     history,
   });
