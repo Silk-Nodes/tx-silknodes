@@ -64,6 +64,7 @@ export function loadWallets(): SavedWallet[] {
     // Re-validate on read. The value is user-editable (devtools, a bad
     // import, a half-written older version), so it is untrusted input even
     // though we wrote it.
+    const seen = new Set<string>();
     return parsed
       .filter(
         (w): w is SavedWallet =>
@@ -71,6 +72,19 @@ export function loadWallets(): SavedWallet[] {
           typeof (w as SavedWallet).address === "string" &&
           isValidWalletAddress((w as SavedWallet).address),
       )
+      // Deduplicate on read, not just on write.
+      //
+      // addWallet() already refuses duplicates, so this looked unnecessary.
+      // It is not: this value is user-editable and can arrive from a hand
+      // edit, a stale export, or a partially written older version. Storing
+      // the same address ten times made every total ten times too big, and
+      // the panel reported it with no sign anything was wrong. A wrong
+      // balance stated confidently is the worst failure this feature has.
+      .filter((w) => {
+        if (seen.has(w.address)) return false;
+        seen.add(w.address);
+        return true;
+      })
       .map((w) => ({
         address: w.address,
         label: typeof w.label === "string" ? w.label.slice(0, MAX_LABEL_LENGTH) : undefined,
