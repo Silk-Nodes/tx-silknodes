@@ -6,12 +6,20 @@
 // one picture of it. The totals are the obvious part. The number that does not
 // exist anywhere else is validator exposure ACROSS wallets: four wallets each
 // delegated to the same validator look diversified one at a time and are not.
-// That view is only possible once the wallets are considered together.
 //
 // Everything here runs in the browser. The wallet list is read from
 // localStorage and each address is fetched from the LCD directly, so our own
 // API never sees which addresses belong to the same person. See lib/wallet-list
 // for why that matters more than the convenience it costs.
+//
+// Styling note: this deliberately reuses the passport's own classes
+// (psp-card, psp-headline, psp-metric, psp-bars) rather than defining a
+// parallel set. The first version invented its own boxed metric tiles and
+// single-row bars, which read as a different product bolted onto the page.
+// The site stacks its bars (label and value on one line, full-width track
+// beneath) and leaves headline figures unboxed under a hairline, in mono.
+// Only the genuinely new pieces (the add form, the wallet rows) carry pfp-
+// classes.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCompact } from "@/lib/ui-format";
@@ -92,9 +100,10 @@ export default function PortfolioPanel({
 
   const totals = useMemo(() => {
     let liquid = 0, staked = 0, unbonding = 0, rewards = 0, failed = 0;
-    // Delegations merged across every wallet. This is the whole point of the
-    // panel: exposure is per validator, not per wallet.
     const byValidator = new Map<string, number>();
+    // Non-TX holdings merged by ticker, so three wallets holding the same
+    // smart token read as one line instead of three.
+    const byToken = new Map<string, number>();
     for (const r of rows) {
       if (!r.data) { failed++; continue; }
       liquid += r.data.balanceTX;
@@ -104,10 +113,13 @@ export default function PortfolioPanel({
       for (const d of r.data.delegations) {
         byValidator.set(d.validatorAddress, (byValidator.get(d.validatorAddress) ?? 0) + d.amountTX);
       }
+      for (const t of r.data.otherTokens) {
+        byToken.set(t.symbol, (byToken.get(t.symbol) ?? 0) + t.displayAmount);
+      }
     }
     const exposure = [...byValidator.entries()]
       // A delegation can sit at 0 after a full undelegate. Listing those adds
-      // rows that all read "0 TX 0.0%" and push the real exposure down.
+      // rows that all read "0 TX 0%" and push the real exposure down.
       .filter(([, amountTX]) => amountTX > 0)
       .map(([validatorAddress, amountTX]) => ({
         validatorAddress,
@@ -115,7 +127,18 @@ export default function PortfolioPanel({
         pct: staked > 0 ? (amountTX / staked) * 100 : 0,
       }))
       .sort((a, b) => b.amountTX - a.amountTX);
-    return { liquid, staked, unbonding, rewards, total: liquid + staked + unbonding + rewards, exposure, failed };
+    const tokens = [...byToken.entries()]
+      // Dust rounds to "0" once formatted, which reads as a bug rather than a
+      // tiny balance. Filter on what will actually be rendered, not on the raw
+      // amount: formatCompact(0.4) is "0", so a >0 test does not catch it.
+      .filter(([, amt]) => formatCompact(amt) !== "0")
+      .map(([symbol, amount]) => ({ symbol, amount }))
+      .sort((a, b) => b.amount - a.amount);
+    return {
+      liquid, staked, unbonding, rewards,
+      total: liquid + staked + unbonding + rewards,
+      exposure, tokens, failed,
+    };
   }, [rows]);
 
   const handleAdd = (e: React.FormEvent) => {
@@ -160,22 +183,24 @@ export default function PortfolioPanel({
 
   const canAddConnected =
     connectedAddress && !wallets.some((w) => w.address === connectedAddress);
+  const sortedRows = [...rows].sort((a, b) => (b.data?.stakedTX ?? 0) - (a.data?.stakedTX ?? 0));
+  const top = totals.exposure[0];
 
   return (
-    <section className="pfp-wrap">
+    <div className="psp-card psp-card-wide pfp-card">
       <div className="pfp-head">
         <div>
-          <h2 className="pfp-title">Your portfolio</h2>
-          <p className="pfp-sub">
+          <div className="psp-card-head" style={{ marginBottom: 2 }}>Your portfolio</div>
+          <span className="psp-metric-label" style={{ textTransform: "none", letterSpacing: 0 }}>
             {wallets.length === 0
               ? "Add the wallets you hold to see one combined position."
               : `${wallets.length} wallet${wallets.length === 1 ? "" : "s"}, combined. Stored in this browser only, never sent to us.`}
-          </p>
+          </span>
         </div>
         {wallets.length > 0 && (
           <div className="pfp-head-actions">
-            <button type="button" className="pfp-ghost" onClick={doExport}>Export</button>
-            <label className="pfp-ghost pfp-ghost-file">
+            <button type="button" className="psp-topbar-btn ghost" onClick={doExport}>Export</button>
+            <label className="psp-topbar-btn ghost pfp-file">
               Import
               <input
                 type="file"
@@ -189,7 +214,7 @@ export default function PortfolioPanel({
 
       <form className="pfp-add" onSubmit={handleAdd}>
         <input
-          className="pfp-input pfp-input-addr"
+          className="pfp-input pfp-input-addr mono"
           value={input}
           onChange={(e) => { setInput(e.target.value); setNotice(null); }}
           placeholder="core1..."
@@ -203,14 +228,14 @@ export default function PortfolioPanel({
           placeholder="Name (optional)"
           aria-label="Label for this wallet"
         />
-        <button type="submit" className="pfp-add-btn" disabled={!input.trim()}>Add</button>
+        <button type="submit" className="psp-topbar-btn" disabled={!input.trim()}>Add</button>
         {canAddConnected && (
           <button
             type="button"
-            className="pfp-ghost"
+            className="psp-topbar-btn ghost"
             onClick={() => { const r = addWallet(connectedAddress!, "Connected"); if (r.ok) setWallets(r.wallets); }}
           >
-            Add connected wallet
+            Add connected
           </button>
         )}
       </form>
@@ -218,45 +243,72 @@ export default function PortfolioPanel({
       {notice && <div className="pfp-notice">{notice}</div>}
 
       {wallets.length === 0 ? (
-        <p className="pfp-empty">
-          Nothing added yet. Cold wallets work here too: this only reads public chain data,
+        <div className="psp-empty">
+          Nothing added yet. Cold wallets work here too: this reads public chain data only,
           so there is nothing to connect and nothing to sign.
-        </p>
+        </div>
       ) : (
         <>
-          <div className="pfp-totals">
-            <Metric label="Total" value={TX(totals.total)} usd={txPrice ? totals.total * txPrice : 0} strong />
-            <Metric label="Staked" value={TX(totals.staked)} usd={txPrice ? totals.staked * txPrice : 0} />
-            <Metric label="Liquid" value={TX(totals.liquid)} usd={txPrice ? totals.liquid * txPrice : 0} />
-            <Metric label="Unbonding" value={TX(totals.unbonding)} usd={txPrice ? totals.unbonding * txPrice : 0} />
-            <Metric label="Pending rewards" value={TX(totals.rewards)} usd={txPrice ? totals.rewards * txPrice : 0} />
+          <div className="psp-headline pfp-headline">
+            <Metric label="Total" value={TX(totals.total)} sub={txPrice ? `$${formatCompact(totals.total * txPrice)}` : undefined} accent />
+            <Metric label="Staked" value={TX(totals.staked)} sub={txPrice ? `$${formatCompact(totals.staked * txPrice)}` : undefined} />
+            <Metric label="Liquid" value={TX(totals.liquid)} sub={txPrice ? `$${formatCompact(totals.liquid * txPrice)}` : undefined} />
+            <Metric label="Unbonding" value={TX(totals.unbonding)} />
+            <Metric label="Rewards" value={TX(totals.rewards)} />
           </div>
 
-          {loading && <div className="pfp-loading">Reading {wallets.length} wallet{wallets.length === 1 ? "" : "s"} from the chain...</div>}
+          {loading && (
+            <div className="pfp-notice">
+              Reading {wallets.length} wallet{wallets.length === 1 ? "" : "s"} from the chain...
+            </div>
+          )}
           {totals.failed > 0 && (
             <div className="pfp-notice">
-              {totals.failed} wallet{totals.failed === 1 ? "" : "s"} could not be read just now, so the totals
-              above are short by that much.
+              {totals.failed} wallet{totals.failed === 1 ? "" : "s"} could not be read just now,
+              so the totals above are short by that much.
             </div>
           )}
 
           {totals.exposure.length > 0 && (
             <div className="pfp-section">
-              <div className="pfp-section-head">
-                <h3>Validator exposure</h3>
-                <span className="pfp-section-note">
-                  Across every wallet. One validator holding most of your stake is only visible here.
-                </span>
+              <div className="psp-list-head">
+                Validator exposure across every wallet
               </div>
-              <div className="pfp-bars">
-                {totals.exposure.slice(0, 12).map((e) => (
-                  <div key={e.validatorAddress} className="pfp-bar-row">
-                    <span className="pfp-bar-name">{monikers[e.validatorAddress] ?? shortAddr(e.validatorAddress)}</span>
-                    <span className="pfp-bar-track">
-                      <span className="pfp-bar-fill" style={{ width: `${Math.max(e.pct, 0.5)}%` }} />
-                    </span>
-                    <span className="pfp-bar-val">{TX(e.amountTX)}</span>
-                    <span className="pfp-bar-pct">{e.pct.toFixed(1)}%</span>
+              {/* The whole reason the panel exists. Concentration is invisible
+                  one wallet at a time, so it is stated in words as well as
+                  drawn, and only when it is actually high. We run a validator,
+                  so this says what the number is and stops there. */}
+              {top && top.pct >= 33 && (
+                <div className="pfp-flag">
+                  {top.pct.toFixed(0)}% of your staked TX sits with {monikers[top.validatorAddress] ?? shortAddr(top.validatorAddress)}.
+                </div>
+              )}
+              <div className="psp-bars pfp-bars">
+                {totals.exposure.slice(0, 10).map((e) => (
+                  <div key={e.validatorAddress} className="psp-bar-row">
+                    <div className="psp-bar-head">
+                      <span className="psp-bar-name">{monikers[e.validatorAddress] ?? shortAddr(e.validatorAddress)}</span>
+                      <span className="psp-bar-val">
+                        {TX(e.amountTX)} <span className="psp-bar-pct">{e.pct.toFixed(0)}%</span>
+                      </span>
+                    </div>
+                    <div className="psp-bar-track">
+                      <div className="psp-bar-fill psp-fill-staked" style={{ width: `${Math.max(e.pct, 0.5)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {totals.tokens.length > 0 && (
+            <div className="pfp-section">
+              <div className="psp-list-head">Other tokens held</div>
+              <div className="psp-kv-grid">
+                {totals.tokens.slice(0, 8).map((t) => (
+                  <div className="psp-kv" key={t.symbol}>
+                    <span className="psp-kv-label">{t.symbol}</span>
+                    <span className="psp-kv-value">{formatCompact(t.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -274,7 +326,7 @@ export default function PortfolioPanel({
             </button>
             {showBreakdown && (
               <div className="pfp-rows">
-                {rows.map((r) => (
+                {sortedRows.map((r) => (
                   <div key={r.wallet.address} className="pfp-row">
                     <div className="pfp-row-id">
                       {editing === r.wallet.address ? (
@@ -293,27 +345,27 @@ export default function PortfolioPanel({
                       )}
                       <span className="pfp-row-addr mono">{shortAddr(r.wallet.address)}</span>
                     </div>
-                    <div className="pfp-row-nums">
+                    <div className="pfp-row-nums mono">
                       {r.failed ? (
-                        <span className="pfp-row-failed">unreachable</span>
+                        <span className="psp-bar-pct">unreachable</span>
                       ) : r.data ? (
                         <>
                           <span>{TX(r.data.stakedTX)} staked</span>
                           <span>{TX(r.data.balanceTX)} liquid</span>
                         </>
                       ) : (
-                        <span className="pfp-row-failed">loading...</span>
+                        <span className="psp-bar-pct">loading...</span>
                       )}
                     </div>
                     <div className="pfp-row-actions">
                       {onOpenPassport && (
-                        <button type="button" className="pfp-ghost" onClick={() => onOpenPassport(r.wallet.address)}>
+                        <button type="button" className="psp-topbar-btn ghost" onClick={() => onOpenPassport(r.wallet.address)}>
                           Open
                         </button>
                       )}
                       <button
                         type="button"
-                        className="pfp-ghost pfp-ghost-danger"
+                        className="psp-topbar-btn ghost pfp-danger"
                         onClick={() => setWallets(removeWallet(r.wallet.address))}
                       >
                         Remove
@@ -323,7 +375,7 @@ export default function PortfolioPanel({
                 ))}
                 <button
                   type="button"
-                  className="pfp-ghost pfp-ghost-danger pfp-clear"
+                  className="psp-topbar-btn ghost pfp-danger pfp-clear"
                   onClick={() => { setWallets(clearWallets()); setNotice("Wallet list cleared."); }}
                 >
                   Remove all
@@ -332,10 +384,8 @@ export default function PortfolioPanel({
             )}
           </div>
 
-          {/* People assume splitting stake across wallets costs them PSE. It does
-              not, and a combined view is exactly where that question comes up.
-              PSE score is stake x duration, which is linear, so the sum across
-              wallets equals what one wallet holding the same total would score. */}
+          {/* People assume splitting stake across wallets costs them PSE. It
+              does not, and a combined view is exactly where that comes up. */}
           <p className="pfp-foot">
             PSE score is stake multiplied by staking duration, so splitting the same stake
             across several wallets earns the same as holding it in one. Rewards are still
@@ -343,16 +393,16 @@ export default function PortfolioPanel({
           </p>
         </>
       )}
-    </section>
+    </div>
   );
 }
 
-function Metric({ label, value, usd, strong }: { label: string; value: string; usd: number; strong?: boolean }) {
+function Metric({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <div className={`pfp-metric${strong ? " pfp-metric-strong" : ""}`}>
-      <span className="pfp-metric-label">{label}</span>
-      <span className="pfp-metric-value">{value}</span>
-      {usd > 0 && <span className="pfp-metric-usd">${formatCompact(usd)}</span>}
+    <div className="psp-metric">
+      <span className="psp-metric-label">{label}</span>
+      <span className={`psp-metric-value${accent ? " psp-metric-accent" : ""}`}>{value}</span>
+      {sub && <span className="psp-metric-sub">{sub}</span>}
     </div>
   );
 }
