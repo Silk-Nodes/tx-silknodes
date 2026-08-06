@@ -13727,6 +13727,12 @@ input[type="range"]::-moz-range-thumb {
    floor. Secondary text at this size needs --text-medium (9.33:1). */
 .pfp-finding-list { display: block; margin-top: 5px; font-size: 0.78rem; color: var(--text-medium); font-family: var(--font-mono); }
 
+/* Second row of headline figures: context rather than balances, so it sits
+   quieter than the row above it. */
+.pfp-headline-sub { border-top: none; padding-top: 0; margin-top: -4px; }
+.pfp-headline-sub .psp-metric-value { font-size: 1.05rem; }
+.pfp-note { font-size: 0.8rem; line-height: 1.5; color: var(--text-medium); margin: 0 0 12px; max-width: 74ch; }
+
 .pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
@@ -13738,7 +13744,9 @@ input[type="range"]::-moz-range-thumb {
 .pfp-row-actions { display: flex; gap: 6px; }
 .pfp-danger:hover { border-color: var(--danger); color: var(--danger); }
 .pfp-clear { align-self: flex-start; margin-top: 4px; }
-.pfp-foot { font-size: 0.78rem; color: var(--text-light); margin: 18px 0 0; max-width: 68ch; line-height: 1.5; }
+.pfp-foot { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 8px; }
+.pfp-foot p { font-size: 0.78rem; color: var(--text-medium); margin: 0; max-width: 74ch; line-height: 1.55; }
+.pfp-foot strong { color: var(--text-dark); }
 
 @media (max-width: 760px) {
   .pfp-headline { grid-template-columns: repeat(2, 1fr); gap: 12px; }

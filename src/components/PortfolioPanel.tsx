@@ -25,11 +25,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCompact } from "@/lib/ui-format";
 import {
   fetchAddressChainData,
+  fetchBondedTokens,
   fetchStakingApr,
+  fetchStakingParams,
   fetchValidatorMeta,
   type AddressChainData,
   type ValidatorMeta,
 } from "@/lib/passport";
+import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
 import {
   MAX_WALLETS,
   addWallet,
@@ -67,6 +70,12 @@ export default function PortfolioPanel({
   const [rows, setRows] = useState<WalletRow[]>([]);
   const [vmeta, setVmeta] = useState<Record<string, ValidatorMeta>>({});
   const [apr, setApr] = useState<number | null>(null);
+  const [unbondingDays, setUnbondingDays] = useState<number | null>(null);
+  const [bonded, setBonded] = useState(0);
+  // Combined PSE. Score is stake x duration, which is linear, so summing the
+  // per-wallet scores gives exactly what one wallet holding the same total
+  // would score. No approximation is involved.
+  const [pse, setPse] = useState<{ monthly: number; sharePct: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
@@ -83,6 +92,10 @@ export default function PortfolioPanel({
   useEffect(() => {
     fetchValidatorMeta().then(setVmeta).catch(() => {});
     fetchStakingApr().then(setApr).catch(() => {});
+    fetchBondedTokens().then(setBonded).catch(() => {});
+    fetchStakingParams()
+      .then((p) => setUnbondingDays(p ? p.unbondingSeconds / 86400 : null))
+      .catch(() => {});
   }, []);
 
   const nameOf = useCallback(
@@ -112,6 +125,51 @@ export default function PortfolioPanel({
   useEffect(() => {
     refresh(wallets);
   }, [wallets, refresh]);
+
+  // Combined PSE standing. Scores are summed as BigInt because they are raw
+  // ucore-seconds and overflow a double: a single large staker is already past
+  // 2^53. Getting this wrong would silently round the reader's standing.
+  useEffect(() => {
+    const addrs = rows.filter((r) => r.data && r.data.stakedTX > 0).map((r) => r.wallet.address);
+    const stake = rows.reduce((n, r) => n + (r.data?.stakedTX ?? 0), 0);
+    if (addrs.length === 0 || bonded <= 0) { setPse(null); return; }
+    let cancelled = false;
+    (async () => {
+      const [scores, net] = await Promise.all([
+        Promise.all(addrs.map((a) => fetchOnChainPSEScore(a).catch(() => null))),
+        fetch("/api/pse-score").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+      if (cancelled) return;
+      // BigInt(0) rather than the 0n literal: tsconfig targets ES2017, which
+      // predates BigInt literals. The runtime supports BigInt regardless.
+      let sum = BigInt(0);
+      let any = false;
+      for (const sc of scores) {
+        if (!sc) continue;
+        try { sum += BigInt(sc); any = true; } catch { /* unparseable, skip */ }
+      }
+      const est = layeredPSEEstimate({
+        userStake: stake,
+        userScore: any ? sum.toString() : null,
+        networkTotalScore: net?.networkTotalScore ?? null,
+        lastDistTotalScore: null,
+        bondedTokens: bonded,
+        excludedStake: 0,
+      });
+      // Only the on-chain-score path answers "what is your actual accrued
+      // share". The stake_ratio fallback answers a DIFFERENT question, the
+      // hypothetical share if you had been staked for the whole period, and
+      // it came out 400x higher on the test wallets. Showing that under a
+      // "PSE per month" label would be a wrong number stated confidently,
+      // so when the real inputs are unavailable this stays blank.
+      setPse(
+        est.source === "onchain_score" || est.source === "last_dist_reference"
+          ? { monthly: est.estimate, sharePct: est.sharePct }
+          : null,
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [rows, bonded]);
 
   const totals = useMemo(() => {
     let liquid = 0, staked = 0, unbonding = 0, rewards = 0, failed = 0;
@@ -294,6 +352,36 @@ export default function PortfolioPanel({
             <Metric label="Rewards" value={TX(totals.rewards)} />
           </div>
 
+          <div className="psp-headline pfp-headline pfp-headline-sub">
+            <Metric
+              label="Share of network"
+              value={bonded > 0 ? `${((totals.staked / bonded) * 100).toFixed(3)}%` : "-"}
+              sub={bonded > 0 ? `of ${formatCompact(bonded)} TX bonded` : undefined}
+            />
+            <Metric
+              label="PSE per month"
+              value={pse ? TX(pse.monthly) : "-"}
+              sub={pse
+                ? `${pse.sharePct < 0.0001 ? "<0.0001" : pse.sharePct.toFixed(4)}% of the pool`
+                : "score unavailable"}
+            />
+            <Metric
+              label="Wallets"
+              value={String(wallets.length)}
+              sub={`of ${MAX_WALLETS} tracked`}
+            />
+            <Metric
+              label="Validators"
+              value={String(totals.exposure.length)}
+              sub={totals.exposure.length > 0 ? "delegated to" : undefined}
+            />
+            <Metric
+              label="Unbonding takes"
+              value={unbondingDays !== null ? `${unbondingDays} days` : "-"}
+              sub="chain parameter"
+            />
+          </div>
+
           {loading && (
             <div className="pfp-notice">
               Reading {wallets.length} wallet{wallets.length === 1 ? "" : "s"} from the chain...
@@ -312,6 +400,11 @@ export default function PortfolioPanel({
           {(idleWorth || totals.jailedStake.amountTX > 0 || totals.unlocks.length > 0) && (
             <div className="pfp-section">
               <div className="psp-list-head">Worth knowing</div>
+              <p className="pfp-note">
+                Only shows what currently applies to your wallets. Nothing here is a
+                recommendation, and Silk Nodes runs a validator, so it states the numbers
+                and leaves the decision alone.
+              </p>
               <div className="pfp-findings">
                 {totals.jailedStake.amountTX > 0 && (
                   <div className="pfp-finding pfp-finding-warn">
@@ -344,7 +437,9 @@ export default function PortfolioPanel({
                 )}
                 {totals.unlocks.length > 0 && (
                   <div className="pfp-finding">
-                    <strong>{TX(totals.unbonding)}</strong> unbonding.
+                    <strong>{TX(totals.unbonding)}</strong> is unbonding and cannot be moved or
+                    staked until it completes
+                    {unbondingDays !== null && ` (${unbondingDays} days on this chain)`}.
                     {" "}Next {TX(totals.unlocks[0].amountTX)} unlocks {fullDate(totals.unlocks[0].completionTime)}
                     {totals.unlocks.length > 1 && `, then ${totals.unlocks.length - 1} more`}.
                   </div>
@@ -355,9 +450,13 @@ export default function PortfolioPanel({
 
           {totals.exposure.length > 0 && (
             <div className="pfp-section">
-              <div className="psp-list-head">
-                Validator exposure across every wallet
-              </div>
+              <div className="psp-list-head">Validator exposure across every wallet</div>
+              <p className="pfp-note">
+                Your stake grouped by validator rather than by wallet. Delegating from four
+                wallets to the same validator is the same concentration as delegating once,
+                and only this view shows it. If a validator is jailed or slashed, everything
+                on this line is affected together.
+              </p>
               {/* The whole reason the panel exists. Concentration is invisible
                   one wallet at a time, so it is stated in words as well as
                   drawn, and only when it is actually high. We run a validator,
@@ -388,6 +487,10 @@ export default function PortfolioPanel({
           {totals.tokens.length > 0 && (
             <div className="pfp-section">
               <div className="psp-list-head">Other tokens held</div>
+              <p className="pfp-note">
+                Non-TX balances across all your wallets, merged by ticker. These are smart
+                tokens issued on TX and assets bridged in over IBC.
+              </p>
               <div className="psp-kv-grid">
                 {totals.tokens.slice(0, 8).map((t) => (
                   <div className="psp-kv" key={t.symbol}>
@@ -470,11 +573,25 @@ export default function PortfolioPanel({
 
           {/* People assume splitting stake across wallets costs them PSE. It
               does not, and a combined view is exactly where that comes up. */}
-          <p className="pfp-foot">
-            PSE score is stake multiplied by staking duration, so splitting the same stake
-            across several wallets earns the same as holding it in one. Rewards are still
-            paid per address.
-          </p>
+          <div className="pfp-foot">
+            <p>
+              <strong>How these numbers are built.</strong> Every figure is read from the
+              chain in your browser, one wallet at a time, and added up here. Nothing about
+              which wallets you track is sent to us.
+            </p>
+            <p>
+              <strong>PSE.</strong> Score is stake multiplied by how long it has been staked,
+              which is linear, so splitting the same stake across several wallets earns
+              exactly what holding it in one would. Rewards are still paid per address, and
+              the monthly figure is an estimate of your share of the pool, not a promise.
+            </p>
+            <p>
+              <strong>Staking rate.</strong> The network rate is derived live from annual
+              provisions less community tax, over total bonded stake. It is quoted before
+              commission, because what you actually receive depends on the commission of the
+              validators you pick.
+            </p>
+          </div>
         </>
       )}
     </div>

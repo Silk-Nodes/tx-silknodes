@@ -146,6 +146,25 @@ export async function fetchValidatorMeta(): Promise<Record<string, ValidatorMeta
  * cannot drift from the chain, and quoted as "before commission" because the
  * validator's cut depends on which one the reader would pick.
  */
+/**
+ * Staking parameters straight from the chain.
+ *
+ * The unbonding period is read rather than written down. It is a governance
+ * parameter and can change, and a hardcoded figure is exactly the kind of
+ * number that stays in the UI long after it stopped being true. TX is
+ * currently 604800s, which is 7 days, and nothing in the code assumes that.
+ */
+export async function fetchStakingParams(): Promise<{ unbondingSeconds: number } | null> {
+  try {
+    const data = await getJson(`/cosmos/staking/v1beta1/params`);
+    const raw: string = data?.params?.unbonding_time ?? "";
+    const seconds = Number(String(raw).replace(/s$/, ""));
+    return Number.isFinite(seconds) && seconds > 0 ? { unbondingSeconds: seconds } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchStakingApr(): Promise<number | null> {
   try {
     const [prov, dist, pool] = await Promise.all([
