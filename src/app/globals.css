@@ -13686,3 +13686,69 @@ input[type="range"]::-moz-range-thumb {
 
 .psp-row-link { text-decoration: none; }
 .psp-row-link:hover { color: var(--text-accent); }
+
+/* ── Portfolio panel (combined multi-wallet view on /passport) ────────── */
+/* Uses the same tokens as the passport cards so it inherits both themes
+   rather than carrying its own colour system. */
+.pfp-wrap { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 22px; }
+.pfp-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.pfp-title { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--text-dark); }
+.pfp-sub { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-medium); max-width: 62ch; }
+.pfp-head-actions { display: flex; gap: 8px; }
+
+.pfp-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.pfp-input { padding: 9px 12px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--bg-base); color: var(--text-dark); font-size: 0.85rem; }
+.pfp-input-addr { flex: 2 1 260px; font-family: var(--font-mono, monospace); }
+.pfp-input-label { flex: 1 1 130px; }
+.pfp-input-inline { padding: 4px 8px; font-size: 0.82rem; max-width: 150px; }
+.pfp-add-btn { padding: 9px 20px; border-radius: var(--radius-pill); border: none; background: var(--tx-neon); color: var(--tx-dark-green); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+.pfp-add-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.pfp-ghost { padding: 7px 14px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: transparent; color: var(--text-dark); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.pfp-ghost:hover { background: var(--accent-olive-light); }
+.pfp-ghost-danger:hover { border-color: var(--tx-orange, #e0795a); color: var(--tx-orange, #e0795a); background: transparent; }
+.pfp-ghost-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.pfp-ghost-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.pfp-notice { font-size: 0.82rem; color: var(--text-medium); background: var(--accent-olive-light); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 12px; }
+.pfp-empty { font-size: 0.85rem; color: var(--text-medium); margin: 0; max-width: 62ch; }
+.pfp-loading { font-size: 0.8rem; color: var(--text-medium); margin-bottom: 10px; }
+
+.pfp-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.pfp-metric { background: var(--bg-base); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pfp-metric-strong { border-color: var(--tx-neon); }
+.pfp-metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-medium); }
+.pfp-metric-value { font-size: 1.05rem; font-weight: 800; color: var(--text-dark); }
+.pfp-metric-usd { font-size: 0.76rem; color: var(--text-medium); }
+
+.pfp-section { margin-top: 18px; }
+.pfp-section-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark); }
+.pfp-section-note { display: block; font-size: 0.78rem; color: var(--text-medium); margin: 3px 0 12px; max-width: 62ch; }
+
+.pfp-bars { display: flex; flex-direction: column; gap: 8px; }
+.pfp-bar-row { display: grid; grid-template-columns: minmax(90px, 1.4fr) minmax(60px, 3fr) auto auto; align-items: center; gap: 10px; font-size: 0.82rem; }
+.pfp-bar-name { color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pfp-bar-track { background: var(--accent-olive-light); border-radius: var(--radius-pill); height: 8px; overflow: hidden; }
+.pfp-bar-fill { display: block; height: 100%; background: var(--tx-neon); border-radius: var(--radius-pill); }
+.pfp-bar-val { color: var(--text-medium); white-space: nowrap; }
+.pfp-bar-pct { color: var(--text-dark); font-weight: 700; white-space: nowrap; min-width: 46px; text-align: right; }
+
+.pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.85rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.pfp-row-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pfp-row-label { background: none; border: none; padding: 0; text-align: left; font-size: 0.85rem; font-weight: 700; color: var(--text-dark); cursor: pointer; }
+.pfp-row-label:hover { text-decoration: underline; }
+.pfp-row-addr { font-size: 0.74rem; color: var(--text-medium); }
+.pfp-row-nums { display: flex; gap: 14px; font-size: 0.8rem; color: var(--text-medium); flex-wrap: wrap; }
+.pfp-row-failed { font-size: 0.8rem; color: var(--text-medium); font-style: italic; }
+.pfp-row-actions { display: flex; gap: 6px; }
+.pfp-clear { align-self: flex-start; margin-top: 4px; }
+
+.pfp-foot { font-size: 0.78rem; color: var(--text-medium); margin: 16px 0 0; max-width: 68ch; }
+
+@media (max-width: 620px) {
+  .pfp-bar-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .pfp-bar-track { grid-column: 1 / -1; }
+  .pfp-row { flex-direction: column; align-items: flex-start; }
+}
