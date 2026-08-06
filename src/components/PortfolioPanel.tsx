@@ -81,7 +81,7 @@ export default function PortfolioPanel({
   // Combined PSE. Score is stake x duration, which is linear, so summing the
   // per-wallet scores gives exactly what one wallet holding the same total
   // would score. No approximation is involved.
-  const [pse, setPse] = useState<{ monthly: number; sharePct: number } | null>(null);
+  const [pse, setPse] = useState<{ monthly: number; sharePct: number; source: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
@@ -191,15 +191,23 @@ export default function PortfolioPanel({
         bondedTokens: bonded,
         excludedStake: 0,
       });
-      // Only the on-chain-score path answers "what is your actual accrued
-      // share". The stake_ratio fallback answers a DIFFERENT question, the
-      // hypothetical share if you had been staked for the whole period, and
-      // it came out 400x higher on the test wallets. Showing that under a
-      // "PSE per month" label would be a wrong number stated confidently,
-      // so when the real inputs are unavailable this stays blank.
+      // Two honest answers here, and which one you get depends on the wallets.
+      //
+      // onchain_score is the share your accrued score entitles you to RIGHT
+      // NOW. stake_ratio is what you would get if you stayed staked for the
+      // whole cycle. They can differ by orders of magnitude, because PSE
+      // scores reset at each distribution and restart on redelegation: two
+      // wallets tested here had an implied staking age of 0.2 days against a
+      // network average near 16.6, so their instantaneous share was tiny and
+      // their full-cycle projection was not.
+      //
+      // Blanking it, which is what this did before, answers neither. Both are
+      // shown now, labelled with which question they answer, because a number
+      // whose basis is unstated is the thing worth avoiding, not the fallback
+      // itself.
       setPse(
-        est.source === "onchain_score" || est.source === "last_dist_reference"
-          ? { monthly: est.estimate, sharePct: est.sharePct }
+        est.estimate > 0
+          ? { monthly: est.estimate, sharePct: est.sharePct, source: est.source }
           : null,
       );
     })();
@@ -429,9 +437,15 @@ export default function PortfolioPanel({
               label="PSE per month"
               value={pse ? TX(pse.monthly) : "-"}
               sub={pse
-                ? `${pse.sharePct < 0.0001 ? "<0.0001" : pse.sharePct.toFixed(4)}% of the pool`
+                ? pse.source === "onchain_score" || pse.source === "last_dist_reference"
+                  ? "accrued so far this cycle"
+                  : "projected, if staked all cycle"
                 : "score unavailable"}
-              tip="Estimated share of the monthly PSE pool, from your wallets' real on-chain scores. Score is stake multiplied by staking duration, so splitting stake across wallets changes nothing. Blank when the network score cannot be read, rather than showing a guess."
+              tip={
+                pse && (pse.source === "onchain_score" || pse.source === "last_dist_reference")
+                  ? `Your share of the monthly PSE pool from the score your wallets have actually accrued so far this cycle, currently ${pse.sharePct < 0.0001 ? "under 0.0001" : pse.sharePct.toFixed(4)}%. Score is stake multiplied by staking duration and resets at each distribution, so this grows through the cycle as long as you stay staked.`
+                  : "PSE scores reset at each distribution and restart when you redelegate, so your wallets have not accrued a full cycle yet. This is what the same stake would earn across a whole cycle, from your share of total bonded stake. Splitting stake across wallets changes nothing either way."
+              }
             />
             <Metric
               label="Wallets"
