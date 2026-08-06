@@ -78,11 +78,29 @@ const KEYED_LIMIT = 600;
  * revoked by name.
  */
 function isSameOrigin(req: NextRequest): boolean {
-  const site = req.headers.get("sec-fetch-site");
-  if (site === "same-origin" || site === "none") return true;
+  // A top-level navigation is never our frontend calling its own API.
+  //
+  // This is the case that made the first version of this check useless.
+  // Typing an API URL into the address bar (or clicking a link to one) sends
+  // `Sec-Fetch-Site: none` and `Sec-Fetch-Dest: document`, and the original
+  // code accepted `none` as same-origin. So curl was refused with a 401 while
+  // anyone who simply pasted the URL into a browser got the full payload,
+  // which is exactly how these endpoints were being found in the first place.
+  //
+  // Our own pages only ever reach the API through fetch(), which sends
+  // `Sec-Fetch-Dest: empty`. Nothing legitimate navigates to a JSON route.
+  const dest = req.headers.get("sec-fetch-dest");
+  if (dest === "document" || dest === "iframe" || dest === "frame") return false;
 
-  // Older clients that omit Sec-Fetch-*: fall back to comparing the referer
-  // host with the host being served.
+  const site = req.headers.get("sec-fetch-site");
+  if (site === "same-origin") return true;
+  // `none` only survives here for non-navigation requests, having already been
+  // filtered above. It is NOT accepted on its own.
+  if (site) return false;
+
+  // Older clients that omit Sec-Fetch-* entirely: fall back to comparing the
+  // referer host with the host being served. A typed URL has no referer, so
+  // this still refuses address-bar access.
   const referer = req.headers.get("referer");
   if (!referer) return false;
   try {
