@@ -22,7 +22,7 @@
 // classes.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatCompact } from "@/lib/ui-format";
+import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import Tooltip from "@/components/Tooltip";
 import {
   fetchAddressChainData,
@@ -62,10 +62,15 @@ export default function PortfolioPanel({
   connectedAddress,
   txPrice = 0,
   onOpenPassport,
+  refreshKey = 0,
 }: {
   connectedAddress?: string;
   txPrice?: number;
   onOpenPassport?: (address: string) => void;
+  /** Bumped when the wallet list changes elsewhere on the page, so adding a
+   *  wallet from the passport below updates this panel instead of needing a
+   *  reload to notice. */
+  refreshKey?: number;
 }) {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
   const [rows, setRows] = useState<WalletRow[]>([]);
@@ -83,12 +88,19 @@ export default function PortfolioPanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // When the figures were last read. Numbers about someone's money should say
+  // how old they are; a tab left open all afternoon otherwise shows this
+  // morning's balances with nothing to indicate it.
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
+  // Re-render on a timer so the relative age counts up on its own instead of
+  // freezing at "just now" until something else causes a render.
+  const [, setTick] = useState(0);
 
   // localStorage is only readable after mount, so the list starts empty and
   // fills in on the client. Rendering server-side would hydrate mismatched.
   useEffect(() => {
     setWallets(loadWallets());
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     fetchValidatorMeta().then(setVmeta).catch(() => {});
@@ -135,12 +147,19 @@ export default function PortfolioPanel({
       }),
     );
     setRows(settled);
+    setFetchedAt(Date.now());
     setLoading(false);
   }, []);
 
   useEffect(() => {
     refresh(wallets);
   }, [wallets, refresh]);
+
+  useEffect(() => {
+    if (!fetchedAt) return;
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [fetchedAt]);
 
   // Combined PSE standing. Scores are summed as BigInt because they are raw
   // ucore-seconds and overflow a double: a single large staker is already past
@@ -328,6 +347,19 @@ export default function PortfolioPanel({
         </div>
         {wallets.length > 0 && (
           <div className="pfp-head-actions">
+            {fetchedAt && (
+              <span className="pfp-stamp" aria-live="polite">
+                {loading ? "updating..." : `updated ${relativeTimeShort(fetchedAt)}`}
+              </span>
+            )}
+            <button
+              type="button"
+              className="psp-topbar-btn ghost"
+              onClick={() => refresh(wallets)}
+              disabled={loading}
+            >
+              Refresh
+            </button>
             <button type="button" className="psp-topbar-btn ghost" onClick={doExport}>Export</button>
             <label className="psp-topbar-btn ghost pfp-file">
               Import

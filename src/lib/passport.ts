@@ -47,7 +47,12 @@ export interface AddressChainData {
 // IBC assets from their denom trace. Falls back to the subunit if lookup
 // fails, so a token always shows *something*.
 function rawSubunit(denom: string): string {
-  if (denom.startsWith("ibc/")) return "IBC";
+  // Every IBC asset whose denom trace fails to resolve used to fall back to
+  // the bare string "IBC", so a wallet holding three bridged assets showed
+  // three rows all called IBC and nothing told them apart. Keeping a slice of
+  // the hash at least makes them distinguishable, and it matches what the
+  // holder sees in an explorer.
+  if (denom.startsWith("ibc/")) return `IBC-${denom.slice(4, 10)}`;
   const dash = denom.indexOf("-core1");
   return dash > 0 ? denom.slice(0, dash) : denom;
 }

@@ -13696,7 +13696,9 @@ input[type="range"]::-moz-range-thumb {
    the page. */
 .pfp-card { margin-bottom: 18px; }
 .pfp-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.pfp-head-actions { display: flex; gap: 8px; }
+.pfp-head-actions { display: flex; gap: 8px; align-items: center; }
+.psp-copy-static { opacity: 0.7; cursor: default; }
+.pfp-stamp { font-size: 0.74rem; color: var(--text-medium); font-family: var(--font-mono); white-space: nowrap; }
 .pfp-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
 .pfp-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
