@@ -102,9 +102,49 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/((?!_next/static|_next/image).*)",
+        // API routes are excluded here so each one can declare its own
+        // caching. A blanket no-cache would fight the response cache and
+        // strip the s-maxage the read routes now set for themselves.
+        source: "/((?!_next/static|_next/image|api/).*)",
         headers: [
           { key: "Cache-Control", value: "no-cache, must-revalidate" },
+        ],
+      },
+      {
+        source: "/:path*",
+        headers: [
+          // Clickjacking. This is not theoretical for a crypto dashboard:
+          // framing tx.silknodes.io inside a page dressed up as a wallet
+          // borrows our credibility as the wrapper for a drainer. Both
+          // headers are set because frame-ancestors is the modern control
+          // and X-Frame-Options is the fallback for older clients.
+          { key: "X-Frame-Options", value: "DENY" },
+          // Stops the browser second-guessing declared content types, which
+          // is how a JSON response gets reinterpreted as HTML and executed.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Do not leak the full URL (which can carry an address someone is
+          // inspecting) to third-party sites they click through to.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // We ask for none of these; deny them so an injected script cannot.
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          {
+            key: "Content-Security-Policy",
+            // Deliberately NOT locking down script-src. Next.js injects inline
+            // bootstrap scripts, so 'self' alone would break the app and the
+            // correct fix (per-request nonces) needs middleware changes worth
+            // doing separately rather than bundled into a hardening pass.
+            //
+            // What IS locked down here are the directives that carry real risk
+            // and cost nothing: framing, plugins, and <base> hijacking. Those
+            // close the clickjacking and base-tag injection paths outright.
+            value: [
+              "frame-ancestors 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join("; "),
+          },
         ],
       },
     ];

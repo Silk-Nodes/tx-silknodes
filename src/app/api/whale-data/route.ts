@@ -15,6 +15,8 @@
 // needs a URL swap — no component changes downstream.
 
 import { NextResponse } from "next/server";
+import { Op } from "sequelize";
+import { withCache } from "@/lib/response-cache";
 import {
   KnownEntity,
   TopDelegator,
@@ -22,10 +24,18 @@ import {
   WhaleChanges,
 } from "@/lib/db/models";
 
+const ROUTE_TAG = "whale-data";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+// Widest UI window is 90d; 30 days of margin so the 90d lookback can still
+// match the nearest older snapshot rather than falling off the end.
+const HISTORY_DAYS = 120;
+const HISTORY_CUTOFF = () =>
+  new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
+
+async function handler(_req: Request) {
   try {
     // All four fanned out in parallel. PG handles the concurrency
     // fine and halves total latency vs sequential awaits.
@@ -34,7 +44,18 @@ export async function GET() {
         TopDelegator.findAll({ order: [["rank", "ASC"]], raw: true }),
         KnownEntity.findAll({ raw: true }),
         WhaleChanges.findOne({ where: { id: 1 }, raw: true }),
+        // Bounded on purpose. This table grows by ~500 rows a day forever, and
+        // the response was already 5.9MB (2.9MB gzipped) with no ceiling. An
+        // unbounded, uncacheable, multi-megabyte public endpoint is a
+        // bandwidth lever for anyone who wants one, and it gets worse on its
+        // own every single day.
+        //
+        // The widest window the UI can ask for is 90 days (WINDOW_LOOKBACK_DAYS
+        // in lib/whale-moves), so anything older than the margin below can
+        // never be selected. Keeping 120 days leaves room for the
+        // nearest-older-snapshot match at the 90d boundary.
         TopDelegatorHistory.findAll({
+          where: { date: { [Op.gte]: HISTORY_CUTOFF() } },
           order: [
             ["date", "ASC"],
             ["rank", "ASC"],
@@ -149,11 +170,17 @@ export async function GET() {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message, at: new Date().toISOString() },
+      { error: "internal error", at: new Date().toISOString() },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
 }
 
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("whale-data", 300, handler);

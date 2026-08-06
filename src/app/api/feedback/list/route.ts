@@ -14,6 +14,8 @@ import { sequelize } from "@/lib/db";
 import { FeatureRequest } from "@/lib/db/models";
 import { applyVoterCookie, getOrSetVoterId } from "@/lib/feedback/voter-id";
 
+const ROUTE_TAG = "feedback/list";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -84,9 +86,12 @@ export async function GET(req: Request) {
     if (isFresh) applyVoterCookie(response, voterId);
     return response;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message },
+      { error: "internal error" },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }

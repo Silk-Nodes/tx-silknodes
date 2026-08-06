@@ -21,6 +21,26 @@ import { NextResponse } from "next/server";
 // The chain's own vote record, filling the gaps the Hasura indexer has.
 // See scripts/backfill-votes.mjs.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
+import { cached, cacheHeaders } from "@/lib/response-cache";
+
+const ROUTE_TAG = "governance/[id]/overrides";
+
+// This is by far the most expensive endpoint on the site: it enriches every
+// delegator vote on a proposal, which is ~475 separate LCD calls and ~11s of
+// upstream traffic for proposal 8. Unbounded, that turns one cheap HTTP
+// request into a burst large enough to get our IP rate limited by the public
+// nodes, which reads as a site-wide outage.
+//
+// Settled proposals never change, so this is cached hard. The single-flight in
+// cached() is the part that matters most here: it collapses concurrent misses
+// into ONE fan-out instead of one per request.
+const TTL_MS = 10 * 60 * 1000;
+const TTL_S = TTL_MS / 1000;
+
+// Hard ceiling on the fan-out. A proposal with thousands of delegator votes
+// must not translate into thousands of upstream calls, so the enrichment is
+// capped and the response says so rather than silently truncating.
+const MAX_ENRICHED = 400;
 
 export const dynamic = "force-dynamic";
 export const revalidate = 300; // 5 min - settled props don't move; cache wins.
@@ -138,6 +158,8 @@ export async function GET(
       return NextResponse.json({ error: "bad id" }, { status: 400 });
     }
 
+    const payload = await cached(`overrides:${id}`, TTL_MS, async () => {
+
     // Get the delegator votes (non-validator votes) for this proposal from
     // Hasura. The base /api/governance/[id] already does this, but the
     // client may want to expand the accordion before that response lands
@@ -176,14 +198,17 @@ export async function GET(
       delegatorVotes.push({ voter_address: voter, option: `VOTE_OPTION_${opt}`, timestamp: null });
     }
 
-    if (delegatorVotes.length === 0) {
-      return NextResponse.json({ overrides: [] }, { headers: { "cache-control": "no-store" } });
-    }
+      if (delegatorVotes.length === 0) return { overrides: [], truncated: false, totalVotes: 0 };
+
+    // Enrich the largest-first is not possible before enrichment (stake is
+    // what we are fetching), so the cap is applied on the raw list. Anything
+    // beyond it is reported rather than silently dropped.
+    const toEnrich = delegatorVotes.slice(0, MAX_ENRICHED);
 
     // Concurrency-limited LCD fetches. ~8 in flight keeps the node happy
     // and finishes 75-200 addresses in 2-4 seconds.
     const enriched = await pmap(
-      delegatorVotes,
+      toEnrich,
       async (v) => {
         const { totalTX, delegations } = await fetchDelegations(v.voter_address);
         return {
@@ -197,14 +222,24 @@ export async function GET(
       CONCURRENCY,
     );
 
+      return {
+        overrides: enriched,
+        truncated: delegatorVotes.length > toEnrich.length,
+        totalVotes: delegatorVotes.length,
+      };
+    });
+
     return NextResponse.json(
-      { overrides: enriched },
-      { headers: { "cache-control": "no-store" } },
+      payload,
+      { headers: cacheHeaders(TTL_S) },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message },
+      { error: "internal error" },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
