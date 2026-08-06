@@ -226,7 +226,7 @@ export default function FeedbackTab() {
               required
               minLength={10}
               maxLength={120}
-              placeholder="Short summary — 10 to 120 characters"
+              placeholder="Short summary, 10 to 120 characters"
             />
           </label>
           <label className="feedback-form-row">
@@ -303,7 +303,7 @@ export default function FeedbackTab() {
         )}
         {!loading && itemsList.length === 0 && (
           <div className="feedback-empty">
-            No feature requests yet — be the first to submit one! 💡
+            No feature requests yet. Be the first to submit one.
           </div>
         )}
         {itemsList.map((item) => (

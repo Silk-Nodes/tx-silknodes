@@ -715,9 +715,9 @@ type AmountBucket = "all" | "small" | "mid" | "large" | "whale";
 
 const AMOUNT_BUCKETS: { key: AmountBucket; label: string; min: number; max: number }[] = [
   { key: "all",   label: "All",         min: 0,         max: Infinity },
-  { key: "small", label: "0–10K",       min: 0,         max: 10_000 },
-  { key: "mid",   label: "10K–100K",    min: 10_000,    max: 100_000 },
-  { key: "large", label: "100K–1M",     min: 100_000,   max: 1_000_000 },
+  { key: "small", label: "0-10K",       min: 0,         max: 10_000 },
+  { key: "mid",   label: "10K-100K",    min: 10_000,    max: 100_000 },
+  { key: "large", label: "100K-1M",     min: 100_000,   max: 1_000_000 },
   { key: "whale", label: "1M+",         min: 1_000_000, max: Infinity },
 ];
 

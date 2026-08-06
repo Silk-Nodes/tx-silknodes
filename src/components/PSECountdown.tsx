@@ -140,7 +140,7 @@ export default function PSECountdown() {
         <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 4 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
             <span style={{ color: "var(--accent)", fontWeight: 700 }}>You are early.</span>{" "}
-            Cycle #{pseInfo.currentCycle} of 84. Most rewards go to long-term stakers — starting earlier compounds faster.
+            Cycle #{pseInfo.currentCycle} of 84. Most rewards go to long-term stakers. Starting earlier compounds faster.
           </span>
         </div>
       </div>
