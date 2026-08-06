@@ -28,7 +28,11 @@ export interface ValidatorVote {
 export interface DelegatorVote {
   voterAddress: string;
   voteOption: VoteOption;
-  votedAt: string;
+  // Null for votes recovered from the chain snapshot: the SDK deletes votes
+  // once a proposal settles, so only the vote transaction survives and it
+  // carries no indexer timestamp. Renderers must omit the time, not fabricate
+  // one (new Date(null) renders as 1 Jan 1970).
+  votedAt: string | null;
   weight: number;
 }
 

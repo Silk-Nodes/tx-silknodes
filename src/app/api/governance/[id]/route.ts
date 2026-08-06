@@ -17,6 +17,20 @@ export const dynamic = "force-dynamic";
 export const revalidate = 30;
 
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+
+// The chain's own vote record, used to fill in what the indexer lost.
+//
+// Hasura has NO votes at all for proposals 1, 2, 4, 5, 6, 7, 8, 40 and 42, and
+// it also drops individual votes inside proposals it does index. Without this
+// merge those proposals render as though every validator abstained, which is
+// not missing data, it is wrong data: a validator with a perfect record was
+// shown as having skipped the vote.
+//
+// See scripts/backfill-votes.mjs for how it is produced and why the chain
+// cannot simply be queried live (the SDK deletes votes once a proposal
+// settles). Options are already normalized to YES / NO / ABSTAIN /
+// NO_WITH_VETO, matching normalizeOption() below.
+import HISTORICAL_VOTES from "@/data/historical-votes.json";
 const UCORE_PER_TX = 1_000_000;
 
 interface HasuraProposal {
@@ -211,13 +225,27 @@ export async function GET(
     // have voting power in the active set anyway. We still keep delegator
     // votes from those validators' self-delegate addresses elsewhere if
     // they cast votes, but the table itself only lists the active set.
+    // Votes for this proposal that the indexer lost, recovered from the chain.
+    // Only consulted where Hasura has nothing: the indexer carries timestamps
+    // and weights, which the chain snapshot does not, so it stays preferred
+    // wherever it actually holds the vote.
+    const archived: Record<string, string> =
+      (HISTORICAL_VOTES as Record<string, Record<string, string>>)[String(id)] ?? {};
+    let recovered = 0;
+
     const validatorVotes: ValidatorVoteRow[] = [];
     for (const v of byConsensus.values()) {
       if (v.status !== 3 || v.jailed) continue;
       const vote = v.selfDelegateAddress ? votesByAddr.get(v.selfDelegateAddress) : undefined;
+      const fallback = !vote && v.selfDelegateAddress ? archived[v.selfDelegateAddress] : undefined;
+      if (fallback) recovered++;
       validatorVotes.push({
         ...v,
-        voteOption: vote ? normalizeOption(vote.option) : "DID_NOT_VOTE",
+        voteOption: vote
+          ? normalizeOption(vote.option)
+          : ((fallback as ValidatorVoteRow["voteOption"]) ?? "DID_NOT_VOTE"),
+        // No timestamp survives in the chain snapshot. Null rather than a
+        // fabricated one; the UI omits the time instead of inventing it.
         votedAt: vote ? vote.timestamp : null,
         weight: vote ? Number(vote.weight) : 0,
       });
@@ -235,9 +263,21 @@ export async function GET(
       .map((v) => ({
         voterAddress: v.voter_address,
         voteOption: normalizeOption(v.option),
-        votedAt: v.timestamp,
+        votedAt: v.timestamp as string | null,
         weight: Number(v.weight),
       }));
+    // Same recovery for delegator votes. On the proposals Hasura missed
+    // entirely this is the only reason the section has any rows at all.
+    for (const [voter, opt] of Object.entries(archived)) {
+      if (validatorSelfDelegates.has(voter) || votesByAddr.has(voter)) continue;
+      delegatorVotes.push({
+        voterAddress: voter,
+        voteOption: opt as ValidatorVoteRow["voteOption"],
+        votedAt: null,
+        weight: 0,
+      });
+      recovered++;
+    }
 
     // Velocity series: cumulative TX share by hour over the voting period
     // for charting. Each vote contributes its validator's bonded stake (or 0
@@ -291,6 +331,10 @@ export async function GET(
         validators: validatorVotes,
         delegatorVotes,
         velocity,
+        // How many votes on this proposal came from the chain snapshot rather
+        // than the indexer. Surfaced so the page can say the timeline is
+        // incomplete instead of implying nobody voted early.
+        recoveredFromChain: recovered,
         meta: {
           validatorCount: validatorVotes.length,
           votedCount: validatorVotes.filter((v) => v.voteOption !== "DID_NOT_VOTE").length,

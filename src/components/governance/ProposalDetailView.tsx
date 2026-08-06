@@ -317,7 +317,9 @@ function LegacyActiveLayout({
                     {d.voteOption.replace("_", " ").toLowerCase()}
                   </span>
                   <span className="prop-page-delegator-time">
-                    {new Date(d.votedAt).toLocaleString()}
+                    {/* Votes recovered from the chain carry no timestamp. Show
+                        nothing rather than new Date(null), which renders 1970. */}
+                    {d.votedAt ? new Date(d.votedAt).toLocaleString() : ""}
                   </span>
                 </div>
               ))}

@@ -60,7 +60,10 @@ export default function OverridesPanel({
     const r = [...rows];
     r.sort((a, b) => {
       if (sortKey === "stake") return b.bondedTotalTX - a.bondedTotalTX;
-      return new Date(b.votedAt).getTime() - new Date(a.votedAt).getTime();
+      // Undated (chain-recovered) votes sort last rather than to 1970.
+      const at = a.votedAt ? new Date(a.votedAt).getTime() : 0;
+      const bt = b.votedAt ? new Date(b.votedAt).getTime() : 0;
+      return bt - at;
     });
     return r;
   }, [rows, sortKey]);
@@ -185,7 +188,7 @@ export default function OverridesPanel({
             <span className="ovp-row-stake">
               {row.bondedTotalTX > 0 ? `${formatTxAmount(row.bondedTotalTX)} TX` : <span className="ovp-row-stake-loading">...</span>}
             </span>
-            <span className="ovp-row-time">{relTime(row.votedAt)}</span>
+            <span className="ovp-row-time">{row.votedAt ? relTime(row.votedAt) : ""}</span>
             <span className="ovp-row-chev" aria-hidden="true">→</span>
           </button>
         ))}
