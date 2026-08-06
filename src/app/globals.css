@@ -2223,7 +2223,9 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.5;
   white-space: normal;
   width: max-content;
-  max-width: 280px;
+  /* Never wider than the viewport allows on a phone, where 280px plus the
+     centring offset was enough to run past the edge. */
+  max-width: min(280px, calc(100vw - 24px));
   box-shadow: 0 12px 32px rgba(0,0,0,0.35);
   pointer-events: none;
   animation: tooltipFade 0.15s ease;
@@ -13686,3 +13688,70 @@ input[type="range"]::-moz-range-thumb {
 
 .psp-row-link { text-decoration: none; }
 .psp-row-link:hover { color: var(--text-accent); }
+
+/* ── Portfolio panel (combined multi-wallet view on /passport) ────────── */
+/* Only the pieces the passport does not already have. Totals, bars, cards and
+   buttons reuse psp- classes on purpose: the first version defined its own
+   boxed tiles and single-row bars and read as a different product pasted onto
+   the page. */
+.pfp-card { margin-bottom: 18px; }
+.pfp-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.pfp-head-actions { display: flex; gap: 8px; align-items: center; }
+.psp-copy-static { opacity: 0.7; cursor: default; }
+.pfp-stamp { font-size: 0.74rem; color: var(--text-medium); font-family: var(--font-mono); white-space: nowrap; }
+.pfp-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.pfp-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.pfp-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.pfp-input { padding: 8px 14px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-size: 0.85rem; }
+.pfp-input:focus { outline: none; border-color: var(--tx-neon); }
+.pfp-input-addr { flex: 2 1 240px; }
+.pfp-input-label { flex: 1 1 120px; }
+.pfp-input-inline { padding: 3px 8px; font-size: 0.82rem; max-width: 150px; }
+
+.pfp-headline { margin-bottom: 18px; }
+/* Ten full-width bars stacked made the panel taller than the passport it sits
+   on top of. Same multi-column treatment the passport uses for its own
+   delegations list, so exposure stays scannable without dominating the page. */
+.pfp-bars { display: block; columns: 360px auto; column-gap: 30px; }
+.pfp-bars > * { break-inside: avoid; margin-bottom: 12px; }
+.pfp-section { margin-top: 20px; }
+.pfp-notice { font-size: 0.82rem; color: var(--text-medium); background: var(--accent-olive-light); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 12px; }
+/* Stated, not shouted. We run a validator, so concentration gets the number
+   and nothing more persuasive than that. */
+.pfp-flag { font-size: 0.82rem; color: var(--text-dark); background: var(--accent-olive-light); border-left: 2px solid var(--tx-neon); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 12px; }
+
+.pfp-findings { display: flex; flex-direction: column; gap: 8px; }
+.pfp-finding { font-size: 0.84rem; line-height: 1.5; color: var(--text-medium); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 10px 14px; }
+.pfp-finding strong { color: var(--text-dark); font-family: var(--font-mono); font-weight: 700; }
+/* Stake earning nothing is the one that costs money while you do not look at
+   it, so it gets a colour the others do not. */
+.pfp-finding-warn { border-left: 2px solid var(--danger); }
+/* --text-light measured 3.24:1 on the light background here, under the 4.5
+   floor. Secondary text at this size needs --text-medium (9.33:1). */
+.pfp-finding-list { display: block; margin-top: 5px; font-size: 0.78rem; color: var(--text-medium); font-family: var(--font-mono); }
+
+/* Second row of headline figures: context rather than balances, so it sits
+   quieter than the row above it. */
+.pfp-denom-hint { font-size: 0.62rem; opacity: 0.65; letter-spacing: 0; }
+.pfp-headline-sub { border-top: none; padding-top: 0; margin-top: -4px; }
+.pfp-headline-sub .psp-metric-value { font-size: 1.05rem; }
+
+
+.pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+.pfp-row-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pfp-row-label { background: none; border: none; padding: 0; text-align: left; font-size: 0.85rem; font-weight: 600; color: var(--text-dark); cursor: pointer; }
+.pfp-row-label:hover { text-decoration: underline; }
+.pfp-row-addr { font-size: 0.74rem; color: var(--text-light); }
+.pfp-row-nums { display: flex; gap: 16px; font-size: 0.8rem; color: var(--text-medium); flex-wrap: wrap; }
+.pfp-row-actions { display: flex; gap: 6px; }
+.pfp-danger:hover { border-color: var(--danger); color: var(--danger); }
+.pfp-clear { align-self: flex-start; margin-top: 4px; }
+.pfp-foot { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--glass-border); font-size: 0.78rem; color: var(--text-medium); line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .pfp-headline { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pfp-row { flex-direction: column; align-items: flex-start; }
+}

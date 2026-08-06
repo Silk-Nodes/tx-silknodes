@@ -47,7 +47,12 @@ export interface AddressChainData {
 // IBC assets from their denom trace. Falls back to the subunit if lookup
 // fails, so a token always shows *something*.
 function rawSubunit(denom: string): string {
-  if (denom.startsWith("ibc/")) return "IBC";
+  // Every IBC asset whose denom trace fails to resolve used to fall back to
+  // the bare string "IBC", so a wallet holding three bridged assets showed
+  // three rows all called IBC and nothing told them apart. Keeping a slice of
+  // the hash at least makes them distinguishable, and it matches what the
+  // holder sees in an explorer.
+  if (denom.startsWith("ibc/")) return `IBC-${denom.slice(4, 10)}`;
   const dash = denom.indexOf("-core1");
   return dash > 0 ? denom.slice(0, dash) : denom;
 }
@@ -97,6 +102,91 @@ async function getJson(path: string): Promise<any | null> {
 // Validator operator_address -> moniker, straight from the chain, so the
 // passport can label delegations without depending on a prop that may not
 // be loaded yet on this route. Paginates the full bonded+unbonded set.
+export interface ValidatorMeta {
+  moniker: string;
+  /** Jailed validators sign nothing, so stake delegated to them earns nothing. */
+  jailed: boolean;
+  /** Cosmos SDK BOND_STATUS_BONDED = 3. Anything else is out of the active set. */
+  bonded: boolean;
+}
+
+/**
+ * Every validator's name and current standing, in one pass.
+ *
+ * The jailed and status fields ride along in the same response we already
+ * fetch for monikers, so knowing that a delegation is currently earning
+ * nothing costs no extra request.
+ */
+export async function fetchValidatorMeta(): Promise<Record<string, ValidatorMeta>> {
+  const map: Record<string, ValidatorMeta> = {};
+  try {
+    let nextKey: string | null = null;
+    do {
+      const q: string = nextKey
+        ? `?pagination.limit=200&pagination.key=${encodeURIComponent(nextKey)}`
+        : `?pagination.limit=200`;
+      const data = await getJson(`/cosmos/staking/v1beta1/validators${q}`);
+      for (const v of data?.validators ?? []) {
+        if (!v.operator_address) continue;
+        map[v.operator_address] = {
+          moniker: v.description?.moniker ?? v.operator_address,
+          jailed: Boolean(v.jailed),
+          bonded: v.status === "BOND_STATUS_BONDED" || v.status === 3,
+        };
+      }
+      nextKey = data?.pagination?.next_key || null;
+    } while (nextKey);
+  } catch {
+    // Names and standing are decoration on top of the amounts; a failure here
+    // leaves addresses showing instead of monikers rather than blanking data.
+  }
+  return map;
+}
+
+/**
+ * Network staking APR before commission.
+ *
+ * Same derivation the validator API route uses: annual provisions net of
+ * community tax, over total bonded. Computed rather than hardcoded so it
+ * cannot drift from the chain, and quoted as "before commission" because the
+ * validator's cut depends on which one the reader would pick.
+ */
+/**
+ * Staking parameters straight from the chain.
+ *
+ * The unbonding period is read rather than written down. It is a governance
+ * parameter and can change, and a hardcoded figure is exactly the kind of
+ * number that stays in the UI long after it stopped being true. TX is
+ * currently 604800s, which is 7 days, and nothing in the code assumes that.
+ */
+export async function fetchStakingParams(): Promise<{ unbondingSeconds: number } | null> {
+  try {
+    const data = await getJson(`/cosmos/staking/v1beta1/params`);
+    const raw: string = data?.params?.unbonding_time ?? "";
+    const seconds = Number(String(raw).replace(/s$/, ""));
+    return Number.isFinite(seconds) && seconds > 0 ? { unbondingSeconds: seconds } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchStakingApr(): Promise<number | null> {
+  try {
+    const [prov, dist, pool] = await Promise.all([
+      getJson(`/cosmos/mint/v1beta1/annual_provisions`),
+      getJson(`/cosmos/distribution/v1beta1/params`),
+      getJson(`/cosmos/staking/v1beta1/pool`),
+    ]);
+    const annual = ucoreToTX(prov?.annual_provisions);
+    const tax = Number(dist?.params?.community_tax ?? 0);
+    const bonded = ucoreToTX(pool?.pool?.bonded_tokens);
+    if (!(annual > 0) || !(bonded > 0)) return null;
+    return (annual * (1 - tax) / bonded) * 100;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchValidatorMonikers(): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   try {
