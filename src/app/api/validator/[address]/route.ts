@@ -144,6 +144,39 @@ async function hasura<T>(query: string, variables?: Record<string, unknown>): Pr
   }
 }
 
+
+// The full historical vote record, read from the chain and committed as
+// static data. Merged with (never overridden by) whatever Hasura returns.
+//
+// This exists because Hasura loses votes two different ways. It holds no
+// votes at all for proposals 1, 2, 4, 5, 6, 7, 8, 40 and 42, and it also
+// drops INDIVIDUAL votes inside proposals it does index: it has votes for
+// proposals 9 and 10 but not TX Forge's. Those votes cannot be re-read live,
+// because the SDK deletes votes once a proposal settles, leaving the vote
+// TRANSACTION as the only surviving evidence.
+//
+// Reading the tx index per request does not work either. Both of the node's
+// relevant indexes are individually incomplete for 2023 heights: querying
+// `message.sender` misses TX Forge on proposals 6 and 8, querying
+// `proposal_vote.proposal_id` misses it on proposal 5. Only the union of both
+// is correct, and that is thousands of transactions, far too much per request.
+//
+// So it is done once, offline, and checked in. Every proposal here has
+// settled, and settled votes are immutable, so this is a snapshot rather than
+// a cache that can go stale. Regenerate with scripts/backfill-votes.mjs.
+import HISTORICAL_VOTES from "@/data/historical-votes.json";
+
+function archivedVotes(voter: string): Map<number, string> {
+  const found = new Map<number, string>();
+  for (const [pid, voters] of Object.entries(
+    HISTORICAL_VOTES as Record<string, Record<string, string>>,
+  )) {
+    const opt = voters[voter];
+    if (opt) found.set(Number(pid), opt);
+  }
+  return found;
+}
+
 const VOTE_LABEL: Record<string, string> = {
   VOTE_OPTION_YES: "YES",
   VOTE_OPTION_NO: "NO",
@@ -235,7 +268,7 @@ export async function GET(
     perTokenApr !== null && avgCommission !== null ? perTokenApr * (1 - avgCommission) : null;
 
   // ── uptime, delegators, self-bond, votes ──────────────────────────
-  const [signing, delegations, selfDel, votes, slashParams, commRes, outRes, unbRes, kbRes] = await Promise.all([
+  const [signing, delegations, selfDel, votes, tenure, onChainVotes, slashParams, commRes, outRes, unbRes, kbRes] = await Promise.all([
     consensusAddress
       ? getJSON<{ val_signing_info: Record<string, any> }>(
           `${LCD}/cosmos/slashing/v1beta1/signing_infos/${consensusAddress}`,
@@ -260,6 +293,20 @@ export async function GET(
           { v: selfDelegateAddress },
         )
       : Promise.resolve(null),
+    // Which proposals this validator was actually IN THE SET for. Without
+    // this, participation is measured against every proposal that ever
+    // existed, so a validator that joined at proposal 12 is scored against 11
+    // votes it could never have cast. TX Forge read 31 of 43 (72%) when its
+    // real record is a perfect one for its whole tenure.
+    consensusAddress
+      ? hasura<{ proposal_validator_status_snapshot: { proposal_id: number }[] }>(
+          `query($c:String!){ proposal_validator_status_snapshot(where:{validator_address:{_eq:$c}}){ proposal_id } }`,
+          { c: consensusAddress },
+        )
+      : Promise.resolve(null),
+    Promise.resolve(
+      selfDelegateAddress ? archivedVotes(selfDelegateAddress) : new Map<number, string>(),
+    ),
     getJSON<{ params: { signed_blocks_window: string } }>(`${LCD}/cosmos/slashing/v1beta1/params`),
     getJSON<{ commission: { commission: { denom: string; amount: string }[] } }>(
       `${LCD}/cosmos/distribution/v1beta1/validators/${address}/commission`,
@@ -503,8 +550,31 @@ export async function GET(
         seen.add(x.proposal_id);
         deduped.push({ proposalId: x.proposal_id, vote: VOTE_LABEL[x.option] || "UNKNOWN" });
       }
+      // Merge votes the indexer never saw. Only ADDS proposals; the indexer
+      // stays authoritative for anything it did record. The archive file
+      // already stores normalized labels ("YES"), not raw VOTE_OPTION_* enums.
+      let recovered = 0;
+      for (const [pid, opt] of onChainVotes as Map<number, string>) {
+        if (seen.has(pid)) continue;
+        seen.add(pid);
+        deduped.push({ proposalId: pid, vote: opt || "UNKNOWN" });
+        recovered++;
+      }
       deduped.sort((a, b) => b.proposalId - a.proposalId);
-      return { votedCount: deduped.length, votes: deduped };
+
+      // Tenure. The lowest proposal this validator appears in the set for is
+      // when it joined; anything earlier was never its to vote on. Reported so
+      // the client can score participation over the tenure instead of over all
+      // history, which is what other explorers do and why ours looked worse.
+      const snapIds = (tenure?.proposal_validator_status_snapshot || [])
+        .map((r) => Number(r.proposal_id))
+        .filter((n) => Number.isFinite(n));
+      const votedIds = deduped.map((d) => d.proposalId);
+      const firstSeen = [...snapIds, ...votedIds].length
+        ? Math.min(...[...snapIds, ...votedIds])
+        : null;
+
+      return { votedCount: deduped.length, votes: deduped, firstProposalId: firstSeen, recoveredFromChain: recovered };
     })(),
     history,
   });

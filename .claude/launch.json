@@ -1,10 +1,11 @@
 {
   "version": "0.0.1",
+  "autoPort": true,
   "configurations": [
     {
       "name": "tx-dashboard",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3010"],
+      "runtimeArgs": ["next", "dev"],
       "port": 3010
     }
   ]

@@ -55,7 +55,7 @@ interface ValidatorDetail {
     delegatedIn: number; redelegatedIn: number; undelegatedOut: number; redelegatedOut: number;
     net: number; topSources: Counterparty[]; topDestinations: Counterparty[];
   };
-  governance: { votedCount: number; votes: { proposalId: number; vote: string }[] };
+  governance: { votedCount: number; votes: { proposalId: number; vote: string }[]; firstProposalId: number | null };
   history: { date: string; tokens: string; delegatorCount: number | null }[];
   events: {
     txHash: string; height: number; timestamp: string;
@@ -214,6 +214,7 @@ export default function ValidatorDetailView({
   const [amount, setAmount] = useState("");
   const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
   const [totalProposals, setTotalProposals] = useState(0);
+  const [proposalIds, setProposalIds] = useState<number[]>([]);
   // Proposal ids the vote indexer never recorded. Votes on these cannot be
   // recovered from anywhere (the chain prunes votes once a proposal settles),
   // so participation can only be a lower bound. Say so rather than presenting
@@ -231,6 +232,7 @@ export default function ValidatorDetailView({
         for (const p of d.proposals) map[p.id] = { title: p.title || `Proposal #${p.id}` };
         setGovMeta(map);
         setTotalProposals(d.proposals.length);
+        setProposalIds(d.proposals.map((p: { id: number }) => Number(p.id)));
         setIndexerGaps(Array.isArray(d.indexerGaps) ? d.indexerGaps : []);
       })
       .catch(() => {});
@@ -682,14 +684,33 @@ export default function ValidatorDetailView({
               <div style={{ fontSize: "0.78rem", opacity: 0.4 }}>No recorded votes.</div>
             ) : (() => {
               const tally = governance.votes.reduce<Record<string, number>>((a, g) => { a[g.vote] = (a[g.vote] || 0) + 1; return a; }, {});
-              const pct = totalProposals > 0 ? Math.round((governance.votedCount / totalProposals) * 100) : null;
+              // Score against proposals this validator could actually vote on,
+              // not every proposal that ever existed. A validator that joined
+              // at proposal 12 was never able to vote on 1 to 11, and counting
+              // those against it produced figures like "31 of 43 (72%)" for a
+              // validator with a spotless record over its entire tenure.
+              const first = governance.firstProposalId;
+              const eligibleIds = first != null && proposalIds.length
+                ? proposalIds.filter((id) => id >= first)
+                : proposalIds;
+              const eligible = eligibleIds.length || totalProposals;
+              const pct = eligible > 0 ? Math.round((governance.votedCount / eligible) * 100) : null;
+              // Gaps only matter if they fall inside the validator's tenure.
+              const relevantGaps = first != null ? indexerGaps.filter((g) => g >= first) : indexerGaps;
               return (
                 <>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: "0.72rem", marginBottom: 14, opacity: 0.8 }}>
                     <span>
-                      <strong>{governance.votedCount}</strong>{totalProposals ? ` of ${totalProposals}` : ""} proposals voted{pct !== null ? ` (${pct}% participation)` : ""}
-                      {indexerGaps.length > 0 && (
-                        <Tooltip text={`Votes on proposal ${indexerGaps.join(", ")} are missing from the public vote index and cannot be recovered, because the chain discards votes once a proposal settles. This validator may have voted on ${indexerGaps.length === 1 ? "it" : "them"}, so the count is a lower bound.`}>
+                      <strong>{governance.votedCount}</strong>{eligible ? ` of ${eligible}` : ""} proposals voted{pct !== null ? ` (${pct}% participation)` : ""}
+                      {first != null && eligible < totalProposals && (
+                        <Tooltip text={`Measured over this validator's tenure. It joined the set at proposal #${first}, so the ${totalProposals - eligible} earlier proposals were never its to vote on.`}>
+                          <span style={{ marginLeft: 6, opacity: 0.5, cursor: "help", borderBottom: "1px dotted var(--glass-border)" }}>
+                            since #{first}
+                          </span>
+                        </Tooltip>
+                      )}
+                      {relevantGaps.length > 0 && (
+                        <Tooltip text={`Votes on proposal ${relevantGaps.join(", ")} are missing from the public vote index and cannot be recovered, because the chain discards votes once a proposal settles. This validator may have voted on ${relevantGaps.length === 1 ? "it" : "them"}, so the count is a lower bound.`}>
                           <span style={{ marginLeft: 6, opacity: 0.55, cursor: "help", borderBottom: "1px dotted var(--glass-border)" }}>
                             at least
                           </span>
