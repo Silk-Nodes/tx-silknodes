@@ -10,6 +10,9 @@
 //   3. If we ever switch indexers, only this route changes.
 
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/response-cache";
+
+const ROUTE_TAG = "governance";
 
 // Chain LCD, ordered pool. Used only to backfill proposals the Hasura indexer
 // skipped; Hasura remains the primary source for tallies and votes.
@@ -84,7 +87,7 @@ function ucoreToTX(s: string | undefined | null): number {
   }
 }
 
-export async function GET() {
+async function handler(_req: Request) {
   try {
     const res = await fetch(HASURA_URL, {
       method: "POST",
@@ -214,10 +217,17 @@ export async function GET() {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message },
+      { error: "internal error" },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
 }
+
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("governance", 60, handler);

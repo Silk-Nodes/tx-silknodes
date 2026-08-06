@@ -20,10 +20,13 @@
 //   }
 
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/response-cache";
 import { Op } from "sequelize";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 import { KnownEntity, TopDelegator } from "@/lib/db/models";
+
+const ROUTE_TAG = "flows-counterparties";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,7 +42,7 @@ const WINDOWS: Record<string, number | null> = {
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 
-export async function GET(req: Request) {
+async function handler(req: Request) {
   try {
     const url = new URL(req.url);
     const requested = url.searchParams.get("window") ?? "24h";
@@ -146,10 +149,17 @@ export async function GET(req: Request) {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message, at: new Date().toISOString() },
+      { error: "internal error", at: new Date().toISOString() },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
 }
+
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("flows-counterparties", 120, handler);

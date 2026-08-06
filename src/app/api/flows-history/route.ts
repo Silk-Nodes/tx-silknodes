@@ -24,8 +24,11 @@
 // per-exchange cards above the chart already cover the snapshot view.
 
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/response-cache";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
+
+const ROUTE_TAG = "flows-history";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,7 +41,7 @@ const WINDOWS: Record<string, number | null> = {
   "all": null,
 };
 
-export async function GET(req: Request) {
+async function handler(req: Request) {
   try {
     const url = new URL(req.url);
     const requested = url.searchParams.get("window") ?? "30d";
@@ -264,11 +267,17 @@ export async function GET(req: Request) {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message, at: new Date().toISOString() },
+      { error: "internal error", at: new Date().toISOString() },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
 }
 
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("flows-history", 300, handler);

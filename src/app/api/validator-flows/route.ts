@@ -30,6 +30,7 @@
 // net = (delegatedIn + redelegatedIn) - (undelegatedOut + redelegatedOut)
 
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/response-cache";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 import { StakingEvent } from "@/lib/db/models";
@@ -87,7 +88,7 @@ const SQL = `
   GROUP BY t.v, v.moniker
 `;
 
-export async function GET(request: Request) {
+async function handler(request: Request) {
   const url = new URL(request.url);
   const parsed = Number(url.searchParams.get("days"));
   const days =
@@ -143,3 +144,7 @@ export async function GET(request: Request) {
     );
   }
 }
+
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("validator-flows", 120, handler);

@@ -24,6 +24,7 @@
 //   }
 
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/response-cache";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 
@@ -73,7 +74,7 @@ type SignalsBody = {
 
 let cached: { at: number; body: SignalsBody } | null = null;
 
-export async function GET() {
+async function handler(_req: Request) {
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     return NextResponse.json(cached.body, { headers: { "x-cache": "HIT" } });
   }
@@ -288,3 +289,7 @@ export async function GET() {
   cached = { at: Date.now(), body };
   return NextResponse.json(body, { headers: { "x-cache": "MISS" } });
 }
+
+// Cached and single-flighted: repeat traffic costs nothing upstream, and
+// concurrent misses share one execution instead of one fan-out each.
+export const GET = withCache("today-signals", 60, handler);

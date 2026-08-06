@@ -38,7 +38,7 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     // Parallelise — Postgres handles 9 concurrent SELECT count(*) fine
     // and we halve the round-trip budget vs. sequential queries.
@@ -64,28 +64,42 @@ export async function GET() {
       PseScore.count(),
     ]);
 
+    // Row counts and table names are an operator diagnostic, not public data.
+    // Served openly they hand anyone a free map of the schema, which is exactly
+    // the reconnaissance step you want to make expensive. Gated behind a shared
+    // secret so our own monitoring keeps working; without it this is a plain
+    // liveness probe, which is all a health check owes the public.
+    const token = process.env.HEALTH_TOKEN;
+    const authorized = Boolean(token) && req.headers.get("x-health-token") === token;
+
     return NextResponse.json(
       {
         ok: true,
-        tables: {
-          staking_events: stakingEvents,
-          validators,
-          top_delegators: topDelegators,
-          top_delegators_history: topDelegatorsHistory,
-          whale_changes: whaleChanges,
-          pending_undelegations: pendingUndelegations,
-          daily_metrics: dailyMetrics,
-          known_entities: knownEntities,
-          pse_score: pseScore,
-        },
         at: new Date().toISOString(),
+        ...(authorized
+          ? {
+              tables: {
+                staking_events: stakingEvents,
+                validators,
+                top_delegators: topDelegators,
+                top_delegators_history: topDelegatorsHistory,
+                whale_changes: whaleChanges,
+                pending_undelegations: pendingUndelegations,
+                daily_metrics: dailyMetrics,
+                known_entities: knownEntities,
+                pse_score: pseScore,
+              },
+            }
+          : {}),
       },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry a connection string, credentials or internal
+    // hostnames, so it goes to the log and never to the caller.
+    console.error("[health] check failed:", err);
     return NextResponse.json(
-      { ok: false, error: message, at: new Date().toISOString() },
+      { ok: false, at: new Date().toISOString() },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }

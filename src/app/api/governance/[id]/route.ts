@@ -31,6 +31,8 @@ const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 // settles). Options are already normalized to YES / NO / ABSTAIN /
 // NO_WITH_VETO, matching normalizeOption() below.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
+
+const ROUTE_TAG = "governance/[id]";
 const UCORE_PER_TX = 1_000_000;
 
 interface HasuraProposal {
@@ -344,9 +346,12 @@ export async function GET(
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The raw message can carry the DB role, connection string, internal
+    // hostnames or upstream credentials, so it is logged and never returned.
+    // Callers get a generic failure; operators get the detail in the journal.
+    console.error(`[${ROUTE_TAG}]`, err);
     return NextResponse.json(
-      { error: message },
+      { error: "internal error" },
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
