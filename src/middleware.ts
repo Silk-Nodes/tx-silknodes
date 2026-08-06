@@ -164,7 +164,7 @@ export function middleware(req: NextRequest) {
       {
         error: "api key required",
         detail:
-          "External requests need an x-api-key header. Ask @silk_nodes for one, it is free.",
+          "External requests need an x-api-key header. Contact info@silknodes.io to request access.",
       },
       { status: 401, headers: { "cache-control": "no-store" } },
     );
