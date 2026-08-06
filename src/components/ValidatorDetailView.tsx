@@ -214,6 +214,11 @@ export default function ValidatorDetailView({
   const [amount, setAmount] = useState("");
   const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
   const [totalProposals, setTotalProposals] = useState(0);
+  // Proposal ids the vote indexer never recorded. Votes on these cannot be
+  // recovered from anywhere (the chain prunes votes once a proposal settles),
+  // so participation can only be a lower bound. Say so rather than presenting
+  // an undercount as the truth.
+  const [indexerGaps, setIndexerGaps] = useState<number[]>([]);
 
   // Titles for the governance tab. One call, reused across every vote row.
   useEffect(() => {
@@ -226,6 +231,7 @@ export default function ValidatorDetailView({
         for (const p of d.proposals) map[p.id] = { title: p.title || `Proposal #${p.id}` };
         setGovMeta(map);
         setTotalProposals(d.proposals.length);
+        setIndexerGaps(Array.isArray(d.indexerGaps) ? d.indexerGaps : []);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -680,7 +686,16 @@ export default function ValidatorDetailView({
               return (
                 <>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: "0.72rem", marginBottom: 14, opacity: 0.8 }}>
-                    <span><strong>{governance.votedCount}</strong>{totalProposals ? ` of ${totalProposals}` : ""} proposals voted{pct !== null ? ` (${pct}% participation)` : ""}</span>
+                    <span>
+                      <strong>{governance.votedCount}</strong>{totalProposals ? ` of ${totalProposals}` : ""} proposals voted{pct !== null ? ` (${pct}% participation)` : ""}
+                      {indexerGaps.length > 0 && (
+                        <Tooltip text={`Votes on proposal ${indexerGaps.join(", ")} are missing from the public vote index and cannot be recovered, because the chain discards votes once a proposal settles. This validator may have voted on ${indexerGaps.length === 1 ? "it" : "them"}, so the count is a lower bound.`}>
+                          <span style={{ marginLeft: 6, opacity: 0.55, cursor: "help", borderBottom: "1px dotted var(--glass-border)" }}>
+                            at least
+                          </span>
+                        </Tooltip>
+                      )}
+                    </span>
                     <span style={{ opacity: 0.5 }}>
                       {tally.YES ? `${tally.YES} Yes` : ""}{tally.NO ? ` · ${tally.NO} No` : ""}
                       {tally.ABSTAIN ? ` · ${tally.ABSTAIN} Abstain` : ""}{tally.NO_WITH_VETO ? ` · ${tally.NO_WITH_VETO} Veto` : ""}
