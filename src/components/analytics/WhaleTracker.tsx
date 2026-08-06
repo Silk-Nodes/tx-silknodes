@@ -544,7 +544,7 @@ export default function WhaleTracker({
                 {" "}
                 {windowLookbackDays(movesWindow).toFixed(0)}
                 {" "}
-                days of history — come back soon.
+                days of history. Come back soon.
               </div>
             )}
 

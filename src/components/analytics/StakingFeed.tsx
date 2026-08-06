@@ -326,7 +326,7 @@ export default function StakingFeed({ globalRange }: { globalRange: TimeRange })
                       <span>
                         No events match in <strong>{feedWindowLabel(globalRange)}</strong>.{" "}
                         <strong>{beyondWindow.toLocaleString()}</strong>{" "}
-                        match across the last 3 months — try a wider window above.
+                        match across the last 3 months. Try a wider window above.
                       </span>
                     );
                   })()}

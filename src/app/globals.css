@@ -7269,7 +7269,6 @@ input[type="range"]::-moz-range-thumb {
   flex-wrap: wrap;
   text-align: center;
 }
-.feedback-soft-cta-emoji { font-size: 1.1rem; line-height: 1; }
 .feedback-soft-cta-btn {
   padding: 7px 16px;
   border-radius: var(--radius-pill);

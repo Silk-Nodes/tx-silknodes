@@ -880,7 +880,6 @@ export default function HomePage() {
             this also showed X'. Avoids cluttering Overview / Portfolio. */}
         {(activeTab === "analytics" || activeTab === "flows") && (
           <div className="feedback-soft-cta">
-            <span className="feedback-soft-cta-emoji">💡</span>
             <span>Got an idea for what we should build next?</span>
             <button
               type="button"
@@ -4385,7 +4384,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           maxWidth: 640, margin: "0 auto", fontSize: "0.85rem",
           lineHeight: 1.6, opacity: 0.6, color: "var(--text-dark)",
         }}>
-          TX enables compliant, programmable financial assets at the protocol level — not through smart contracts. The infrastructure is live. Real-world adoption is building.
+          TX enables compliant, programmable financial assets at the protocol level, not through smart contracts. The infrastructure is live. Real-world adoption is building.
         </p>
       </div>
 
@@ -4429,7 +4428,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
           fontSize: "0.68rem", color: "var(--text-dark)", opacity: 0.4,
           lineHeight: 1.5, fontStyle: "italic", maxWidth: 500, margin: "0 auto",
         }}>
-          Note: Most current tokens are developer-issued or experimental. The infrastructure is production-ready — real-world asset tokenization is in its early adoption phase.
+          Note: most current tokens are developer-issued or experimental. The chain supports the full asset-ft feature set today. Real-world asset issuance on it is still early.
         </p>
       </div>
 
@@ -4716,7 +4715,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
       <div className="section-head" style={{ marginBottom: 16 }}>
         <h2 className="page-title" style={{ fontSize: "1.4rem" }}>What This Enables</h2>
         <span className="section-sub">
-          TX&rsquo;s protocol-native compliance isn&rsquo;t just for today&rsquo;s experimental tokens — it&rsquo;s the foundation for the next wave of real-world finance on-chain.
+          TX&rsquo;s compliance controls live in the token standard itself, so an issuer configures them at mint rather than writing and auditing a contract.
         </span>
       </div>
 
@@ -4739,7 +4738,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
               </svg>
             ),
             title: "Real Estate Fractions",
-            desc: "Property ownership divided into tradeable tokens — with KYC verification and regulatory compliance built in from day one.",
+            desc: "Property ownership divided into tradeable tokens, with KYC verification and transfer restrictions set at issuance.",
           },
           {
             icon: (
@@ -4829,7 +4828,7 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
             fontSize: "0.78rem", color: "rgba(237,233,224,0.5)",
             lineHeight: 1.6, maxWidth: 520, margin: "0 auto 20px",
           }}>
-            The same validator set that powers your staking rewards and PSE distributions also secures every smart token on the network. When you stake TX, you&rsquo;re not just earning — you&rsquo;re helping secure the infrastructure for real-world assets.
+            The same validator set that powers your staking rewards and PSE distributions also secures every smart token on the network. Staking TX pays you and secures the assets issued on it.
           </p>
 
           <div style={{
