@@ -44,6 +44,7 @@ import PassportTab from "@/components/PassportTab";
 import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
+import PseDistributionPrices from "@/components/pse/PseDistributionPrices";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
 import { usePathname, useRouter } from "next/navigation";
 import SupplyChart from "@/components/SupplyChart";
@@ -2082,6 +2083,10 @@ function PSETab({
           PSE Calculator & Guide: Understand How Your Rewards Work
         </button>
       </div>
+
+      {/* The two backward-looking sections sit together: what each
+          distribution was worth, then what recipients did with it. */}
+      <PseDistributionPrices />
 
       {/* Backward-looking counterpart to the calculator: what recipients
           actually did with past distributions (kept staked vs sold). */}
