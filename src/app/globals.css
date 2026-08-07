@@ -13775,7 +13775,12 @@ input[type="range"]::-moz-range-thumb {
 .pdp-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--glass-border); color: var(--text-dark); white-space: nowrap; }
 .pdp-table tr:last-child td { border-bottom: none; }
 .pdp-num { text-align: right; padding-right: 0 !important; }
-.pdp-table th.pdp-num { padding-right: 0; }
+/* Must also set text-align, not only padding. ".pdp-table th" is specificity
+   (0,1,1) and beats a bare ".pdp-num" (0,1,0), so the numeric HEADERS stayed
+   left-aligned while their cells were right-aligned. Each value then sat at
+   the right edge of its own column, directly under the NEXT column's heading,
+   which read as the whole table being shifted by one. */
+.pdp-table th.pdp-num { text-align: right; padding-right: 0; }
 .pdp-cycle { color: var(--text-medium); font-family: var(--font-mono); }
 /* Direction colours are for the change column only. Both are text on the page
    background, so they need their own tokens rather than reusing bar fills. */
