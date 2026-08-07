@@ -31,7 +31,7 @@ interface AllocationRow {
   total_score: string;
 }
 
-async function handler(_req: Request) {
+async function handler(req: Request) {
   try {
     const nowUnix = Math.floor(Date.now() / 1000);
 
@@ -92,7 +92,34 @@ async function handler(_req: Request) {
         if (v !== null && Number.isFinite(v)) priceByDate.set(d, v);
       }
     } catch (err) {
-      console.error(`[${ROUTE_TAG}] price lookup failed, serving cycles without prices:`, err);
+      console.error(`[${ROUTE_TAG}] price lookup failed, trying the analytics series:`, err);
+    }
+
+    // Fallback to the analytics endpoint, which serves the same price_usd
+    // column through its own cache. Worth having for its own sake: if the
+    // database is briefly unreachable but that response is still warm, the
+    // table keeps its prices instead of dropping to dashes. It is also what
+    // makes this route testable locally, where there is no database but
+    // /api/analytics-data is proxied to the live site.
+    if (priceByDate.size === 0) {
+      try {
+        const origin = new URL(req.url).origin;
+        const r = await fetch(`${origin}/api/analytics-data`, {
+          headers: { "sec-fetch-site": "same-origin" },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (r.ok) {
+          const series: { date: string; value: number }[] =
+            (await r.json())?.datasets?.["price-usd"] ?? [];
+          for (const pt of series) {
+            if (dates.includes(pt.date) && Number.isFinite(pt.value)) {
+              priceByDate.set(pt.date, pt.value);
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[${ROUTE_TAG}] analytics price fallback failed:`, err);
+      }
     }
 
     let previousPrice: number | null = null;

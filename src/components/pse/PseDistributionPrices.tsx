@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { formatCompact } from "@/lib/ui-format";
 import Tooltip from "@/components/Tooltip";
+import Shareable from "@/components/share/Shareable";
 
 interface Distribution {
   cycle: number;
@@ -55,7 +56,20 @@ export default function PseDistributionPrices() {
 
   if (failed) return null;
 
+  const latest = rows && rows.length > 0 ? rows[rows.length - 1] : null;
+
   return (
+    // framed=false: this already has its own card chrome, so the export adds
+    // only the site footer. No caption prop, because Shareable only renders
+    // one when framed is true. The subtitle inside the card does that job and
+    // carries into the image, which matters: a shared screenshot has to stand
+    // on its own away from the page that explains it.
+    <Shareable
+      title="PSE distributions and TX price"
+      subtitle={latest ? `${rows!.length} cycles to ${fmtDate(latest.date)}` : undefined}
+      framed={false}
+      exportWidth={860}
+    >
     <div className="psp-card psp-card-wide pdp-card">
       <div className="pdp-head">
         <div className="psp-card-head" style={{ marginBottom: 2 }}>
@@ -66,7 +80,8 @@ export default function PseDistributionPrices() {
           />
         </div>
         <span className="pdp-sub">
-          The pool is the same size every cycle, so the value moves with price alone
+          Every cycle distributes the same 476,190,476 TX, so the dollar value moves
+          with price alone
         </span>
       </div>
 
@@ -121,5 +136,6 @@ export default function PseDistributionPrices() {
         </>
       )}
     </div>
+    </Shareable>
   );
 }
