@@ -281,34 +281,52 @@ let cachedLastDistribution: PSEDistributionAllocation | null = null;
 export async function fetchLastPSEDistribution(): Promise<PSEDistributionAllocation | null> {
   if (cachedLastDistribution) return cachedLastDistribution;
 
+  // This query used to name three fields that do not exist on the table
+  // (clearing_account, height, total_distributed), so Hasura rejected it and
+  // the function returned null every single time. Nothing surfaced the error.
+  //
+  // Two layers depended on it and both were dead as a result: layer 2 never
+  // had a settled total to reference, and detectCycleMismatch never had a real
+  // last-distribution time, so it fell back to TGE and rejected the on-chain
+  // score path for every wallet. Verified against the schema:
+  //   allocation_type, clearing_account_address, total_amount, total_score,
+  //   scheduled_at, start_at_height, end_at_height, distribution_id
+  //
+  // scheduled_at is a unix timestamp, so the distribution time comes straight
+  // from this row and needs no block lookup.
+  const nowUnix = Math.floor(Date.now() / 1000);
   try {
     const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `{
+        query: `query Last($now: bigint!) {
           pse_distribution_allocation(
-            where: { clearing_account: { _eq: "pse_community" } }
-            order_by: { height: desc }
+            where: {
+              allocation_type: { _eq: "pse_community" }
+              scheduled_at: { _lte: $now }
+            }
+            order_by: { scheduled_at: desc }
             limit: 1
           ) {
             total_score
-            total_distributed
-            clearing_account
-            height
+            total_amount
+            scheduled_at
+            clearing_account_address
           }
         }`,
+        variables: { now: nowUnix },
       }),
     });
     const data = await res.json();
     const alloc = data?.data?.pse_distribution_allocation?.[0];
     if (alloc?.total_score) {
       cachedLastDistribution = {
-        cycleNumber: 1, // Hasura doesn't have cycle number, we derive it
+        cycleNumber: 1, // Hasura does not carry a cycle number; derived elsewhere
         totalScore: alloc.total_score,
-        totalDistributed: parseInt(alloc.total_distributed || "0") / 1_000_000,
-        clearingAccount: alloc.clearing_account,
-        timestamp: 0,
+        totalDistributed: Number(alloc.total_amount || 0) / 1_000_000,
+        clearingAccount: alloc.clearing_account_address ?? "pse_community",
+        timestamp: Number(alloc.scheduled_at || 0),
       };
       return cachedLastDistribution;
     }

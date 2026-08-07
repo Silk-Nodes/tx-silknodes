@@ -395,6 +395,10 @@ export default function HomePage() {
       lastDistTotalScore: lastDistribution?.totalScore ?? null,
       bondedTokens,
       excludedStake: excludedPSEStake,
+      // Without this the cycle-mismatch check falls back to TGE and rejects
+      // the on-chain-score path for every wallet, since PSE scores reset each
+      // distribution and are never older than one cycle.
+      lastDistributionTimestamp: lastDistribution?.timestamp ?? 0,
     });
     return result.estimate;
   }, [walletPSEScore, networkTotalScore, lastDistribution, bondedTokens, excludedPSEStake]);
@@ -1617,6 +1621,7 @@ function PSETab({
         lastDistTotalScore: lastDistribution?.totalScore ?? null,
         bondedTokens,
         excludedStake: excludedPSEStake ?? 0,
+        lastDistributionTimestamp: lastDistribution?.timestamp ?? 0,
       });
 
       const monthlyTX = result.estimate;

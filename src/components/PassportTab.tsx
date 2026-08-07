@@ -7,7 +7,8 @@ import PortfolioPanel from "@/components/PortfolioPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
-import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
+import { fetchOnChainPSEScore } from "@/lib/pse-calculator";
+import { estimatePSE } from "@/lib/pse-estimate";
 import {
   fetchAddressChainData,
   fetchValidatorMonikers,
@@ -214,18 +215,13 @@ export default function PassportTab({
       ]);
       if (epochRef.current !== epoch) return;
 
-      const est = layeredPSEEstimate({
-        userStake: chain.stakedTX,
-        userScore: score,
-        networkTotalScore: pseNet?.networkTotalScore ?? null,
-        lastDistTotalScore: null,
-        bondedTokens,
-        excludedStake: 0,
-      });
+      // Through the shared resolver, so the same wallet reads identically here,
+      // on the PSE page and in the combined portfolio.
+      const est = await estimatePSE({ stakeTX: chain.stakedTX, score });
       const pse: PseStanding = {
         score,
-        monthly: est.estimate,
-        annual: est.estimate * 12,
+        monthly: est.monthly,
+        annual: est.monthly * 12,
         sharePct: est.sharePct,
         eligible: !!score && chain.stakedTX > 0,
       };

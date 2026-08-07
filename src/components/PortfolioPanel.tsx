@@ -33,7 +33,7 @@ import {
   type AddressChainData,
   type ValidatorMeta,
 } from "@/lib/passport";
-import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
+import { estimatePSEForAddresses } from "@/lib/pse-estimate";
 import {
   MAX_WALLETS,
   addWallet,
@@ -161,58 +161,24 @@ export default function PortfolioPanel({
     return () => clearInterval(id);
   }, [fetchedAt]);
 
-  // Combined PSE standing. Scores are summed as BigInt because they are raw
-  // ucore-seconds and overflow a double: a single large staker is already past
-  // 2^53. Getting this wrong would silently round the reader's standing.
+  // Combined PSE standing, through the shared resolver so this agrees with the
+  // PSE page and the single-wallet passport for the same addresses.
   useEffect(() => {
     const addrs = rows.filter((r) => r.data && r.data.stakedTX > 0).map((r) => r.wallet.address);
     const stake = rows.reduce((n, r) => n + (r.data?.stakedTX ?? 0), 0);
-    if (addrs.length === 0 || bonded <= 0) { setPse(null); return; }
+    if (addrs.length === 0) { setPse(null); return; }
     let cancelled = false;
-    (async () => {
-      const [scores, net] = await Promise.all([
-        Promise.all(addrs.map((a) => fetchOnChainPSEScore(a).catch(() => null))),
-        fetch("/api/pse-score").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      ]);
-      if (cancelled) return;
-      // BigInt(0) rather than the 0n literal: tsconfig targets ES2017, which
-      // predates BigInt literals. The runtime supports BigInt regardless.
-      let sum = BigInt(0);
-      let any = false;
-      for (const sc of scores) {
-        if (!sc) continue;
-        try { sum += BigInt(sc); any = true; } catch { /* unparseable, skip */ }
-      }
-      const est = layeredPSEEstimate({
-        userStake: stake,
-        userScore: any ? sum.toString() : null,
-        networkTotalScore: net?.networkTotalScore ?? null,
-        lastDistTotalScore: null,
-        bondedTokens: bonded,
-        excludedStake: 0,
-      });
-      // Two honest answers here, and which one you get depends on the wallets.
-      //
-      // onchain_score is the share your accrued score entitles you to RIGHT
-      // NOW. stake_ratio is what you would get if you stayed staked for the
-      // whole cycle. They can differ by orders of magnitude, because PSE
-      // scores reset at each distribution and restart on redelegation: two
-      // wallets tested here had an implied staking age of 0.2 days against a
-      // network average near 16.6, so their instantaneous share was tiny and
-      // their full-cycle projection was not.
-      //
-      // Blanking it, which is what this did before, answers neither. Both are
-      // shown now, labelled with which question they answer, because a number
-      // whose basis is unstated is the thing worth avoiding, not the fallback
-      // itself.
-      setPse(
-        est.estimate > 0
-          ? { monthly: est.estimate, sharePct: est.sharePct, source: est.source }
-          : null,
-      );
-    })();
+    estimatePSEForAddresses({ addresses: addrs, stakeTX: stake })
+      .then((est) => {
+        if (cancelled) return;
+        // Both layers are honest answers to different questions, so the label
+        // says which one this is rather than blanking anything that is not
+        // layer 1. See the sub/tip below.
+        setPse(est.monthly > 0 ? est : null);
+      })
+      .catch(() => { if (!cancelled) setPse(null); });
     return () => { cancelled = true; };
-  }, [rows, bonded]);
+  }, [rows]);
 
   const totals = useMemo(() => {
     let liquid = 0, staked = 0, unbonding = 0, rewards = 0, failed = 0;
