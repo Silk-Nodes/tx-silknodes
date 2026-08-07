@@ -11,7 +11,17 @@
 
 import { NextResponse } from "next/server";
 
+// The chain's own vote record. Same file the validator pages use.
+//
+// This route had both of the bugs that were fixed for validators and neither
+// fix reached it, so the passport and the validator page disagreed about the
+// same entity: the passport said "14 of 41" where the validator page said 43
+// proposals. Two numbers for one fact is worse than either being slightly off.
+import HISTORICAL_VOTES from "@/data/historical-votes.json";
+
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+// Used only to backfill proposals the indexer never recorded.
+const GOV_LCD = "https://rest-coreum.ecostake.com";
 
 type VoteOption = "YES" | "NO" | "ABSTAIN" | "NO_WITH_VETO";
 
@@ -93,8 +103,35 @@ export async function GET(req: Request) {
     const proposals: HasuraProposal[] = json.data.proposal ?? [];
     const rawVotes: HasuraAddrVote[] = json.data.proposal_vote ?? [];
 
+    // Backfill proposals the indexer never recorded. Hasura is missing 40 and
+    // 42 outright, so a turnout computed from its list alone divides by 41
+    // where the chain has 43, and every wallet's participation reads high
+    // against a denominator that is too small.
     const byId = new Map<number, HasuraProposal>();
     for (const p of proposals) byId.set(p.id, p);
+    try {
+      const chainRes = await fetch(`${GOV_LCD}/cosmos/gov/v1/proposals?pagination.limit=300`, {
+        signal: AbortSignal.timeout(15000),
+        cache: "no-store",
+      });
+      if (chainRes.ok) {
+        const chainJson = await chainRes.json();
+        for (const cp of chainJson?.proposals ?? []) {
+          const id = Number(cp.id);
+          if (!Number.isFinite(id) || byId.has(id)) continue;
+          byId.set(id, {
+            id,
+            title: cp.title || cp.messages?.[0]?.content?.title || `Proposal #${id}`,
+            status: cp.status,
+            voting_end_time: cp.voting_end_time ?? null,
+          });
+        }
+      }
+    } catch {
+      // Chain unreachable: fall back to the indexer's list. The denominator is
+      // then understated rather than wrong-shaped.
+    }
+    const allProposals = [...byId.values()];
 
     const votes = rawVotes
       .map((v) => {
@@ -106,15 +143,47 @@ export async function GET(req: Request) {
           title: p.title,
           status: shortStatus(p.status),
           option: opt,
-          votedAt: v.timestamp,
+          votedAt: v.timestamp as string | null,
         };
       })
-      .filter(Boolean);
+      .filter(Boolean) as {
+        proposalId: number; title: string; status: string;
+        option: VoteOption; votedAt: string | null;
+      }[];
 
-    const votableCount = proposals.filter((p) => isVotable(p.status)).length;
+    // Merge the votes the indexer lost. Hasura holds no votes at all for
+    // proposals 1, 2, 4, 5, 6, 7, 8, 40 and 42, and drops individual votes
+    // inside proposals it does index, so a wallet's record here was
+    // understated the same way validators' were. The chain snapshot carries no
+    // timestamp, because settled votes are deleted and only the transaction
+    // survives, so those rows sort last rather than claiming a position in the
+    // timeline.
+    const seen = new Set(votes.map((v) => v.proposalId));
+    let recovered = 0;
+    for (const [pid, voters] of Object.entries(
+      HISTORICAL_VOTES as Record<string, Record<string, VoteOption>>,
+    )) {
+      const id = Number(pid);
+      const opt = voters[address];
+      if (!opt || seen.has(id)) continue;
+      const p = byId.get(id);
+      if (!p) continue;
+      seen.add(id);
+      recovered++;
+      votes.push({
+        proposalId: id,
+        title: p.title,
+        status: shortStatus(p.status),
+        option: opt,
+        votedAt: null,
+      });
+    }
+    votes.sort((a, b) => b.proposalId - a.proposalId);
+
+    const votableCount = allProposals.filter((p) => isVotable(p.status)).length;
     const votedVotableIds = new Set(
-      rawVotes
-        .map((v) => v.proposal_id)
+      votes
+        .map((v) => v.proposalId)
         .filter((id) => {
           const p = byId.get(id);
           return p && isVotable(p.status);
@@ -130,7 +199,14 @@ export async function GET(req: Request) {
         votedCount,
         votableCount,
         turnoutPct,
-        lastVotedAt: votes[0]?.votedAt ?? null,
+        // How many came from the chain record rather than the indexer.
+        recoveredFromChain: recovered,
+        // Newest vote that actually carries a timestamp. Recovered votes have
+        // none, and the list is ordered by proposal id, so taking votes[0]
+        // blindly would report "never voted" for a wallet whose most recent
+        // recorded vote happens to be one we recovered.
+        lastVotedAt:
+          votes.map((v) => v.votedAt).filter(Boolean).sort().reverse()[0] ?? null,
       },
       updatedAt: new Date().toISOString(),
     };
