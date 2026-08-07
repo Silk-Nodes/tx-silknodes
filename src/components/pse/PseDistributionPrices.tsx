@@ -89,6 +89,11 @@ export default function PseDistributionPrices() {
             title="PSE distributions and TX price"
             subtitle={latest ? `${rows.length} cycles to ${fmtDate(latest.date)}` : undefined}
             caption="Every cycle distributes the same 476,190,476 TX, so the dollar value moves with price alone."
+            // The wrapper starts at the table, so the default top: 12px put the
+            // camera on top of the first row's pool value. Lifted into the card
+            // header, which has ~745px of clear space to the right of the
+            // subtitle. Negative because it moves up out of the wrapper.
+            cameraOffset={{ top: -46, right: 0 }}
           >
           <div className="pdp-wrap">
             <table className="pdp-table">
