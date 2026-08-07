@@ -105,6 +105,28 @@ const TX = (n: number) => `${formatCompact(n)} TX`;
 const mintscanAddr = (a: string) => `https://www.mintscan.io/tx/address/${a}`;
 const mintscanTx = (h: string) => `https://www.mintscan.io/tx/tx/${h}`;
 // "6 Apr 2023" — short, unambiguous, locale-independent order.
+/**
+ * Value of a PSE payout at the price on the day it landed.
+ *
+ * The per-address PSE endpoint reports each drop by block height, not date, so
+ * the cycle is found by height. Distributions land across a small range of
+ * blocks (cycle 5 spans 82123213 to 82123223), and the first two cycles report
+ * a single block, so this takes the latest cycle that started at or below the
+ * drop rather than requiring the height to fall inside a range.
+ */
+function usdAtDrop(
+  amountTX: number,
+  height: number,
+  cycles: { startAtHeight: number; endAtHeight: number; priceUsd: number | null }[],
+): number | null {
+  let match: { priceUsd: number | null } | null = null;
+  for (const c of cycles) {
+    if (c.startAtHeight <= height) match = c;
+  }
+  if (!match || match.priceUsd === null) return null;
+  return amountTX * match.priceUsd;
+}
+
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -166,10 +188,24 @@ export default function PassportTab({
   // page tells them the portfolio view exists.
   const [tracked, setTracked] = useState<string[]>([]);
   const [portfolioNonce, setPortfolioNonce] = useState(0);
+  // Distribution cycles with the TX price on the day each landed, so a payout
+  // can be shown at what it was worth then rather than only in tokens.
+  // Requested alongside the PSE price table: "add the value at time it was
+  // dropped".
+  const [distPrices, setDistPrices] = useState<
+    { startAtHeight: number; endAtHeight: number; priceUsd: number | null }[]
+  >([]);
 
   useEffect(() => {
     setTracked(loadWallets().map((w) => w.address));
   }, [portfolioNonce]);
+
+  useEffect(() => {
+    fetch("/api/pse-distributions")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setDistPrices(d?.distributions ?? []))
+      .catch(() => {});
+  }, []);
 
   // Address currently previewed in the slide-in peek panel (click a
   // counterparty to drill in without leaving the current passport).
@@ -526,14 +562,45 @@ export default function PassportTab({
                   <div className="psp-distbars-row">
                     {[...pseEarned.distributions].reverse().map((d) => {
                       const max = Math.max(...pseEarned.distributions.map((x) => x.amountTX), 1);
+                      const usd = usdAtDrop(d.amountTX, d.height, distPrices);
                       return (
-                        <div key={d.height} className="psp-distbar" title={`${TX(d.amountTX)} · block ${d.height}`}>
+                        <div
+                          key={d.height}
+                          className="psp-distbar"
+                          title={`${TX(d.amountTX)}${usd !== null ? ` · $${formatCompact(usd)} at the time` : ""} · block ${d.height}`}
+                        >
                           <div className="psp-distbar-fill" style={{ height: `${Math.max((d.amountTX / max) * 100, 4)}%` }} />
                         </div>
                       );
                     })}
                   </div>
-                  <div className="psp-distbars-foot"><span>oldest</span><span>latest {TX(pseEarned.lastTX)}</span></div>
+                  <div className="psp-distbars-foot">
+                    <span>oldest</span>
+                    <span>
+                      latest {TX(pseEarned.lastTX)}
+                      {(() => {
+                        const last = pseEarned.distributions[pseEarned.distributions.length - 1];
+                        const usd = last ? usdAtDrop(last.amountTX, last.height, distPrices) : null;
+                        return usd !== null ? ` · $${formatCompact(usd)}` : "";
+                      })()}
+                    </span>
+                  </div>
+                  {/* What the payouts were worth when they landed, which is a
+                      different number from what the same tokens are worth now.
+                      Only shown once every drop has a price, so a partial sum
+                      is never presented as a total. */}
+                  {(() => {
+                    const priced: (number | null)[] = pseEarned.distributions.map((d) =>
+                      usdAtDrop(d.amountTX, d.height, distPrices),
+                    );
+                    if (priced.some((v) => v === null)) return null;
+                    const total = (priced as number[]).reduce((n, v) => n + v, 0);
+                    return (
+                      <div className="psp-distbars-note">
+                        Worth ${formatCompact(total)} at the prices on the days they landed
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </>
