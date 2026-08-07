@@ -8,6 +8,7 @@ import { addWallet, loadWallets } from "@/lib/wallet-list";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
+import { getExcludedPSEStake } from "@/lib/api";
 import {
   fetchAddressChainData,
   fetchValidatorMonikers,
@@ -205,12 +206,13 @@ export default function PassportTab({
     // page never sits on a spinner waiting for the (sometimes slow or
     // degraded) public indexer.
     try {
-      const [chain, score, pseNet, bondedTokens, monikers] = await Promise.all([
+      const [chain, score, pseNet, bondedTokens, monikers, excludedStake] = await Promise.all([
         fetchAddressChainData(address),
         fetchOnChainPSEScore(address),
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
         fetchValidatorMonikers(),
+        getExcludedPSEStake().catch(() => 0),
       ]);
       if (epochRef.current !== epoch) return;
 
@@ -220,7 +222,10 @@ export default function PassportTab({
         networkTotalScore: pseNet?.networkTotalScore ?? null,
         lastDistTotalScore: null,
         bondedTokens,
-        excludedStake: 0,
+        // 314M TX of foundation, team and module stake does not compete for
+        // the PSE pool, so leaving it in the denominator understated every
+        // holder's share by about 10.6%.
+        excludedStake,
       });
       const pse: PseStanding = {
         score,

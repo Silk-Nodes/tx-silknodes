@@ -34,6 +34,7 @@ import {
   type ValidatorMeta,
 } from "@/lib/passport";
 import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
+import { getExcludedPSEStake } from "@/lib/api";
 import {
   MAX_WALLETS,
   addWallet,
@@ -78,6 +79,10 @@ export default function PortfolioPanel({
   const [apr, setApr] = useState<number | null>(null);
   const [unbondingDays, setUnbondingDays] = useState<number | null>(null);
   const [bonded, setBonded] = useState(0);
+  // Stake held by PSE-excluded addresses (foundation, team, module accounts).
+  // It has to come out of the denominator or every share is understated: it is
+  // 314M TX, about 9.6% of everything bonded.
+  const [excluded, setExcluded] = useState(0);
   // Combined PSE. Score is stake x duration, which is linear, so summing the
   // per-wallet scores gives exactly what one wallet holding the same total
   // would score. No approximation is involved.
@@ -106,6 +111,7 @@ export default function PortfolioPanel({
     fetchValidatorMeta().then(setVmeta).catch(() => {});
     fetchStakingApr().then(setApr).catch(() => {});
     fetchBondedTokens().then(setBonded).catch(() => {});
+    getExcludedPSEStake().then(setExcluded).catch(() => {});
     fetchStakingParams()
       .then((p) => setUnbondingDays(p ? p.unbondingSeconds / 86400 : null))
       .catch(() => {});
@@ -189,7 +195,7 @@ export default function PortfolioPanel({
         networkTotalScore: net?.networkTotalScore ?? null,
         lastDistTotalScore: null,
         bondedTokens: bonded,
-        excludedStake: 0,
+        excludedStake: excluded,
       });
       // Two honest answers here, and which one you get depends on the wallets.
       //
@@ -212,7 +218,7 @@ export default function PortfolioPanel({
       );
     })();
     return () => { cancelled = true; };
-  }, [rows, bonded]);
+  }, [rows, bonded, excluded]);
 
   const totals = useMemo(() => {
     let liquid = 0, staked = 0, unbonding = 0, rewards = 0, failed = 0;

@@ -80,6 +80,30 @@ export async function fetchTokenData(): Promise<TokenData> {
 }
 
 // === Fetch total stake of PSE-excluded addresses (from on-chain params) ===
+// Cached for the page's lifetime. Resolving it is 29 delegation lookups, and
+// the answer moves slowly (it is foundation, team and module accounts), so
+// re-deriving it per component would be a lot of upstream traffic for a figure
+// that barely changes.
+let excludedStakeCache: { value: number; at: number } | null = null;
+const EXCLUDED_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Total stake held by addresses excluded from PSE.
+ *
+ * This belongs in the DENOMINATOR of any PSE share estimate. Leaving it out
+ * treats 314M TX of foundation and module stake as though it competes for the
+ * pool, which understates every real staker's share by about 10.6%. The main
+ * PSE page has always passed it; the passport passed 0.
+ */
+export async function getExcludedPSEStake(): Promise<number> {
+  if (excludedStakeCache && Date.now() - excludedStakeCache.at < EXCLUDED_TTL_MS) {
+    return excludedStakeCache.value;
+  }
+  const value = await fetchExcludedPSEStake();
+  excludedStakeCache = { value, at: Date.now() };
+  return value;
+}
+
 async function fetchExcludedPSEStake(): Promise<number> {
   try {
     // Get excluded addresses from on-chain first, fallback to hardcoded
