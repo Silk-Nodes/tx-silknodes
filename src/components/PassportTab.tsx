@@ -29,7 +29,10 @@ interface FlowsAddress {
   recent: { txHash: string; timestamp: string; exchange: string; direction: "inflow" | "outflow"; amount: number }[];
 }
 interface GovHistory {
-  votes: { proposalId: number; title: string; status: string; option: string; votedAt: string }[];
+  // votedAt is null for votes recovered from the chain: settled votes are
+  // deleted by the SDK, so only the transaction survives and it carries no
+  // indexer timestamp.
+  votes: { proposalId: number; title: string; status: string; option: string; votedAt: string | null }[];
   summary: { votedCount: number; votableCount: number; turnoutPct: number; lastVotedAt: string | null };
 }
 interface PseStanding {
