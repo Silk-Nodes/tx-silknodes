@@ -450,14 +450,23 @@ function writeData(filename, data) {
   writeFileSync(join(DATA_DIR, filename), JSON.stringify(data, null, null));
 }
 
-function appendDataPoint(filename, date, value) {
+async function appendDataPoint(filename, date, value) {
   // Always dual-write to Postgres (authoritative source). Each
   // filename maps to one column on the wide daily_metrics table;
   // UPSERT touches only that column so other metrics already
   // written for the same date are preserved.
+  //
+  // This MUST be awaited. It was not, and the function was not async, so
+  // every write was fire-and-forget. Metrics early in the collection loop
+  // survived by accident, because later awaits kept the event loop alive
+  // long enough for their promises to settle. price-usd is the last entry
+  // in the snapshot list, so its write raced the pg pool drain at shutdown
+  // and lost: the log line printed (synchronous) while the column stayed
+  // NULL. price_usd was null for every day from 2026-07-28 onward while
+  // total_stake and staking_apr from the same run were written fine.
   const column = FILENAME_TO_COLUMN[filename];
   if (column) {
-    safeDbWrite(`daily_metrics.${column}`, () => writeDailyMetric(date, column, value));
+    await safeDbWrite(`daily_metrics.${column}`, () => writeDailyMetric(date, column, value));
   }
 
   if (!JSON_WRITES_ENABLED) {
@@ -617,10 +626,10 @@ async function main() {
       log("info", `[${day}] blocks ${lo}..${hi} (${hi - lo + 1} blocks)`);
 
       const txCount = await fetchDailyTxCount(lo, hi);
-      appendDataPoint("transactions.json", day, txCount);
+      await appendDataPoint("transactions.json", day, txCount);
 
       const activeAddrs = await fetchDailyActiveAddresses(lo, hi, txCount);
-      appendDataPoint("active-addresses.json", day, activeAddrs);
+      await appendDataPoint("active-addresses.json", day, activeAddrs);
     } catch (e) {
       // Per-day failures must not abort the remaining days. The next run
       // will retry this specific day. Whatever was written stays on disk.
@@ -675,7 +684,7 @@ async function main() {
       log("info", `Fetching ${name}...`);
       const value = await fn();
       results[name] = value;
-      appendDataPoint(`${name}.json`, todayDate, value);
+      await appendDataPoint(`${name}.json`, todayDate, value);
     } catch (e) {
       log("error", `ERROR (${name}): ${e.message}`);
       errors++;
