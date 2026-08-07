@@ -7,8 +7,8 @@ import PortfolioPanel from "@/components/PortfolioPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
-import { fetchOnChainPSEScore, layeredPSEEstimate } from "@/lib/pse-calculator";
-import { getExcludedPSEStake } from "@/lib/api";
+import { fetchOnChainPSEScore } from "@/lib/pse-calculator";
+import { estimatePSE } from "@/lib/pse-estimate";
 import {
   fetchAddressChainData,
   fetchValidatorMonikers,
@@ -206,31 +206,22 @@ export default function PassportTab({
     // page never sits on a spinner waiting for the (sometimes slow or
     // degraded) public indexer.
     try {
-      const [chain, score, pseNet, bondedTokens, monikers, excludedStake] = await Promise.all([
+      const [chain, score, pseNet, bondedTokens, monikers] = await Promise.all([
         fetchAddressChainData(address),
         fetchOnChainPSEScore(address),
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
         fetchValidatorMonikers(),
-        getExcludedPSEStake().catch(() => 0),
       ]);
       if (epochRef.current !== epoch) return;
 
-      const est = layeredPSEEstimate({
-        userStake: chain.stakedTX,
-        userScore: score,
-        networkTotalScore: pseNet?.networkTotalScore ?? null,
-        lastDistTotalScore: null,
-        bondedTokens,
-        // 314M TX of foundation, team and module stake does not compete for
-        // the PSE pool, so leaving it in the denominator understated every
-        // holder's share by about 10.6%.
-        excludedStake,
-      });
+      // Through the shared resolver, so the same wallet reads identically here,
+      // on the PSE page and in the combined portfolio.
+      const est = await estimatePSE({ stakeTX: chain.stakedTX, score });
       const pse: PseStanding = {
         score,
-        monthly: est.estimate,
-        annual: est.estimate * 12,
+        monthly: est.monthly,
+        annual: est.monthly * 12,
         sharePct: est.sharePct,
         eligible: !!score && chain.stakedTX > 0,
       };
