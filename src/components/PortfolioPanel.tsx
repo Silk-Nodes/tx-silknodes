@@ -443,8 +443,8 @@ export default function PortfolioPanel({
             <Metric label="Total" value={TX(totals.total)} sub={txPrice ? `$${formatCompact(totals.total * txPrice)}` : undefined} accent />
             <Metric label="Staked" value={TX(totals.staked)} sub={txPrice ? `$${formatCompact(totals.staked * txPrice)}` : undefined} />
             <Metric label="Liquid" value={TX(totals.liquid)} sub={txPrice ? `$${formatCompact(totals.liquid * txPrice)}` : undefined} />
-            <Metric label="Unbonding" value={TX(totals.unbonding)} />
-            <Metric label="Rewards" value={TX(totals.rewards)} />
+            <Metric label="Unbonding" value={TX(totals.unbonding)} tone={totals.unbonding === 0 ? "dim" : undefined} />
+            <Metric label="Rewards" value={TX(totals.rewards)} tone={totals.rewards === 0 ? "dim" : "earn"} />
           </div>
 
           <div className="psp-headline pfp-headline pfp-headline-sub">
@@ -457,6 +457,7 @@ export default function PortfolioPanel({
             <Metric
               label="PSE per month"
               value={pse ? TX(pse.monthly) : "-"}
+              tone={pse ? "earn" : "dim"}
               sub={pse
                 ? pse.source === "onchain_score" || pse.source === "last_dist_reference"
                   ? "accrued so far this cycle"
@@ -471,16 +472,19 @@ export default function PortfolioPanel({
             <Metric
               label="Wallets"
               value={String(wallets.length)}
+              tone="meta"
               sub={`of ${MAX_WALLETS} tracked`}
             />
             <Metric
               label="Validators"
               value={String(totals.exposure.length)}
+              tone="meta"
               sub={totals.exposure.length > 0 ? "delegated to" : undefined}
             />
             <Metric
               label="Unbonding takes"
               value={unbondingDays !== null ? `${unbondingDays} days` : "-"}
+              tone="meta"
               sub="chain parameter"
               tip="How long unstaked TX is locked before it can be moved. Read live from the chain's staking parameters, since governance can change it."
             />
@@ -793,11 +797,16 @@ export default function PortfolioPanel({
   );
 }
 
-function Metric({ label, value, sub, accent, tip }: {
+function Metric({ label, value, sub, accent, tip, tone }: {
   label: string; value: string; sub?: string; accent?: boolean; tip?: string;
+  /** Semantic colour, never decorative:
+   *  earn  = a number that grows (rewards, PSE), its own green below neon
+   *  meta  = a count or parameter, not money, demoted a step
+   *  dim   = a zero, which should whisper instead of competing with balances */
+  tone?: "earn" | "meta" | "dim";
 }) {
   return (
-    <div className="psp-metric">
+    <div className={`psp-metric${tone ? ` pfp-tone-${tone}` : ""}`}>
       <span className="psp-metric-label">
         {label}
         {tip && <Tooltip text={tip} position="bottom" />}

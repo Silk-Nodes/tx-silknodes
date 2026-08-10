@@ -13824,6 +13824,17 @@ input[type="range"]::-moz-range-thumb {
 .pdp-flat { color: var(--text-medium); }
 .pdp-source { font-size: 0.74rem; color: var(--text-medium); margin: 12px 0 0; }
 
+/* ── Portfolio metric tones ──────────────────────────────────────────── */
+/* Colour with meaning only. Neon stays reserved for the total; earnings get
+   their own green a step below it; zeroes whisper; counts and parameters are
+   demoted because they are metadata, not money. Per-theme token because bar
+   greens like #8fd14f only reach ~2:1 as text on the light background. */
+:root { --earn-text: #3a7a15; }
+[data-theme="dark"] { --earn-text: #9fd95c; }
+.pfp-tone-earn .psp-metric-value { color: var(--earn-text); }
+.pfp-tone-dim .psp-metric-value { color: var(--text-medium); }
+.pfp-tone-meta .psp-metric-value { font-size: 0.95rem; color: var(--text-medium); }
+
 /* ── Saved-wallet picker chips ────────────────────────────────────────── */
 /* Styled for the dark PSE card they currently sit in: same translucent
    treatment as the address input beside them. */
