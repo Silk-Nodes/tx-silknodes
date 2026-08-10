@@ -73,11 +73,27 @@ export default function PseHistory({ address }: { address: string }) {
 
         let missed = 0;
         const mapped: Row[] = [];
+        // Sorted by start height so "largest start at or below the payout"
+        // is a simple scan.
+        const byStart = [...cycles].sort((a, b) => a.startAtHeight - b.startAtHeight);
         for (const p of payouts) {
-          const c = cycles.find((x) => p.height >= x.startAtHeight && p.height <= x.endAtHeight);
-          // A payout outside every known range is not guessed into the
-          // nearest cycle. It is counted and disclosed instead, because a
-          // wrongly attributed payout is worse than a missing one.
+          // A distribution begins at its start_at_height and the transfers
+          // spill FORWARD over the following blocks. The declared end height
+          // is not reliable: cycles 1 and 2 declare zero-width ranges
+          // (72461119-72461119) while their payouts run to 72461125 and
+          // beyond, so exact range matching silently dropped cycle 2 for
+          // every wallet. Match to the cycle whose start is the largest one
+          // at or below the payout, bounded by the next cycle's start.
+          let c: Cycle | undefined;
+          for (let i = byStart.length - 1; i >= 0; i--) {
+            if (p.height >= byStart[i].startAtHeight) {
+              const next = byStart[i + 1];
+              if (!next || p.height < next.startAtHeight) c = byStart[i];
+              break;
+            }
+          }
+          // Only a payout BELOW the first cycle's start is truly unmatchable.
+          // It stays excluded and disclosed rather than guessed.
           if (!c) { missed++; continue; }
           mapped.push({
             cycle: c.cycle,
