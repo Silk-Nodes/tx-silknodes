@@ -41,6 +41,8 @@ import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
 import GovernanceTab from "@/components/GovernanceTab";
 import PassportTab from "@/components/PassportTab";
+import PortfolioPanel from "@/components/PortfolioPanel";
+import PortfolioNavButton from "@/components/PortfolioNavButton";
 import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
@@ -96,7 +98,11 @@ const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
 const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: boolean }[] = [
   { id: "validators", label: "Validators", description: "Browse, compare, delegate" },
   { id: "calculator", label: "Calculator", description: "Estimate staking rewards" },
-  { id: "portfolio", label: "Portfolio", description: "Your delegations", walletOnly: true },
+  // Not walletOnly any more. The page now leads with the saved-wallet
+  // tracker, which reads public chain data and is the only view that works
+  // for cold and hardware wallets. Hiding the whole page until someone
+  // connects hid it from exactly the people who cannot connect.
+  { id: "portfolio", label: "Portfolio", description: "Your wallets and delegations" },
   { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on Coreum" },
   { id: "silknodes", label: "Silk Nodes", description: "About the validator" },
   { id: "feedback", label: "Feedback", description: "Share ideas with us" },
@@ -528,6 +534,7 @@ export default function HomePage() {
 
         <div className="nav-right">
           <ThemeSwitcher />
+          <PortfolioNavButton active={activeTab === "portfolio"} />
           <span className="live-indicator">
             <span className="live-dot" />
             {loading ? "Syncing" : "Live"}
@@ -901,6 +908,19 @@ export default function HomePage() {
           </div>
         )}
 
+        {activeTab === "portfolio" && (
+          <PortfolioPanel
+            connectedAddress={wallet.connected ? wallet.address : undefined}
+            txPrice={price}
+            onOpenPassport={(a) => router.push(`/passport/${a}`)}
+          />
+        )}
+
+        {/* Signing actions stay behind a connection: you cannot delegate for a
+            wallet you have not connected. Scoped and labelled as the connected
+            wallet only, because the totals above span every saved wallet and a
+            Delegate button that quietly applies to one of them would be a
+            genuinely dangerous ambiguity. */}
         {activeTab === "portfolio" && wallet.connected && (
           <PortfolioTab
             wallet={wallet}
@@ -920,6 +940,25 @@ export default function HomePage() {
             txPending={txPending}
             estimatePSE={estimatePSEWithNetworkScore}
           />
+        )}
+
+        {/* The page is useful without connecting, so this is an offer rather
+            than a gate: it says what connecting adds, not that the page is
+            unavailable. */}
+        {activeTab === "portfolio" && !wallet.connected && (
+          <div className="pfp-connect-note">
+            <span>
+              Tracking above reads public chain data, so it works for cold and hardware
+              wallets. Connect one to delegate, redelegate or claim rewards from it here.
+            </span>
+            <button
+              type="button"
+              className="psp-topbar-btn ghost"
+              onClick={() => setShowWalletModal(true)}
+            >
+              Connect wallet
+            </button>
+          </div>
         )}
 
       </div>

@@ -13942,3 +13942,40 @@ input[type="range"]::-moz-range-thumb {
 .swp-chip-active { border-color: var(--tx-neon); background: rgba(177, 252, 3, 0.14); }
 .swp-chip-save { border-style: dashed; color: var(--tx-neon); background: transparent; }
 .swp-notice { font-size: 0.74rem; color: #f0ece3; opacity: 0.7; align-self: center; }
+
+/* Portfolio: the offer shown when no wallet is connected. Not an empty state,
+   because the page above it is fully functional without connecting. */
+.pfp-connect-note {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  margin-top: 16px; padding: 14px 16px;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  font-size: 0.84rem; line-height: 1.5; color: var(--text-medium);
+}
+
+/* Portfolio entry point in the header account zone. Deliberately quieter than
+   the wallet pill next to it: connecting is the primary action for a new
+   visitor, and two loud pills side by side compete. */
+.portfolio-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600;
+  text-decoration: none; white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.portfolio-pill:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
+.portfolio-pill.active { border-color: var(--tx-neon); }
+.portfolio-pill-count {
+  font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text-medium);
+  padding: 1px 6px; border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+}
+/* Narrow screens: tighten the pill rather than hiding its label. Dropping the
+   label would leave a bare number, or an empty pill when nothing is saved
+   yet, and "Connect Wallet" beside it must never wrap. */
+@media (max-width: 560px) {
+  .portfolio-pill { padding: 6px 10px; font-size: 0.74rem; gap: 5px; }
+}
