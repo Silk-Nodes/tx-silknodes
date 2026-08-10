@@ -14068,3 +14068,15 @@ input[type="range"]::-moz-range-thumb {
 }
 .wallet-menu-item:hover, .wallet-menu-item:focus-visible { background: var(--accent-olive-light); }
 .wallet-menu-item.is-danger { color: var(--danger-text); }
+
+/* Portfolio tab bar. Reuses .vd-tab for the items so this is the same
+   underline tab the validator detail page already uses, rather than a third
+   tab style; only the container differs, because that one is sticky and
+   tuned to its own page. */
+.pf-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--glass-border);
+  margin: 8px 0 18px;
+}
+
+.pse-hist { margin-bottom: 22px; }

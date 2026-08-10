@@ -44,6 +44,7 @@ import PassportTab from "@/components/PassportTab";
 import PortfolioPanel from "@/components/PortfolioPanel";
 import PortfolioNavButton from "@/components/PortfolioNavButton";
 import WalletMenu from "@/components/WalletMenu";
+import PseHistory from "@/components/PseHistory";
 import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
@@ -171,6 +172,9 @@ export default function HomePage() {
   // Seed the tab from the URL so each route server-renders its own content
   // (crawlable per-page) instead of always prerendering "today".
   const [activeTab, setActiveTab] = useState<TabId>(() => tabFromPathname(pathname));
+  // Which half of /portfolio is showing. Defaults to the tracked wallets,
+  // which is the half that works without a connection.
+  const [portfolioTab, setPortfolioTab] = useState<"portfolio" | "wallet">("portfolio");
   // Keep the active tab centered in the mobile nav strip. With 7 items the
   // strip scrolls horizontally, and the active tab could otherwise sit
   // half-off the edge (e.g. Passport). Scrolls only the strip, never the
@@ -850,11 +854,81 @@ export default function HomePage() {
         )}
 
         {activeTab === "portfolio" && (
-          <PortfolioPanel
-            connectedAddress={wallet.connected ? wallet.address : undefined}
-            txPrice={price}
-            onOpenPassport={(a) => router.push(`/passport/${a}`)}
-          />
+          <>
+            {/* Two things, not one page. "Your portfolio" is the wallets you
+                chose to track and works without connecting; "Your wallet" is
+                the single connected one, where signing lives. They were
+                stacked, which is why the connected wallet's own figures read
+                as a contradiction of the totals above them. */}
+            <div className="pf-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={portfolioTab === "portfolio"}
+                className={`vd-tab ${portfolioTab === "portfolio" ? "active" : ""}`}
+                onClick={() => setPortfolioTab("portfolio")}
+              >
+                Your portfolio
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={portfolioTab === "wallet"}
+                className={`vd-tab ${portfolioTab === "wallet" ? "active" : ""}`}
+                onClick={() => setPortfolioTab("wallet")}
+              >
+                Your wallet
+              </button>
+            </div>
+
+            {portfolioTab === "portfolio" && (
+              <PortfolioPanel
+                connectedAddress={wallet.connected ? wallet.address : undefined}
+                txPrice={price}
+                onOpenPassport={(a) => router.push(`/passport/${a}`)}
+              />
+            )}
+
+            {portfolioTab === "wallet" && (
+              wallet.connected ? (
+                <>
+                  <PseHistory address={wallet.address} />
+                  <PortfolioTab
+                    wallet={wallet}
+                    price={price}
+                    apr={apr}
+                    bondedTokens={bondedTokens}
+                    excludedPSEStake={excludedPSEStake}
+                    pseEligibleBonded={pseEligibleBonded}
+                    pseInfo={pseInfo}
+                    stakingData={stakingData}
+                    claimRewards={claimRewards}
+                    delegate={delegate}
+                    undelegate={undelegate}
+                    redelegate={redelegate}
+                    cancelUnbonding={cancelUnbonding}
+                    refresh={refresh}
+                    txPending={txPending}
+                    estimatePSE={estimatePSEWithNetworkScore}
+                  />
+                </>
+              ) : (
+                <div className="pfp-connect-note">
+                  <span>
+                    Connect a wallet to see what it has been paid by PSE each cycle, and to
+                    delegate, redelegate or claim from it. The portfolio tab needs no connection.
+                  </span>
+                  <button
+                    type="button"
+                    className="psp-topbar-btn ghost"
+                    onClick={() => setShowWalletModal(true)}
+                  >
+                    Connect wallet
+                  </button>
+                </div>
+              )
+            )}
+          </>
         )}
 
         {/* Signing actions stay behind a connection: you cannot delegate for a
@@ -862,45 +936,6 @@ export default function HomePage() {
             wallet only, because the totals above span every saved wallet and a
             Delegate button that quietly applies to one of them would be a
             genuinely dangerous ambiguity. */}
-        {activeTab === "portfolio" && wallet.connected && (
-          <PortfolioTab
-            wallet={wallet}
-            price={price}
-            apr={apr}
-            bondedTokens={bondedTokens}
-            excludedPSEStake={excludedPSEStake}
-            pseEligibleBonded={pseEligibleBonded}
-            pseInfo={pseInfo}
-            stakingData={stakingData}
-            claimRewards={claimRewards}
-            delegate={delegate}
-            undelegate={undelegate}
-            redelegate={redelegate}
-            cancelUnbonding={cancelUnbonding}
-            refresh={refresh}
-            txPending={txPending}
-            estimatePSE={estimatePSEWithNetworkScore}
-          />
-        )}
-
-        {/* The page is useful without connecting, so this is an offer rather
-            than a gate: it says what connecting adds, not that the page is
-            unavailable. */}
-        {activeTab === "portfolio" && !wallet.connected && (
-          <div className="pfp-connect-note">
-            <span>
-              Tracking above reads public chain data, so it works for cold and hardware
-              wallets. Connect one to delegate, redelegate or claim rewards from it here.
-            </span>
-            <button
-              type="button"
-              className="psp-topbar-btn ghost"
-              onClick={() => setShowWalletModal(true)}
-            >
-              Connect wallet
-            </button>
-          </div>
-        )}
 
       </div>
 
