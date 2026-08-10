@@ -14350,3 +14350,24 @@ input[type="range"]::-moz-range-thumb {
    show, so the state has to be named. */
 .wa-unreachable { color: var(--danger-text) !important; max-width: 60ch; line-height: 1.55; }
 .wa-retry { flex: 0 0 auto; padding: 9px 20px; font-size: 0.78rem; }
+
+/* PSE "this cycle" projection. Visually separated from the settled table
+   above it because it is a different kind of number: that one is what the
+   chain paid, this one is a reference point that has not happened. */
+.pseh-proj {
+  margin-top: 18px; padding: 14px 16px;
+  border: 1px dashed var(--glass-border); border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.pseh-proj-label {
+  display: block; margin-bottom: 12px;
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: var(--text-medium);
+}
+.pseh-proj-grid { display: flex; flex-wrap: wrap; gap: 14px 48px; }
+.pseh-proj-grid > div { display: flex; flex-direction: column; gap: 2px; min-width: 150px; }
+.pseh-proj-key { font-size: 0.7rem; color: var(--text-medium); }
+.pseh-proj-val { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+.pseh-proj-note { font-size: 0.66rem; color: var(--text-light); }
+/* Seven columns of figures; let the table scroll rather than the page. */
+@media (max-width: 1000px) { .pdp-wrap { overflow-x: auto; } }

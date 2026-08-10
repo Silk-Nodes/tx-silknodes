@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
 import { Op } from "sequelize";
 import { DailyMetric } from "@/lib/db/models";
 import { withCache } from "@/lib/response-cache";
+import { parseBigIntSafe } from "@/lib/hasura";
 
 const ROUTE_TAG = "pse-distributions";
 const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
@@ -61,10 +62,14 @@ async function handler(req: Request) {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
-    const json = await res.json();
+    // Not res.json(): total_score is a 22-digit bigint and the default parse
+    // rounds it to 7.53811865737818e+21. The score is what makes each payout
+    // checkable, so it has to survive as an exact string.
+    const json = parseBigIntSafe(await res.text()) as { data?: Record<string, unknown>; errors?: unknown };
     if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
 
-    const allocations: AllocationRow[] = json.data?.pse_distribution_allocation ?? [];
+    const allocations: AllocationRow[] =
+      (json.data?.pse_distribution_allocation as AllocationRow[] | undefined) ?? [];
     if (allocations.length === 0) {
       return NextResponse.json({ distributions: [] });
     }
@@ -147,7 +152,7 @@ async function handler(req: Request) {
         // Value of the whole pool at that day's price. The headline number
         // for "what was this distribution actually worth".
         poolUsd: priceUsd !== null ? poolTX * priceUsd : null,
-        totalScore: a.total_score,
+        totalScore: String(a.total_score),
         startAtHeight: Number(a.start_at_height),
         endAtHeight: Number(a.end_at_height),
       };

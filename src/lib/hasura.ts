@@ -24,6 +24,27 @@ function isStaleReplicaError(e: unknown): boolean {
   return e instanceof Error && /not found in type: 'query_root'/.test(e.message);
 }
 
+/**
+ * JSON.parse that does not silently round large integers.
+ *
+ * Hasura serialises bigint columns as unquoted JSON numbers. PSE scores run
+ * to 18-21 digits, far past Number.MAX_SAFE_INTEGER (16 digits), so the
+ * default parse corrupted them: a real score of 351301096028106282 came back
+ * as 351301096028106300. That is invisible, survives every type check, and
+ * makes any "verify the payout yourself" claim false.
+ *
+ * Integer literals with more than 15 digits are quoted before parsing, so
+ * they arrive as exact strings. Anything shorter is left alone, since it
+ * round-trips safely and callers expect numbers.
+ */
+export function parseBigIntSafe(text: string): { data?: unknown; errors?: unknown } {
+  const safe = text.replace(
+    /:\s*(-?\d{16,})(?=\s*[,}\]])/g,
+    (_m, digits) => `:"${digits}"`,
+  );
+  return JSON.parse(safe);
+}
+
 export async function hasuraQuery<T>(
   query: string,
   variables: Record<string, unknown>,
@@ -44,7 +65,7 @@ export async function hasuraQuery<T>(
         signal: ctrl.signal,
       });
       if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
-      const json = await res.json();
+      const json = parseBigIntSafe(await res.text());
       if (json.errors) throw new Error(`hasura errors: ${JSON.stringify(json.errors)}`);
       return json.data as T;
     } catch (e) {
