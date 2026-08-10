@@ -43,6 +43,7 @@ import GovernanceTab from "@/components/GovernanceTab";
 import PassportTab from "@/components/PassportTab";
 import PortfolioPanel from "@/components/PortfolioPanel";
 import PortfolioNavButton from "@/components/PortfolioNavButton";
+import WalletMenu from "@/components/WalletMenu";
 import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
@@ -419,8 +420,6 @@ export default function HomePage() {
   const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
-  const [addrCopied, setAddrCopied] = useState(false);
-  const [addrHover, setAddrHover] = useState(false);
   const [showBrandPopover, setShowBrandPopover] = useState(false);
   const [brandClickedOnce, setBrandClickedOnce] = useState(false);
   const brandPopoverRef = useRef<HTMLDivElement>(null);
@@ -459,13 +458,6 @@ export default function HomePage() {
     setTimeout(() => document.addEventListener("click", handler), 0);
     return () => document.removeEventListener("click", handler);
   }, [showBrandPopover]);
-  const copyAddress = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(wallet.address);
-    setAddrCopied(true);
-    setTimeout(() => setAddrCopied(false), 1500);
-  };
-
   return (
     <div className="app-shell">
       <WhatsNewBanner onOpenFeedback={() => setActiveTab("feedback")} />
@@ -539,72 +531,17 @@ export default function HomePage() {
         <div className="nav-right">
           <ThemeSwitcher />
           <PortfolioNavButton active={activeTab === "portfolio"} />
-          <span className="live-indicator">
-            <span className="live-dot" />
-            {loading ? "Syncing" : "Live"}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
-              className={`wallet-pill ${wallet.connected ? "connected" : ""}`}
-              onClick={wallet.connected ? disconnect : () => setShowWalletModal(true)}
-            >
-              {walletLoading ? "Connecting..." : wallet.connected ? truncAddr(wallet.address) : "Connect Wallet"}
+          {/* No resting "Live" dot. It said the same thing on every page load
+              forever, so it carried no information; the one moment it did was
+              while data refreshed. That moment is all that is left. */}
+          {loading && <span className="nav-syncing">Syncing</span>}
+          {wallet.connected ? (
+            <WalletMenu address={wallet.address} onDisconnect={disconnect} />
+          ) : (
+            <button className="wallet-pill" onClick={() => setShowWalletModal(true)}>
+              {walletLoading ? "Connecting..." : "Connect Wallet"}
             </button>
-            {wallet.connected && (
-              <div style={{ position: "relative", display: "inline-flex" }}>
-                <button
-                  onClick={copyAddress}
-                  onMouseEnter={() => setAddrHover(true)}
-                  onMouseLeave={() => setAddrHover(false)}
-                  aria-label="Copy wallet address"
-                  style={{
-                    background: addrCopied ? "var(--tx-neon)" : "rgba(177,252,3,0.1)",
-                    border: "1px solid rgba(177,252,3,0.3)",
-                    borderRadius: 6, padding: "6px 8px", cursor: "pointer",
-                    fontSize: "0.7rem", color: addrCopied ? "var(--tx-dark-green)" : "var(--text-medium)",
-                    fontWeight: 600, transition: "all 0.2s",
-                    display: "flex", alignItems: "center", gap: 3,
-                  }}
-                >
-                  {addrCopied ? "✓" : "Copy"}
-                </button>
-                {(addrHover || addrCopied) && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      background: "var(--tx-dark-green)",
-                      color: addrCopied ? "var(--tx-neon)" : "#fff",
-                      fontSize: "0.62rem",
-                      fontWeight: 600,
-                      padding: "5px 10px",
-                      borderRadius: 6,
-                      whiteSpace: "nowrap",
-                      pointerEvents: "none",
-                      zIndex: 10000,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                      animation: "fadeIn 0.12s ease-out",
-                    }}
-                  >
-                    {addrCopied ? "Copied!" : "Copy"}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -3,
-                        left: "50%",
-                        transform: "translateX(-50%) rotate(45deg)",
-                        width: 6,
-                        height: 6,
-                        background: "var(--tx-dark-green)",
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </nav>
       <div className="nav-spacer" />

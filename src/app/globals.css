@@ -716,11 +716,13 @@ html {
 /* ═══════════════════════════════════════════
    THEME SWITCHER (icon trio in top nav)
    ═══════════════════════════════════════════ */
+/* One baseline. This was a column, so "match system" sat under the toggle as
+   the only second line of text in the header and set the bar's height. */
 .theme-switcher-group {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
+  gap: 7px;
 }
 
 .theme-switcher {
@@ -1209,11 +1211,22 @@ body {
 
 .wallet-pill:hover { opacity: 0.85; }
 
+/* Calm once connected. Filled dark green with neon text made the address the
+   loudest thing in the header, so the bar shouted hardest when there was
+   nothing left to do. Connected is status; "Connect Wallet" keeps the bold
+   treatment because it is the one state still asking for an action. */
 .wallet-pill.connected {
-  background: var(--tx-dark-green);
-  color: var(--tx-neon);
-  border-color: var(--tx-neon);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  border-color: var(--glass-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
 }
+.wallet-pill.connected:hover,
+.wallet-pill.connected.is-open { border-color: var(--tx-neon); opacity: 1; }
 
 .live-indicator {
   display: flex;
@@ -14006,3 +14019,33 @@ input[type="range"]::-moz-range-thumb {
 }
 .pt-scope-addr { font-size: 0.86rem; font-weight: 700; color: var(--text-dark); }
 .pt-scope-note { font-size: 0.78rem; color: var(--text-medium); }
+
+/* Header: syncing notice, and the wallet menu that replaced the address pill
+   plus its separate Copy button. */
+.nav-syncing { font-size: 0.76rem; color: var(--text-medium); white-space: nowrap; }
+
+.wallet-menu { position: relative; display: inline-flex; }
+.wallet-pill-chev {
+  width: 6px; height: 6px; margin-left: 2px; flex-shrink: 0;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.2s ease;
+}
+.wallet-pill.is-open .wallet-pill-chev { transform: rotate(-135deg) translate(-2px, -2px); }
+/* Portaled to <body>; the inline style supplies fixed top/right. */
+.wallet-menu-list {
+  z-index: 10000;
+  min-width: 168px; padding: 5px;
+  background: var(--bg-base);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.22);
+  display: flex; flex-direction: column;
+}
+.wallet-menu-item {
+  border: none; background: none; cursor: pointer; text-align: left;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  font-size: 0.8rem; font-weight: 600; color: var(--text-dark);
+  white-space: nowrap;
+}
+.wallet-menu-item:hover, .wallet-menu-item:focus-visible { background: var(--accent-olive-light); }
+.wallet-menu-item.is-danger { color: var(--danger-text); }
