@@ -147,7 +147,10 @@ export default function PortfolioPanel({
   const effectiveWallets: PanelWallet[] = useMemo(() => {
     if (!connectedAddress) return wallets;
     if (wallets.some((w) => w.address === connectedAddress)) return wallets;
-    return [...wallets, { address: connectedAddress, label: "Connected", addedAt: "", connectedOnly: true }];
+    // No label, so the chip shows the address. "Connected" as a name hid
+    // which wallet it actually was; the lime border and the Save action are
+    // what mark it as connected-but-unsaved.
+    return [...wallets, { address: connectedAddress, addedAt: "", connectedOnly: true }];
   }, [wallets, connectedAddress]);
 
   const connectedOnly = effectiveWallets.some((w) => w.connectedOnly);
@@ -459,14 +462,15 @@ export default function PortfolioPanel({
               separate actions. The chip is styled to still read as one pill. */}
           {effectiveWallets.map((w) => (
             <span key={w.address} className={`pfp-chip${w.connectedOnly ? " is-connected" : ""}`}>
-              <button
-                type="button"
-                className="pfp-chip-open"
-                title={w.address}
-                onClick={() => onOpenPassport?.(w.address)}
-              >
+              {/* Not a button. It navigated to that wallet's passport, which
+                  made sense when this panel lived ON the passport and the
+                  click only swapped which wallet was shown. On its own page
+                  the same click leaves the page, with nothing saying it will.
+                  Opening one wallet stays in the per-wallet breakdown, where
+                  it is an explicit Open button. */}
+              <span className="pfp-chip-name" title={w.address}>
                 {w.label || shortAddr(w.address)}
-              </button>
+              </span>
               {w.connectedOnly ? (
                 /* Not in the saved list, so there is nothing to remove: the
                    way to drop it is to disconnect. Save is the offer instead,
@@ -477,7 +481,11 @@ export default function PortfolioPanel({
                   title="Keep this wallet after you disconnect"
                   aria-label={`Save ${shortAddr(w.address)} to your wallet list`}
                   onClick={() => {
-                    const r = addWallet(w.address, "Connected");
+                    // No label. "Connected" describes how it was added, not
+                    // what it is, and it would still read "Connected" after
+                    // you connect a different wallet. The address is the
+                    // honest default; rename it like any other.
+                    const r = addWallet(w.address);
                     if (r.ok) {
                       setWallets(r.wallets);
                       setUndo(null);

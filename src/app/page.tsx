@@ -115,6 +115,10 @@ const TABS = [...PRIMARY_TABS, ...TOOLS_TABS] as { id: TabId; label: string; wal
 
 // Map URL pathnames to tab ids so each top-level page has its own URL.
 // /today maps to today; / also resolves to today as the default front door.
+// Address shortening for display. Two components already define their own
+// local copies at different lengths; this is the one used by new code.
+const truncateAddr = (addr: string) => `${addr.slice(0, 10)}...${addr.slice(-6)}`;
+
 const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/": "today",
   "/today": "today",
@@ -2829,6 +2833,17 @@ function PortfolioTab({
 
   return (
     <>
+      {/* Scope line. This section acts on ONE wallet, the connected one, while
+          the portfolio summary above spans every saved wallet. Both used the
+          labels Total, Staked and Rewards with no statement of scope, so the
+          page showed two different "Total" figures and read as broken even
+          though both were right. */}
+      <div className="pt-scope">
+        <span className="pt-scope-label">Actions for</span>
+        <span className="pt-scope-addr mono">{truncateAddr(wallet.address)}</span>
+        <span className="pt-scope-note">the only wallet you can sign with here</span>
+      </div>
+
       {/* ── Hero: single inline strip (Bloomberg-terminal density) ── */}
       <div style={{
         display: "flex",
@@ -2842,27 +2857,11 @@ function PortfolioTab({
         borderRadius: "var(--radius-md)",
         flexWrap: "wrap",
       }}>
-        {/* Total */}
-        <div>
-          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Total</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.15rem", fontWeight: 700, color: "var(--text-dark)", lineHeight: 1.2 }}>
-            {price > 0 ? formatUSD(totalValueUSD) : `${formatNumber(Math.round(totalValueTX))} TX`}
-          </div>
-        </div>
-
         {/* Available */}
         <div>
           <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Available</div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--text-dark)", lineHeight: 1.2 }}>
             {formatNumber(Math.round(wallet.balance))} TX
-          </div>
-        </div>
-
-        {/* Staked */}
-        <div>
-          <div style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-light)" }}>Staked</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 600, color: "var(--text-dark)", lineHeight: 1.2 }}>
-            {formatNumber(Math.round(wallet.stakedAmount))} TX
           </div>
         </div>
 
@@ -3426,10 +3425,6 @@ function PortfolioTab({
               <div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Base APR</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>{apr.toFixed(2)}%</div>
-              </div>
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Unbonding</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.92rem", fontWeight: 600, marginTop: 2, color: "#fff" }}>7 days</div>
               </div>
               <div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>PSE Eligible Bonded</div>

@@ -13726,10 +13726,11 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid var(--glass-border); background: var(--glass-bg);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.pfp-chip:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
-.pfp-chip-open {
-  padding: 6px 6px 6px 14px; border: none; background: none;
-  color: var(--text-dark); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+.pfp-chip:has(.pfp-chip-x:hover), .pfp-chip:has(.pfp-chip-save:hover) { border-color: var(--tx-neon); }
+.pfp-chip-name {
+  display: flex; align-items: center;
+  padding: 6px 6px 6px 14px;
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600;
 }
 /* Sized for a finger, not just a cursor: the whole 28px is hit area while the
    glyph reads small. A destructive control sitting beside one people click
@@ -13991,3 +13992,17 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .pfp-chip-save:hover, .pfp-chip-save:focus-visible { text-decoration: underline; }
+
+/* Scope line for the connected-wallet actions. The summary above it covers
+   every saved wallet, this section covers one, and both used the same labels. */
+.pt-scope {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  margin: 20px 0 0; padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+}
+.pt-scope-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: var(--text-medium);
+}
+.pt-scope-addr { font-size: 0.86rem; font-weight: 700; color: var(--text-dark); }
+.pt-scope-note { font-size: 0.78rem; color: var(--text-medium); }
