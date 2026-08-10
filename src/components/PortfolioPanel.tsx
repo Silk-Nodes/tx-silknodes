@@ -591,50 +591,11 @@ export default function PortfolioPanel({
                   understands that a third of stake can halt the chain reaches
                   the conclusion on their own, and it is a better conclusion
                   for being theirs. */}
-              <div className={`pfp-exposure${concentration ? " pfp-exposure-split" : ""}`}>
-              {concentration && (
-                <aside className="pfp-conc">
-                  <p className="pfp-conc-lead">
-                    <strong>{concentration.yourPct.toFixed(0)}%</strong> of your staked TX sits
-                    with top-ten validators, who hold{" "}
-                    <strong>{concentration.top10Pct.toFixed(1)}%</strong> of the chain between
-                    them.
-                  </p>
-                  <p className="pfp-conc-body">
-                    {concentration.nakamoto} validator{concentration.nakamoto === 1 ? "" : "s"}{" "}
-                    ({concentration.nakamotoNames.join(", ")}) hold{" "}
-                    {concentration.nakamotoPct.toFixed(1)}% between them. A third of all stake is
-                    enough to halt the chain, so that count is the floor on how many parties
-                    would have to agree. Stake with one validator is also slashed, jailed and
-                    idled together.
-                  </p>
-                  <p className="pfp-conc-note">
-                    Moving stake costs nothing: redelegation is instant, has no unbonding
-                    period, and does not reset your PSE score.
-                  </p>
-                  <p className="pfp-conc-disc">
-                    Silk Nodes runs a validator
-                    {concentration.ourRank !== null
-                      ? `, currently rank ${concentration.ourRank} at ${concentration.ourPct?.toFixed(2)}%`
-                      : ""}
-                    . We benefit if stake moves down the table, so this states the numbers and
-                    makes no recommendation.
-                  </p>
-                </aside>
-              )}
               <div className="psp-bars pfp-bars">
                 {totals.exposure.slice(0, 10).map((e) => (
                   <div key={e.validatorAddress} className="psp-bar-row">
                     <div className="psp-bar-head">
                       <span className="psp-bar-name">
-                        {/* Rank and voting power sit with the name because the
-                            question they answer is "who am I delegated to",
-                            not "how much". Requested by a holder spreading
-                            stake away from the largest validators, who wanted
-                            the ranks of their delegations in one place instead
-                            of looking each one up. Both come free: the
-                            validators response already carries tokens, it was
-                            simply being discarded. */}
                         {(() => {
                           const m = vmeta[e.validatorAddress];
                           if (!m || m.rank === null) return null;
@@ -659,7 +620,51 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
-              </div>
+
+              {/* Concentration, as numbers rather than prose.
+                  Two earlier layouts failed: four paragraphs above the bars
+                  left half the card blank, and a side column could never
+                  balance against a bar list whose height depends on how many
+                  validators the reader uses. Full-width rows cannot go empty.
+                  The mechanism lives in the tooltip, where this panel keeps
+                  all of its explanations; the card carries the three figures
+                  and the disclosure, which is what earns showing them. It
+                  still makes no recommendation: we run a validator outside
+                  the top ten and profit if stake moves down the table. */}
+              {concentration && (
+                <div className="pfp-conc">
+                  <div className="pfp-conc-stats">
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">
+                        Your stake in the top ten
+                        <Tooltip
+                          position="top"
+                          text={`${concentration.nakamoto} validator${concentration.nakamoto === 1 ? "" : "s"} (${concentration.nakamotoNames.join(", ")}) hold ${concentration.nakamotoPct.toFixed(1)}% between them. A third of all stake is enough to halt the chain, so the Nakamoto coefficient counts how few parties clear that bar. Stake with one validator is also slashed, jailed and idled together. Moving stake costs nothing: redelegation is instant, has no unbonding period, and does not reset your PSE score.`}
+                        />
+                      </span>
+                      <span className="psp-metric-value">{concentration.yourPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">Top ten hold</span>
+                      <span className="psp-metric-value">{concentration.top10Pct.toFixed(1)}%</span>
+                      <span className="psp-metric-sub">of all bonded stake</span>
+                    </div>
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">Nakamoto coefficient</span>
+                      <span className="psp-metric-value">{concentration.nakamoto}</span>
+                      <span className="psp-metric-sub">parties could halt the chain</span>
+                    </div>
+                  </div>
+                  <p className="pfp-conc-disc">
+                    Silk Nodes runs a validator
+                    {concentration.ourRank !== null
+                      ? `, currently rank ${concentration.ourRank} at ${concentration.ourPct?.toFixed(2)}%`
+                      : ""}
+                    . We benefit if stake moves down the table, so this states the numbers and
+                    makes no recommendation.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

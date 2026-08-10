@@ -13717,33 +13717,28 @@ input[type="range"]::-moz-range-thumb {
    trails it as secondary context. */
 /* Concentration note. Deliberately quieter than the jailed-stake warning: it
    is context, not something costing money right now. */
-/* Exposure row: the concentration note takes one column and the bars take the
-   rest. Previously the note sat above the bars and used 641px of a 1330px
-   card, so half the row was empty while the text wrapped in a narrow measure
-   and ran to four tall paragraphs. Side by side it reads better AND the
-   section gets shorter. */
-/* The note column is wide enough that the copy does not stack into a tall
-   ribbon. At 340px it ran to 343px tall and became the tallest thing in the
-   row, taller than the bars it sits beside. */
-.pfp-exposure-split { display: grid; grid-template-columns: minmax(320px, 30%) minmax(0, 1fr); gap: 24px; align-items: start; }
-@media (max-width: 900px) { .pfp-exposure-split { grid-template-columns: 1fr; gap: 14px; } }
-/* Its own tinted box so it reads as network context rather than as more of
-   the reader's own numbers. Deliberately not a warning colour: this is not an
-   error, and red would imply a recommendation, which is the one thing this
-   must not make. */
-.pfp-conc { background: var(--accent-olive-light); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px 16px; }
-.pfp-conc p { margin: 0 0 8px; line-height: 1.5; }
-.pfp-conc-lead { font-size: 0.86rem; color: var(--text-dark); }
-.pfp-conc-lead strong { font-family: var(--font-mono); }
-.pfp-conc-body { font-size: 0.8rem; color: var(--text-medium); }
-.pfp-conc-note { font-size: 0.8rem; color: var(--text-medium); }
-/* The disclosure is the thing that earns the right to show the numbers, so it
-   is on the card rather than tucked into a tooltip. */
-.pfp-conc-disc { font-size: 0.74rem; color: var(--text-medium); font-style: italic; margin-bottom: 0 !important; }
+/* Concentration strip. Full-width rows under the bars, so nothing can sit
+   beside an empty half: two earlier layouts (prose above, side column) both
+   left dead space because their heights could not match the bar list, whose
+   height depends on how many validators the reader uses. The figures reuse
+   the site's psp-metric pattern; the mechanism lives in the tooltip like
+   every other explanation in this panel. Tinted, not warning-coloured: this
+   is context, not an error, and red would imply the recommendation the strip
+   deliberately does not make. */
+.pfp-conc { background: var(--accent-olive-light); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px 18px 12px; margin-top: 16px; }
+.pfp-conc-stats { display: flex; flex-wrap: wrap; gap: 12px 44px; }
+.pfp-conc-stats .psp-metric-value { font-size: 1.15rem; }
+/* --text-light composites to 2.85:1 on the tinted background, under the 4.5
+   floor. Same token failure as the table headers earlier; --text-medium
+   passes at 8+. */
+.pfp-conc .psp-metric-label, .pfp-conc .psp-metric-sub { color: var(--text-medium); }
+/* The disclosure earns the right to show the numbers, so it stays on the
+   card rather than in the tooltip. */
+.pfp-conc-disc { font-size: 0.74rem; color: var(--text-medium); font-style: italic; margin: 10px 0 0; max-width: 74ch; line-height: 1.45; }
 
 .pfp-rank { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.78rem; margin-right: 6px; }
 .pfp-vp { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.72rem; margin-left: 6px; opacity: 0.85; }
-.pfp-bars { display: block; columns: 320px auto; column-gap: 26px; }
+.pfp-bars { display: block; columns: 360px auto; column-gap: 30px; }
 .pfp-bars > * { break-inside: avoid; margin-bottom: 12px; }
 .pfp-section { margin-top: 20px; }
 .pfp-notice { font-size: 0.82rem; color: var(--text-medium); background: var(--accent-olive-light); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 12px; }
