@@ -13491,8 +13491,12 @@ input[type="range"]::-moz-range-thumb {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  border-right: 2px solid var(--text-light);
-  border-bottom: 2px solid var(--text-light);
+  /* --text-medium, not --text-light. This chevron is now the only thing
+     signalling open vs closed after the underline came off, and --text-light
+     measures 3.27:1 on the bar: legal for a non-text element, thin for the
+     one element carrying the state. --text-medium measures 9.44:1. */
+  border-right: 2px solid var(--text-medium);
+  border-bottom: 2px solid var(--text-medium);
   transform: rotate(45deg);
   transition: transform 0.2s ease;
 }
@@ -13817,9 +13821,49 @@ input[type="range"]::-moz-range-thumb {
 .pfp-headline-sub .psp-metric-value { font-size: 1.05rem; }
 
 
-.pfp-toggle-tip { margin-left: 6px; }
+/* A fixed slot, reserved on every bar whether or not it has a tooltip.
+   Only the tokens bar has one, and letting it consume the right edge pushed
+   that bar's chevron 38px inward from the other's, so two stacked bars did
+   not line up. The slot is rendered empty where there is nothing to explain. */
+.pfp-toggle-tip { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; }
 .pfp-tokengrid { margin-top: 12px; }
-.pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
+/* Disclosure bar, not a link.
+   The old style was underlined bold text, which is a LINK affordance: it says
+   "this navigates" when the control expands in place. It was also the only
+   underlined toggle in the app; governance uses .wvc-expand and the SEO block
+   uses .seo-disclosure, neither underlined. This follows .seo-disclosure:
+   label left, figure and chevron right, chevron rotating on open. */
+.pfp-disclosure {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+.pfp-disclosure + .pfp-disclosure { margin-top: 8px; }
+.pfp-disclosure-head { display: flex; align-items: center; }
+.pfp-disclosure-head:hover { background: var(--accent-olive-light); }
+.pfp-toggle {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 12px 0 12px 14px;
+  color: var(--text-dark); font-size: 0.84rem; font-weight: 700;
+}
+.pfp-toggle-label { flex: 1; min-width: 0; }
+/* Tabular so the counts on stacked bars line up rather than jittering. */
+.pfp-toggle-count { font-variant-numeric: tabular-nums; color: var(--text-medium); font-weight: 600; }
+/* Two borders rotated, the same trick .seo-disclosure uses, so there is one
+   chevron implementation on the site rather than a second glyph font. */
+.pfp-toggle-chev {
+  flex-shrink: 0; width: 7px; height: 7px; margin-top: -3px;
+  border-right: 2px solid var(--text-light);
+  border-bottom: 2px solid var(--text-light);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.pfp-disclosure.is-open .pfp-toggle-chev { transform: rotate(-135deg); margin-top: 3px; }
+/* The rule sits under the bar so the opened content reads as belonging to it. */
+.pfp-disclosure-body { border-top: 1px solid var(--glass-border); padding: 0 14px 14px; }
 .pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
 .pfp-row-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }

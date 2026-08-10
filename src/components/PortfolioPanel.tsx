@@ -758,15 +758,25 @@ export default function PortfolioPanel({
           )}
 
           {totals.tokens.length > 0 && (
-            <div className="pfp-section">
-              <button
-                type="button"
-                className="pfp-toggle"
-                onClick={() => setShowTokens((v) => !v)}
-                aria-expanded={showTokens}
-              >
-                {showTokens ? "Hide" : "Show"} other tokens held ({totals.tokens.length})
-              </button>
+            <div className={`pfp-disclosure${showTokens ? " is-open" : ""}`}>
+              <div className="pfp-disclosure-head">
+                <button
+                  type="button"
+                  className="pfp-toggle"
+                  onClick={() => setShowTokens((v) => !v)}
+                  aria-expanded={showTokens}
+                >
+                  {/* No "Show"/"Hide" verb: the chevron carries the state, and
+                      aria-expanded carries it for anyone not seeing the
+                      chevron. The count moves out of the label so it is a
+                      right-aligned figure like every other number here,
+                      instead of a parenthetical inside a sentence. */}
+                  <span className="pfp-toggle-label">Other tokens held</span>
+                  <span className="pfp-toggle-count mono">{totals.tokens.length}</span>
+                  <span className="pfp-toggle-chev" aria-hidden="true" />
+                </button>
+              {/* Outside the button, not inside it: a tooltip is itself a
+                  button and nesting one in another is invalid. */}
               <span className="pfp-toggle-tip">
                 <Tooltip
                   position="bottom"
@@ -776,7 +786,9 @@ export default function PortfolioPanel({
                   text={`Non-TX balances across your ${wallets.length === 1 ? "wallet" : `${wallets.length} wallets`}. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: several are claimed by more than one token, so summing by name would add unrelated balances together.`}
                 />
               </span>
+              </div>
               {showTokens && (
+              <div className="pfp-disclosure-body">
               <div className="psp-kv-grid pfp-tokengrid">
                 {totals.tokens.slice(0, 8).map((t) => (
                   <div className="psp-kv" key={t.denom}>
@@ -793,20 +805,29 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
+              </div>
               )}
             </div>
           )}
 
-          <div className="pfp-section">
-            <button
-              type="button"
-              className="pfp-toggle"
-              onClick={() => setShowBreakdown((v) => !v)}
-              aria-expanded={showBreakdown}
-            >
-              {showBreakdown ? "Hide" : "Show"} per-wallet breakdown ({wallets.length})
-            </button>
+          <div className={`pfp-disclosure${showBreakdown ? " is-open" : ""}`}>
+            <div className="pfp-disclosure-head">
+              <button
+                type="button"
+                className="pfp-toggle"
+                onClick={() => setShowBreakdown((v) => !v)}
+                aria-expanded={showBreakdown}
+              >
+                <span className="pfp-toggle-label">Per-wallet breakdown</span>
+                <span className="pfp-toggle-count mono">{wallets.length}</span>
+                <span className="pfp-toggle-chev" aria-hidden="true" />
+              </button>
+              {/* Empty tooltip slot, so this bar's chevron lines up with the
+                  one above it rather than sitting 34px further right. */}
+              <span className="pfp-toggle-tip" />
+            </div>
             {showBreakdown && (
+              <div className="pfp-disclosure-body">
               <div className="pfp-rows">
                 {sortedRows.map((r) => (
                   <div key={r.wallet.address} className="pfp-row">
@@ -862,6 +883,7 @@ export default function PortfolioPanel({
                 >
                   Remove all
                 </button>
+              </div>
               </div>
             )}
           </div>
