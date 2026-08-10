@@ -14116,24 +14116,6 @@ input[type="range"]::-moz-range-thumb {
 .wa-claim { padding: 8px 18px; font-size: 0.74rem; }
 .wa-claim:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* stretch, not start: the two panels are siblings and must share a bottom
-   edge. With start, the Undelegate empty state was a short box floating
-   beside the full-height delegations panel. */
-.wa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
-.wa-grid > .wa-panel { display: flex; flex-direction: column; }
-@media (max-width: 920px) { .wa-grid { grid-template-columns: 1fr; } }
-
-.wa-panel {
-  background: var(--glass-bg); border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md); overflow: hidden;
-}
-.wa-side { display: flex; flex-direction: column; gap: 20px; padding: 18px 20px; }
-/* The delegations section absorbs the panel's spare height, and its empty
-   state centres in that space instead of sitting as one line at the top with
-   a void beneath. Same treatment as the action panel's empty states. */
-.wa-side > div:first-child { flex: 1; display: flex; flex-direction: column; }
-.wa-side > div:first-child > .wa-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
-
 .wa-tabs { display: flex; border-bottom: 1px solid var(--glass-border); }
 .wa-tab {
   flex: 1; padding: 12px 0; font-size: 0.8rem; font-weight: 500;
@@ -14144,9 +14126,7 @@ input[type="range"]::-moz-range-thumb {
 .wa-tab:hover { color: var(--text-dark); }
 .wa-tab.active { color: var(--text-dark); font-weight: 700; border-bottom-color: var(--accent-olive); }
 
-.wa-body { padding: 18px 20px; flex: 1; display: flex; flex-direction: column; }
-.wa-body > * { flex-shrink: 0; }
-.wa-body > .wa-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+
 .wa-field-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 6px; }
 .wa-field-head:first-child { margin-top: 0; }
 .wa-field-label { font-size: 0.74rem; font-weight: 600; color: var(--text-dark); }
@@ -14195,18 +14175,6 @@ input[type="range"]::-moz-range-thumb {
 .wa-note { font-size: 0.7rem; color: var(--text-medium); line-height: 1.5; margin: 12px 0; }
 .wa-submit { width: 100%; padding: 12px; font-size: 0.85rem; margin-top: 4px; }
 .wa-submit:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.wa-srcrow {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; padding: 10px 12px; margin-bottom: 4px; cursor: pointer; text-align: left;
-  background: none; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
-  color: var(--text-dark); font-size: 0.82rem;
-}
-.wa-srcrow:hover { border-color: var(--accent-olive); }
-.wa-srcrow.is-selected { background: var(--accent-olive-light); border-color: var(--accent-olive); }
-.wa-srcrow.is-danger-selected { border-color: var(--danger-text); background: none; }
-.wa-srcrow-name { font-weight: 600; display: block; }
-.wa-srcrow-rewards { font-size: 0.62rem; color: var(--text-accent); display: block; }
 
 .wa-warn {
   padding: 12px 14px; margin: 12px 0; border-radius: var(--radius-sm);
@@ -14263,12 +14231,6 @@ input[type="range"]::-moz-range-thumb {
 .wa-darkcard { background: var(--tx-dark-green); border-radius: var(--radius-sm); }
 .wa-nudge { padding: 12px 14px; margin-bottom: 12px; font-size: 0.68rem; color: rgba(240, 236, 227, 0.8); line-height: 1.55; }
 .wa-nudge strong { color: var(--tx-neon); }
-.wa-info { padding: 16px 18px; border-radius: var(--radius-md); margin-top: auto; }
-.wa-info-title {
-  display: block; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.08em;
-  font-weight: 700; color: var(--tx-neon); margin-bottom: 12px;
-}
-.wa-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .wa-info-value { display: block; font-size: 0.92rem; font-weight: 600; color: #f0ece3; margin-top: 2px; }
 
 .wa-modal-backdrop {
@@ -14327,3 +14289,52 @@ input[type="range"]::-moz-range-thumb {
    grid with three empty cells. The card above provides the rule. */
 .pseh-head { display: flex; flex-wrap: wrap; gap: 12px 64px; margin-bottom: 16px; }
 .pseh-head .psp-metric { min-width: 160px; }
+
+/* ── Wallet tab, position-first layout ──
+   The permanent two-column form beside the delegations list could not be
+   balanced: the form's height swings with its state, the list's with
+   delegation count. Delegations are full-width rows now and the form is a
+   dialog, which is the pattern Keplr and Cosmostation converged on. */
+.wa-stake { padding: 9px 22px; font-size: 0.8rem; white-space: nowrap; }
+.wa-claim-ghost { padding: 8px 16px; font-size: 0.74rem; flex: 0 0 auto; }
+.wa-claim-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wa-delegations { margin-top: 0; }
+.wa-card + .wa-card, .wa-strip + .wa-card { margin-top: 16px; }
+
+.wa-drow {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(90px, 0.7fr) auto;
+  align-items: center; gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--glass-border);
+}
+.wa-drow:last-child { border-bottom: none; }
+.wa-drow-id, .wa-drow-nums { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wa-drow-nums { text-align: right; }
+.wa-drow-meta { font-size: 0.64rem; color: var(--text-medium); }
+.wa-drow-rewards { text-align: right; font-size: 0.74rem; }
+.wa-drow-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .wa-drow { grid-template-columns: 1fr auto; }
+  .wa-drow-rewards { display: none; }
+  .wa-drow-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+.wa-empty-cta {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 36px 20px; text-align: center;
+}
+.wa-empty-cta p { margin: 0; font-size: 0.82rem; color: var(--text-medium); }
+
+/* Network facts as one horizontal band instead of a boxed sidebar card. */
+.wa-statline {
+  display: flex; flex-wrap: wrap; gap: 18px 48px;
+  padding: 14px 20px; margin-top: 16px; border-radius: var(--radius-md);
+}
+.wa-statline > div { display: flex; flex-direction: column; gap: 2px; }
+.wa-info-value { display: block; font-size: 0.92rem; font-weight: 600; color: #f0ece3; }
+
+.wa-modal-wide { width: min(560px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+.wa-modal-wide .wa-modal-body { overflow-y: auto; }
+.wa-modal-wide .wa-tabs { flex-shrink: 0; }
+.wa-modal-submit { min-width: 200px; }
