@@ -42,6 +42,7 @@ import {
   importWallets,
   loadWallets,
   removeWallet,
+  insertWallet,
   renameWallet,
   type SavedWallet,
 } from "@/lib/wallet-list";
@@ -91,6 +92,10 @@ export default function PortfolioPanel({
   const [input, setInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  // The removed wallet and where it sat, so the notice can offer a real undo.
+  // Cleared whenever another notice replaces it, so Undo never restores
+  // something other than what the message on screen refers to.
+  const [undo, setUndo] = useState<{ wallet: SavedWallet; index: number } | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   // Collapsed by default. Eight memecoin balances were taking 200px above the
   // wallet breakdown people actually came for.
@@ -272,7 +277,7 @@ export default function PortfolioPanel({
     e.preventDefault();
     const res = addWallet(input, labelInput);
     if (!res.ok) {
-      setNotice(
+      setUndo(null); setNotice(
         res.reason === "invalid" ? "That is not a valid core1 address."
         : res.reason === "duplicate" ? "That wallet is already in your list."
         : `You can track up to ${MAX_WALLETS} wallets.`,
@@ -282,7 +287,7 @@ export default function PortfolioPanel({
     setWallets(res.wallets);
     setInput("");
     setLabelInput("");
-    setNotice(null);
+    setUndo(null); setNotice(null);
   };
 
   const doExport = () => {
@@ -300,7 +305,7 @@ export default function PortfolioPanel({
     reader.onload = () => {
       const res = importWallets(String(reader.result));
       setWallets(loadWallets());
-      setNotice(
+      setUndo(null); setNotice(
         res.ok ? `Imported ${res.added} wallet${res.added === 1 ? "" : "s"}${res.skipped ? `, skipped ${res.skipped}` : ""}.`
                : "That file could not be read.",
       );
@@ -419,16 +424,34 @@ export default function PortfolioPanel({
           buried in the collapsed breakdown. */}
       {wallets.length > 0 && (
         <div className="pfp-chips">
-          {wallets.map((w) => (
-            <button
-              key={w.address}
-              type="button"
-              className="pfp-chip"
-              title={w.address}
-              onClick={() => onOpenPassport?.(w.address)}
-            >
-              {w.label || shortAddr(w.address)}
-            </button>
+          {/* Two sibling buttons in a span, not a button inside a button,
+              which is invalid and which screen readers do not expose as two
+              separate actions. The chip is styled to still read as one pill. */}
+          {wallets.map((w, i) => (
+            <span key={w.address} className="pfp-chip">
+              <button
+                type="button"
+                className="pfp-chip-open"
+                title={w.address}
+                onClick={() => onOpenPassport?.(w.address)}
+              >
+                {w.label || shortAddr(w.address)}
+              </button>
+              <button
+                type="button"
+                className="pfp-chip-x"
+                title="Remove this wallet"
+                aria-label={`Remove ${w.label || shortAddr(w.address)}`}
+                onClick={() => {
+                  setWallets(removeWallet(w.address));
+                  // Index, so undo restores position rather than appending.
+                  setUndo({ wallet: w, index: i });
+                  setNotice(`${w.label || shortAddr(w.address)} removed.`);
+                }}
+              >
+                &#215;
+              </button>
+            </span>
           ))}
         </div>
       )}
@@ -437,7 +460,7 @@ export default function PortfolioPanel({
         <input
           className="pfp-input pfp-input-addr mono"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setNotice(null); }}
+          onChange={(e) => { setInput(e.target.value); setUndo(null); setNotice(null); }}
           placeholder="core1..."
           spellCheck={false}
           aria-label="Wallet address to add"
@@ -461,7 +484,24 @@ export default function PortfolioPanel({
         )}
       </form>
 
-      {notice && <div className="pfp-notice">{notice}</div>}
+      {notice && (
+        <div className="pfp-notice">
+          <span>{notice}</span>
+          {undo && (
+            <button
+              type="button"
+              className="pfp-undo"
+              onClick={() => {
+                setWallets(insertWallet(undo.wallet, undo.index));
+                setUndo(null);
+                setUndo(null); setNotice(null);
+              }}
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
 
       {wallets.length === 0 ? (
         <div className="psp-empty">
@@ -818,7 +858,7 @@ export default function PortfolioPanel({
                 <button
                   type="button"
                   className="psp-topbar-btn ghost pfp-danger pfp-clear"
-                  onClick={() => { setWallets(clearWallets()); setNotice("Wallet list cleared."); }}
+                  onClick={() => { setWallets(clearWallets()); setUndo(null); setNotice("Wallet list cleared."); }}
                 >
                   Remove all
                 </button>

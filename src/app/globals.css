@@ -31,6 +31,11 @@
      light/warm header; the dark theme overrides it to full neon below. */
   --brand-accent: #8FCB02;
   --danger: #b44a3e;
+  /* Destructive text, which is not the same colour as a destructive fill.
+     --danger is tuned to be filled and only reaches 3.82:1 as text on the
+     translucent chip background in dark mode. Light's red happens to clear
+     4.5:1 already, so the two themes differ in value but not in intent. */
+  --danger-text: #b44a3e;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
      PASSED outcome). In light mode --tx-neon is too bright to read on the
@@ -107,6 +112,7 @@
   --accent-olive-light: rgba(143, 188, 143, 0.15);
   --brand-accent: #B1FC03;
   --danger: #ef6b5d;
+  --danger-text: #f89a90;
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
   --text-accent: #B1FC03;
@@ -13705,13 +13711,45 @@ input[type="range"]::-moz-range-thumb {
 /* Wallet chips, mirroring the PSE lookup's row. Theme tokens rather than the
    picker's dark-card colours, because this card is glass in light mode. */
 .pfp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+/* One pill, two actions. The pill owns the border and background; the label
+   and the remove control are separate buttons inside it, because nesting a
+   button in a button is invalid and exposes only one action to a screen
+   reader. Padding moved off the wrapper onto the label so the whole label
+   stays clickable to its edges. */
 .pfp-chip {
-  padding: 6px 14px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: stretch; overflow: hidden;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border); background: var(--glass-bg);
-  color: var(--text-dark); font-size: 0.78rem; font-weight: 600; cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .pfp-chip:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
+.pfp-chip-open {
+  padding: 6px 6px 6px 14px; border: none; background: none;
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+/* Sized for a finger, not just a cursor: the whole 28px is hit area while the
+   glyph reads small. A destructive control sitting beside one people click
+   often is exactly where an undersized target costs someone a wallet. */
+.pfp-chip-x {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; border: none; background: none; cursor: pointer;
+  color: var(--text-medium); font-size: 1rem; line-height: 1; padding: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+/* Tints rather than fills, matching .pfp-danger just below. A filled red pill
+   needed a readable colour on top of it, and --danger is a different red per
+   theme, so the fill would have needed its own per-theme text token to stay
+   above 4.5:1. Tinting reuses a token already proven in both themes. */
+.pfp-chip-x:hover, .pfp-chip-x:focus-visible { color: var(--danger-text); }
+
+/* Sits in the notice it belongs to, so the undo is where the message is. */
+.pfp-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pfp-undo {
+  border: 1px solid var(--glass-border); background: none; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 3px 12px;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-dark);
+}
+.pfp-undo:hover { border-color: var(--tx-neon); }
 
 .pfp-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .pfp-input { padding: 8px 14px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-size: 0.85rem; }
