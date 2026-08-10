@@ -13823,3 +13823,18 @@ input[type="range"]::-moz-range-thumb {
 .pdp-down { color: var(--danger); font-weight: 700; }
 .pdp-flat { color: var(--text-medium); }
 .pdp-source { font-size: 0.74rem; color: var(--text-medium); margin: 12px 0 0; }
+
+/* ── Saved-wallet picker chips ────────────────────────────────────────── */
+/* Styled for the dark PSE card they currently sit in: same translucent
+   treatment as the address input beside them. */
+.swp { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.swp-chip {
+  padding: 6px 14px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(177, 252, 3, 0.25); background: rgba(255, 255, 255, 0.06);
+  color: #f0ece3; font-size: 0.76rem; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.swp-chip:hover { border-color: var(--tx-neon); background: rgba(177, 252, 3, 0.1); }
+.swp-chip-active { border-color: var(--tx-neon); background: rgba(177, 252, 3, 0.14); }
+.swp-chip-save { border-style: dashed; color: var(--tx-neon); background: transparent; }
+.swp-notice { font-size: 0.74rem; color: #f0ece3; opacity: 0.7; align-self: center; }

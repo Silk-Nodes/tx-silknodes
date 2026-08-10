@@ -44,6 +44,8 @@ import PassportTab from "@/components/PassportTab";
 import ValidatorDetailView from "@/components/ValidatorDetailView";
 import TodayTab from "@/components/TodayTab";
 import PseCohortSection from "@/components/pse/PseCohortSection";
+import SavedWalletPicker from "@/components/SavedWalletPicker";
+import { loadWallets } from "@/lib/wallet-list";
 import PseDistributionPrices from "@/components/pse/PseDistributionPrices";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
 import { usePathname, useRouter } from "next/navigation";
@@ -1539,6 +1541,17 @@ function PSETab({
     height: number | null;
   }>({ loading: false, score: null, monthlyEstimate: null, annualEstimate: null, sharePct: null, totalStaked: null, error: null, height: null });
 
+  // Prefill from the saved wallet list when nothing better is available.
+  // A connected wallet still wins (the effect below), because connecting is a
+  // stronger signal of "this is me right now" than a stored list. First saved
+  // wallet, deliberately: no hidden last-used pointer deciding things.
+  useEffect(() => {
+    if (!wallet.connected) {
+      setPseAddress((prev: string) => prev || loadWallets()[0]?.address || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-fill when wallet connects
   useEffect(() => {
     if (wallet.connected && wallet.address) {
@@ -1721,6 +1734,12 @@ function PSETab({
           )}
         </div>
 
+        {/* One click instead of a paste. Same list the passport portfolio
+            saves to; picking a chip fills the box and runs the lookup. */}
+        <SavedWalletPicker
+          current={pseAddress}
+          onPick={(a) => { setPseAddress(a); fetchPSEScore(a); }}
+        />
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="text"
