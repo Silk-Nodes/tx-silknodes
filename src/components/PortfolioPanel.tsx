@@ -351,8 +351,19 @@ export default function PortfolioPanel({
       if (running > 100 / 3) break;
     }
 
+    // Which of the reader's OWN validators sit in the top ten, so the tooltip
+    // can start from their position instead of opening with validators they
+    // may not use at all.
+    const yourTop10 = totals.exposure
+      .filter((e) => {
+        const r = vmeta[e.validatorAddress]?.rank;
+        return r !== null && r !== undefined && r <= 10;
+      })
+      .map((e) => `${vmeta[e.validatorAddress]?.moniker ?? e.validatorAddress} #${vmeta[e.validatorAddress]?.rank}`);
+
     const ours = vmeta[SILK_NODES_VALIDATOR];
     return {
+      yourTop10,
       yourPct,
       top10Pct,
       nakamoto,
@@ -669,7 +680,11 @@ export default function PortfolioPanel({
                         Your stake in the top ten
                         <Tooltip
                           position="top"
-                          text={`${concentration.nakamoto} validator${concentration.nakamoto === 1 ? "" : "s"} (${concentration.nakamotoNames.join(", ")}) hold ${concentration.nakamotoPct.toFixed(1)}% between them. A third of all stake is enough to halt the chain, so the Nakamoto coefficient counts how few parties clear that bar. Stake with one validator is also slashed, jailed and idled together. Moving stake costs nothing: redelegation is instant, has no unbonding period, and does not reset your PSE score.`}
+                          // Starts from the reader's own validators. It used
+                          // to open with the chain's three largest, which are
+                          // often not ones they use, under a label that says
+                          // "your stake".
+                          text={`${concentration.yourTop10.length > 0 ? `Yours in the top ten: ${concentration.yourTop10.join(", ")}.` : "None of your validators are in the top ten, so this line is context rather than something you need to act on."} Across the chain, ${concentration.nakamoto} validator${concentration.nakamoto === 1 ? "" : "s"} (${concentration.nakamotoNames.join(", ")}) hold ${concentration.nakamotoPct.toFixed(1)}% between them, and a third of all stake is enough to halt it, so the Nakamoto coefficient counts how few parties clear that bar. Stake with one validator is also slashed, jailed and idled together. Moving stake costs nothing: redelegation is instant, has no unbonding period, and does not reset your PSE score.`}
                         />
                       </span>
                       <span className="psp-metric-value">{concentration.yourPct.toFixed(0)}%</span>
