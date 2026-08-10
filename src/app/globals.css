@@ -13713,6 +13713,10 @@ input[type="range"]::-moz-range-thumb {
 /* Ten full-width bars stacked made the panel taller than the passport it sits
    on top of. Same multi-column treatment the passport uses for its own
    delegations list, so exposure stays scannable without dominating the page. */
+/* Rank leads the name so a column of them scans vertically; voting power
+   trails it as secondary context. */
+.pfp-rank { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.78rem; margin-right: 6px; }
+.pfp-vp { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.72rem; margin-left: 6px; opacity: 0.85; }
 .pfp-bars { display: block; columns: 360px auto; column-gap: 30px; }
 .pfp-bars > * { break-inside: avoid; margin-bottom: 12px; }
 .pfp-section { margin-top: 20px; }

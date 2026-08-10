@@ -513,7 +513,7 @@ export default function PortfolioPanel({
                 Validator exposure across every wallet
                 <Tooltip
                   position="bottom"
-                  text="Your stake grouped by validator instead of by wallet. Delegating from four wallets to one validator is the same concentration as delegating once, and only this view shows it. If that validator is jailed or slashed, all of it is affected together."
+                  text="Your stake grouped by validator instead of by wallet. Delegating from four wallets to one validator is the same concentration as delegating once, and only this view shows it. If that validator is jailed or slashed, all of it is affected together. The # is each validator's rank by stake among the active set, and VP is its share of all bonded stake on the chain."
                 />
               </div>
               {/* The whole reason the panel exists. Concentration is invisible
@@ -529,7 +529,29 @@ export default function PortfolioPanel({
                 {totals.exposure.slice(0, 10).map((e) => (
                   <div key={e.validatorAddress} className="psp-bar-row">
                     <div className="psp-bar-head">
-                      <span className="psp-bar-name">{nameOf(e.validatorAddress)}</span>
+                      <span className="psp-bar-name">
+                        {/* Rank and voting power sit with the name because the
+                            question they answer is "who am I delegated to",
+                            not "how much". Requested by a holder spreading
+                            stake away from the largest validators, who wanted
+                            the ranks of their delegations in one place instead
+                            of looking each one up. Both come free: the
+                            validators response already carries tokens, it was
+                            simply being discarded. */}
+                        {(() => {
+                          const m = vmeta[e.validatorAddress];
+                          if (!m || m.rank === null) return null;
+                          return <span className="pfp-rank">#{m.rank}</span>;
+                        })()}
+                        {nameOf(e.validatorAddress)}
+                        {(() => {
+                          const m = vmeta[e.validatorAddress];
+                          if (!m || m.rank === null) return null;
+                          return (
+                            <span className="pfp-vp">{m.votingPowerPct.toFixed(2)}% VP</span>
+                          );
+                        })()}
+                      </span>
                       <span className="psp-bar-val">
                         {TX(e.amountTX)} <span className="psp-bar-pct">{e.pct.toFixed(0)}%</span>
                       </span>
