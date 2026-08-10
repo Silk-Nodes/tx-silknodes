@@ -13979,3 +13979,15 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 560px) {
   .portfolio-pill { padding: 6px 10px; font-size: 0.74rem; gap: 5px; }
 }
+
+/* The connected wallet's chip. Tinted so it reads as a different kind of
+   member: it counts in the totals but is not in the saved list, and it leaves
+   when the connection does. */
+.pfp-chip.is-connected { border-color: var(--tx-neon); }
+.pfp-chip-save {
+  border: none; background: none; cursor: pointer;
+  padding: 0 12px 0 4px; align-self: stretch;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-accent);
+  white-space: nowrap;
+}
+.pfp-chip-save:hover, .pfp-chip-save:focus-visible { text-decoration: underline; }

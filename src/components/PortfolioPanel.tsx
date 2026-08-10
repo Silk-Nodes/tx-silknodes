@@ -57,8 +57,11 @@ const TX = (n: number) => `${formatCompact(n)} TX`;
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+/** A saved wallet, or the connected one standing in for a saved entry. */
+type PanelWallet = SavedWallet & { connectedOnly?: boolean };
+
 interface WalletRow {
-  wallet: SavedWallet;
+  wallet: PanelWallet;
   data: AddressChainData | null;
   /** A single unreachable wallet must not blank the whole portfolio. */
   failed: boolean;
@@ -124,12 +127,37 @@ export default function PortfolioPanel({
       .catch(() => {});
   }, []);
 
+  // What the totals actually cover: the saved list, plus the connected wallet
+  // when it is not already in that list.
+  //
+  // Connecting proves ownership, which is a stronger claim than any address
+  // typed into the box (this list allows watchlist entries on purpose). So a
+  // page headed "your portfolio" that excluded the wallet you just connected
+  // was contradicting itself, while the delegate controls below it acted on
+  // that same excluded wallet.
+  //
+  // Joining the VIEW is not the same as joining the LIST. The list is
+  // user-curated and local-only, so connecting must not silently write to it,
+  // and disconnecting must not leave an entry behind. Saving is an explicit
+  // action on the chip.
+  //
+  // The `some` check is what stops a wallet that is both connected and saved
+  // from being counted twice, which would silently double someone's reported
+  // holdings and state it with total confidence.
+  const effectiveWallets: PanelWallet[] = useMemo(() => {
+    if (!connectedAddress) return wallets;
+    if (wallets.some((w) => w.address === connectedAddress)) return wallets;
+    return [...wallets, { address: connectedAddress, label: "Connected", addedAt: "", connectedOnly: true }];
+  }, [wallets, connectedAddress]);
+
+  const connectedOnly = effectiveWallets.some((w) => w.connectedOnly);
+
   const nameOf = useCallback(
     (addr: string) => vmeta[addr]?.moniker ?? shortAddr(addr),
     [vmeta],
   );
 
-  const refresh = useCallback(async (list: SavedWallet[]) => {
+  const refresh = useCallback(async (list: PanelWallet[]) => {
     if (list.length === 0) {
       setRows([]);
       return;
@@ -165,8 +193,8 @@ export default function PortfolioPanel({
   }, []);
 
   useEffect(() => {
-    refresh(wallets);
-  }, [wallets, refresh]);
+    refresh(effectiveWallets);
+  }, [effectiveWallets, refresh]);
 
   useEffect(() => {
     if (!fetchedAt) return;
@@ -313,8 +341,6 @@ export default function PortfolioPanel({
     reader.readAsText(file);
   };
 
-  const canAddConnected =
-    connectedAddress && !wallets.some((w) => w.address === connectedAddress);
   const sortedRows = [...rows].sort((a, b) => (b.data?.stakedTX ?? 0) - (a.data?.stakedTX ?? 0));
   const top = totals.exposure[0];
   // Below a token amount the "you could be earning" line is noise, not a
@@ -385,12 +411,16 @@ export default function PortfolioPanel({
         <div>
           <div className="psp-card-head" style={{ marginBottom: 2 }}>Your portfolio</div>
           <span className="psp-metric-label" style={{ textTransform: "none", letterSpacing: 0 }}>
-            {wallets.length === 0
+            {effectiveWallets.length === 0
               ? "Add the wallets you hold to see one combined position."
-              : `${wallets.length} wallet${wallets.length === 1 ? "" : "s"}, combined. Stored in this browser only, never sent to us.`}
+              : `${effectiveWallets.length} wallet${effectiveWallets.length === 1 ? "" : "s"}, combined. ${
+                  connectedOnly
+                    ? "Your connected wallet counts while it is connected. Saved wallets are stored in this browser only, never sent to us."
+                    : "Stored in this browser only, never sent to us."
+                }`}
           </span>
         </div>
-        {wallets.length > 0 && (
+        {effectiveWallets.length > 0 && (
           <div className="pfp-head-actions">
             {fetchedAt && (
               <span className="pfp-stamp" aria-live="polite">
@@ -400,7 +430,7 @@ export default function PortfolioPanel({
             <button
               type="button"
               className="psp-topbar-btn ghost"
-              onClick={() => refresh(wallets)}
+              onClick={() => refresh(effectiveWallets)}
               disabled={loading}
             >
               Refresh
@@ -422,13 +452,13 @@ export default function PortfolioPanel({
           reason: title, chips, one input row. Here a chip opens that wallet's
           passport, giving the Open action a visible home instead of being
           buried in the collapsed breakdown. */}
-      {wallets.length > 0 && (
+      {effectiveWallets.length > 0 && (
         <div className="pfp-chips">
           {/* Two sibling buttons in a span, not a button inside a button,
               which is invalid and which screen readers do not expose as two
               separate actions. The chip is styled to still read as one pill. */}
-          {wallets.map((w, i) => (
-            <span key={w.address} className="pfp-chip">
+          {effectiveWallets.map((w) => (
+            <span key={w.address} className={`pfp-chip${w.connectedOnly ? " is-connected" : ""}`}>
               <button
                 type="button"
                 className="pfp-chip-open"
@@ -437,20 +467,46 @@ export default function PortfolioPanel({
               >
                 {w.label || shortAddr(w.address)}
               </button>
-              <button
-                type="button"
-                className="pfp-chip-x"
-                title="Remove this wallet"
-                aria-label={`Remove ${w.label || shortAddr(w.address)}`}
-                onClick={() => {
-                  setWallets(removeWallet(w.address));
-                  // Index, so undo restores position rather than appending.
-                  setUndo({ wallet: w, index: i });
-                  setNotice(`${w.label || shortAddr(w.address)} removed.`);
-                }}
-              >
-                &#215;
-              </button>
+              {w.connectedOnly ? (
+                /* Not in the saved list, so there is nothing to remove: the
+                   way to drop it is to disconnect. Save is the offer instead,
+                   which is what makes it outlive the connection. */
+                <button
+                  type="button"
+                  className="pfp-chip-save"
+                  title="Keep this wallet after you disconnect"
+                  aria-label={`Save ${shortAddr(w.address)} to your wallet list`}
+                  onClick={() => {
+                    const r = addWallet(w.address, "Connected");
+                    if (r.ok) {
+                      setWallets(r.wallets);
+                      setUndo(null);
+                      setNotice(`${shortAddr(w.address)} saved to your list.`);
+                    } else if (r.reason === "full") {
+                      setUndo(null);
+                      setNotice(`Your list is full at ${MAX_WALLETS} wallets, so this one counts while connected but cannot be saved.`);
+                    }
+                  }}
+                >
+                  Save
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="pfp-chip-x"
+                  title="Remove this wallet"
+                  aria-label={`Remove ${w.label || shortAddr(w.address)}`}
+                  onClick={() => {
+                    setWallets(removeWallet(w.address));
+                    // Index in the SAVED list, not this one: the connected
+                    // wallet is appended here and would shift the mapping.
+                    setUndo({ wallet: w, index: wallets.findIndex((x) => x.address === w.address) });
+                    setNotice(`${w.label || shortAddr(w.address)} removed.`);
+                  }}
+                >
+                  &#215;
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -473,15 +529,6 @@ export default function PortfolioPanel({
           aria-label="Label for this wallet"
         />
         <button type="submit" className="psp-topbar-btn" disabled={!input.trim()}>Add</button>
-        {canAddConnected && (
-          <button
-            type="button"
-            className="psp-topbar-btn ghost"
-            onClick={() => { const r = addWallet(connectedAddress!, "Connected"); if (r.ok) setWallets(r.wallets); }}
-          >
-            Add connected
-          </button>
-        )}
       </form>
 
       {notice && (
@@ -494,7 +541,7 @@ export default function PortfolioPanel({
               onClick={() => {
                 setWallets(insertWallet(undo.wallet, undo.index));
                 setUndo(null);
-                setUndo(null); setNotice(null);
+                setNotice(null);
               }}
             >
               Undo
@@ -503,7 +550,7 @@ export default function PortfolioPanel({
         </div>
       )}
 
-      {wallets.length === 0 ? (
+      {effectiveWallets.length === 0 ? (
         <div className="psp-empty">
           Nothing added yet. Cold wallets work here too: this reads public chain data only,
           so there is nothing to connect and nothing to sign.
@@ -542,7 +589,7 @@ export default function PortfolioPanel({
             />
             <Metric
               label="Wallets"
-              value={String(wallets.length)}
+              value={String(effectiveWallets.length)}
               tone="meta"
               sub={`of ${MAX_WALLETS} tracked`}
             />
@@ -563,7 +610,7 @@ export default function PortfolioPanel({
 
           {loading && (
             <div className="pfp-notice">
-              Reading {wallets.length} wallet{wallets.length === 1 ? "" : "s"} from the chain...
+              Reading {effectiveWallets.length} wallet{effectiveWallets.length === 1 ? "" : "s"} from the chain...
             </div>
           )}
           {totals.failed > 0 && (
@@ -582,7 +629,7 @@ export default function PortfolioPanel({
                 Worth knowing
                 <Tooltip
                   position="bottom"
-                  text={`Only what currently applies to ${wallets.length === 1 ? "your wallet" : `your ${wallets.length} wallets`}. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone.`}
+                  text={`Only what currently applies to ${effectiveWallets.length === 1 ? "your wallet" : `your ${effectiveWallets.length} wallets`}. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone.`}
                 />
               </div>
               <div className="pfp-findings">
@@ -646,8 +693,8 @@ export default function PortfolioPanel({
                   // Written from the reader's actual list. It said "four
                   // wallets" to everyone, including someone tracking two.
                   text={`Your stake grouped by validator instead of by wallet. ${
-                    wallets.length > 1
-                      ? `Delegating from your ${wallets.length} wallets to one validator is the same concentration as delegating once, and only this view shows it.`
+                    effectiveWallets.length > 1
+                      ? `Delegating from your ${effectiveWallets.length} wallets to one validator is the same concentration as delegating once, and only this view shows it.`
                       : "Add more wallets and this groups them together, so concentration you cannot see one wallet at a time shows up here."
                   } If a validator is jailed or slashed, everything on its line is affected together. The # is each validator's rank by stake among the active set, and VP is its share of all bonded stake on the chain.`}
                 />
@@ -783,7 +830,7 @@ export default function PortfolioPanel({
                   // No hardcoded count here. It said "45 of them", a figure
                   // measured once that drifts as tokens are issued, and a
                   // stale specific is worse than none.
-                  text={`Non-TX balances across your ${wallets.length === 1 ? "wallet" : `${wallets.length} wallets`}. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: several are claimed by more than one token, so summing by name would add unrelated balances together.`}
+                  text={`Non-TX balances across your ${effectiveWallets.length === 1 ? "wallet" : `${effectiveWallets.length} wallets`}. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: several are claimed by more than one token, so summing by name would add unrelated balances together.`}
                 />
               </span>
               </div>
@@ -819,7 +866,7 @@ export default function PortfolioPanel({
                 aria-expanded={showBreakdown}
               >
                 <span className="pfp-toggle-label">Per-wallet breakdown</span>
-                <span className="pfp-toggle-count mono">{wallets.length}</span>
+                <span className="pfp-toggle-count mono">{effectiveWallets.length}</span>
                 <span className="pfp-toggle-chev" aria-hidden="true" />
               </button>
               {/* Empty tooltip slot, so this bar's chevron lines up with the
@@ -894,7 +941,7 @@ export default function PortfolioPanel({
             Read from the chain in your browser, one wallet at a time.
             <Tooltip
               position="top"
-              text={`Every figure here is read from the chain by your browser, ${wallets.length === 1 ? "for your one wallet" : `one wallet at a time across your ${wallets.length}`}, and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission.`}
+              text={`Every figure here is read from the chain by your browser, ${effectiveWallets.length === 1 ? "for your one wallet" : `one wallet at a time across your ${effectiveWallets.length}`}, and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission.`}
             />
           </p>
         </>
