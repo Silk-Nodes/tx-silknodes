@@ -13702,6 +13702,17 @@ input[type="range"]::-moz-range-thumb {
 .pfp-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
 .pfp-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+/* Wallet chips, mirroring the PSE lookup's row. Theme tokens rather than the
+   picker's dark-card colours, because this card is glass in light mode. */
+.pfp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.pfp-chip {
+  padding: 6px 14px; border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pfp-chip:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
+
 .pfp-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .pfp-input { padding: 8px 14px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-size: 0.85rem; }
 .pfp-input:focus { outline: none; border-color: var(--tx-neon); }

@@ -402,6 +402,26 @@ export default function PortfolioPanel({
         )}
       </div>
 
+      {/* Same structure as the PSE score lookup, which reads well for a
+          reason: title, chips, one input row. Here a chip opens that wallet's
+          passport, giving the Open action a visible home instead of being
+          buried in the collapsed breakdown. */}
+      {wallets.length > 0 && (
+        <div className="pfp-chips">
+          {wallets.map((w) => (
+            <button
+              key={w.address}
+              type="button"
+              className="pfp-chip"
+              title={w.address}
+              onClick={() => onOpenPassport?.(w.address)}
+            >
+              {w.label || shortAddr(w.address)}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form className="pfp-add" onSubmit={handleAdd}>
         <input
           className="pfp-input pfp-input-addr mono"
