@@ -27,6 +27,48 @@ export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://rest-coreum
 export const FALLBACK_LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 
 /**
+ * Ordered RPC pool. Transactions sign over RPC, not LCD, so a dead RPC host
+ * breaks delegate/undelegate/redelegate/claim with "Failed to fetch" while
+ * read-only pages look healthy. Our own node has been unreachable, and every
+ * signing call pointed at it alone.
+ */
+export const RPC_POOL: string[] = Array.from(
+  new Set([
+    SILK_RPC,
+    "https://rpc-coreum.ecostake.com",
+    "https://full-node.mainnet-1.coreum.dev:26657",
+    "https://coreum-rpc.polkachu.com",
+  ]),
+);
+
+/**
+ * First RPC host that reports a healthy status, cached for the session.
+ *
+ * Probed with /status rather than by attempting a signature: a failover in
+ * the middle of signing would ask the user to approve twice, and a broadcast
+ * retried against a second host risks submitting the same transaction twice.
+ * Picking the host BEFORE the wallet prompt keeps signing single-shot.
+ */
+let cachedRpc: string | null = null;
+export async function pickRpc(timeoutMs = 6000): Promise<string> {
+  if (cachedRpc) return cachedRpc;
+  for (const host of RPC_POOL) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${host}/status`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) { cachedRpc = host; return host; }
+    } catch {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error(
+    "No TX chain RPC node is reachable right now, so the transaction was not sent. Nothing was signed or broadcast.",
+  );
+}
+
+/**
  * Ordered LCD pool. The configured host is tried first, then known-good
  * public nodes.
  *
@@ -74,8 +116,14 @@ export async function lcdGet(path: string, timeoutMs = FETCH_TIMEOUT): Promise<R
   }
   throw lastErr;
 }
-export const DIRECT_RPC = SILK_RPC;
-export const DIRECT_LCD = SILK_LCD;
+// Endpoints published TO the wallet via experimentalSuggestChain. Keplr and
+// Leap store these, so a node that is down would be written into the user's
+// wallet config and keep failing there after our own pages recovered. These
+// deliberately use public nodes rather than whatever SILK_RPC/SILK_LCD point
+// at; our own host is still tried first for this app's own reads, via the
+// pools below.
+export const DIRECT_RPC = "https://rpc-coreum.ecostake.com";
+export const DIRECT_LCD = "https://rest-coreum.ecostake.com";
 
 // Fetch with timeout (10s default) + automatic fallback to backup LCD
 const FETCH_TIMEOUT = 10_000;

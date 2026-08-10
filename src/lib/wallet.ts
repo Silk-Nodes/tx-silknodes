@@ -7,6 +7,7 @@ import {
   COIN_DECIMALS,
   SILK_LCD,
   lcdGet,
+  pickRpc,
   suggestChainToKeplr,
 } from "./chain-config";
 
@@ -163,7 +164,7 @@ async function fetchBalance(address: string): Promise<number> {
   // reader they held nothing, which is a different statement from "we could
   // not ask"; this now throws and lets the caller say so.
   try {
-    const client = await StargateClient.connect(COREUM_CHAIN_INFO.rpc);
+    const client = await StargateClient.connect(await pickRpc());
     const balanceResult = await client.getBalance(address, DENOM);
     client.disconnect();
     return toDisplay(balanceResult.amount);
@@ -268,7 +269,7 @@ export async function delegateTokens(
   const address = accounts[0].address;
 
   const client = await SigningStargateClient.connectWithSigner(
-    COREUM_CHAIN_INFO.rpc,
+    await pickRpc(),
     offlineSigner
   );
 
@@ -306,7 +307,7 @@ export async function undelegateTokens(
   const address = accounts[0].address;
 
   const client = await SigningStargateClient.connectWithSigner(
-    COREUM_CHAIN_INFO.rpc,
+    await pickRpc(),
     offlineSigner
   );
 
@@ -352,7 +353,7 @@ export async function cancelUnbondingTokens(
   const address = accounts[0].address;
 
   const client = await SigningStargateClient.connectWithSigner(
-    COREUM_CHAIN_INFO.rpc,
+    await pickRpc(),
     offlineSigner
   );
 
@@ -403,7 +404,7 @@ export async function claimAllRewards(
   const address = accounts[0].address;
 
   const client = await SigningStargateClient.connectWithSigner(
-    COREUM_CHAIN_INFO.rpc,
+    await pickRpc(),
     offlineSigner
   );
 
@@ -460,7 +461,7 @@ export async function redelegateTokens(
   const address = accounts[0].address;
 
   const client = await SigningStargateClient.connectWithSigner(
-    COREUM_CHAIN_INFO.rpc,
+    await pickRpc(),
     offlineSigner
   );
 
