@@ -92,6 +92,9 @@ export default function PortfolioPanel({
   const [labelInput, setLabelInput] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  // Collapsed by default. Eight memecoin balances were taking 200px above the
+  // wallet breakdown people actually came for.
+  const [showTokens, setShowTokens] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // When the figures were last read. Numbers about someone's money should say
   // how old they are; a tab left open all afternoon otherwise shows this
@@ -588,8 +591,9 @@ export default function PortfolioPanel({
                   understands that a third of stake can halt the chain reaches
                   the conclusion on their own, and it is a better conclusion
                   for being theirs. */}
+              <div className={`pfp-exposure${concentration ? " pfp-exposure-split" : ""}`}>
               {concentration && (
-                <div className="pfp-conc">
+                <aside className="pfp-conc">
                   <p className="pfp-conc-lead">
                     <strong>{concentration.yourPct.toFixed(0)}%</strong> of your staked TX sits
                     with top-ten validators, who hold{" "}
@@ -616,7 +620,7 @@ export default function PortfolioPanel({
                     . We benefit if stake moves down the table, so this states the numbers and
                     makes no recommendation.
                   </p>
-                </div>
+                </aside>
               )}
               <div className="psp-bars pfp-bars">
                 {totals.exposure.slice(0, 10).map((e) => (
@@ -655,19 +659,28 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
+              </div>
             </div>
           )}
 
           {totals.tokens.length > 0 && (
             <div className="pfp-section">
-              <div className="psp-list-head">
-                Other tokens held
+              <button
+                type="button"
+                className="pfp-toggle"
+                onClick={() => setShowTokens((v) => !v)}
+                aria-expanded={showTokens}
+              >
+                {showTokens ? "Hide" : "Show"} other tokens held ({totals.tokens.length})
+              </button>
+              <span className="pfp-toggle-tip">
                 <Tooltip
                   position="bottom"
                   text="Non-TX balances across all your wallets. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: 45 of them are claimed by more than one token, so summing by name would add unrelated balances together."
                 />
-              </div>
-              <div className="psp-kv-grid">
+              </span>
+              {showTokens && (
+              <div className="psp-kv-grid pfp-tokengrid">
                 {totals.tokens.slice(0, 8).map((t) => (
                   <div className="psp-kv" key={t.denom}>
                     <span className="psp-kv-label">
@@ -683,6 +696,7 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )}
 
