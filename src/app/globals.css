@@ -36,6 +36,10 @@
      translucent chip background in dark mode. Light's red happens to clear
      4.5:1 already, so the two themes differ in value but not in intent. */
   --danger-text: #b44a3e;
+  /* Perceivable pill border. The shared --glass-border measures 1.62:1 here,
+     below the 3:1 that non-text UI needs to read as a boundary at all. */
+  --pill-border-strong: rgba(74, 122, 26, 0.8);
+  --pill-count-text: #365c12;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
      PASSED outcome). In light mode --tx-neon is too bright to read on the
@@ -113,6 +117,8 @@
   --brand-accent: #B1FC03;
   --danger: #ef6b5d;
   --danger-text: #f89a90;
+  --pill-border-strong: rgba(177, 252, 3, 0.5);
+  --pill-count-text: var(--tx-neon);
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
   --text-accent: #B1FC03;
@@ -483,9 +489,17 @@
   opacity: 1;
   transform: translateY(-1px);
 }
+/* Calm in dark too. This rule outranks the base .wallet-pill.connected
+   below, so quieting only that one left dark mode loud: neon text on a neon
+   tint, still the brightest thing in the bar. Contrast checks did not catch
+   it because both treatments score high against a dark background. */
 [data-theme="dark"] .wallet-pill.connected {
-  background: rgba(177, 252, 3, 0.12);
-  color: var(--tx-neon);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  border-color: var(--glass-border);
+}
+[data-theme="dark"] .wallet-pill.connected:hover,
+[data-theme="dark"] .wallet-pill.connected.is-open {
   border-color: var(--tx-neon);
 }
 
@@ -13974,7 +13988,11 @@ input[type="range"]::-moz-range-thumb {
 .portfolio-pill {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 7px 13px; border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  /* Firmer than the wallet pill's border, which is what tells the two apart:
+     after both were calmed they computed to identical background, border,
+     text colour and radius, so two controls with different jobs looked the
+     same. Colour lives here and on the count, not on the wallet. */
+  border: 1px solid var(--pill-border-strong); background: var(--glass-bg);
   color: var(--text-dark); font-size: 0.78rem; font-weight: 600;
   text-decoration: none; white-space: nowrap;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -13983,7 +14001,8 @@ input[type="range"]::-moz-range-thumb {
 .portfolio-pill.active { border-color: var(--tx-neon); }
 .portfolio-pill-count {
   font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--text-medium);
+  /* The number is the reason to click; "Portfolio" alone is not. */
+  color: var(--pill-count-text);
   padding: 1px 6px; border-radius: var(--radius-pill);
   background: var(--accent-olive-light);
 }
