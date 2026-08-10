@@ -30,6 +30,9 @@ export function useWallet() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txPending, setTxPending] = useState(false);
+  // True when every LCD in the pool failed, so the UI can say the chain is
+  // unreachable instead of rendering zeros as facts.
+  const [chainUnreachable, setChainUnreachable] = useState(false);
   const [txResult, setTxResult] = useState<{ hash: string; type: string } | null>(null);
   const autoReconnectAttempted = useRef(false);
 
@@ -76,8 +79,13 @@ export function useWallet() {
     try {
       const data = await refreshWalletData(wallet.address);
       setWallet((prev) => ({ ...prev, ...data }));
+      setChainUnreachable(false);
     } catch (err) {
+      // The previous state is kept rather than zeroed. A failed read must not
+      // report "you have nothing staked": that is wrong data presented as
+      // correct, and it is what an unreachable LCD did to the wallet tab.
       console.error("Failed to refresh wallet:", err);
+      setChainUnreachable(true);
     }
   }, [wallet.connected, wallet.address]);
 
@@ -209,6 +217,7 @@ export function useWallet() {
     connect,
     disconnect,
     refresh,
+    chainUnreachable,
     claimRewards,
     delegate,
     redelegate,

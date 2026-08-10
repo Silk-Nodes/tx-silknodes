@@ -164,7 +164,7 @@ function tabFromPathname(pathname: string | null): TabId {
 export default function HomePage() {
   const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
   const {
-    wallet, connect, disconnect, refresh, claimRewards,
+    wallet, connect, disconnect, refresh, claimRewards, chainUnreachable,
     delegate, undelegate, redelegate, cancelUnbonding,
     loading: walletLoading, error: walletError, clearError,
     txPending, txResult, clearTxResult, availableWallets,
@@ -904,6 +904,7 @@ export default function HomePage() {
                     <span className="pt-scope-note">the only wallet you can sign with here</span>
                   </div>
                   <WalletActions
+                    chainUnreachable={chainUnreachable}
                     wallet={wallet}
                     price={price}
                     apr={apr}

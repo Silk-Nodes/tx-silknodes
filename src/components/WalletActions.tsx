@@ -38,7 +38,7 @@ type Mode = "add" | "redelegate" | "undelegate";
 export default function WalletActions({
   wallet, price, apr, bondedTokens, pseEligibleBonded,
   pseInfo, claimRewards, delegate, undelegate, redelegate, cancelUnbonding,
-  txPending, estimatePSE,
+  txPending, estimatePSE, chainUnreachable,
 }: any) {
   // The stake dialog. null = closed. sourceValidator is set when opened from
   // a delegation row, so the dialog starts on that validator.
@@ -220,6 +220,7 @@ export default function WalletActions({
     <>
       {/* ── Strip: what you have, what is coming, the two actions ── */}
       <div className="wa-strip">
+        <div className="wa-strip-top">
         <div className="wa-stat">
           <span className="wa-stat-label">Available</span>
           <span className="wa-stat-value mono">{fmt(wallet.balance)} TX</span>
@@ -247,6 +248,23 @@ export default function WalletActions({
             Stake TX
           </button>
         </div>
+        </div>
+
+        {/* Context for the figures above, inside the same card. */}
+        <div className="wa-darkcard wa-statline">
+          <div>
+            <span className="wa-stat-label on-dark">Base APR</span>
+            <span className="wa-info-value mono">{apr.toFixed(2)}%</span>
+          </div>
+          <div>
+            <span className="wa-stat-label on-dark">PSE eligible bonded</span>
+            <span className="wa-info-value mono">{fmt(pseEligibleBonded)} TX</span>
+          </div>
+          <div>
+            <span className="wa-stat-label on-dark">Next PSE</span>
+            <span className="wa-info-value mono">{nextDistDate}</span>
+          </div>
+        </div>
       </div>
 
       {/* ── Delegations: the page itself. Full width, actions per row. ── */}
@@ -255,7 +273,21 @@ export default function WalletActions({
           <span>Active delegations</span>
           <span className="mono">{wallet.delegations.length} validator{wallet.delegations.length === 1 ? "" : "s"}</span>
         </div>
-        {wallet.delegations.length === 0 ? (
+        {chainUnreachable ? (
+          /* An outage must never be reported as "you have nothing staked".
+             Zeros here are indistinguishable from a real empty wallet, and a
+             holder seeing their stake vanish has every reason to panic. */
+          <div className="wa-empty-cta">
+            <p className="wa-unreachable">
+              Your delegations could not be read: every chain node we tried is unreachable.
+              This is our problem, not your wallet. Nothing has changed on chain, and the
+              figures above may be stale.
+            </p>
+            <button type="button" className="wa-btn-ghost wa-retry" onClick={() => location.reload()}>
+              Try again
+            </button>
+          </div>
+        ) : wallet.delegations.length === 0 ? (
           <div className="wa-empty-cta">
             <p>No delegations yet. Staked TX earns the base APR plus monthly PSE.</p>
             <button type="button" className="btn-olive wa-stake" onClick={() => openDialog("add")}>
@@ -340,22 +372,6 @@ export default function WalletActions({
           })}
         </div>
       )}
-
-      {/* ── Network staking facts: one line, not a boxed sidebar ── */}
-      <div className="wa-darkcard wa-statline">
-        <div>
-          <span className="wa-stat-label on-dark">Base APR</span>
-          <span className="wa-info-value mono">{apr.toFixed(2)}%</span>
-        </div>
-        <div>
-          <span className="wa-stat-label on-dark">PSE eligible bonded</span>
-          <span className="wa-info-value mono">{fmt(pseEligibleBonded)} TX</span>
-        </div>
-        <div>
-          <span className="wa-stat-label on-dark">Next PSE</span>
-          <span className="wa-info-value mono">{nextDistDate}</span>
-        </div>
-      </div>
 
       {/* ── Stake dialog ── */}
       {dialog && (

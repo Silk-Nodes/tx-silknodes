@@ -14031,10 +14031,12 @@ input[type="range"]::-moz-range-thumb {
 
 /* Scope line for the connected-wallet actions. The summary above it covers
    every saved wallet, this section covers one, and both used the same labels. */
+/* No border-top. The tab bar directly above already draws a full-width rule,
+   so this added a second one ~20px below it and the pair read as two stray
+   lines above the wallet address. */
 .pt-scope {
   display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
-  margin: 20px 0 0; padding-top: 16px;
-  border-top: 1px solid var(--glass-border);
+  margin: 4px 0 12px;
 }
 .pt-scope-label {
   font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
@@ -14092,11 +14094,12 @@ input[type="range"]::-moz-range-thumb {
    deliberate constant, not a theme leak. */
 
 .wa-strip {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 20px;
+  display: flex; flex-direction: column; align-items: stretch;
   padding: 14px 18px; margin-bottom: 16px;
   background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
 }
+.wa-strip-top { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
 .wa-stat { display: flex; flex-direction: column; gap: 2px; }
 .wa-stat.align-right { text-align: right; }
 .wa-stat-label {
@@ -14326,10 +14329,13 @@ input[type="range"]::-moz-range-thumb {
 }
 .wa-empty-cta p { margin: 0; font-size: 0.82rem; color: var(--text-medium); }
 
-/* Network facts as one horizontal band instead of a boxed sidebar card. */
+/* Network facts live in the strip's own dark band now: they were a separate
+   full-width card between the delegations and governance, where they read as
+   a third unrelated section rather than context for the numbers above. */
 .wa-statline {
-  display: flex; flex-wrap: wrap; gap: 18px 48px;
-  padding: 14px 20px; margin-top: 16px; border-radius: var(--radius-md);
+  display: flex; flex-wrap: wrap; gap: 14px 40px;
+  padding: 12px 18px; margin: 12px 0 0; border-radius: var(--radius-sm);
+  width: 100%;
 }
 .wa-statline > div { display: flex; flex-direction: column; gap: 2px; }
 .wa-info-value { display: block; font-size: 0.92rem; font-weight: 600; color: #f0ece3; }
@@ -14338,3 +14344,9 @@ input[type="range"]::-moz-range-thumb {
 .wa-modal-wide .wa-modal-body { overflow-y: auto; }
 .wa-modal-wide .wa-tabs { flex-shrink: 0; }
 .wa-modal-submit { min-width: 200px; }
+
+/* Chain-outage notice on the wallet tab. Reads as our failure, not the
+   reader's: zeros in place of real stake are the worst thing this page can
+   show, so the state has to be named. */
+.wa-unreachable { color: var(--danger-text) !important; max-width: 60ch; line-height: 1.55; }
+.wa-retry { flex: 0 0 auto; padding: 9px 20px; font-size: 0.78rem; }

@@ -6,6 +6,7 @@ import {
   DENOM,
   COIN_DECIMALS,
   SILK_LCD,
+  lcdGet,
   suggestChainToKeplr,
 } from "./chain-config";
 
@@ -158,14 +159,18 @@ export async function connectKeplr(): Promise<WalletState> {
  * Fetch available balance
  */
 async function fetchBalance(address: string): Promise<number> {
+  // RPC first (one host), then the LCD pool. Returning 0 on failure told the
+  // reader they held nothing, which is a different statement from "we could
+  // not ask"; this now throws and lets the caller say so.
   try {
     const client = await StargateClient.connect(COREUM_CHAIN_INFO.rpc);
     const balanceResult = await client.getBalance(address, DENOM);
     client.disconnect();
     return toDisplay(balanceResult.amount);
-  } catch (err) {
-    console.error("Failed to fetch balance:", err);
-    return 0;
+  } catch {
+    const res = await lcdGet(`/cosmos/bank/v1beta1/balances/${address}/by_denom?denom=${DENOM}`);
+    const data = await res.json();
+    return toDisplay(data?.balance?.amount || "0");
   }
 }
 
@@ -175,8 +180,8 @@ async function fetchBalance(address: string): Promise<number> {
 async function fetchDelegations(address: string): Promise<Delegation[]> {
   try {
     const [delRes, rewRes] = await Promise.all([
-      fetch(`${SILK_LCD}/cosmos/staking/v1beta1/delegations/${address}`),
-      fetch(`${SILK_LCD}/cosmos/distribution/v1beta1/delegators/${address}/rewards`),
+      lcdGet(`/cosmos/staking/v1beta1/delegations/${address}`),
+      lcdGet(`/cosmos/distribution/v1beta1/delegators/${address}/rewards`),
     ]);
 
     const delData = await delRes.json();
@@ -207,8 +212,11 @@ async function fetchDelegations(address: string): Promise<Delegation[]> {
 
     return delegations.sort((a, b) => b.amount - a.amount);
   } catch (err) {
+    // Deliberately rethrown. Returning [] here rendered a wallet with real
+    // stake as "0 validators, 0 staked" whenever the LCD was unreachable,
+    // which is wrong data presented as correct.
     console.error("Failed to fetch delegations:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -217,8 +225,8 @@ async function fetchDelegations(address: string): Promise<Delegation[]> {
  */
 async function fetchUnbondingDelegations(address: string): Promise<UnbondingDelegation[]> {
   try {
-    const res = await fetch(
-      `${SILK_LCD}/cosmos/staking/v1beta1/delegators/${address}/unbonding_delegations`
+    const res = await lcdGet(
+      `/cosmos/staking/v1beta1/delegators/${address}/unbonding_delegations`
     );
     const data = await res.json();
     const unbonding: UnbondingDelegation[] = [];
