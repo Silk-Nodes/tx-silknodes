@@ -13715,6 +13715,18 @@ input[type="range"]::-moz-range-thumb {
    delegations list, so exposure stays scannable without dominating the page. */
 /* Rank leads the name so a column of them scans vertically; voting power
    trails it as secondary context. */
+/* Concentration note. Deliberately quieter than the jailed-stake warning: it
+   is context, not something costing money right now. */
+.pfp-conc { border-left: 2px solid var(--glass-border); padding: 10px 0 10px 14px; margin-bottom: 14px; }
+.pfp-conc p { margin: 0 0 6px; max-width: 74ch; line-height: 1.5; }
+.pfp-conc-lead { font-size: 0.86rem; color: var(--text-dark); }
+.pfp-conc-lead strong { font-family: var(--font-mono); }
+.pfp-conc-body { font-size: 0.8rem; color: var(--text-medium); }
+.pfp-conc-note { font-size: 0.8rem; color: var(--text-medium); }
+/* The disclosure is the thing that earns the right to show the numbers, so it
+   is on the card rather than tucked into a tooltip. */
+.pfp-conc-disc { font-size: 0.74rem; color: var(--text-medium); font-style: italic; margin-bottom: 0 !important; }
+
 .pfp-rank { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.78rem; margin-right: 6px; }
 .pfp-vp { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.72rem; margin-left: 6px; opacity: 0.85; }
 .pfp-bars { display: block; columns: 360px auto; column-gap: 30px; }

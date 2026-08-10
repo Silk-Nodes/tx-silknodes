@@ -46,6 +46,11 @@ import {
   type SavedWallet,
 } from "@/lib/wallet-list";
 
+// Our own validator. The disclosure below quotes its live rank rather than a
+// written-down one, because a hardcoded position goes stale silently and a
+// wrong number in a conflict-of-interest disclosure is worse than none.
+const SILK_NODES_VALIDATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
+
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 10)}...${a.slice(-6)}` : a);
 const TX = (n: number) => `${formatCompact(n)} TX`;
 const fullDate = (iso: string) =>
@@ -308,6 +313,53 @@ export default function PortfolioPanel({
   // nudge. One TX a year is not a finding.
   const idleWorth = totals.liquid >= 100;
 
+  // Concentration in the top of the validator set.
+  //
+  // Shown only above 50% of the reader's own stake, because a warning that
+  // fires on every portfolio is wallpaper and stops being read. Every figure
+  // here is derived from the live set rather than written down: the top ten,
+  // their share of the chain, the Nakamoto coefficient, and our own rank.
+  const concentration = useMemo(() => {
+    const ranked = Object.values(vmeta).filter((m) => m.rank !== null);
+    if (ranked.length === 0 || totals.staked <= 0) return null;
+
+    // Their stake sitting with top-ten validators.
+    const yoursInTop10 = totals.exposure
+      .filter((e) => {
+        const r = vmeta[e.validatorAddress]?.rank;
+        return r !== null && r !== undefined && r <= 10;
+      })
+      .reduce((n, e) => n + e.amountTX, 0);
+    const yourPct = (yoursInTop10 / totals.staked) * 100;
+    if (yourPct <= 50) return null;
+
+    const byRank = [...ranked].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const top10Pct = byRank.slice(0, 10).reduce((n, m) => n + m.votingPowerPct, 0);
+
+    // Nakamoto coefficient: how few validators it takes to pass one third of
+    // stake, which is the threshold at which they could halt the chain.
+    let running = 0;
+    let nakamoto = 0;
+    const nakamotoNames: string[] = [];
+    for (const m of byRank) {
+      running += m.votingPowerPct;
+      nakamoto++;
+      nakamotoNames.push(`${m.moniker} ${m.votingPowerPct.toFixed(2)}%`);
+      if (running > 100 / 3) break;
+    }
+
+    const ours = vmeta[SILK_NODES_VALIDATOR];
+    return {
+      yourPct,
+      top10Pct,
+      nakamoto,
+      nakamotoNames,
+      nakamotoPct: running,
+      ourRank: ours?.rank ?? null,
+      ourPct: ours?.votingPowerPct ?? null,
+    };
+  }, [vmeta, totals]);
+
   return (
     <div className="psp-card psp-card-wide pfp-card">
       <div className="pfp-head">
@@ -523,6 +575,47 @@ export default function PortfolioPanel({
               {top && top.pct >= 33 && (
                 <div className="pfp-flag">
                   {top.pct.toFixed(0)}% of your staked TX sits with {nameOf(top.validatorAddress)}.
+                </div>
+              )}
+
+              {/* Concentration, stated rather than advised.
+                  We run a validator outside the top ten, so we profit if stake
+                  moves down the table. That makes "consider redelegating" the
+                  one thing this must not say: it would be advice from an
+                  interested party on a site whose value is being neutral. So
+                  it gives the reader their number, the mechanism behind why it
+                  matters, and our own position, and stops. A reader who
+                  understands that a third of stake can halt the chain reaches
+                  the conclusion on their own, and it is a better conclusion
+                  for being theirs. */}
+              {concentration && (
+                <div className="pfp-conc">
+                  <p className="pfp-conc-lead">
+                    <strong>{concentration.yourPct.toFixed(0)}%</strong> of your staked TX sits
+                    with top-ten validators, who hold{" "}
+                    <strong>{concentration.top10Pct.toFixed(1)}%</strong> of the chain between
+                    them.
+                  </p>
+                  <p className="pfp-conc-body">
+                    {concentration.nakamoto} validator{concentration.nakamoto === 1 ? "" : "s"}{" "}
+                    ({concentration.nakamotoNames.join(", ")}) hold{" "}
+                    {concentration.nakamotoPct.toFixed(1)}% between them. A third of all stake is
+                    enough to halt the chain, so that count is the floor on how many parties
+                    would have to agree. Stake with one validator is also slashed, jailed and
+                    idled together.
+                  </p>
+                  <p className="pfp-conc-note">
+                    Moving stake costs nothing: redelegation is instant, has no unbonding
+                    period, and does not reset your PSE score.
+                  </p>
+                  <p className="pfp-conc-disc">
+                    Silk Nodes runs a validator
+                    {concentration.ourRank !== null
+                      ? `, currently rank ${concentration.ourRank} at ${concentration.ourPct?.toFixed(2)}%`
+                      : ""}
+                    . We benefit if stake moves down the table, so this states the numbers and
+                    makes no recommendation.
+                  </p>
                 </div>
               )}
               <div className="psp-bars pfp-bars">
