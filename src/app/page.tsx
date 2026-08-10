@@ -918,11 +918,15 @@ export default function HomePage() {
                     txPending={txPending}
                     estimatePSE={estimatePSEWithNetworkScore}
                   />
-                  <WalletGovernance address={wallet.address} />
-                  <div className="wa-side-head" style={{ marginTop: 20 }}>
-                    <span>PSE history</span>
+                  <div className="wa-card">
+                    <WalletGovernance address={wallet.address} />
                   </div>
-                  <PseHistory address={wallet.address} />
+                  <div className="wa-card">
+                    <div className="wa-side-head">
+                      <span>PSE history</span>
+                    </div>
+                    <PseHistory address={wallet.address} />
+                  </div>
                 </>
               ) : (
                 <div className="pfp-connect-note">

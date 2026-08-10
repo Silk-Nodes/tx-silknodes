@@ -136,7 +136,9 @@ export default function PseHistory({ address }: { address: string }) {
 
   return (
     <div className="pse-hist">
-      <div className="psp-headline pfp-headline">
+      {/* Not .psp-headline: that is a 5-column grid, and two metrics in it
+          left three empty columns of dead space beside the numbers. */}
+      <div className="pseh-head">
         <div className="psp-metric">
           <span className="psp-metric-label">
             PSE received
