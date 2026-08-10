@@ -643,6 +643,10 @@ export default function PortfolioPanel({
                         />
                       </span>
                       <span className="psp-metric-value">{concentration.yourPct.toFixed(0)}%</span>
+                      {/* The neighbours both carry a sub line; without one this
+                          number is ambiguous (100% of what?) and its baseline
+                          floats against theirs. */}
+                      <span className="psp-metric-sub">of your staked TX</span>
                     </div>
                     <div className="psp-metric">
                       <span className="psp-metric-label">Top ten hold</span>

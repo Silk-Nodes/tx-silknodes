@@ -13732,6 +13732,11 @@ input[type="range"]::-moz-range-thumb {
    floor. Same token failure as the table headers earlier; --text-medium
    passes at 8+. */
 .pfp-conc .psp-metric-label, .pfp-conc .psp-metric-sub { color: var(--text-medium); }
+/* The first label carries the tooltip icon, whose 20px circle inflates that
+   label's line box and pushed its value 5px below its neighbours'. Every
+   label gets the icon's height so the three values share a baseline whether
+   or not a tooltip is present. */
+.pfp-conc .psp-metric-label { display: flex; align-items: center; gap: 4px; min-height: 22px; }
 /* The disclosure earns the right to show the numbers, so it stays on the
    card rather than in the tooltip. */
 .pfp-conc-disc { font-size: 0.74rem; color: var(--text-medium); font-style: italic; margin: 10px 0 0; max-width: 74ch; line-height: 1.45; }
