@@ -531,7 +531,7 @@ export default function PortfolioPanel({
                 Worth knowing
                 <Tooltip
                   position="bottom"
-                  text="Only what currently applies to your wallets. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone."
+                  text={`Only what currently applies to ${wallets.length === 1 ? "your wallet" : `your ${wallets.length} wallets`}. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone.`}
                 />
               </div>
               <div className="pfp-findings">
@@ -592,7 +592,13 @@ export default function PortfolioPanel({
                 Validator exposure across every wallet
                 <Tooltip
                   position="bottom"
-                  text="Your stake grouped by validator instead of by wallet. Delegating from four wallets to one validator is the same concentration as delegating once, and only this view shows it. If that validator is jailed or slashed, all of it is affected together. The # is each validator's rank by stake among the active set, and VP is its share of all bonded stake on the chain."
+                  // Written from the reader's actual list. It said "four
+                  // wallets" to everyone, including someone tracking two.
+                  text={`Your stake grouped by validator instead of by wallet. ${
+                    wallets.length > 1
+                      ? `Delegating from your ${wallets.length} wallets to one validator is the same concentration as delegating once, and only this view shows it.`
+                      : "Add more wallets and this groups them together, so concentration you cannot see one wallet at a time shows up here."
+                  } If a validator is jailed or slashed, everything on its line is affected together. The # is each validator's rank by stake among the active set, and VP is its share of all bonded stake on the chain.`}
                 />
               </div>
               {/* The whole reason the panel exists. Concentration is invisible
@@ -709,7 +715,10 @@ export default function PortfolioPanel({
               <span className="pfp-toggle-tip">
                 <Tooltip
                   position="bottom"
-                  text="Non-TX balances across all your wallets. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: 45 of them are claimed by more than one token, so summing by name would add unrelated balances together."
+                  // No hardcoded count here. It said "45 of them", a figure
+                  // measured once that drifts as tokens are issued, and a
+                  // stale specific is worse than none.
+                  text={`Non-TX balances across your ${wallets.length === 1 ? "wallet" : `${wallets.length} wallets`}. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: several are claimed by more than one token, so summing by name would add unrelated balances together.`}
                 />
               </span>
               {showTokens && (
@@ -808,7 +817,7 @@ export default function PortfolioPanel({
             Read from the chain in your browser, one wallet at a time.
             <Tooltip
               position="top"
-              text="Every figure here is fetched directly from the chain by your browser and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission."
+              text={`Every figure here is read from the chain by your browser, ${wallets.length === 1 ? "for your one wallet" : `one wallet at a time across your ${wallets.length}`}, and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission.`}
             />
           </p>
         </>
