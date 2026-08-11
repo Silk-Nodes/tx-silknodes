@@ -38,7 +38,7 @@ type Mode = "add" | "redelegate" | "undelegate";
 export default function WalletActions({
   wallet, price, apr, bondedTokens, pseEligibleBonded,
   pseInfo, claimRewards, delegate, undelegate, redelegate, cancelUnbonding,
-  txPending, estimatePSE, chainUnreachable,
+  txPending, chainUnreachable, pseProjectionTX,
 }: any) {
   // The stake dialog. null = closed. sourceValidator is set when opened from
   // a delegation row, so the dialog starts on that validator.
@@ -91,7 +91,13 @@ export default function WalletActions({
   const nextDistDate = pseInfo.nextDistribution.toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
   });
-  const nextPSEReward = wallet.stakedAmount > 0 ? estimatePSE(wallet.stakedAmount) : 0;
+  // Deliberately NOT estimatePSE(stakedAmount). That falls through to the
+  // stake-ratio layer, which answers "if this stake had been bonded all
+  // cycle" and read ~6 TX for a wallet whose accrued score was worth ~1. The
+  // PSE history block below states the score-based figure, so the two sat 6x
+  // apart on one screen with nothing explaining the gap. This strip now shows
+  // the same basis: the live score against the last settled cycle total.
+  const nextPSEReward = pseProjectionTX ?? 0;
 
   const openDialog = (mode: Mode, sourceValidator = "") => {
     setDialog({ mode, sourceValidator });
@@ -225,8 +231,8 @@ export default function WalletActions({
           <span className="wa-stat-label">Available</span>
           <span className="wa-stat-value mono">{fmt(wallet.balance)} TX</span>
         </div>
-        <div className="wa-darkcard wa-strip-pse" title={`Theoretical max assuming full cycle staking, paid ${nextDistDate}`}>
-          <span className="wa-stat-label on-dark">Next PSE · #{pseInfo.currentCycle}</span>
+        <div className="wa-darkcard wa-strip-pse" title={`Your accrued score measured against the last settled cycle, paid ${nextDistDate}. Not a promise: the final share depends on every delegator at the snapshot block.`}>
+          <span className="wa-stat-label on-dark">Cycle #{pseInfo.currentCycle} so far</span>
           <span className="wa-stat-value mono neon">~{fmt(nextPSEReward)} TX</span>
         </div>
         <div className="wa-strip-spacer" />

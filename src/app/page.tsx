@@ -423,6 +423,22 @@ export default function HomePage() {
     return result.estimate;
   }, [walletPSEScore, networkTotalScore, lastDistribution, bondedTokens, excludedPSEStake]);
 
+  // Score-based projection for the connected wallet, on the SAME basis the
+  // PSE history block uses: live on-chain score over the last settled cycle's
+  // total, times the pool. Passed down so the wallet strip and that block
+  // cannot disagree.
+  const pseProjectionTX = useMemo(() => {
+    if (!walletPSEScore || !lastDistribution?.totalScore) return null;
+    try {
+      const s = BigInt(walletPSEScore), t = BigInt(lastDistribution.totalScore);
+      if (t === BigInt(0)) return null;
+      const sharePct = Number((s * BigInt("1000000000000000000000")) / t) / 1e19;
+      return (sharePct / 100) * 476_190_476;
+    } catch {
+      return null;
+    }
+  }, [walletPSEScore, lastDistribution]);
+
   const nextPSEReward = estimatePSEWithNetworkScore(wallet.connected ? wallet.stakedAmount : stakedAmount);
 
   const truncAddr = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-4)}`;
@@ -905,6 +921,7 @@ export default function HomePage() {
                   </div>
                   <WalletActions
                     chainUnreachable={chainUnreachable}
+                    pseProjectionTX={pseProjectionTX}
                     wallet={wallet}
                     price={price}
                     apr={apr}
