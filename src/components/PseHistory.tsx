@@ -4,11 +4,19 @@
 //
 // The two halves are different KINDS of number and are labelled as such.
 //
-// Settled cycles are exact. pse_transfer.amount is the transfer the chain
-// made, and each row carries the chain's own score so a reader can recompute
-// it: amount = score / total_score * pool. Verified against cycle 5, where
-// 9,990 recipients' scores sum to the allocation's total_score with zero
-// difference and the payouts sum to the pool to within 0.005 TX of rounding.
+// Settled cycles are exact because pse_transfer.amount IS the transfer the
+// chain made. Nothing here recomputes it. Verified across all five cycles:
+// every recipient's score sums to the allocation's total_score with zero
+// difference, and the payouts sum to the pool to the ucore.
+//
+// The score/total_score ratio is shown as the derivation, NOT as something
+// that reproduces the payout bit for bit. Checking all 9,990 cycle-5 payouts,
+// floor(score * pool / total_score) matches 8,144 of them and the rest run up
+// to 170 ucore high: the divisor the chain actually used is about 7.8e10
+// below the published total_score, a relative difference of 1.0e-11. That is
+// far below the 6 decimal places of share shown here, so the percentage is
+// right as displayed, but the copy must not invite anyone to reproduce the
+// exact ucore and conclude we are wrong when they cannot.
 //
 // The current cycle cannot be exact, and no data source fixes that. The
 // payout divides by the total score at the SNAPSHOT BLOCK, which has not
@@ -169,7 +177,7 @@ export default function PseHistory({ address }: { address: string }) {
         <div className="psp-metric">
           <span className="psp-metric-label">
             PSE received
-            <Tooltip text="Every PSE transfer the chain has made to this wallet, read from the indexer's pse_transfer table. These are the amounts that landed, not estimates. Each row carries the score they were computed from, so you can check the arithmetic yourself." />
+            <Tooltip text="Every PSE transfer the chain has made to this wallet, read from the indexer's pse_transfer table. These are the amounts that landed, not estimates or recalculations. Each row also shows the score the chain used, which is what set the size of the share." />
           </span>
           <span className="psp-metric-value psp-metric-accent">
             {rows.length ? `${ucoreToTX(totalUcore.toString())} TX` : "0 TX"}
@@ -203,7 +211,7 @@ export default function PseHistory({ address }: { address: string }) {
                 <th className="pdp-num">Received</th>
                 <th className="pdp-num">
                   Your score
-                  <Tooltip text="The chain's own score for this wallet in that cycle: stake multiplied by how long it stayed bonded. Hover a value to see every digit, and the cycle total it was divided by." />
+                  <Tooltip text="The chain's own score for this wallet in that cycle: stake multiplied by how long it stayed bonded. Your share is this divided by the cycle total. Hover a value for every digit and the total it was measured against." />
                 </th>
                 <th className="pdp-num">Share of pool</th>
                 <th className="pdp-num">TX price</th>
@@ -266,9 +274,9 @@ export default function PseHistory({ address }: { address: string }) {
         </p>
       )}
       <p className="pdp-source">
-        Amounts and scores read from the chain. Each payout is your score divided by that
-        cycle&apos;s total score, times the fixed 476,190,476 TX pool. Price: CoinGecko daily close
-        for each distribution date.
+        Amounts and scores are read from the chain, not recalculated: each figure is the
+        transfer that actually settled. Share is your score over the cycle&apos;s total score.
+        Price: CoinGecko daily close for each distribution date.
       </p>
     </div>
   );
