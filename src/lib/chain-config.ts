@@ -100,7 +100,7 @@ export const LCD_POOL: string[] = Array.from(
  * degrading to zero.
  */
 export async function lcdGet(path: string, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
-  let lastErr: unknown = new Error("No LCD hosts configured");
+  let lastErr: unknown = new Error("No chain hosts configured");
   for (const host of LCD_POOL) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -129,32 +129,59 @@ export const DIRECT_LCD = "https://rest-coreum.ecostake.com";
 const FETCH_TIMEOUT = 10_000;
 
 
+/**
+ * Fetch with a timeout, walking the LCD or RPC pool when the URL points at
+ * a host in either.
+ *
+ * This used to try SILK_LCD once and then a single FALLBACK_LCD. With our own
+ * node unreachable and that one fallback carrying an expired certificate in
+ * the browser, every one of the ~29 callers surfaced "Failed to fetch" while
+ * three other healthy public nodes sat unused. Swapping the host prefix means
+ * one fix covers all of them rather than 29 edits.
+ *
+ * URLs outside both pools keep the plain single-shot behaviour.
+ */
 export async function fetchWithTimeout(url: string, options?: RequestInit, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res;
-  } catch (err) {
-    // Try fallback LCD if the URL uses primary LCD
-    if (url.startsWith(SILK_LCD)) {
-      const fallbackUrl = url.replace(SILK_LCD, FALLBACK_LCD);
-      const controller2 = new AbortController();
-      const timer2 = setTimeout(() => controller2.abort(), timeoutMs);
-      try {
-        const res2 = await fetch(fallbackUrl, { ...options, signal: controller2.signal });
-        clearTimeout(timer2);
-        if (!res2.ok) throw new Error(`Fallback HTTP ${res2.status}`);
-        return res2;
-      } catch {
-        clearTimeout(timer2);
-      }
+  // Both pools: fetchNetworkStatus calls ${SILK_RPC}/status through here, so
+  // an LCD-only lookup left it pinned to a dead RPC and degrading to
+  // blockHeight 0.
+  const lcdBase = LCD_POOL.find((h) => url.startsWith(h));
+  const rpcBase = lcdBase ? undefined : RPC_POOL.find((h) => url.startsWith(h));
+  const base = lcdBase ?? rpcBase;
+  const pool = lcdBase ? LCD_POOL : RPC_POOL;
+
+  // Neither pool: time it out, but there is nothing to fail over to.
+  if (!base) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    } finally {
+      clearTimeout(timer);
     }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
+
+  const path = url.slice(base.length);
+  // Start at the host the caller asked for, then continue through the rest.
+  const ordered = [base, ...pool.filter((h) => h !== base)];
+  let lastErr: unknown = new Error("No LCD hosts configured");
+  for (const host of ordered) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${host}${path}`, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      // A 404 is a real answer, not a reason to ask another node.
+      if (res.ok || res.status === 404) return res;
+      lastErr = new Error(`HTTP ${res.status} from ${host}`);
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+    }
+  }
+  throw lastErr;
 }
 
 export const COREUM_CHAIN_INFO = {
