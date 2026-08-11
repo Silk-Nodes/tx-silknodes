@@ -42,17 +42,26 @@ import {
   importWallets,
   loadWallets,
   removeWallet,
+  insertWallet,
   renameWallet,
   type SavedWallet,
 } from "@/lib/wallet-list";
+
+// Our own validator. The disclosure below quotes its live rank rather than a
+// written-down one, because a hardcoded position goes stale silently and a
+// wrong number in a conflict-of-interest disclosure is worse than none.
+const SILK_NODES_VALIDATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 10)}...${a.slice(-6)}` : a);
 const TX = (n: number) => `${formatCompact(n)} TX`;
 const fullDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+/** A saved wallet, or the connected one standing in for a saved entry. */
+type PanelWallet = SavedWallet & { connectedOnly?: boolean };
+
 interface WalletRow {
-  wallet: SavedWallet;
+  wallet: PanelWallet;
   data: AddressChainData | null;
   /** A single unreachable wallet must not blank the whole portfolio. */
   failed: boolean;
@@ -86,7 +95,14 @@ export default function PortfolioPanel({
   const [input, setInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  // The removed wallet and where it sat, so the notice can offer a real undo.
+  // Cleared whenever another notice replaces it, so Undo never restores
+  // something other than what the message on screen refers to.
+  const [undo, setUndo] = useState<{ wallet: SavedWallet; index: number } | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  // Collapsed by default. Eight memecoin balances were taking 200px above the
+  // wallet breakdown people actually came for.
+  const [showTokens, setShowTokens] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // When the figures were last read. Numbers about someone's money should say
   // how old they are; a tab left open all afternoon otherwise shows this
@@ -111,12 +127,40 @@ export default function PortfolioPanel({
       .catch(() => {});
   }, []);
 
+  // What the totals actually cover: the saved list, plus the connected wallet
+  // when it is not already in that list.
+  //
+  // Connecting proves ownership, which is a stronger claim than any address
+  // typed into the box (this list allows watchlist entries on purpose). So a
+  // page headed "your portfolio" that excluded the wallet you just connected
+  // was contradicting itself, while the delegate controls below it acted on
+  // that same excluded wallet.
+  //
+  // Joining the VIEW is not the same as joining the LIST. The list is
+  // user-curated and local-only, so connecting must not silently write to it,
+  // and disconnecting must not leave an entry behind. Saving is an explicit
+  // action on the chip.
+  //
+  // The `some` check is what stops a wallet that is both connected and saved
+  // from being counted twice, which would silently double someone's reported
+  // holdings and state it with total confidence.
+  const effectiveWallets: PanelWallet[] = useMemo(() => {
+    if (!connectedAddress) return wallets;
+    if (wallets.some((w) => w.address === connectedAddress)) return wallets;
+    // No label, so the chip shows the address. "Connected" as a name hid
+    // which wallet it actually was; the lime border and the Save action are
+    // what mark it as connected-but-unsaved.
+    return [...wallets, { address: connectedAddress, addedAt: "", connectedOnly: true }];
+  }, [wallets, connectedAddress]);
+
+  const connectedOnly = effectiveWallets.some((w) => w.connectedOnly);
+
   const nameOf = useCallback(
     (addr: string) => vmeta[addr]?.moniker ?? shortAddr(addr),
     [vmeta],
   );
 
-  const refresh = useCallback(async (list: SavedWallet[]) => {
+  const refresh = useCallback(async (list: PanelWallet[]) => {
     if (list.length === 0) {
       setRows([]);
       return;
@@ -152,8 +196,8 @@ export default function PortfolioPanel({
   }, []);
 
   useEffect(() => {
-    refresh(wallets);
-  }, [wallets, refresh]);
+    refresh(effectiveWallets);
+  }, [effectiveWallets, refresh]);
 
   useEffect(() => {
     if (!fetchedAt) return;
@@ -264,7 +308,7 @@ export default function PortfolioPanel({
     e.preventDefault();
     const res = addWallet(input, labelInput);
     if (!res.ok) {
-      setNotice(
+      setUndo(null); setNotice(
         res.reason === "invalid" ? "That is not a valid core1 address."
         : res.reason === "duplicate" ? "That wallet is already in your list."
         : `You can track up to ${MAX_WALLETS} wallets.`,
@@ -274,7 +318,7 @@ export default function PortfolioPanel({
     setWallets(res.wallets);
     setInput("");
     setLabelInput("");
-    setNotice(null);
+    setUndo(null); setNotice(null);
   };
 
   const doExport = () => {
@@ -292,7 +336,7 @@ export default function PortfolioPanel({
     reader.onload = () => {
       const res = importWallets(String(reader.result));
       setWallets(loadWallets());
-      setNotice(
+      setUndo(null); setNotice(
         res.ok ? `Imported ${res.added} wallet${res.added === 1 ? "" : "s"}${res.skipped ? `, skipped ${res.skipped}` : ""}.`
                : "That file could not be read.",
       );
@@ -300,13 +344,69 @@ export default function PortfolioPanel({
     reader.readAsText(file);
   };
 
-  const canAddConnected =
-    connectedAddress && !wallets.some((w) => w.address === connectedAddress);
   const sortedRows = [...rows].sort((a, b) => (b.data?.stakedTX ?? 0) - (a.data?.stakedTX ?? 0));
   const top = totals.exposure[0];
   // Below a token amount the "you could be earning" line is noise, not a
   // nudge. One TX a year is not a finding.
   const idleWorth = totals.liquid >= 100;
+
+  // Concentration in the top of the validator set.
+  //
+  // Shown only above 50% of the reader's own stake, because a warning that
+  // fires on every portfolio is wallpaper and stops being read. Every figure
+  // here is derived from the live set rather than written down: the top ten,
+  // their share of the chain, the Nakamoto coefficient, and our own rank.
+  const concentration = useMemo(() => {
+    const ranked = Object.values(vmeta).filter((m) => m.rank !== null);
+    if (ranked.length === 0 || totals.staked <= 0) return null;
+
+    // Their stake sitting with top-ten validators.
+    const yoursInTop10 = totals.exposure
+      .filter((e) => {
+        const r = vmeta[e.validatorAddress]?.rank;
+        return r !== null && r !== undefined && r <= 10;
+      })
+      .reduce((n, e) => n + e.amountTX, 0);
+    const yourPct = (yoursInTop10 / totals.staked) * 100;
+    if (yourPct <= 50) return null;
+
+    const byRank = [...ranked].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const top10Pct = byRank.slice(0, 10).reduce((n, m) => n + m.votingPowerPct, 0);
+
+    // Nakamoto coefficient: how few validators it takes to pass one third of
+    // stake, which is the threshold at which they could halt the chain.
+    let running = 0;
+    let nakamoto = 0;
+    const nakamotoNames: string[] = [];
+    for (const m of byRank) {
+      running += m.votingPowerPct;
+      nakamoto++;
+      nakamotoNames.push(`${m.moniker} ${m.votingPowerPct.toFixed(2)}%`);
+      if (running > 100 / 3) break;
+    }
+
+    // Which of the reader's OWN validators sit in the top ten, so the tooltip
+    // can start from their position instead of opening with validators they
+    // may not use at all.
+    const yourTop10 = totals.exposure
+      .filter((e) => {
+        const r = vmeta[e.validatorAddress]?.rank;
+        return r !== null && r !== undefined && r <= 10;
+      })
+      .map((e) => `${vmeta[e.validatorAddress]?.moniker ?? e.validatorAddress} #${vmeta[e.validatorAddress]?.rank}`);
+
+    const ours = vmeta[SILK_NODES_VALIDATOR];
+    return {
+      yourTop10,
+      yourPct,
+      top10Pct,
+      nakamoto,
+      nakamotoNames,
+      nakamotoPct: running,
+      ourRank: ours?.rank ?? null,
+      ourPct: ours?.votingPowerPct ?? null,
+    };
+  }, [vmeta, totals]);
 
   return (
     <div className="psp-card psp-card-wide pfp-card">
@@ -314,12 +414,16 @@ export default function PortfolioPanel({
         <div>
           <div className="psp-card-head" style={{ marginBottom: 2 }}>Your portfolio</div>
           <span className="psp-metric-label" style={{ textTransform: "none", letterSpacing: 0 }}>
-            {wallets.length === 0
+            {effectiveWallets.length === 0
               ? "Add the wallets you hold to see one combined position."
-              : `${wallets.length} wallet${wallets.length === 1 ? "" : "s"}, combined. Stored in this browser only, never sent to us.`}
+              : `${effectiveWallets.length} wallet${effectiveWallets.length === 1 ? "" : "s"}, combined. ${
+                  connectedOnly
+                    ? "Your connected wallet counts while it is connected. Saved wallets are stored in this browser only, never sent to us."
+                    : "Stored in this browser only, never sent to us."
+                }`}
           </span>
         </div>
-        {wallets.length > 0 && (
+        {effectiveWallets.length > 0 && (
           <div className="pfp-head-actions">
             {fetchedAt && (
               <span className="pfp-stamp" aria-live="polite">
@@ -329,7 +433,7 @@ export default function PortfolioPanel({
             <button
               type="button"
               className="psp-topbar-btn ghost"
-              onClick={() => refresh(wallets)}
+              onClick={() => refresh(effectiveWallets)}
               disabled={loading}
             >
               Refresh
@@ -347,11 +451,80 @@ export default function PortfolioPanel({
         )}
       </div>
 
+      {/* Same structure as the PSE score lookup, which reads well for a
+          reason: title, chips, one input row. Here a chip opens that wallet's
+          passport, giving the Open action a visible home instead of being
+          buried in the collapsed breakdown. */}
+      {effectiveWallets.length > 0 && (
+        <div className="pfp-chips">
+          {/* Two sibling buttons in a span, not a button inside a button,
+              which is invalid and which screen readers do not expose as two
+              separate actions. The chip is styled to still read as one pill. */}
+          {effectiveWallets.map((w) => (
+            <span key={w.address} className={`pfp-chip${w.connectedOnly ? " is-connected" : ""}`}>
+              {/* Not a button. It navigated to that wallet's passport, which
+                  made sense when this panel lived ON the passport and the
+                  click only swapped which wallet was shown. On its own page
+                  the same click leaves the page, with nothing saying it will.
+                  Opening one wallet stays in the per-wallet breakdown, where
+                  it is an explicit Open button. */}
+              <span className="pfp-chip-name" title={w.address}>
+                {w.label || shortAddr(w.address)}
+              </span>
+              {w.connectedOnly ? (
+                /* Not in the saved list, so there is nothing to remove: the
+                   way to drop it is to disconnect. Save is the offer instead,
+                   which is what makes it outlive the connection. */
+                <button
+                  type="button"
+                  className="pfp-chip-save"
+                  title="Keep this wallet after you disconnect"
+                  aria-label={`Save ${shortAddr(w.address)} to your wallet list`}
+                  onClick={() => {
+                    // No label. "Connected" describes how it was added, not
+                    // what it is, and it would still read "Connected" after
+                    // you connect a different wallet. The address is the
+                    // honest default; rename it like any other.
+                    const r = addWallet(w.address);
+                    if (r.ok) {
+                      setWallets(r.wallets);
+                      setUndo(null);
+                      setNotice(`${shortAddr(w.address)} saved to your list.`);
+                    } else if (r.reason === "full") {
+                      setUndo(null);
+                      setNotice(`Your list is full at ${MAX_WALLETS} wallets, so this one counts while connected but cannot be saved.`);
+                    }
+                  }}
+                >
+                  Save
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="pfp-chip-x"
+                  title="Remove this wallet"
+                  aria-label={`Remove ${w.label || shortAddr(w.address)}`}
+                  onClick={() => {
+                    setWallets(removeWallet(w.address));
+                    // Index in the SAVED list, not this one: the connected
+                    // wallet is appended here and would shift the mapping.
+                    setUndo({ wallet: w, index: wallets.findIndex((x) => x.address === w.address) });
+                    setNotice(`${w.label || shortAddr(w.address)} removed.`);
+                  }}
+                >
+                  &#215;
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       <form className="pfp-add" onSubmit={handleAdd}>
         <input
           className="pfp-input pfp-input-addr mono"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setNotice(null); }}
+          onChange={(e) => { setInput(e.target.value); setUndo(null); setNotice(null); }}
           placeholder="core1..."
           spellCheck={false}
           aria-label="Wallet address to add"
@@ -364,20 +537,28 @@ export default function PortfolioPanel({
           aria-label="Label for this wallet"
         />
         <button type="submit" className="psp-topbar-btn" disabled={!input.trim()}>Add</button>
-        {canAddConnected && (
-          <button
-            type="button"
-            className="psp-topbar-btn ghost"
-            onClick={() => { const r = addWallet(connectedAddress!, "Connected"); if (r.ok) setWallets(r.wallets); }}
-          >
-            Add connected
-          </button>
-        )}
       </form>
 
-      {notice && <div className="pfp-notice">{notice}</div>}
+      {notice && (
+        <div className="pfp-notice">
+          <span>{notice}</span>
+          {undo && (
+            <button
+              type="button"
+              className="pfp-undo"
+              onClick={() => {
+                setWallets(insertWallet(undo.wallet, undo.index));
+                setUndo(null);
+                setNotice(null);
+              }}
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
 
-      {wallets.length === 0 ? (
+      {effectiveWallets.length === 0 ? (
         <div className="psp-empty">
           Nothing added yet. Cold wallets work here too: this reads public chain data only,
           so there is nothing to connect and nothing to sign.
@@ -388,8 +569,8 @@ export default function PortfolioPanel({
             <Metric label="Total" value={TX(totals.total)} sub={txPrice ? `$${formatCompact(totals.total * txPrice)}` : undefined} accent />
             <Metric label="Staked" value={TX(totals.staked)} sub={txPrice ? `$${formatCompact(totals.staked * txPrice)}` : undefined} />
             <Metric label="Liquid" value={TX(totals.liquid)} sub={txPrice ? `$${formatCompact(totals.liquid * txPrice)}` : undefined} />
-            <Metric label="Unbonding" value={TX(totals.unbonding)} />
-            <Metric label="Rewards" value={TX(totals.rewards)} />
+            <Metric label="Unbonding" value={TX(totals.unbonding)} tone={totals.unbonding === 0 ? "dim" : undefined} />
+            <Metric label="Rewards" value={TX(totals.rewards)} tone={totals.rewards === 0 ? "dim" : "earn"} />
           </div>
 
           <div className="psp-headline pfp-headline pfp-headline-sub">
@@ -402,6 +583,7 @@ export default function PortfolioPanel({
             <Metric
               label="PSE per month"
               value={pse ? TX(pse.monthly) : "-"}
+              tone={pse ? "earn" : "dim"}
               sub={pse
                 ? pse.source === "onchain_score" || pse.source === "last_dist_reference"
                   ? "accrued so far this cycle"
@@ -415,17 +597,20 @@ export default function PortfolioPanel({
             />
             <Metric
               label="Wallets"
-              value={String(wallets.length)}
+              value={String(effectiveWallets.length)}
+              tone="meta"
               sub={`of ${MAX_WALLETS} tracked`}
             />
             <Metric
               label="Validators"
               value={String(totals.exposure.length)}
+              tone="meta"
               sub={totals.exposure.length > 0 ? "delegated to" : undefined}
             />
             <Metric
               label="Unbonding takes"
               value={unbondingDays !== null ? `${unbondingDays} days` : "-"}
+              tone="meta"
               sub="chain parameter"
               tip="How long unstaked TX is locked before it can be moved. Read live from the chain's staking parameters, since governance can change it."
             />
@@ -433,7 +618,7 @@ export default function PortfolioPanel({
 
           {loading && (
             <div className="pfp-notice">
-              Reading {wallets.length} wallet{wallets.length === 1 ? "" : "s"} from the chain...
+              Reading {effectiveWallets.length} wallet{effectiveWallets.length === 1 ? "" : "s"} from the chain...
             </div>
           )}
           {totals.failed > 0 && (
@@ -452,7 +637,7 @@ export default function PortfolioPanel({
                 Worth knowing
                 <Tooltip
                   position="bottom"
-                  text="Only what currently applies to your wallets. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone."
+                  text={`Only what currently applies to ${effectiveWallets.length === 1 ? "your wallet" : `your ${effectiveWallets.length} wallets`}. Nothing here is a recommendation. Silk Nodes runs a validator, so this states the numbers and leaves the decision alone.`}
                 />
               </div>
               <div className="pfp-findings">
@@ -513,7 +698,13 @@ export default function PortfolioPanel({
                 Validator exposure across every wallet
                 <Tooltip
                   position="bottom"
-                  text="Your stake grouped by validator instead of by wallet. Delegating from four wallets to one validator is the same concentration as delegating once, and only this view shows it. If that validator is jailed or slashed, all of it is affected together."
+                  // Written from the reader's actual list. It said "four
+                  // wallets" to everyone, including someone tracking two.
+                  text={`Your stake grouped by validator instead of by wallet. ${
+                    effectiveWallets.length > 1
+                      ? `Delegating from your ${effectiveWallets.length} wallets to one validator is the same concentration as delegating once, and only this view shows it.`
+                      : "Add more wallets and this groups them together, so concentration you cannot see one wallet at a time shows up here."
+                  } If a validator is jailed or slashed, everything on its line is affected together. The # is each validator's rank by stake among the active set, and VP is its share of all bonded stake on the chain.`}
                 />
               </div>
               {/* The whole reason the panel exists. Concentration is invisible
@@ -525,11 +716,36 @@ export default function PortfolioPanel({
                   {top.pct.toFixed(0)}% of your staked TX sits with {nameOf(top.validatorAddress)}.
                 </div>
               )}
+
+              {/* Concentration, stated rather than advised.
+                  We run a validator outside the top ten, so we profit if stake
+                  moves down the table. That makes "consider redelegating" the
+                  one thing this must not say: it would be advice from an
+                  interested party on a site whose value is being neutral. So
+                  it gives the reader their number, the mechanism behind why it
+                  matters, and our own position, and stops. A reader who
+                  understands that a third of stake can halt the chain reaches
+                  the conclusion on their own, and it is a better conclusion
+                  for being theirs. */}
               <div className="psp-bars pfp-bars">
                 {totals.exposure.slice(0, 10).map((e) => (
                   <div key={e.validatorAddress} className="psp-bar-row">
                     <div className="psp-bar-head">
-                      <span className="psp-bar-name">{nameOf(e.validatorAddress)}</span>
+                      <span className="psp-bar-name">
+                        {(() => {
+                          const m = vmeta[e.validatorAddress];
+                          if (!m || m.rank === null) return null;
+                          return <span className="pfp-rank">#{m.rank}</span>;
+                        })()}
+                        {nameOf(e.validatorAddress)}
+                        {(() => {
+                          const m = vmeta[e.validatorAddress];
+                          if (!m || m.rank === null) return null;
+                          return (
+                            <span className="pfp-vp">{m.votingPowerPct.toFixed(2)}% VP</span>
+                          );
+                        })()}
+                      </span>
                       <span className="psp-bar-val">
                         {TX(e.amountTX)} <span className="psp-bar-pct">{e.pct.toFixed(0)}%</span>
                       </span>
@@ -540,19 +756,95 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
+
+              {/* Concentration, as numbers rather than prose.
+                  Two earlier layouts failed: four paragraphs above the bars
+                  left half the card blank, and a side column could never
+                  balance against a bar list whose height depends on how many
+                  validators the reader uses. Full-width rows cannot go empty.
+                  The mechanism lives in the tooltip, where this panel keeps
+                  all of its explanations; the card carries the three figures
+                  and the disclosure, which is what earns showing them. It
+                  still makes no recommendation: we run a validator outside
+                  the top ten and profit if stake moves down the table. */}
+              {concentration && (
+                <div className="pfp-conc">
+                  <div className="pfp-conc-stats">
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">
+                        Your stake in the top ten
+                        <Tooltip
+                          position="top"
+                          // Starts from the reader's own validators. It used
+                          // to open with the chain's three largest, which are
+                          // often not ones they use, under a label that says
+                          // "your stake".
+                          text={`${concentration.yourTop10.length > 0 ? `Yours in the top ten: ${concentration.yourTop10.join(", ")}.` : "None of your validators are in the top ten, so this line is context rather than something you need to act on."} Across the chain, ${concentration.nakamoto} validator${concentration.nakamoto === 1 ? "" : "s"} (${concentration.nakamotoNames.join(", ")}) hold ${concentration.nakamotoPct.toFixed(1)}% between them, and a third of all stake is enough to halt it, so the Nakamoto coefficient counts how few parties clear that bar. Stake with one validator is also slashed, jailed and idled together. Moving stake costs nothing: redelegation is instant, has no unbonding period, and does not reset your PSE score.`}
+                        />
+                      </span>
+                      <span className="psp-metric-value">{concentration.yourPct.toFixed(0)}%</span>
+                      {/* The neighbours both carry a sub line; without one this
+                          number is ambiguous (100% of what?) and its baseline
+                          floats against theirs. */}
+                      <span className="psp-metric-sub">of your staked TX</span>
+                    </div>
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">Top ten hold</span>
+                      <span className="psp-metric-value">{concentration.top10Pct.toFixed(1)}%</span>
+                      <span className="psp-metric-sub">of all bonded stake</span>
+                    </div>
+                    <div className="psp-metric">
+                      <span className="psp-metric-label">Nakamoto coefficient</span>
+                      <span className="psp-metric-value">{concentration.nakamoto}</span>
+                      <span className="psp-metric-sub">parties could halt the chain</span>
+                    </div>
+                  </div>
+                  <p className="pfp-conc-disc">
+                    Silk Nodes runs a validator
+                    {concentration.ourRank !== null
+                      ? `, currently rank ${concentration.ourRank} at ${concentration.ourPct?.toFixed(2)}%`
+                      : ""}
+                    . We benefit if stake moves down the table, so this states the numbers and
+                    makes no recommendation.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
           {totals.tokens.length > 0 && (
-            <div className="pfp-section">
-              <div className="psp-list-head">
-                Other tokens held
+            <div className={`pfp-disclosure${showTokens ? " is-open" : ""}`}>
+              <div className="pfp-disclosure-head">
+                <button
+                  type="button"
+                  className="pfp-toggle"
+                  onClick={() => setShowTokens((v) => !v)}
+                  aria-expanded={showTokens}
+                >
+                  {/* No "Show"/"Hide" verb: the chevron carries the state, and
+                      aria-expanded carries it for anyone not seeing the
+                      chevron. The count moves out of the label so it is a
+                      right-aligned figure like every other number here,
+                      instead of a parenthetical inside a sentence. */}
+                  <span className="pfp-toggle-label">Other tokens held</span>
+                  <span className="pfp-toggle-count mono">{totals.tokens.length}</span>
+                  <span className="pfp-toggle-chev" aria-hidden="true" />
+                </button>
+              {/* Outside the button, not inside it: a tooltip is itself a
+                  button and nesting one in another is invalid. */}
+              <span className="pfp-toggle-tip">
                 <Tooltip
                   position="bottom"
-                  text="Non-TX balances across all your wallets. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: 45 of them are claimed by more than one token, so summing by name would add unrelated balances together."
+                  // No hardcoded count here. It said "45 of them", a figure
+                  // measured once that drifts as tokens are issued, and a
+                  // stale specific is worse than none.
+                  text={`Non-TX balances across your ${effectiveWallets.length === 1 ? "wallet" : `${effectiveWallets.length} wallets`}. Smart tokens issued on TX, and assets bridged in over IBC. Merged by denom rather than ticker, because tickers are not unique on this chain: several are claimed by more than one token, so summing by name would add unrelated balances together.`}
                 />
+              </span>
               </div>
-              <div className="psp-kv-grid">
+              {showTokens && (
+              <div className="pfp-disclosure-body">
+              <div className="psp-kv-grid pfp-tokengrid">
                 {totals.tokens.slice(0, 8).map((t) => (
                   <div className="psp-kv" key={t.denom}>
                     <span className="psp-kv-label">
@@ -568,19 +860,29 @@ export default function PortfolioPanel({
                   </div>
                 ))}
               </div>
+              </div>
+              )}
             </div>
           )}
 
-          <div className="pfp-section">
-            <button
-              type="button"
-              className="pfp-toggle"
-              onClick={() => setShowBreakdown((v) => !v)}
-              aria-expanded={showBreakdown}
-            >
-              {showBreakdown ? "Hide" : "Show"} per-wallet breakdown ({wallets.length})
-            </button>
+          <div className={`pfp-disclosure${showBreakdown ? " is-open" : ""}`}>
+            <div className="pfp-disclosure-head">
+              <button
+                type="button"
+                className="pfp-toggle"
+                onClick={() => setShowBreakdown((v) => !v)}
+                aria-expanded={showBreakdown}
+              >
+                <span className="pfp-toggle-label">Per-wallet breakdown</span>
+                <span className="pfp-toggle-count mono">{effectiveWallets.length}</span>
+                <span className="pfp-toggle-chev" aria-hidden="true" />
+              </button>
+              {/* Empty tooltip slot, so this bar's chevron lines up with the
+                  one above it rather than sitting 34px further right. */}
+              <span className="pfp-toggle-tip" />
+            </div>
             {showBreakdown && (
+              <div className="pfp-disclosure-body">
               <div className="pfp-rows">
                 {sortedRows.map((r) => (
                   <div key={r.wallet.address} className="pfp-row">
@@ -632,10 +934,11 @@ export default function PortfolioPanel({
                 <button
                   type="button"
                   className="psp-topbar-btn ghost pfp-danger pfp-clear"
-                  onClick={() => { setWallets(clearWallets()); setNotice("Wallet list cleared."); }}
+                  onClick={() => { setWallets(clearWallets()); setUndo(null); setNotice("Wallet list cleared."); }}
                 >
                   Remove all
                 </button>
+              </div>
               </div>
             )}
           </div>
@@ -646,7 +949,7 @@ export default function PortfolioPanel({
             Read from the chain in your browser, one wallet at a time.
             <Tooltip
               position="top"
-              text="Every figure here is fetched directly from the chain by your browser and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission."
+              text={`Every figure here is read from the chain by your browser, ${effectiveWallets.length === 1 ? "for your one wallet" : `one wallet at a time across your ${effectiveWallets.length}`}, and added up locally, so nothing about which wallets you track reaches our servers. PSE score is stake multiplied by staking duration, which is linear, so splitting the same stake across wallets earns exactly what holding it in one would; rewards are still paid per address. The staking rate is derived live from annual provisions less community tax over total bonded, quoted before commission.`}
             />
           </p>
         </>
@@ -655,11 +958,16 @@ export default function PortfolioPanel({
   );
 }
 
-function Metric({ label, value, sub, accent, tip }: {
+function Metric({ label, value, sub, accent, tip, tone }: {
   label: string; value: string; sub?: string; accent?: boolean; tip?: string;
+  /** Semantic colour, never decorative:
+   *  earn  = a number that grows (rewards, PSE), its own green below neon
+   *  meta  = a count or parameter, not money, demoted a step
+   *  dim   = a zero, which should whisper instead of competing with balances */
+  tone?: "earn" | "meta" | "dim";
 }) {
   return (
-    <div className="psp-metric">
+    <div className={`psp-metric${tone ? ` pfp-tone-${tone}` : ""}`}>
       <span className="psp-metric-label">
         {label}
         {tip && <Tooltip text={tip} position="bottom" />}

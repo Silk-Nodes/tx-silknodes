@@ -133,6 +133,23 @@ export function removeWallet(address: string): SavedWallet[] {
   return persist(loadWallets().filter((w) => w.address !== address));
 }
 
+/**
+ * Put a removed wallet back where it was.
+ *
+ * Not the same as addWallet: that appends and stamps a fresh addedAt, so
+ * undoing a removal would silently reorder the list. The wallets people most
+ * want here are cold and hardware wallets whose addresses they had to find
+ * and type once, so a misclick has to be recoverable without that hunt.
+ */
+export function insertWallet(wallet: SavedWallet, index: number): SavedWallet[] {
+  const current = loadWallets();
+  if (current.some((w) => w.address === wallet.address)) return current;
+  if (current.length >= MAX_WALLETS) return current;
+  const next = [...current];
+  next.splice(Math.max(0, Math.min(index, next.length)), 0, wallet);
+  return persist(next);
+}
+
 export function renameWallet(address: string, label: string): SavedWallet[] {
   const next = loadWallets().map((w) =>
     w.address === address ? { ...w, label: label.trim().slice(0, MAX_LABEL_LENGTH) || undefined } : w,

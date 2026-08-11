@@ -4,9 +4,14 @@ import { useEffect, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { STORAGE_KEY } from "@/lib/theme";
 
-// Two-state Mac-style slider: sun ⇄ moon, with a tiny "match system" link
-// underneath for users who want OS preference to drive it. Warm is still
-// defined in the Theme type for Phase 2 but intentionally hidden here.
+// Two-state Mac-style slider: sun ⇄ moon, with a small "auto" control beside
+// it that hands control back to the OS preference. Warm is still defined in
+// the Theme type for Phase 2 but intentionally hidden here.
+//
+// "auto" sits on the same baseline as the toggle rather than under it. It was
+// the only second line of text in the header, which made the whole bar taller
+// than it needed to be. It stays a real button: it performs an action, so it
+// could not just become a tooltip.
 export default function ThemeSwitcher() {
   const [theme, setTheme] = useTheme();
   const isDark = theme === "dark";
@@ -78,9 +83,9 @@ export default function ThemeSwitcher() {
         type="button"
         className="theme-switcher-system"
         onClick={matchSystem}
-        title="Match system preference"
+        title="Match your system theme"
       >
-        match system
+        auto
       </button>
     </div>
   );

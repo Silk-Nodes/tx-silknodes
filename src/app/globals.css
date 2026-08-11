@@ -31,6 +31,18 @@
      light/warm header; the dark theme overrides it to full neon below. */
   --brand-accent: #8FCB02;
   --danger: #b44a3e;
+  /* Destructive text, which is not the same colour as a destructive fill.
+     --danger is tuned to be filled and only reaches 3.82:1 as text on the
+     translucent chip background in dark mode. Light's red happens to clear
+     4.5:1 already, so the two themes differ in value but not in intent. */
+  --danger-text: #b44a3e;
+  /* Perceivable pill border. The shared --glass-border measures 1.62:1 here,
+     below the 3:1 that non-text UI needs to read as a boundary at all. */
+  --pill-border-strong: rgba(74, 122, 26, 0.8);
+  --pill-count-text: #365c12;
+  /* Text on a solid --danger fill. White clears on the light theme red but
+     only reaches 3.03:1 on the dark theme red, so dark flips to dark text. */
+  --danger-solid-text: #ffffff;
 
   /* Text accent used for "positive/success" headlines and labels (e.g. a
      PASSED outcome). In light mode --tx-neon is too bright to read on the
@@ -107,6 +119,10 @@
   --accent-olive-light: rgba(143, 188, 143, 0.15);
   --brand-accent: #B1FC03;
   --danger: #ef6b5d;
+  --danger-text: #f89a90;
+  --pill-border-strong: rgba(177, 252, 3, 0.5);
+  --pill-count-text: var(--tx-neon);
+  --danger-solid-text: #0a0d07;
 
   /* In dark mode the bright neon reads cleanly; flip back from olive. */
   --text-accent: #B1FC03;
@@ -477,9 +493,17 @@
   opacity: 1;
   transform: translateY(-1px);
 }
+/* Calm in dark too. This rule outranks the base .wallet-pill.connected
+   below, so quieting only that one left dark mode loud: neon text on a neon
+   tint, still the brightest thing in the bar. Contrast checks did not catch
+   it because both treatments score high against a dark background. */
 [data-theme="dark"] .wallet-pill.connected {
-  background: rgba(177, 252, 3, 0.12);
-  color: var(--tx-neon);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  border-color: var(--glass-border);
+}
+[data-theme="dark"] .wallet-pill.connected:hover,
+[data-theme="dark"] .wallet-pill.connected.is-open {
   border-color: var(--tx-neon);
 }
 
@@ -710,11 +734,13 @@ html {
 /* ═══════════════════════════════════════════
    THEME SWITCHER (icon trio in top nav)
    ═══════════════════════════════════════════ */
+/* One baseline. This was a column, so "match system" sat under the toggle as
+   the only second line of text in the header and set the bar's height. */
 .theme-switcher-group {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
+  gap: 7px;
 }
 
 .theme-switcher {
@@ -1203,11 +1229,22 @@ body {
 
 .wallet-pill:hover { opacity: 0.85; }
 
+/* Calm once connected. Filled dark green with neon text made the address the
+   loudest thing in the header, so the bar shouted hardest when there was
+   nothing left to do. Connected is status; "Connect Wallet" keeps the bold
+   treatment because it is the one state still asking for an action. */
 .wallet-pill.connected {
-  background: var(--tx-dark-green);
-  color: var(--tx-neon);
-  border-color: var(--tx-neon);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  border-color: var(--glass-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
 }
+.wallet-pill.connected:hover,
+.wallet-pill.connected.is-open { border-color: var(--tx-neon); opacity: 1; }
 
 .live-indicator {
   display: flex;
@@ -13485,8 +13522,12 @@ input[type="range"]::-moz-range-thumb {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  border-right: 2px solid var(--text-light);
-  border-bottom: 2px solid var(--text-light);
+  /* --text-medium, not --text-light. This chevron is now the only thing
+     signalling open vs closed after the underline came off, and --text-light
+     measures 3.27:1 on the bar: legal for a non-text element, thin for the
+     one element carrying the state. --text-medium measures 9.44:1. */
+  border-right: 2px solid var(--text-medium);
+  border-bottom: 2px solid var(--text-medium);
   transform: rotate(45deg);
   transition: transform 0.2s ease;
 }
@@ -13702,6 +13743,50 @@ input[type="range"]::-moz-range-thumb {
 .pfp-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
 .pfp-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+/* Wallet chips, mirroring the PSE lookup's row. Theme tokens rather than the
+   picker's dark-card colours, because this card is glass in light mode. */
+.pfp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+/* One pill, two actions. The pill owns the border and background; the label
+   and the remove control are separate buttons inside it, because nesting a
+   button in a button is invalid and exposes only one action to a screen
+   reader. Padding moved off the wrapper onto the label so the whole label
+   stays clickable to its edges. */
+.pfp-chip {
+  display: inline-flex; align-items: stretch; overflow: hidden;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pfp-chip:has(.pfp-chip-x:hover), .pfp-chip:has(.pfp-chip-save:hover) { border-color: var(--tx-neon); }
+.pfp-chip-name {
+  display: flex; align-items: center;
+  padding: 6px 6px 6px 14px;
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600;
+}
+/* Sized for a finger, not just a cursor: the whole 28px is hit area while the
+   glyph reads small. A destructive control sitting beside one people click
+   often is exactly where an undersized target costs someone a wallet. */
+.pfp-chip-x {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; border: none; background: none; cursor: pointer;
+  color: var(--text-medium); font-size: 1rem; line-height: 1; padding: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+/* Tints rather than fills, matching .pfp-danger just below. A filled red pill
+   needed a readable colour on top of it, and --danger is a different red per
+   theme, so the fill would have needed its own per-theme text token to stay
+   above 4.5:1. Tinting reuses a token already proven in both themes. */
+.pfp-chip-x:hover, .pfp-chip-x:focus-visible { color: var(--danger-text); }
+
+/* Sits in the notice it belongs to, so the undo is where the message is. */
+.pfp-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pfp-undo {
+  border: 1px solid var(--glass-border); background: none; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 3px 12px;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-dark);
+}
+.pfp-undo:hover { border-color: var(--tx-neon); }
+
 .pfp-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .pfp-input { padding: 8px 14px; border-radius: var(--radius-pill); border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-dark); font-size: 0.85rem; }
 .pfp-input:focus { outline: none; border-color: var(--tx-neon); }
@@ -13713,6 +13798,36 @@ input[type="range"]::-moz-range-thumb {
 /* Ten full-width bars stacked made the panel taller than the passport it sits
    on top of. Same multi-column treatment the passport uses for its own
    delegations list, so exposure stays scannable without dominating the page. */
+/* Rank leads the name so a column of them scans vertically; voting power
+   trails it as secondary context. */
+/* Concentration note. Deliberately quieter than the jailed-stake warning: it
+   is context, not something costing money right now. */
+/* Concentration strip. Full-width rows under the bars, so nothing can sit
+   beside an empty half: two earlier layouts (prose above, side column) both
+   left dead space because their heights could not match the bar list, whose
+   height depends on how many validators the reader uses. The figures reuse
+   the site's psp-metric pattern; the mechanism lives in the tooltip like
+   every other explanation in this panel. Tinted, not warning-coloured: this
+   is context, not an error, and red would imply the recommendation the strip
+   deliberately does not make. */
+.pfp-conc { background: var(--accent-olive-light); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px 18px 12px; margin-top: 16px; }
+.pfp-conc-stats { display: flex; flex-wrap: wrap; gap: 12px 44px; }
+.pfp-conc-stats .psp-metric-value { font-size: 1.15rem; }
+/* --text-light composites to 2.85:1 on the tinted background, under the 4.5
+   floor. Same token failure as the table headers earlier; --text-medium
+   passes at 8+. */
+.pfp-conc .psp-metric-label, .pfp-conc .psp-metric-sub { color: var(--text-medium); }
+/* The first label carries the tooltip icon, whose 20px circle inflates that
+   label's line box and pushed its value 5px below its neighbours'. Every
+   label gets the icon's height so the three values share a baseline whether
+   or not a tooltip is present. */
+.pfp-conc .psp-metric-label { display: flex; align-items: center; gap: 4px; min-height: 22px; }
+/* The disclosure earns the right to show the numbers, so it stays on the
+   card rather than in the tooltip. */
+.pfp-conc-disc { font-size: 0.74rem; color: var(--text-medium); font-style: italic; margin: 10px 0 0; max-width: 74ch; line-height: 1.45; }
+
+.pfp-rank { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.78rem; margin-right: 6px; }
+.pfp-vp { color: var(--text-medium); font-family: var(--font-mono); font-size: 0.72rem; margin-left: 6px; opacity: 0.85; }
 .pfp-bars { display: block; columns: 360px auto; column-gap: 30px; }
 .pfp-bars > * { break-inside: avoid; margin-bottom: 12px; }
 .pfp-section { margin-top: 20px; }
@@ -13738,7 +13853,49 @@ input[type="range"]::-moz-range-thumb {
 .pfp-headline-sub .psp-metric-value { font-size: 1.05rem; }
 
 
-.pfp-toggle { background: none; border: none; padding: 0; color: var(--text-dark); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
+/* A fixed slot, reserved on every bar whether or not it has a tooltip.
+   Only the tokens bar has one, and letting it consume the right edge pushed
+   that bar's chevron 38px inward from the other's, so two stacked bars did
+   not line up. The slot is rendered empty where there is nothing to explain. */
+.pfp-toggle-tip { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; }
+.pfp-tokengrid { margin-top: 12px; }
+/* Disclosure bar, not a link.
+   The old style was underlined bold text, which is a LINK affordance: it says
+   "this navigates" when the control expands in place. It was also the only
+   underlined toggle in the app; governance uses .wvc-expand and the SEO block
+   uses .seo-disclosure, neither underlined. This follows .seo-disclosure:
+   label left, figure and chevron right, chevron rotating on open. */
+.pfp-disclosure {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+.pfp-disclosure + .pfp-disclosure { margin-top: 8px; }
+.pfp-disclosure-head { display: flex; align-items: center; }
+.pfp-disclosure-head:hover { background: var(--accent-olive-light); }
+.pfp-toggle {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 12px 0 12px 14px;
+  color: var(--text-dark); font-size: 0.84rem; font-weight: 700;
+}
+.pfp-toggle-label { flex: 1; min-width: 0; }
+/* Tabular so the counts on stacked bars line up rather than jittering. */
+.pfp-toggle-count { font-variant-numeric: tabular-nums; color: var(--text-medium); font-weight: 600; }
+/* Two borders rotated, the same trick .seo-disclosure uses, so there is one
+   chevron implementation on the site rather than a second glyph font. */
+.pfp-toggle-chev {
+  flex-shrink: 0; width: 7px; height: 7px; margin-top: -3px;
+  border-right: 2px solid var(--text-light);
+  border-bottom: 2px solid var(--text-light);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.pfp-disclosure.is-open .pfp-toggle-chev { transform: rotate(-135deg); margin-top: 3px; }
+/* The rule sits under the bar so the opened content reads as belonging to it. */
+.pfp-disclosure-body { border-top: 1px solid var(--glass-border); padding: 0 14px 14px; }
 .pfp-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .pfp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
 .pfp-row-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -13791,3 +13948,423 @@ input[type="range"]::-moz-range-thumb {
 .pdp-down { color: var(--danger); font-weight: 700; }
 .pdp-flat { color: var(--text-medium); }
 .pdp-source { font-size: 0.74rem; color: var(--text-medium); margin: 12px 0 0; }
+
+/* ── Portfolio metric tones ──────────────────────────────────────────── */
+/* Colour with meaning only. Neon stays reserved for the total; earnings get
+   their own green a step below it; zeroes whisper; counts and parameters are
+   demoted because they are metadata, not money. Per-theme token because bar
+   greens like #8fd14f only reach ~2:1 as text on the light background. */
+:root { --earn-text: #3a7a15; }
+[data-theme="dark"] { --earn-text: #9fd95c; }
+.pfp-tone-earn .psp-metric-value { color: var(--earn-text); }
+.pfp-tone-dim .psp-metric-value { color: var(--text-medium); }
+.pfp-tone-meta .psp-metric-value { font-size: 0.95rem; color: var(--text-medium); }
+
+/* ── Saved-wallet picker chips ────────────────────────────────────────── */
+/* Styled for the dark PSE card they currently sit in: same translucent
+   treatment as the address input beside them. */
+.swp { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.swp-chip {
+  padding: 6px 14px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(177, 252, 3, 0.25); background: rgba(255, 255, 255, 0.06);
+  color: #f0ece3; font-size: 0.76rem; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.swp-chip:hover { border-color: var(--tx-neon); background: rgba(177, 252, 3, 0.1); }
+.swp-chip-active { border-color: var(--tx-neon); background: rgba(177, 252, 3, 0.14); }
+.swp-chip-save { border-style: dashed; color: var(--tx-neon); background: transparent; }
+.swp-notice { font-size: 0.74rem; color: #f0ece3; opacity: 0.7; align-self: center; }
+
+/* Portfolio: the offer shown when no wallet is connected. Not an empty state,
+   because the page above it is fully functional without connecting. */
+.pfp-connect-note {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  margin-top: 16px; padding: 14px 16px;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  font-size: 0.84rem; line-height: 1.5; color: var(--text-medium);
+}
+
+/* Portfolio entry point in the header account zone. Deliberately quieter than
+   the wallet pill next to it: connecting is the primary action for a new
+   visitor, and two loud pills side by side compete. */
+.portfolio-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: var(--radius-pill);
+  /* Firmer than the wallet pill's border, which is what tells the two apart:
+     after both were calmed they computed to identical background, border,
+     text colour and radius, so two controls with different jobs looked the
+     same. Colour lives here and on the count, not on the wallet. */
+  border: 1px solid var(--pill-border-strong); background: var(--glass-bg);
+  color: var(--text-dark); font-size: 0.78rem; font-weight: 600;
+  text-decoration: none; white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.portfolio-pill:hover { border-color: var(--tx-neon); background: var(--accent-olive-light); }
+.portfolio-pill.active { border-color: var(--tx-neon); }
+.portfolio-pill-count {
+  font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  /* The number is the reason to click; "Portfolio" alone is not. */
+  color: var(--pill-count-text);
+  padding: 1px 6px; border-radius: var(--radius-pill);
+  background: var(--accent-olive-light);
+}
+/* Narrow screens: tighten the pill rather than hiding its label. Dropping the
+   label would leave a bare number, or an empty pill when nothing is saved
+   yet, and "Connect Wallet" beside it must never wrap. */
+@media (max-width: 560px) {
+  .portfolio-pill { padding: 6px 10px; font-size: 0.74rem; gap: 5px; }
+}
+
+/* The connected wallet's chip. Tinted so it reads as a different kind of
+   member: it counts in the totals but is not in the saved list, and it leaves
+   when the connection does. */
+.pfp-chip.is-connected { border-color: var(--tx-neon); }
+.pfp-chip-save {
+  border: none; background: none; cursor: pointer;
+  padding: 0 12px 0 4px; align-self: stretch;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-accent);
+  white-space: nowrap;
+}
+.pfp-chip-save:hover, .pfp-chip-save:focus-visible { text-decoration: underline; }
+
+/* Scope line for the connected-wallet actions. The summary above it covers
+   every saved wallet, this section covers one, and both used the same labels. */
+/* No border-top. The tab bar directly above already draws a full-width rule,
+   so this added a second one ~20px below it and the pair read as two stray
+   lines above the wallet address. */
+.pt-scope {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  margin: 4px 0 12px;
+}
+.pt-scope-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: var(--text-medium);
+}
+.pt-scope-addr { font-size: 0.86rem; font-weight: 700; color: var(--text-dark); }
+.pt-scope-note { font-size: 0.78rem; color: var(--text-medium); }
+
+/* Header: syncing notice, and the wallet menu that replaced the address pill
+   plus its separate Copy button. */
+.nav-syncing { font-size: 0.76rem; color: var(--text-medium); white-space: nowrap; }
+
+.wallet-menu { position: relative; display: inline-flex; }
+.wallet-pill-chev {
+  width: 6px; height: 6px; margin-left: 2px; flex-shrink: 0;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.2s ease;
+}
+.wallet-pill.is-open .wallet-pill-chev { transform: rotate(-135deg) translate(-2px, -2px); }
+/* Portaled to <body>; the inline style supplies fixed top/right. */
+.wallet-menu-list {
+  z-index: 10000;
+  min-width: 168px; padding: 5px;
+  background: var(--bg-base);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.22);
+  display: flex; flex-direction: column;
+}
+.wallet-menu-item {
+  border: none; background: none; cursor: pointer; text-align: left;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  font-size: 0.8rem; font-weight: 600; color: var(--text-dark);
+  white-space: nowrap;
+}
+.wallet-menu-item:hover, .wallet-menu-item:focus-visible { background: var(--accent-olive-light); }
+.wallet-menu-item.is-danger { color: var(--danger-text); }
+
+/* Portfolio tab bar. Reuses .vd-tab for the items so this is the same
+   underline tab the validator detail page already uses, rather than a third
+   tab style; only the container differs, because that one is sticky and
+   tuned to its own page. */
+.pf-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--glass-border);
+  margin: 8px 0 18px;
+}
+
+.pse-hist { margin-bottom: 22px; }
+
+/* ── Your wallet: rebuilt manage panel (WalletActions) ─────────────────
+   Replaces the pre-design-system PortfolioTab (819 lines of inline styles,
+   hardcoded whites). Every colour is a token except .wa-darkcard, whose
+   dark-green background is fixed in BOTH themes, so its light text is a
+   deliberate constant, not a theme leak. */
+
+.wa-strip {
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 14px 18px; margin-bottom: 16px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.wa-strip-top { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
+.wa-stat { display: flex; flex-direction: column; gap: 2px; }
+.wa-stat.align-right { text-align: right; }
+.wa-stat-label {
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.07em;
+  font-weight: 600; color: var(--text-medium);
+}
+.wa-stat-label.on-dark { color: rgba(240, 236, 227, 0.55); }
+.wa-stat-value { font-size: 1rem; font-weight: 700; color: var(--text-dark); line-height: 1.25; }
+.wa-stat-value.neon { color: var(--tx-neon); }
+.wa-stat-value.earn { color: var(--text-accent); }
+.wa-strip-pse { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; border-radius: var(--radius-sm); }
+.wa-strip-spacer { flex: 1; }
+.wa-strip-claim {
+  display: flex; align-items: center; gap: 12px;
+  padding-left: 16px; border-left: 1px solid var(--glass-border);
+}
+.wa-claim { padding: 8px 18px; font-size: 0.74rem; }
+.wa-claim:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wa-tabs { display: flex; border-bottom: 1px solid var(--glass-border); }
+.wa-tab {
+  flex: 1; padding: 12px 0; font-size: 0.8rem; font-weight: 500;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-medium); cursor: pointer; text-transform: capitalize;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.wa-tab:hover { color: var(--text-dark); }
+.wa-tab.active { color: var(--text-dark); font-weight: 700; border-bottom-color: var(--accent-olive); }
+
+
+.wa-field-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 6px; }
+.wa-field-head:first-child { margin-top: 0; }
+.wa-field-label { font-size: 0.74rem; font-weight: 600; color: var(--text-dark); }
+.wa-field-hint { font-size: 0.68rem; color: var(--text-medium); }
+
+.wa-amount { display: flex; gap: 6px; }
+.wa-input {
+  flex: 1; width: 100%; min-width: 0; padding: 10px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--glass-border);
+  background: var(--bg-base); color: var(--text-dark); font-size: 0.95rem;
+}
+.wa-input:focus { outline: none; border-color: var(--tx-neon); }
+.wa-input.is-danger { border-color: var(--danger-text); }
+.wa-search { font-size: 0.8rem; padding: 8px 12px; margin-bottom: 8px; }
+.wa-max {
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border); background: var(--accent-olive-light);
+  cursor: pointer; font-size: 0.72rem; font-weight: 700; color: var(--text-accent);
+}
+.wa-max.is-danger { background: none; color: var(--danger-text); border-color: var(--danger-text); }
+
+.wa-vlist {
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+}
+.wa-vlist-loading, .wa-empty { padding: 18px; text-align: center; font-size: 0.78rem; color: var(--text-medium); }
+.wa-vrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 8px 12px; cursor: pointer; text-align: left;
+  background: none; border: none; border-bottom: 1px solid var(--glass-border);
+  border-left: 3px solid transparent;
+  color: var(--text-dark); font-size: 0.8rem;
+}
+.wa-vrow:last-child { border-bottom: none; }
+.wa-vrow:hover { background: var(--accent-olive-light); }
+.wa-vrow.is-selected { background: var(--accent-olive-light); border-left-color: var(--accent-olive); font-weight: 600; }
+.wa-vrow-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wa-vrow-meta { display: flex; align-items: center; gap: 12px; font-size: 0.68rem; color: var(--text-medium); white-space: nowrap; }
+.wa-vrow-selected { color: var(--text-accent); font-weight: 700; }
+.wa-rec {
+  font-size: 0.55rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--tx-neon); background: var(--tx-dark-green);
+  padding: 1px 5px; border-radius: 4px;
+}
+
+.wa-note { font-size: 0.7rem; color: var(--text-medium); line-height: 1.5; margin: 12px 0; }
+
+.wa-warn {
+  padding: 12px 14px; margin: 12px 0; border-radius: var(--radius-sm);
+  border: 1px solid var(--danger-text); background: var(--glass-bg);
+}
+.wa-warn-title { display: block; font-size: 0.72rem; font-weight: 700; color: var(--danger-text); margin-bottom: 6px; }
+.wa-warn ul { margin: 0; padding-left: 16px; font-size: 0.7rem; color: var(--text-medium); line-height: 1.7; }
+
+.wa-btn-danger, .wa-btn-danger-solid, .wa-btn-ghost {
+  padding: 12px; font-size: 0.85rem; font-weight: 600;
+  border-radius: var(--radius-pill); cursor: pointer;
+}
+.wa-btn-danger { border: 1px solid var(--danger-text); background: none; color: var(--danger-text); }
+.wa-btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+.wa-btn-danger-solid { flex: 1; border: none; background: var(--danger); color: var(--danger-solid-text); }
+.wa-btn-ghost { flex: 1; border: 1px solid var(--glass-border); background: none; color: var(--text-medium); }
+
+.wa-benefits {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 14px; margin: 12px 0; border-radius: var(--radius-sm);
+  background: var(--accent-olive-light); border: 1px solid var(--glass-border);
+  font-size: 0.7rem; color: var(--text-medium); line-height: 1.5;
+}
+.wa-benefits span::before { content: "\2713\00a0"; color: var(--text-accent); font-weight: 700; }
+
+.wa-side-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-bottom: 8px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: var(--text-medium);
+}
+.wa-delrow { padding: 11px 0; border-bottom: 1px solid var(--glass-border); }
+.wa-delrow:last-child { border-bottom: none; }
+.wa-delrow-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.wa-delrow-name { font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.wa-delrow-amount { font-size: 0.86rem; font-weight: 700; color: var(--text-dark); }
+.wa-delrow-sub {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 0.64rem; color: var(--text-medium); margin-top: 3px;
+}
+.wa-delrow-rewards { color: var(--text-accent); }
+.wa-unbond-time { color: var(--text-medium); }
+.wa-cancel {
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-olive); background: none;
+  color: var(--text-accent); font-size: 0.62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer;
+}
+.wa-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Fixed dark-green surfaces. Same in both themes on purpose. */
+.wa-darkcard { background: var(--tx-dark-green); border-radius: var(--radius-sm); }
+.wa-nudge { padding: 12px 14px; margin-bottom: 12px; font-size: 0.68rem; color: rgba(240, 236, 227, 0.8); line-height: 1.55; }
+.wa-nudge strong { color: var(--tx-neon); }
+.wa-info-value { display: block; font-size: 0.92rem; font-weight: 600; color: #f0ece3; margin-top: 2px; }
+
+.wa-modal-backdrop {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(15, 27, 7, 0.55); backdrop-filter: blur(4px);
+}
+.wa-modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 9999; width: min(440px, 92vw);
+  background: var(--bg-base); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+.wa-modal-head { padding: 18px 22px 12px; font-size: 1rem; font-weight: 700; color: var(--text-dark); border-bottom: 1px solid var(--glass-border); }
+.wa-modal-body { padding: 16px 22px 6px; }
+.wa-modal-facts {
+  padding: 12px 14px; margin-bottom: 12px; border-radius: var(--radius-sm);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+}
+.wa-modal-facts div { display: flex; justify-content: space-between; align-items: baseline; }
+.wa-modal-facts div + div { margin-top: 6px; }
+.wa-modal-facts span { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-medium); }
+.wa-modal-facts strong { font-size: 0.85rem; color: var(--text-dark); }
+.wa-modal-facts strong.earn { color: var(--text-accent); }
+.wa-modal-note { font-size: 0.72rem; color: var(--text-medium); line-height: 1.55; margin: 0 0 8px; }
+.wa-modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 22px 18px; }
+.wa-modal-actions .wa-btn-ghost { flex: 0 0 auto; padding: 10px 18px; font-size: 0.78rem; }
+
+/* ── Your wallet: governance block ── */
+/* Same card as every other block on this tab. These two sections rendered
+   naked on the page background under a page of boxed panels, which is what
+   made them read as unfinished. */
+.wa-card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 16px 20px; margin-top: 16px;
+}
+.wg { margin: 0; }
+.wg-quiet { font-size: 0.78rem; color: var(--text-medium); margin: 4px 0 0; }
+.wg-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  padding: 11px 0; border-bottom: 1px solid var(--glass-border);
+}
+.wg-row:last-child { border-bottom: none; }
+.wg-row-main { min-width: 0; }
+.wg-row-title { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+.wg-row-id { color: var(--text-medium); font-weight: 500; }
+.wg-row-end { font-size: 0.66rem; color: var(--text-medium); }
+.wg-voted { font-size: 0.74rem; font-weight: 600; color: var(--text-accent); white-space: nowrap; }
+.wg-vote-link {
+  font-size: 0.74rem; font-weight: 700; color: var(--text-accent);
+  white-space: nowrap; text-decoration: none;
+  padding: 6px 14px; border: 1px solid var(--accent-olive); border-radius: var(--radius-pill);
+}
+.wg-vote-link:hover { background: var(--accent-olive-light); }
+
+/* PSE history headline: two metrics sized to their content, not a 5-column
+   grid with three empty cells. The card above provides the rule. */
+.pseh-head { display: flex; flex-wrap: wrap; gap: 12px 64px; margin-bottom: 16px; }
+.pseh-head .psp-metric { min-width: 160px; }
+
+/* ── Wallet tab, position-first layout ──
+   The permanent two-column form beside the delegations list could not be
+   balanced: the form's height swings with its state, the list's with
+   delegation count. Delegations are full-width rows now and the form is a
+   dialog, which is the pattern Keplr and Cosmostation converged on. */
+.wa-stake { padding: 9px 22px; font-size: 0.8rem; white-space: nowrap; }
+.wa-claim-ghost { padding: 8px 16px; font-size: 0.74rem; flex: 0 0 auto; }
+.wa-claim-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wa-delegations { margin-top: 0; }
+.wa-card + .wa-card, .wa-strip + .wa-card { margin-top: 16px; }
+
+.wa-drow {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(90px, 0.7fr) auto;
+  align-items: center; gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--glass-border);
+}
+.wa-drow:last-child { border-bottom: none; }
+.wa-drow-id, .wa-drow-nums { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wa-drow-nums { text-align: right; }
+.wa-drow-meta { font-size: 0.64rem; color: var(--text-medium); }
+.wa-drow-rewards { text-align: right; font-size: 0.74rem; }
+.wa-drow-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .wa-drow { grid-template-columns: 1fr auto; }
+  .wa-drow-rewards { display: none; }
+  .wa-drow-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+.wa-empty-cta {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 36px 20px; text-align: center;
+}
+.wa-empty-cta p { margin: 0; font-size: 0.82rem; color: var(--text-medium); }
+
+/* Network facts live in the strip's own dark band now: they were a separate
+   full-width card between the delegations and governance, where they read as
+   a third unrelated section rather than context for the numbers above. */
+.wa-statline {
+  display: flex; flex-wrap: wrap; gap: 14px 40px;
+  padding: 12px 18px; margin: 12px 0 0; border-radius: var(--radius-sm);
+  width: 100%;
+}
+.wa-statline > div { display: flex; flex-direction: column; gap: 2px; }
+.wa-info-value { display: block; font-size: 0.92rem; font-weight: 600; color: #f0ece3; }
+
+.wa-modal-wide { width: min(560px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+.wa-modal-wide .wa-modal-body { overflow-y: auto; }
+.wa-modal-wide .wa-tabs { flex-shrink: 0; }
+.wa-modal-submit { min-width: 200px; }
+
+/* Chain-outage notice on the wallet tab. Reads as our failure, not the
+   reader's: zeros in place of real stake are the worst thing this page can
+   show, so the state has to be named. */
+.wa-unreachable { color: var(--danger-text) !important; max-width: 60ch; line-height: 1.55; }
+.wa-retry { flex: 0 0 auto; padding: 9px 20px; font-size: 0.78rem; }
+
+/* PSE "this cycle" projection. Visually separated from the settled table
+   above it because it is a different kind of number: that one is what the
+   chain paid, this one is a reference point that has not happened. */
+.pseh-proj {
+  margin-top: 18px; padding: 14px 16px;
+  border: 1px dashed var(--glass-border); border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.pseh-proj-label {
+  display: block; margin-bottom: 12px;
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: var(--text-medium);
+}
+.pseh-proj-grid { display: flex; flex-wrap: wrap; gap: 14px 48px; }
+.pseh-proj-grid > div { display: flex; flex-direction: column; gap: 2px; min-width: 150px; }
+.pseh-proj-key { font-size: 0.7rem; color: var(--text-medium); }
+.pseh-proj-val { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+.pseh-proj-note { font-size: 0.66rem; color: var(--text-light); }
+/* Seven columns of figures; let the table scroll rather than the page. */
+@media (max-width: 1000px) { .pdp-wrap { overflow-x: auto; } }

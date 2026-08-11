@@ -108,6 +108,15 @@ export interface ValidatorMeta {
   jailed: boolean;
   /** Cosmos SDK BOND_STATUS_BONDED = 3. Anything else is out of the active set. */
   bonded: boolean;
+  /** Bonded stake, in TX. */
+  tokensTX: number;
+  /** Share of all bonded stake, as a percentage. Voting power. */
+  votingPowerPct: number;
+  /**
+   * Position by stake among ACTIVE validators, 1 being the largest. Null for
+   * anything outside the active set, which has no rank to hold.
+   */
+  rank: number | null;
 }
 
 /**
@@ -132,10 +141,30 @@ export async function fetchValidatorMeta(): Promise<Record<string, ValidatorMeta
           moniker: v.description?.moniker ?? v.operator_address,
           jailed: Boolean(v.jailed),
           bonded: v.status === "BOND_STATUS_BONDED" || v.status === 3,
+          tokensTX: ucoreToTX(v.tokens),
+          votingPowerPct: 0, // filled in below, once the whole set is known
+          rank: null,
         };
       }
       nextKey = data?.pagination?.next_key || null;
     } while (nextKey);
+
+    // Rank and voting power need the full set, so they are computed after
+    // pagination finishes rather than per page.
+    //
+    // Ranked among ACTIVE validators only. Including jailed and unbonded ones
+    // would push every real position down by however many are currently out,
+    // and "rank 30 of 106" would mean something different from what the chain
+    // means by it. There are 53 active and 53 inactive right now, so the
+    // difference is not academic.
+    const active = Object.values(map).filter((m) => m.bonded && !m.jailed);
+    const totalBonded = active.reduce((n, m) => n + m.tokensTX, 0);
+    active
+      .sort((a, b) => b.tokensTX - a.tokensTX)
+      .forEach((m, i) => {
+        m.rank = i + 1;
+        m.votingPowerPct = totalBonded > 0 ? (m.tokensTX / totalBonded) * 100 : 0;
+      });
   } catch {
     // Names and standing are decoration on top of the amounts; a failure here
     // leaves addresses showing instead of monikers rather than blanking data.

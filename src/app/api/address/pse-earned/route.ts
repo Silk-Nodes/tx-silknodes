@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Enter a valid core1... address" }, { status: 400 });
   }
   try {
-    const data = await hasuraQuery<{ pse_transfer: { height: number; amount: string; allocation_type: string }[] }>(
+    const data = await hasuraQuery<{ pse_transfer: { height: number; amount: string; score: string; allocation_type: string }[] }>(
       QUERY, { addr: address },
     );
     const rows = data.pse_transfer ?? [];
@@ -31,6 +31,15 @@ export async function GET(req: Request) {
     const distributions = rows.map((r) => ({
       height: r.height,
       amountTX: Number(r.amount) / UCORE_PER_TX,
+      // Raw ucore, as a string. A payout of 22,192.040720 TX loses its last
+      // digits through Number, and these are the figures a reader recomputes
+      // the share from, so they have to survive intact.
+      amountUcore: r.amount,
+      // The chain's own score for this address in that cycle. With the
+      // cycle's total_score it makes each payout checkable:
+      // amount = score / total_score * pool. Verified against cycle 5, where
+      // the recipients' scores sum to total_score exactly.
+      score: r.score,
       type: r.allocation_type,
     }));
     const totalTX = distributions.reduce((s, d) => s + d.amountTX, 0);

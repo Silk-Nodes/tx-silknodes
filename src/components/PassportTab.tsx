@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
 import WalletPanel from "@/components/WalletPanel";
-import PortfolioPanel from "@/components/PortfolioPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
@@ -400,7 +399,6 @@ export default function PassportTab({
     return (
       <div className="psp">
         {searchBar}
-        <PortfolioPanel connectedAddress={connectedAddress} txPrice={txPrice} onOpenPassport={load} refreshKey={portfolioNonce} />
         {loading ? (
           <div className="psp-loading"><span className="psp-spinner" aria-hidden="true" /> Reading the chain for this wallet...</div>
         ) : (
@@ -453,10 +451,6 @@ export default function PassportTab({
   return (
     <div className="psp">
       {searchBar}
-      {/* Combined multi-wallet view. Sits above the single-wallet passport
-          because someone who has saved wallets wants the overall picture
-          first; the passport below still answers "what about this one". */}
-      <PortfolioPanel connectedAddress={connectedAddress} txPrice={txPrice} onOpenPassport={load} refreshKey={portfolioNonce} />
       {/* ── Hero (shareable) ── */}
       <Shareable title="TX Wallet Passport" subtitle={shortAddr(address)} caption="Holdings, staking, PSE and governance at a glance" exportWidth={760}>
         <div className="psp-hero">
