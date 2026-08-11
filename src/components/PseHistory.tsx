@@ -79,10 +79,42 @@ function sharePctExact(score: string, total: string): number {
   try {
     const s = BigInt(score), t = BigInt(total);
     if (t === BigInt(0)) return 0;
-    return Number((s * BigInt(100_000_000)) / t) / 1_000_000;
+    // 1e18 of headroom, not 1e8: a small holder's share is around 1.2e-8
+    // percent, which the old scale floored to zero before it was ever
+    // formatted.
+    return Number((s * BigInt("1000000000000000000000")) / t) / 1e19;
   } catch {
     return 0;
   }
+}
+
+/**
+ * USD that does not round small money to zero.
+ *
+ * formatCompact falls through to toFixed(0) below 1,000, so a real 0.012
+ * printed as "$0" and five cycles of genuine earnings read as nothing. Small
+ * balances are exactly where a holder needs the digits.
+ */
+function fmtUsd(v: number): string {
+  if (!Number.isFinite(v)) return "-";
+  if (v === 0) return "$0";
+  if (v < 0.01) return `$${v.toFixed(4)}`;
+  if (v < 1) return `$${v.toFixed(3)}`;
+  if (v < 1000) return `$${v.toFixed(2)}`;
+  return `$${formatCompact(v)}`;
+}
+
+/**
+ * A share as a percentage, keeping two significant figures however small it
+ * gets. Fixed 6dp clipped a real 0.0000012069% to "0.000001%", and anything
+ * smaller collapsed to "<0.000001%", which told a small holder their share
+ * was unmeasurable when it is not.
+ */
+function fmtShare(pct: number): string {
+  if (!(pct > 0)) return "0%";
+  if (pct >= 0.01) return `${pct.toFixed(4)}%`;
+  const decimals = Math.min(12, Math.max(2, Math.ceil(-Math.log10(pct)) + 1));
+  return `${pct.toFixed(decimals)}%`;
 }
 
 /** Compact form of a very large integer, e.g. 3.513e17. */
@@ -191,7 +223,7 @@ export default function PseHistory({ address }: { address: string }) {
             Worth when paid
             <Tooltip text="Each distribution valued at the TX price on the day it landed, then summed. Restating past income at today's price would flatter or punish it depending on where price has since moved." />
           </span>
-          <span className="psp-metric-value">{totalUsd > 0 ? `$${formatCompact(totalUsd)}` : "-"}</span>
+          <span className="psp-metric-value">{totalUsd > 0 ? fmtUsd(totalUsd) : "-"}</span>
           <span className="psp-metric-sub">at each cycle&apos;s own price</span>
         </div>
       </div>
@@ -228,11 +260,9 @@ export default function PseHistory({ address }: { address: string }) {
                   <td className="pdp-num mono" title={`${r.score} of ${r.totalScore} total`}>
                     {sci(r.score)}
                   </td>
-                  <td className="pdp-num mono">
-                    {r.sharePct < 0.000001 ? "<0.000001%" : `${r.sharePct.toFixed(6)}%`}
-                  </td>
+                  <td className="pdp-num mono">{fmtShare(r.sharePct)}</td>
                   <td className="pdp-num mono">{r.priceUsd !== null ? `$${r.priceUsd.toFixed(6)}` : "-"}</td>
-                  <td className="pdp-num mono">{r.usd !== null ? `$${formatCompact(r.usd)}` : "-"}</td>
+                  <td className="pdp-num mono">{r.usd !== null ? fmtUsd(r.usd) : "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -255,7 +285,7 @@ export default function PseHistory({ address }: { address: string }) {
             </div>
             <div>
               <span className="pseh-proj-key">Against cycle #{projection.basisCycle}&apos;s total</span>
-              <span className="mono pseh-proj-val">{projection.sharePct.toFixed(6)}%</span>
+              <span className="mono pseh-proj-val">{fmtShare(projection.sharePct)}</span>
               <span className="pseh-proj-note">of that cycle&apos;s pool</span>
             </div>
             <div>
