@@ -99,18 +99,39 @@ export const LCD_POOL: string[] = Array.from(
  * Throws when every host fails, so callers surface an outage instead of
  * degrading to zero.
  */
+/**
+ * The LCD host that last answered, remembered for the session.
+ *
+ * Without this the pool retried a dead host on EVERY request. With our own
+ * node unreachable that meant 20+ ERR_NAME_NOT_RESOLVED in the console per
+ * page load, a wasted round trip before each real one, and enough noise to
+ * bury a genuine error. pickRpc already caches its choice; the LCD side did
+ * not.
+ *
+ * Cleared when the remembered host fails, so a node that dies mid-session
+ * sends the next call back through the full pool instead of pinning to it.
+ */
+let healthyLcd: string | null = null;
+
+/** Pool order with the last known-good host first. */
+function lcdOrder(preferred?: string): string[] {
+  const head = [healthyLcd, preferred].filter(Boolean) as string[];
+  return [...new Set([...head, ...LCD_POOL])];
+}
+
 export async function lcdGet(path: string, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
   let lastErr: unknown = new Error("No chain hosts configured");
-  for (const host of LCD_POOL) {
+  for (const host of lcdOrder()) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(`${host}${path}`, { signal: controller.signal });
       clearTimeout(timer);
-      if (res.ok || res.status === 404) return res;
+      if (res.ok || res.status === 404) { healthyLcd = host; return res; }
       lastErr = new Error(`HTTP ${res.status} from ${host}`);
     } catch (err) {
       clearTimeout(timer);
+      if (healthyLcd === host) healthyLcd = null;
       lastErr = err;
     }
   }
@@ -165,7 +186,7 @@ export async function fetchWithTimeout(url: string, options?: RequestInit, timeo
 
   const path = url.slice(base.length);
   // Start at the host the caller asked for, then continue through the rest.
-  const ordered = [base, ...pool.filter((h) => h !== base)];
+  const ordered = lcdBase ? lcdOrder(base) : [base, ...pool.filter((h) => h !== base)];
   let lastErr: unknown = new Error("No LCD hosts configured");
   for (const host of ordered) {
     const controller = new AbortController();
@@ -174,10 +195,14 @@ export async function fetchWithTimeout(url: string, options?: RequestInit, timeo
       const res = await fetch(`${host}${path}`, { ...options, signal: controller.signal });
       clearTimeout(timer);
       // A 404 is a real answer, not a reason to ask another node.
-      if (res.ok || res.status === 404) return res;
+      if (res.ok || res.status === 404) {
+        if (lcdBase) healthyLcd = host;
+        return res;
+      }
       lastErr = new Error(`HTTP ${res.status} from ${host}`);
     } catch (err) {
       clearTimeout(timer);
+      if (lcdBase && healthyLcd === host) healthyLcd = null;
       lastErr = err;
     }
   }

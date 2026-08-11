@@ -14176,8 +14176,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .wa-note { font-size: 0.7rem; color: var(--text-medium); line-height: 1.5; margin: 12px 0; }
-.wa-submit { width: 100%; padding: 12px; font-size: 0.85rem; margin-top: 4px; }
-.wa-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .wa-warn {
   padding: 12px 14px; margin: 12px 0; border-radius: var(--radius-sm);
@@ -14186,7 +14184,6 @@ input[type="range"]::-moz-range-thumb {
 .wa-warn-title { display: block; font-size: 0.72rem; font-weight: 700; color: var(--danger-text); margin-bottom: 6px; }
 .wa-warn ul { margin: 0; padding-left: 16px; font-size: 0.7rem; color: var(--text-medium); line-height: 1.7; }
 
-.wa-confirm-row { display: flex; gap: 8px; margin-top: 4px; }
 .wa-btn-danger, .wa-btn-danger-solid, .wa-btn-ghost {
   padding: 12px; font-size: 0.85rem; font-weight: 600;
   border-radius: var(--radius-pill); cursor: pointer;
