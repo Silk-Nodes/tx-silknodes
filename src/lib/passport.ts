@@ -39,6 +39,10 @@ export interface AddressChainData {
   otherTokens: TokenHolding[]; // non-TX smart tokens / IBC assets held
   txsSent: number;          // account sequence (txs this wallet signed)
   accountNumber: number;    // lower = older account
+  /** Raw @type from the auth module, e.g. ".../ModuleAccount". */
+  accountType: string;
+  /** Module name when this is a ModuleAccount, e.g. "pse_team". */
+  moduleName: string | null;
 }
 
 // Smart-token denom looks like "subunit-issueraddress"; IBC like "ibc/HASH".
@@ -269,6 +273,12 @@ export async function fetchAddressChainData(address: string): Promise<AddressCha
   const base = acct?.account?.base_account ?? acct?.account ?? {};
   const txsSent = Number(base.sequence ?? 0);
   const accountNumber = Number(base.account_number ?? 0);
+  // The auth response was already being fetched for the two fields above.
+  // A ModuleAccount carries its name here and has pub_key: null, which is the
+  // difference between "someone holds 1.88B" and "the protocol does".
+  const accountType: string = acct?.account?.["@type"] ?? "";
+  const moduleName: string | null =
+    accountType.endsWith("ModuleAccount") ? (acct?.account?.name ?? null) : null;
 
   const delegations: PassportDelegation[] = (deleg?.delegation_responses ?? []).map(
     (d: any) => ({
@@ -305,6 +315,8 @@ export async function fetchAddressChainData(address: string): Promise<AddressCha
     otherTokens,
     txsSent,
     accountNumber,
+    accountType,
+    moduleName,
   };
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
 import WalletPanel from "@/components/WalletPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
+import ModuleAccountNotice from "@/components/ModuleAccountNotice";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
 import { fetchOnChainPSEScore } from "@/lib/pse-calculator";
@@ -502,6 +503,12 @@ export default function PassportTab({
           </div>
         </div>
       </Shareable>
+
+      {/* Sits directly under the hero, before any balance card, because it
+          changes how every number below should be read. */}
+      {data.chain.moduleName && (
+        <ModuleAccountNotice moduleName={data.chain.moduleName} balanceTX={data.chain.balanceTX} />
+      )}
 
       {/* ── Summary: two bounded, always-similar cards that align cleanly ── */}
       <div className="psp-summary">
