@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_THEME, STORAGE_KEY, isValidTheme, type Theme } from "@/lib/theme";
+import { DEFAULT_THEME, STORAGE_KEY, isValidTheme, resolveInitialTheme, type Theme } from "@/lib/theme";
 
 /**
  * Reads the current theme from the <html data-theme> attribute that was set
@@ -26,11 +26,26 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
     return DEFAULT_THEME;
   });
 
-  // Keep listening for cross-tab changes (and re-sync once on mount as a
-  // belt-and-braces against any attribute set after first paint).
+  // Reconcile the attribute and the state on mount, in BOTH directions.
+  //
+  // This used to only read the attribute. That left one unrecoverable state:
+  // if <html data-theme> was missing or wrong after hydration, nothing ever
+  // wrote it back. The switcher kept the theme it captured while the CSS fell
+  // through to the :root defaults, which is the "moon selected but a light
+  // page" desync layout.tsx warns about. It survived reloads because every
+  // load reproduced it, and clicking "auto" appeared to fix it only because
+  // setTheme happens to write the attribute.
+  //
+  // resolveInitialTheme is the same source of truth the no-flash script uses
+  // (stored choice, else system preference), so this re-asserts rather than
+  // guesses. When the attribute is already correct nothing changes and the
+  // thumb does not slide on a nav remount.
   useEffect(() => {
-    const attr = document.documentElement.getAttribute("data-theme");
-    if (isValidTheme(attr)) setThemeState(attr);
+    const intended = resolveInitialTheme();
+    if (document.documentElement.getAttribute("data-theme") !== intended) {
+      document.documentElement.setAttribute("data-theme", intended);
+    }
+    setThemeState(intended);
 
     // Listen for changes in other tabs and apply them here too.
     const onStorage = (e: StorageEvent) => {
