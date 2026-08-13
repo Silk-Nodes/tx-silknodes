@@ -14368,3 +14368,38 @@ input[type="range"]::-moz-range-thumb {
 .pseh-proj-note { font-size: 0.66rem; color: var(--text-light); }
 /* Seven columns of figures; let the table scroll rather than the page. */
 @media (max-width: 1000px) { .pdp-wrap { overflow-x: auto; } }
+
+/* Protocol-account notice on the passport. Deliberately loud: it changes how
+   every figure under it should be read, and a reader who misses it will treat
+   a protocol allocation as somebody's sellable balance. */
+.mod-acct {
+  margin: 16px 0 20px; padding: 18px 22px;
+  border: 1px solid var(--pill-border-strong); border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+.mod-acct-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+.mod-acct-tag {
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.09em;
+  font-weight: 700; color: var(--text-accent);
+}
+.mod-acct-name { font-size: 0.82rem; color: var(--text-medium); }
+.mod-acct-lead {
+  margin: 12px 0 0; font-size: 0.92rem; line-height: 1.55; color: var(--text-dark);
+  max-width: 76ch;
+}
+.mod-acct-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--glass-border);
+}
+@media (max-width: 860px) { .mod-acct-grid { grid-template-columns: repeat(2, 1fr); } }
+.mod-acct-grid > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mod-acct-key {
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-medium);
+}
+.mod-acct-val { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); }
+/* --text-medium, not --text-light: the latter measures 3.27:1 here, and this
+   is the line carrying "5 of 84 months", which is the point of the panel. */
+.mod-acct-note { font-size: 0.68rem; color: var(--text-medium); }
+.mod-acct-check {
+  margin: 16px 0 0; font-size: 0.74rem; color: var(--text-medium);
+}
