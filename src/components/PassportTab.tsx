@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Shareable from "@/components/share/Shareable";
 import WalletPanel from "@/components/WalletPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
+import { fetchOnChainExcludedAddresses, PSE_EXCLUDED_ADDRESSES } from "@/lib/pse-calculator";
 import ModuleAccountNotice from "@/components/ModuleAccountNotice";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
@@ -41,6 +42,10 @@ interface PseStanding {
   annual: number;
   sharePct: number;
   eligible: boolean;
+  /** On the chain's PSE excluded_addresses list: earns nothing, whatever it stakes. */
+  excluded: boolean;
+  /** Bonded TX, kept so the card can refuse to divide by dust. */
+  stakedTX: number;
 }
 interface ActivityItem {
   kind: "send" | "receive" | "delegate" | "undelegate" | "redelegate"
@@ -257,12 +262,20 @@ export default function PassportTab({
       // Through the shared resolver, so the same wallet reads identically here,
       // on the PSE page and in the combined portfolio.
       const est = await estimatePSE({ stakeTX: chain.stakedTX, score });
+      // The chain's own excluded_addresses. A wallet on this list earns no
+      // community PSE no matter what it stakes, so eligibility cannot be
+      // decided from stake and score alone. The address-label chip already
+      // said "PSE Excluded" while this card said "Eligible: Yes".
+      const excludedList = await fetchOnChainExcludedAddresses().catch(() => PSE_EXCLUDED_ADDRESSES);
+      const excluded = excludedList.includes(address);
       const pse: PseStanding = {
         score,
         monthly: est.monthly,
         annual: est.monthly * 12,
         sharePct: est.sharePct,
-        eligible: !!score && chain.stakedTX > 0,
+        eligible: !!score && chain.stakedTX > 0 && !excluded,
+        excluded,
+        stakedTX: chain.stakedTX,
       };
       const badges = computeBadges({
         isExchange: false, rank: null,
@@ -426,7 +439,12 @@ export default function PassportTab({
   ].filter((s) => s.tx > 0);
   const stakedPct = netWorth > 0 ? (chain.stakedTX / netWorth) * 100 : 0;
   const topValidatorShare = chain.stakedTX > 0 && chain.delegations[0] ? (chain.delegations[0].amountTX / chain.stakedTX) * 100 : 0;
-  const monthlyYieldPct = chain.stakedTX > 0 && pse ? (pse.monthly / chain.stakedTX) * 100 : 0;
+  // 1 TX floor, not > 0. A wallet mid-unbonding kept 5 ucore bonded, and
+  // dividing an estimate built from its historical score by 0.000005 TX
+  // rendered a monthly yield of 75,259,643,255,610%. Below a whole TX the
+  // ratio carries no information, so it is not shown at all.
+  const yieldIsMeaningful = !!pse && chain.stakedTX >= 1;
+  const monthlyYieldPct = yieldIsMeaningful ? (pse!.monthly / chain.stakedTX) * 100 : 0;
   const allTimeNet = flows ? flows.summary.totalReceivedFromExchanges - flows.summary.totalSentToExchanges : 0;
   const oldest = activity[activity.length - 1]?.timestamp ?? null;
   const firstActivity = firstSeen ?? oldest ?? (flows?.recent.length ? flows.recent[flows.recent.length - 1].timestamp : null);
@@ -499,7 +517,7 @@ export default function PassportTab({
             <Metric label="Staked" value={`${stakedPct.toFixed(0)}%`} sub={TX(chain.stakedTX)} />
             <Metric label="Validators" value={String(chain.validatorCount)} sub={topValidatorShare > 0 ? `top ${topValidatorShare.toFixed(0)}%` : undefined} />
             <Metric label="Proposals voted" value={String(gov?.summary.votedCount ?? 0)} sub={gov ? `of ${gov.summary.votableCount}` : undefined} />
-            <Metric label="Est. PSE / mo" value={pse && pse.eligible ? TX(pse.monthly) : "—"} sub={pse && pse.eligible ? usd(pse.monthly) ?? undefined : undefined} />
+            <Metric label="Est. PSE / mo" value={pse && pse.eligible ? TX(pse.monthly) : pse?.excluded ? "Excluded" : "—"} sub={pse && pse.eligible ? usd(pse.monthly) ?? undefined : undefined} />
           </div>
         </div>
       </Shareable>
@@ -537,7 +555,7 @@ export default function PassportTab({
 
         {/* PSE standing */}
         <Card title="PSE standing">
-          {(pse && pse.eligible) || pseEarned ? (
+          {(pse && pse.eligible) || pseEarned || pse?.excluded ? (
             <>
               <div className="psp-kv-grid">
                 {pseEarned
@@ -545,12 +563,26 @@ export default function PassportTab({
                       <KV label="Earned to date" value={TX(pseEarned.totalTX)} sub={usd(pseEarned.totalTX)} tone="good" />
                       <KV label="Distributions" value={String(pseEarned.count)} />
                     </>
-                  : <KV label="Eligible" value="Yes" tone="good" />}
+                  /* "Eligible: Yes" used to render whenever pseEarned was
+                     falsy, with no reference to pse.eligible at all, so an
+                     excluded wallet was told it qualified. */
+                  : pse?.excluded
+                    ? <KV label="Eligible" value="No" tone="warn" />
+                    : pse?.eligible
+                      ? <KV label="Eligible" value="Yes" tone="good" />
+                      : <KV label="Eligible" value="Not staking" />}
                 {pse && pse.eligible && <>
                   <KV label="Est. next" value={TX(pse.monthly)} sub={usd(pse.monthly)} />
-                  <KV label="Monthly yield" value={`${monthlyYieldPct.toFixed(1)}%`} />
+                  {yieldIsMeaningful && <KV label="Monthly yield" value={`${monthlyYieldPct.toFixed(1)}%`} />}
                 </>}
               </div>
+              {pse?.excluded && (
+                <p className="psp-note">
+                  This address is on the chain&apos;s PSE excluded list, so it receives no community
+                  PSE regardless of how much it stakes. Read live from
+                  {" "}<span className="mono">tx/pse/v1/params</span>.
+                </p>
+              )}
               {pse && pse.eligible && (
                 <div className="psp-sharebar-wrap">
                   <div className="psp-sharebar-head"><span>Share of PSE pool</span><span>{pse.sharePct < 0.01 ? "<0.01" : pse.sharePct.toFixed(2)}%</span></div>
@@ -808,11 +840,12 @@ function Card({ title, children, wide }: { title: string; children: React.ReactN
     </div>
   );
 }
-function KV({ label, value, sub, tone }: { label: string; value: string; sub?: string | null; tone?: "good" }) {
+function KV({ label, value, sub, tone }: { label: string; value: string; sub?: string | null; tone?: "good" | "warn" }) {
+  const toneClass = tone === "good" ? " psp-kv-good" : tone === "warn" ? " psp-kv-warn" : "";
   return (
     <div className="psp-kv">
       <span className="psp-kv-label">{label}</span>
-      <span className={`psp-kv-value${tone === "good" ? " psp-kv-good" : ""}`}>{value}{sub ? <span className="psp-usd"> {sub}</span> : null}</span>
+      <span className={`psp-kv-value${toneClass}`}>{value}{sub ? <span className="psp-usd"> {sub}</span> : null}</span>
     </div>
   );
 }

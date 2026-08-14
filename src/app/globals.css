@@ -14403,3 +14403,12 @@ input[type="range"]::-moz-range-thumb {
 .mod-acct-check {
   margin: 16px 0 0; font-size: 0.74rem; color: var(--text-medium);
 }
+
+/* A "No" that has to be read as a fact rather than a failure: the wallet is
+   on the chain's PSE excluded list, which is a property of the address, not
+   something it did wrong. */
+.psp-kv-warn { color: var(--danger-text); }
+.psp-note {
+  margin: 12px 0 0; font-size: 0.78rem; line-height: 1.55; color: var(--text-medium);
+  max-width: 62ch;
+}
