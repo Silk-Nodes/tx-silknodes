@@ -27,11 +27,16 @@
 //
 // READ-ONLY against LCD and Hasura. Writes only to validator_snapshots.
 
-// bech32 v1 ships CommonJS, so Node ESM cannot pull named exports off it.
-// The web app never hit this because Turbopack bundles the interop away;
-// this file runs unbundled under plain node and does not get that.
+// This repo runs two bech32 majors on purpose: the root package declares
+// ^1.1.4 for the web app, vm-service declares ^2.0.0. v1 exports decode and
+// encode flat; v2 nests them under .bech32. Resolving the shape at load
+// means neither side has to care which one npm installed.
+//
+// It also ships CommonJS, so Node ESM cannot take named exports off it.
+// Turbopack bundles that interop away for the web app; this file runs
+// unbundled and does not get that help.
 import bech32Pkg from "bech32";
-const { decode: bech32Decode, encode: bech32Encode } = bech32Pkg;
+const bech32Lib = bech32Pkg.bech32 ?? bech32Pkg;
 import { query, closePool } from "./db.mjs";
 
 const LCD = process.env.COREUM_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
@@ -85,11 +90,25 @@ async function fetchAllPaged(path, key) {
 // validators entirely: on 2026-08-18 it had no row at all for Kraken,
 // SOLONATIONLABS, Huobi or Zeeve Inc., 9.87% of bonded stake between them.
 // Anything we can compute ourselves should not depend on an upstream index.
+let deriveFailures = 0;
+
 function deriveSelfDelegate(operatorAddress) {
   try {
-    const { words } = bech32Decode(operatorAddress);
-    return bech32Encode("core", words);
-  } catch {
+    const { words } = bech32Lib.decode(operatorAddress);
+    return bech32Lib.encode("core", words);
+  } catch (err) {
+    // Counted and reported, never swallowed. The first version of this
+    // returned "" on failure and fell through to the indexer map, so a
+    // derivation that was broken for all 106 validators looked like a
+    // handful of NULL columns. A silent fallback to the very dependency
+    // this was meant to remove is the worst possible failure here.
+    deriveFailures += 1;
+    if (deriveFailures === 1) {
+      console.warn(
+        `[validator-snapshots] self-delegate derivation FAILED (${err.message}); ` +
+          `falling back to the indexer map, which is exactly what this is supposed to replace`,
+      );
+    }
     return "";
   }
 }
@@ -232,6 +251,11 @@ async function main() {
       ],
     );
     written += 1;
+  }
+  if (deriveFailures > 0) {
+    console.warn(
+      `[validator-snapshots] WARNING: derived 0 of ${deriveFailures} self-delegate addresses locally`,
+    );
   }
   console.log(`[validator-snapshots] wrote ${written} rows for ${DATE}`);
 }
