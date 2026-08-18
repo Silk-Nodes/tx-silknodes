@@ -396,7 +396,7 @@ function NonVotersCallout({ validators }: { validators: ValidatorVote[] }) {
     >
       <div className="prop-page-nonvoters">
         {nonVoters.map((v, i) => (
-          <div key={v.consensusAddress} className="prop-page-nonvoter-row">
+          <div key={v.operatorAddress} className="prop-page-nonvoter-row">
             <span className="prop-page-nonvoter-rank">{i + 1}</span>
             <span className="prop-page-nonvoter-name">{v.moniker || "(unnamed)"}</span>
             <span className="prop-page-nonvoter-stake">

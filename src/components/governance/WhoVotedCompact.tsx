@@ -54,7 +54,7 @@ export default function WhoVotedCompact({ validators, totalBonded, highlightAddr
         <div className="wvc-list">
           {voted.map((v, i) => (
             <ValidatorRow
-              key={v.consensusAddress}
+              key={v.operatorAddress}
               v={v}
               rank={i + 1}
               totalBonded={totalBonded}
@@ -79,7 +79,7 @@ export default function WhoVotedCompact({ validators, totalBonded, highlightAddr
           <div className="wvc-list wvc-list-muted">
             {topNonVoters.map((v, i) => (
               <ValidatorRow
-                key={v.consensusAddress}
+                key={v.operatorAddress}
                 v={v}
                 rank={i + 1}
                 totalBonded={totalBonded}
