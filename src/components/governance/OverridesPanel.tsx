@@ -46,6 +46,7 @@ export default function OverridesPanel({
   const [drawerAddress, setDrawerAddress] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("stake");
   const [band, setBand] = useState<BandId>("all");
+  const [search, setSearch] = useState("");
 
   // Build a validator-vote index so we can compute rebellion stats in the
   // header without re-looping per row.
@@ -85,8 +86,12 @@ export default function OverridesPanel({
   // describe the full set, not the current selection.
   const visible = useMemo(() => {
     const b = BANDS.find((x) => x.id === band) ?? BANDS[0];
-    return sorted.filter((r) => b.test(r.bondedTotalTX));
-  }, [sorted, band]);
+    // Search matches the FULL address, not the shortened display form:
+    // someone pasting core1q0t0hmg...r8dvgl's middle characters from an
+    // explorer must still land on the row that renders as an ellipsis.
+    const q = search.trim().toLowerCase();
+    return sorted.filter((r) => b.test(r.bondedTotalTX) && (q === "" || r.voterAddress.toLowerCase().includes(q)));
+  }, [sorted, band, search]);
 
   // Aggregate stats. Only meaningful once enrichment lands.
   const stats = useMemo(() => {
@@ -210,6 +215,13 @@ export default function OverridesPanel({
         >
           Voted at
         </button>
+        <input
+          type="search"
+          className="vvt-search ovp-search"
+          placeholder="Search address..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* List */}
@@ -236,7 +248,9 @@ export default function OverridesPanel({
           <div className="ovp-empty">
             {sorted.length === 0
               ? "No delegator override votes on this proposal."
-              : "No voters in this power band."}
+              : search.trim() !== ""
+                ? "No address matches that search in this power band."
+                : "No voters in this power band."}
           </div>
         )}
       </div>

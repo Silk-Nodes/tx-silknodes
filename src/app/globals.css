@@ -14604,3 +14604,9 @@ input[type="range"]::-moz-range-thumb {
 
 /* Validator rows open the delegator drawer when a proposalId is wired in. */
 .vvt-row-click { cursor: pointer; }
+
+/* Address search on the override list: the same .vvt-search as the
+   validator table, narrowed so the single controls row survives 1400px
+   with five band chips and two sort chips beside it. */
+.ovp-search { flex: 0 0 210px; }
+@media (max-width: 760px) { .ovp-search { flex: 1 1 100%; } }
