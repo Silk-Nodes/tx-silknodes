@@ -27,7 +27,11 @@
 //
 // READ-ONLY against LCD and Hasura. Writes only to validator_snapshots.
 
-import { decode as bech32Decode, encode as bech32Encode } from "bech32";
+// bech32 v1 ships CommonJS, so Node ESM cannot pull named exports off it.
+// The web app never hit this because Turbopack bundles the interop away;
+// this file runs unbundled under plain node and does not get that.
+import bech32Pkg from "bech32";
+const { decode: bech32Decode, encode: bech32Encode } = bech32Pkg;
 import { query, closePool } from "./db.mjs";
 
 const LCD = process.env.COREUM_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
