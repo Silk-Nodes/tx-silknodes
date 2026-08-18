@@ -9454,7 +9454,12 @@ input[type="range"]::-moz-range-thumb {
 .vvt-sortable:hover { color: var(--text-dark); }
 .vvt-sortable.active { color: var(--text-accent); }
 .vvt-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.vvt-th-rank { width: 48px; text-align: center; }
+/* Numeric HEADERS need the element-qualified form: `.vvt-table th` is
+   (0,1,1) and beats plain `.vvt-num` (0,1,0), so Bonded and % of bonded
+   were left-aligned over right-aligned numbers. */
+.vvt-table th.vvt-num { text-align: right; }
+/* Same specificity trap as th.vvt-num: qualify with the element. */
+.vvt-th-rank, .vvt-table th.vvt-th-rank { width: 48px; text-align: center; }
 .vvt-td-rank { text-align: center; color: var(--text-light); font-weight: 500; }
 .vvt-mon-cell { display: flex; align-items: center; gap: 12px; }
 .vvt-avatar {
