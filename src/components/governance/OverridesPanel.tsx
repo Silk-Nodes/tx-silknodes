@@ -16,6 +16,18 @@ interface Props {
 }
 
 type SortKey = "stake" | "votedAt";
+type BandId = "all" | "lt10k" | "10k100k" | "100k1m" | "gte1m";
+
+// Voting-power bands, in display TX. Ranges are non-overlapping so the chip
+// counts sum to the total and nobody has to guess which side of a boundary
+// a wallet landed on.
+const BANDS: { id: BandId; label: string; test: (tx: number) => boolean }[] = [
+  { id: "all", label: "All", test: () => true },
+  { id: "lt10k", label: "< 10K", test: (t) => t < 10_000 },
+  { id: "10k100k", label: "10K - 100K", test: (t) => t >= 10_000 && t < 100_000 },
+  { id: "100k1m", label: "100K - 1M", test: (t) => t >= 100_000 && t < 1_000_000 },
+  { id: "gte1m", label: "1M +", test: (t) => t >= 1_000_000 },
+];
 
 const VOTE_LABEL: Record<string, string> = {
   YES: "Yes",
@@ -33,6 +45,7 @@ export default function OverridesPanel({
   const { overrides, loading, error } = useProposalOverrides(proposalId, enabled);
   const [drawerAddress, setDrawerAddress] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("stake");
+  const [band, setBand] = useState<BandId>("all");
 
   // Build a validator-vote index so we can compute rebellion stats in the
   // header without re-looping per row.
@@ -67,6 +80,13 @@ export default function OverridesPanel({
     });
     return r;
   }, [rows, sortKey]);
+
+  // The band narrows what renders. `sorted` stays whole so the chip counts
+  // describe the full set, not the current selection.
+  const visible = useMemo(() => {
+    const b = BANDS.find((x) => x.id === band) ?? BANDS[0];
+    return sorted.filter((r) => b.test(r.bondedTotalTX));
+  }, [sorted, band]);
 
   // Aggregate stats. Only meaningful once enrichment lands.
   const stats = useMemo(() => {
@@ -153,19 +173,39 @@ export default function OverridesPanel({
         </div>
       )}
 
-      {/* Sort controls */}
+      {/* One control row: bands on the left, sort on the right, the same
+          shape as the validator table's filter-chips-plus-search line. Two
+          stacked rows of near-identical pills read as a mistake. Bands only
+          appear once stake has loaded, so counts never render as zero. */}
       <div className="ovp-controls">
-        <span className="ovp-controls-label">Sort by</span>
+        {overrides && (
+          <>
+            <span className="ovp-controls-label">Voting power</span>
+            {/* Same .vvt-chip as the validator table's filters, not a
+                lookalike: shared classes cannot drift apart. */}
+            {BANDS.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className={`vvt-chip ${band === b.id ? "active" : ""}`}
+                onClick={() => setBand(b.id)}
+              >
+                {b.label} <span className="vvt-chip-count">{sorted.filter((r) => b.test(r.bondedTotalTX)).length}</span>
+              </button>
+            ))}
+          </>
+        )}
+        <span className="ovp-controls-label ovp-controls-sort">Sort by</span>
         <button
           type="button"
-          className={`ovp-sort ${sortKey === "stake" ? "active" : ""}`}
+          className={`vvt-chip ${sortKey === "stake" ? "active" : ""}`}
           onClick={() => setSortKey("stake")}
         >
           Voting power
         </button>
         <button
           type="button"
-          className={`ovp-sort ${sortKey === "votedAt" ? "active" : ""}`}
+          className={`vvt-chip ${sortKey === "votedAt" ? "active" : ""}`}
           onClick={() => setSortKey("votedAt")}
         >
           Voted at
@@ -174,7 +214,7 @@ export default function OverridesPanel({
 
       {/* List */}
       <div className="ovp-list">
-        {sorted.map((row) => (
+        {visible.map((row) => (
           <button
             key={row.voterAddress}
             type="button"
@@ -192,8 +232,12 @@ export default function OverridesPanel({
             <span className="ovp-row-chev" aria-hidden="true">→</span>
           </button>
         ))}
-        {sorted.length === 0 && !loading && (
-          <div className="ovp-empty">No delegator override votes on this proposal.</div>
+        {visible.length === 0 && !loading && (
+          <div className="ovp-empty">
+            {sorted.length === 0
+              ? "No delegator override votes on this proposal."
+              : "No voters in this power band."}
+          </div>
         )}
       </div>
 

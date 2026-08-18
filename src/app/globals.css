@@ -8987,7 +8987,23 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.2;
   color: var(--text-dark);
 }
-.prop-page-times { font-size: 0.85rem; color: var(--text-light); }
+/* The voting window is a fact worth the same visual rank as the status
+   pills above it: a quiet glass chip, not loose text under the title. */
+.prop-page-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.prop-page-times > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  font-size: 0.82rem;
+  color: var(--text-medium);
+}
 
 /* Outcome banner */
 .prop-page-banner {
@@ -9771,14 +9787,25 @@ input[type="range"]::-moz-range-thumb {
 }
 .psl-hero-meta {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   font-size: 0.92rem;
   color: var(--text-medium);
   align-items: center;
 }
-.psl-hero-meta-sep { color: var(--text-light); margin: 0 4px; }
-.psl-hero-meta-item { white-space: nowrap; }
+/* Same glass chip as the active page's voting-period pill, so a proposal
+   reads the same whether it is open or settled. */
+.psl-hero-meta-item {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  font-size: 0.82rem;
+  color: var(--text-medium);
+}
 
 /* ── Section wrapper ─────────────────────────────────────────────── */
 .psl-section { display: flex; flex-direction: column; gap: 14px; }
@@ -10291,16 +10318,20 @@ input[type="range"]::-moz-range-thumb {
   gap: 12px;
 }
 @media (max-width: 800px) { .ovp-stats { grid-template-columns: 1fr; } }
+/* Same glass recipe as .vc-card on the concentration panel, so the stats
+   over this list and the stats beside the charts are one card family
+   instead of near-black boxes only this section uses. */
 .ovp-stat-card {
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border);
-  background: rgba(255,255,255,0.03);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-[data-theme="dark"] .ovp-stat-card { background: rgba(255,255,255,0.04); }
 .ovp-stat-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-light); }
 .ovp-stat-value { font-size: 1.4rem; font-weight: 300; letter-spacing: -0.02em; color: var(--text-dark); line-height: 1.1; }
 .ovp-stat-sub { font-size: 0.78rem; color: var(--text-light); }
@@ -10347,32 +10378,39 @@ input[type="range"]::-moz-range-thumb {
 .ovp-empty { padding: 24px; text-align: center; color: var(--text-light); font-size: 0.88rem; }
 
 /* Sort controls */
-.ovp-controls { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.ovp-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.82rem; }
+/* Pushes the sort group to the row's right edge; on narrow screens the row
+   wraps and the group starts a fresh line at the left, no special case. */
+.ovp-controls-sort { margin-left: auto; }
 .ovp-controls-label { color: var(--text-light); font-weight: 500; letter-spacing: 0.04em; }
-.ovp-sort {
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-border);
-  background: transparent;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--text-medium);
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.ovp-sort:hover { color: var(--text-dark); }
-.ovp-sort.active { border-color: var(--text-accent); color: var(--text-dark); background: var(--accent-olive-light); }
 
-/* List */
-.ovp-list { display: flex; flex-direction: column; gap: 4px; }
+/* List
+   Same container as .vvt-table-wrap on the validator breakdown: one bordered
+   glass panel with hairline-separated rows, not a stack of floating cards on
+   bare page background. A proposal page should read as one table language.
+   All 81 rows scroll inside it; the old list capped at 20 with a "+61 more"
+   that led nowhere. */
+.ovp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 460px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+}
 .ovp-row {
   display: grid;
   grid-template-columns: 200px auto 1fr auto 18px;
   gap: 14px;
   align-items: center;
-  padding: 11px 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border);
+  padding: 12px 16px;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--glass-border);
   background: transparent;
   font-size: 0.9rem;
   cursor: pointer;
@@ -10381,9 +10419,12 @@ input[type="range"]::-moz-range-thumb {
   font-family: inherit;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
-.ovp-row:hover { border-color: var(--text-accent); background: var(--accent-olive-light); transform: translateY(-1px); }
+.ovp-list > .ovp-row:last-child { border-bottom: none; }
+/* Row hover matches the table: a background wash, no lift. Cards lifted;
+   table rows do not. */
+.ovp-row:hover { background: var(--accent-olive-light); }
 .ovp-row-addr { color: var(--text-dark); font-family: ui-monospace, monospace; font-size: 0.86rem; }
-.ovp-row-stake { color: var(--text-medium); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.ovp-row-stake { color: var(--text-dark); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .ovp-row-stake-loading { color: var(--text-light); font-style: italic; font-weight: 400; }
 .ovp-row-time { color: var(--text-light); font-size: 0.82rem; }
 .ovp-row-chev { color: var(--text-light); text-align: right; }
@@ -14412,3 +14453,154 @@ input[type="range"]::-moz-range-thumb {
   margin: 12px 0 0; font-size: 0.78rem; line-height: 1.55; color: var(--text-medium);
   max-width: 62ch;
 }
+
+/* ─── governance detail: compact layout ─────────────────────────────────
+   The active-proposal page measured 29,281px tall, about 30 screens. The
+   proposer's markdown alone was 14,551px and the 54-row vote table 4,424px.
+   Three moves bring it under a third of that: heavy sections fold behind
+   <details>, the vote table scrolls inside a fixed box with a pinned
+   header (the app/validators/set pattern), and the two charts share a row
+   on desktop. */
+
+.prop-page-section-fold > .prop-page-fold-summary {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.prop-page-fold-summary::-webkit-details-marker { display: none; }
+.prop-page-fold-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 2px;
+  /* Chevron is a control, not decoration: 3:1 minimum for UI parts, and
+     --text-light sits at 3.24:1 on light. --text-medium clears it in both. */
+  border-right: 2px solid var(--text-medium);
+  border-bottom: 2px solid var(--text-medium);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.prop-page-section-fold[open] > .prop-page-fold-summary .prop-page-fold-chevron {
+  transform: rotate(45deg);
+}
+.prop-page-section-fold[open] > .prop-page-fold-summary { margin-bottom: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  .prop-page-fold-chevron { transition: none; }
+}
+
+/* The 54-row table scrolls inside a fixed box instead of pushing the whole
+   page down. Pinned header needs a SOLID background: the glass token is
+   translucent, so rows would ghost through it while sliding under. */
+.vvt-table-wrap {
+  max-height: 560px;
+  overflow: auto;
+}
+.vvt-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-base);
+  /* The header text inherited --text-light, which was passable on the
+     translucent glass but measures 3.24:1 against the solid --bg-base in
+     light mode. --text-medium measures 9.33:1 there and 12+ in dark. */
+  color: var(--text-medium);
+}
+
+/* Concentration + velocity side by side once there is room. */
+.prop-page-chart-grid { display: flex; flex-direction: column; gap: 24px; }
+@media (min-width: 1100px) {
+  .prop-page-chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* default stretch: both sections take the row's height, so the two
+       panels share a top AND a bottom edge. align-items: start here left
+       the stat cards floating in air beside a deeper chart. */
+  }
+  .prop-page-chart-grid > .prop-page-section {
+    display: flex;
+    flex-direction: column;
+  }
+  .prop-page-chart-grid .prop-page-section-body { flex: 1; }
+  /* The four stat cards divide the section's full height between them,
+     instead of keeping content height and leaving a void below. */
+  .prop-page-chart-grid .vc-grid {
+    height: 100%;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+  }
+}
+
+/* Ten non-voter cards. Column counts are fixed, not auto-fill: ten items
+   in auto-fill landed as 6 + 4 on wide screens, and a ragged last row on a
+   symmetric page reads as a bug. 5x2, 2x5, or a single column: every row
+   full at every width. */
+.prop-page-nonvoters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  border: none;
+  background: none;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+@media (min-width: 640px) { .prop-page-nonvoters { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1280px) { .prop-page-nonvoters { grid-template-columns: repeat(5, 1fr); } }
+.prop-page-nonvoter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+}
+.prop-page-nonvoter-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.prop-page-nonvoter-rank {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-light);
+}
+.prop-page-nonvoter-name {
+  font-weight: 600;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prop-page-nonvoter-stake {
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* Neutral strong, same as every other data figure on the page. The
+     danger tint tried to make the number carry the warning and just made
+     ten salmon numbers; the section title already says what these are. */
+  color: var(--text-dark);
+}
+.prop-page-nonvoter-share {
+  font-size: 0.78rem;
+  color: var(--text-light);
+}
+
+/* Explainer label/value pairs pack into two columns on desktop. */
+@media (min-width: 980px) {
+  .prop-page-explainer-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+  }
+}
+
+
+
+/* Validator rows open the delegator drawer when a proposalId is wired in. */
+.vvt-row-click { cursor: pointer; }

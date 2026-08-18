@@ -16,6 +16,7 @@ import {
   formatTxAmount,
 } from "@/lib/governance";
 import ValidatorVoteTable from "@/components/governance/ValidatorVoteTable";
+import OverridesPanel from "@/components/governance/OverridesPanel";
 import VoteConcentration from "@/components/governance/VoteConcentration";
 import VelocityChart from "@/components/governance/VelocityChart";
 import VotePanel from "@/components/governance/VotePanel";
@@ -269,32 +270,61 @@ function LegacyActiveLayout({
             validators={validators}
             totalBonded={tally.bondedSnapshot}
             highlightAddresses={delegations.map((d) => d.operatorAddress)}
+            proposalId={proposal.id}
           />
         </Section>
 
         <NonVotersCallout validators={validators} />
 
-        <Section title="Vote concentration" subtitle="How decentralized was this vote, really?">
-          <VoteConcentration
-            validators={validators}
-            totalBonded={tally.bondedSnapshot}
-            yesThreshold={govParams.threshold}
-            quorumRequired={govParams.quorum}
-          />
-        </Section>
+        {/* Two charts of equal weight: side by side on desktop, stacked on
+            mobile. Separately they cost two full screens for what one holds. */}
+        <div className="prop-page-chart-grid">
+          <Section title="Vote concentration" subtitle="How decentralized was this vote, really?">
+            <VoteConcentration
+              validators={validators}
+              totalBonded={tally.bondedSnapshot}
+              yesThreshold={govParams.threshold}
+              quorumRequired={govParams.quorum}
+            />
+          </Section>
+
+          <Section
+            title="Vote velocity"
+            subtitle="Cumulative votes over the voting period. Settled early, or close to the deadline?"
+          >
+            <VelocityChart
+              series={velocity}
+              bondedSnapshot={tally.bondedSnapshot}
+              quorumRequired={govParams.quorum}
+            />
+          </Section>
+        </div>
+
+        {delegatorVotes.length > 0 && (
+          <Section
+            title={`Non-validator votes (${delegatorVotes.length})`}
+            subtitle="Delegators who voted directly to override their validator, with the voting power behind each one."
+          >
+            {/* The settled page has shown enriched override data for a while;
+                the active page was still rendering a bare list capped at 20
+                with no stake at all. Same panel now, so an open proposal is
+                not the harder one to read. Stake enrichment costs one LCD
+                call per delegator, so it only fires once the fold opens. */}
+            <OverridesPanel
+              proposalId={proposal.id}
+              delegatorVotes={delegatorVotes}
+              validators={validators}
+              totalVoted={tally.totalVoted}
+              enabled
+            />
+          </Section>
+        )}
 
         <Section
-          title="Vote velocity"
-          subtitle="Cumulative votes over the voting period. Tells you whether the proposal settled early or stayed close to the deadline."
+          title="Proposer description"
+          subtitle="The full text submitted by the proposer."
+          collapsible
         >
-          <VelocityChart
-            series={velocity}
-            bondedSnapshot={tally.bondedSnapshot}
-            quorumRequired={govParams.quorum}
-          />
-        </Section>
-
-        <Section title="Proposer description" subtitle="The text submitted by the proposer.">
           {proposal.description?.trim() ? (
             <div className="prop-page-summary">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{proposal.description}</ReactMarkdown>
@@ -304,35 +334,11 @@ function LegacyActiveLayout({
           )}
         </Section>
 
-        {delegatorVotes.length > 0 && (
-          <Section
-            title={`Non-validator votes (${delegatorVotes.length})`}
-            subtitle="Delegators who voted directly to override their validator."
-          >
-            <div className="prop-page-delegator-list">
-              {delegatorVotes.slice(0, 20).map((d) => (
-                <div key={d.voterAddress} className="prop-page-delegator-row">
-                  <span className="mono">{shorten(d.voterAddress)}</span>
-                  <span className={`vvt-vote-badge vvt-vote-${d.voteOption.toLowerCase()}`}>
-                    {d.voteOption.replace("_", " ").toLowerCase()}
-                  </span>
-                  <span className="prop-page-delegator-time">
-                    {/* Votes recovered from the chain carry no timestamp. Show
-                        nothing rather than new Date(null), which renders 1970. */}
-                    {d.votedAt ? new Date(d.votedAt).toLocaleString() : ""}
-                  </span>
-                </div>
-              ))}
-              {delegatorVotes.length > 20 && (
-                <div className="prop-page-empty">
-                  + {delegatorVotes.length - 20} more
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
-
-        <Section title="Raw on-chain data" subtitle="For power users. The exact proposal payload returned by the indexer.">
+        <Section
+          title="Raw on-chain data"
+          subtitle="For power users. The exact proposal payload returned by the indexer."
+          collapsible
+        >
           <pre className="prop-page-raw">
             <code>{JSON.stringify({ proposal, params: govParams }, null, 2)}</code>
           </pre>
@@ -342,8 +348,29 @@ function LegacyActiveLayout({
 }
 
 function Section({
-  title, subtitle, children,
-}: { title: string; subtitle?: string; children: React.ReactNode }) {
+  title, subtitle, children, collapsible, defaultOpen,
+}: {
+  title: string; subtitle?: string; children: React.ReactNode;
+  /** Render as <details> so the body costs one line until opened. The page
+      was 29,281px tall, and 14,551px of it was the proposer's markdown:
+      half the scroll for the section fewest readers need in full. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+}) {
+  if (collapsible) {
+    return (
+      <details className="prop-page-section prop-page-section-fold" open={defaultOpen}>
+        <summary className="prop-page-section-head prop-page-fold-summary">
+          <span className="prop-page-fold-chevron" aria-hidden="true" />
+          <span>
+            <h2 className="prop-page-section-title">{title}</h2>
+            {subtitle && <div className="prop-page-section-sub">{subtitle}</div>}
+          </span>
+        </summary>
+        <div className="prop-page-section-body">{children}</div>
+      </details>
+    );
+  }
   return (
     <section className="prop-page-section">
       <div className="prop-page-section-head">
@@ -388,6 +415,9 @@ function NonVotersCallout({ validators }: { validators: ValidatorVote[] }) {
     [validators],
   );
   const totalIdleStake = nonVoters.reduce((sum, v) => sum + v.bondedStakeTX, 0);
+  // Share of ALL bonded stake, not of the idle subset: "17% of the chain's
+  // stake is silent behind this one name" is the number that means something.
+  const totalBonded = validators.reduce((sum, v) => sum + v.bondedStakeTX, 0);
   if (nonVoters.length === 0) return null;
   return (
     <Section
@@ -396,12 +426,17 @@ function NonVotersCallout({ validators }: { validators: ValidatorVote[] }) {
     >
       <div className="prop-page-nonvoters">
         {nonVoters.map((v, i) => (
-          <div key={v.operatorAddress} className="prop-page-nonvoter-row">
-            <span className="prop-page-nonvoter-rank">{i + 1}</span>
-            <span className="prop-page-nonvoter-name">{v.moniker || "(unnamed)"}</span>
-            <span className="prop-page-nonvoter-stake">
+          <div key={v.operatorAddress} className="prop-page-nonvoter-card">
+            <div className="prop-page-nonvoter-top">
+              <span className="prop-page-nonvoter-rank">{i + 1}</span>
+              <span className="prop-page-nonvoter-name">{v.moniker || "(unnamed)"}</span>
+            </div>
+            <div className="prop-page-nonvoter-stake">
               {formatTxAmount(v.bondedStakeTX)} TX
-            </span>
+            </div>
+            <div className="prop-page-nonvoter-share">
+              {totalBonded > 0 ? `${((v.bondedStakeTX / totalBonded) * 100).toFixed(2)}% of bonded` : ""}
+            </div>
           </div>
         ))}
       </div>
@@ -452,9 +487,4 @@ function formatAbsolute(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function shorten(s: string): string {
-  if (s.length <= 18) return s;
-  return `${s.slice(0, 10)}...${s.slice(-6)}`;
 }

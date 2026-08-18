@@ -58,11 +58,11 @@ export default function SettledLayout({ data, highlightAddresses }: Props) {
         <div className="psl-hero-status">{outcomeWord}</div>
         <h1 className="psl-hero-title">{proposal.title}</h1>
         <div className="psl-hero-meta">
+          {/* Each fact is its own chip. The middot-separated run read as one
+              long sentence, so the eye had to parse punctuation to find
+              where "74.7% turnout" started. */}
           {metaParts.map((p, i) => (
-            <span key={i} className="psl-hero-meta-item">
-              {p}
-              {i < metaParts.length - 1 && <span className="psl-hero-meta-sep">·</span>}
-            </span>
+            <span key={i} className="psl-hero-meta-item">{p}</span>
           ))}
         </div>
       </section>

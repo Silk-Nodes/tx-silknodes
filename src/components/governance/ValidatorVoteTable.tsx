@@ -2,12 +2,18 @@
 
 import { useMemo, useState } from "react";
 import type { ValidatorVote, VoteOption } from "@/hooks/useProposalDetail";
+import { useProposalOverrides } from "@/hooks/useProposalOverrides";
+import ValidatorDelegatorDrawer from "@/components/governance/ValidatorDelegatorDrawer";
 import { formatTxAmount } from "@/lib/governance";
 
 interface Props {
   validators: ValidatorVote[];
   totalBonded: number;
   highlightAddresses?: string[]; // operator addrs of user's delegated validators
+  /** When set, rows open a drawer showing which of that validator's
+      delegators voted directly, agreed or rebelled. Optional so the table
+      still works anywhere the override data has no meaning. */
+  proposalId?: number;
 }
 
 type Filter = "all" | VoteOption;
@@ -34,11 +40,23 @@ export default function ValidatorVoteTable({
   validators,
   totalBonded,
   highlightAddresses = [],
+  proposalId,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("stake");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [drawerOp, setDrawerOp] = useState<string | null>(null);
+  // The overrides fetch (one LCD call per delegator upstream) waits for the
+  // first row click; the endpoint caches server-side, so the OverridesPanel
+  // below the table asking for the same data is not a second bill.
+  const { overrides, loading: overridesLoading } = useProposalOverrides(
+    proposalId ?? NaN,
+    proposalId !== undefined && drawerOp !== null,
+  );
+  const drawerValidator = drawerOp
+    ? validators.find((v) => v.operatorAddress === drawerOp) ?? null
+    : null;
 
   const highlightSet = useMemo(
     () => new Set(highlightAddresses.map((a) => a.toLowerCase())),
@@ -145,7 +163,11 @@ export default function ValidatorVoteTable({
             {rows.map((v, idx) => {
               const isHighlight = highlightSet.has(v.operatorAddress.toLowerCase());
               return (
-                <tr key={v.operatorAddress} className={isHighlight ? "vvt-row-you" : ""}>
+                <tr
+                  key={v.operatorAddress}
+                  className={`${isHighlight ? "vvt-row-you" : ""} ${proposalId !== undefined ? "vvt-row-click" : ""}`}
+                  onClick={proposalId !== undefined ? () => setDrawerOp(v.operatorAddress) : undefined}
+                >
                   <td className="vvt-td-rank">{idx + 1}</td>
                   <td className="vvt-td-mon">
                     <div className="vvt-mon-cell">
@@ -181,6 +203,14 @@ export default function ValidatorVoteTable({
           </tbody>
         </table>
       </div>
+      {proposalId !== undefined && (
+        <ValidatorDelegatorDrawer
+          validator={drawerValidator}
+          overrides={overrides}
+          loading={overridesLoading}
+          onClose={() => setDrawerOp(null)}
+        />
+      )}
     </div>
   );
 }
