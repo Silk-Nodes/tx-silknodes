@@ -22,9 +22,13 @@
 // Hasura keeps exactly one job on that page: telling us who voted.
 
 import { QueryTypes } from "sequelize";
-// Namespace import: bech32 v1 is CommonJS and named-export interop differs
-// between the bundler and plain node. This form works under both.
-import * as bech32 from "bech32";
+// bech32 is CommonJS and this repo runs two majors: root declares ^1.1.4,
+// vm-service declares ^2.0.0. v1 exports decode/encode flat, v2 nests them
+// under .bech32. Resolve the shape rather than assuming one.
+import * as bech32Ns from "bech32";
+
+const bech32Lib = ((bech32Ns as unknown as { bech32?: typeof bech32Ns }).bech32 ??
+  bech32Ns) as typeof bech32Ns;
 import { sequelize } from "@/lib/db";
 import { lcdGet } from "@/lib/chain-config";
 
@@ -52,8 +56,8 @@ export type ValidatorSetSource = "db" | "lcd" | "none";
  */
 export function deriveSelfDelegate(operatorAddress: string): string {
   try {
-    const { words } = bech32.decode(operatorAddress);
-    return bech32.encode("core", words);
+    const { words } = bech32Lib.decode(operatorAddress);
+    return bech32Lib.encode("core", words);
   } catch {
     return "";
   }
