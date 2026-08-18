@@ -17,6 +17,7 @@
 // approximate with current stake and label it as such in the UI.
 
 import { NextResponse } from "next/server";
+import { getActiveValidatorSet } from "@/lib/validator-set";
 
 // The chain's own vote record, filling the gaps the Hasura indexer has.
 // See scripts/backfill-votes.mjs.
@@ -164,15 +165,36 @@ export async function GET(
     // Hasura. The base /api/governance/[id] already does this, but the
     // client may want to expand the accordion before that response lands
     // in some race-conditiony cases - so we re-query here for safety.
-    const data = await hasura<{ proposal_vote: HasuraVote[]; validator_info: { self_delegate_address: string }[] }>(
-      `query Q($id: Int!) {
-        proposal_vote(where: {proposal_id: {_eq: $id}}, order_by: {timestamp: asc}) {
-          voter_address option timestamp
-        }
-        validator_info { self_delegate_address }
-      }`,
-      { id },
-    );
+    // Paged: the Coreum Hasura clamps every query to 100 rows server-side.
+    // Proposal 45 had 132 votes, and the unpaged version of this query
+    // silently dropped the last 32.
+    const votes: HasuraVote[] = [];
+    for (let off = 0; ; off += 100) {
+      const page = await hasura<{ proposal_vote: HasuraVote[] }>(
+        `query V($id: Int!, $off: Int!) {
+          proposal_vote(
+            where: {proposal_id: {_eq: $id}}
+            order_by: [{timestamp: asc}, {voter_address: asc}]
+            limit: 100
+            offset: $off
+          ) { voter_address option timestamp }
+        }`,
+        { id, off },
+      );
+      votes.push(...page.proposal_vote);
+      if (page.proposal_vote.length < 100 || off >= 10_000) break;
+    }
+    const data = {
+      proposal_vote: votes,
+      // validator_info is capped at 100 rows too, and the chain has 106
+      // validators. Derive the self-delegate set locally instead: an
+      // operator address re-encodes to its voting account, no lookup.
+      validator_info: [] as { self_delegate_address: string }[],
+    };
+    const ownSet = await getActiveValidatorSet();
+    for (const v of ownSet.validators) {
+      data.validator_info.push({ self_delegate_address: v.selfDelegateAddress });
+    }
 
     // Filter out votes from validators' own self-delegate addresses; we
     // only want true delegator-only overrides.

@@ -88,10 +88,38 @@ const PROPOSAL_QUERY = `query Q($id: Int!) {
     staking_pool_snapshot { bonded_tokens }
   }
   gov_params { params }
-  proposal_vote(where: {proposal_id: {_eq: $id}}, order_by: {timestamp: asc}) {
+}`;
+
+// Votes are fetched separately and paged. The Coreum Hasura clamps every
+// query to 100 rows server-side, silently: limit 1000 still returns 100.
+// Proposal 45 had 132 votes, so the last 32, among them the proposer's own
+// validator, simply did not exist as far as this page was concerned. Pages
+// run until a short page, ordered (timestamp, voter_address) so ties cannot
+// shuffle rows between pages.
+const VOTES_PAGE_QUERY = `query V($id: Int!, $off: Int!) {
+  proposal_vote(
+    where: {proposal_id: {_eq: $id}}
+    order_by: [{timestamp: asc}, {voter_address: asc}]
+    limit: 100
+    offset: $off
+  ) {
     voter_address option weight timestamp
   }
 }`;
+
+const HASURA_PAGE = 100;
+
+async function fetchAllVotes(id: number): Promise<HasuraVote[]> {
+  const out: HasuraVote[] = [];
+  for (let off = 0; ; off += HASURA_PAGE) {
+    const page = await hasura<{ proposal_vote: HasuraVote[] }>(VOTES_PAGE_QUERY, { id, off });
+    out.push(...page.proposal_vote);
+    if (page.proposal_vote.length < HASURA_PAGE) return out;
+    // 132 votes is two pages; a proposal would need 10,000+ votes to hit
+    // this, at which point something else is wrong. Bail rather than hammer.
+    if (off >= 10_000) return out;
+  }
+}
 
 // Latest snapshot per validator. distinct_on requires the order_by to start
 // with the distinct field, then height desc to pick the latest row.
@@ -170,11 +198,10 @@ export async function GET(
       return NextResponse.json({ error: "bad id" }, { status: 400 });
     }
 
-    const [propData, validatorData, validatorSet] = await Promise.all([
+    const [propData, validatorData, validatorSet, allVotes] = await Promise.all([
       hasura<{
         proposal_by_pk: HasuraProposal | null;
         gov_params: { params: { quorum: string; threshold: string; veto_threshold: string; voting_period: number } }[];
-        proposal_vote: HasuraVote[];
       }>(PROPOSAL_QUERY, { id }),
       hasura<{
         validator_voting_power: { validator_address: string; voting_power: number }[];
@@ -183,6 +210,7 @@ export async function GET(
         validator_info: { consensus_address: string; operator_address: string; self_delegate_address: string }[];
       }>(VALIDATORS_QUERY),
       getActiveValidatorSet(),
+      fetchAllVotes(id),
     ]);
 
     const p = propData.proposal_by_pk;
@@ -191,7 +219,7 @@ export async function GET(
     // Normalize every indexer timestamp to real UTC before anything reads
     // them: vote rows feed relative times, sorting and the velocity chart,
     // and the proposal times drive the countdown.
-    for (const v of propData.proposal_vote) {
+    for (const v of allVotes) {
       v.timestamp = toUtcIso(v.timestamp) as string;
     }
     p.submit_time = toUtcIso(p.submit_time);
@@ -292,7 +320,7 @@ export async function GET(
     // delegators casting their own override votes) are kept separately so
     // the UI can show them in a secondary section if desired.
     const votesByAddr = new Map<string, HasuraVote>();
-    for (const v of propData.proposal_vote) votesByAddr.set(v.voter_address, v);
+    for (const v of allVotes) votesByAddr.set(v.voter_address, v);
 
     // Assemble per-validator vote rows. We restrict to currently bonded,
     // non-jailed validators (Cosmos SDK status 3 = BOND_STATUS_BONDED). The
@@ -333,7 +361,7 @@ export async function GET(
     const validatorSelfDelegates = new Set(
       Array.from(bySelfDelegate.keys()),
     );
-    const delegatorVotes = propData.proposal_vote
+    const delegatorVotes = allVotes
       .filter((v) => !validatorSelfDelegates.has(v.voter_address))
       .map((v) => ({
         voterAddress: v.voter_address,
@@ -359,7 +387,7 @@ export async function GET(
     // if it's a non-validator vote, since we don't know that delegator's
     // stake snapshot). This is good enough for a "voting acceleration" feel.
     const velocity = buildVelocity(
-      propData.proposal_vote,
+      allVotes,
       bySelfDelegate,
       p.voting_start_time,
       p.voting_end_time,
