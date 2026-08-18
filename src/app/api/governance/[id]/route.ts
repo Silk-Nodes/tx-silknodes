@@ -262,6 +262,11 @@ export async function GET(
       for (const v of validatorSet.validators) {
         const decor = decorByOperator.get(v.operatorAddress);
         byConsensus.set(v.operatorAddress, {
+          // Empty when the Coreum indexer has no row for this validator,
+          // which is the whole reason this override exists. Never use it as
+          // a React key: several validators share the empty string and the
+          // duplicate keys wreck reconciliation. operatorAddress is unique
+          // and always present.
           consensusAddress: decor?.consensusAddress ?? "",
           operatorAddress: v.operatorAddress,
           selfDelegateAddress: v.selfDelegateAddress,

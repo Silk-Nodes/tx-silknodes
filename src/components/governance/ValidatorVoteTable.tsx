@@ -145,7 +145,7 @@ export default function ValidatorVoteTable({
             {rows.map((v, idx) => {
               const isHighlight = highlightSet.has(v.operatorAddress.toLowerCase());
               return (
-                <tr key={v.consensusAddress} className={isHighlight ? "vvt-row-you" : ""}>
+                <tr key={v.operatorAddress} className={isHighlight ? "vvt-row-you" : ""}>
                   <td className="vvt-td-rank">{idx + 1}</td>
                   <td className="vvt-td-mon">
                     <div className="vvt-mon-cell">
