@@ -182,7 +182,7 @@ async function main() {
       date: DATE,
       operator_address: operator,
       self_delegate_address:
-        deriveSelfDelegate(operator) || selfDelegateByOperator.get(operator) || null,
+        deriveSelfDelegate(operator) || selfDelegate || null,
       moniker: v.description?.moniker || operator.slice(0, 16),
       tokens: ucoreToTX(v.tokens),
       commission_rate: Number(v.commission?.commission_rates?.rate ?? 0),
