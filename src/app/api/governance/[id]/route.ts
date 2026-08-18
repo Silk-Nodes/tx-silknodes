@@ -12,6 +12,7 @@
 // Then we join in JS to produce the rows the UI needs.
 
 import { NextResponse } from "next/server";
+import { getActiveValidatorSet } from "@/lib/validator-set";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -150,7 +151,7 @@ export async function GET(
       return NextResponse.json({ error: "bad id" }, { status: 400 });
     }
 
-    const [propData, validatorData] = await Promise.all([
+    const [propData, validatorData, validatorSet] = await Promise.all([
       hasura<{
         proposal_by_pk: HasuraProposal | null;
         gov_params: { params: { quorum: string; threshold: string; veto_threshold: string; voting_period: number } }[];
@@ -162,6 +163,7 @@ export async function GET(
         validator_status: { validator_address: string; status: number; jailed: boolean }[];
         validator_info: { consensus_address: string; operator_address: string; self_delegate_address: string }[];
       }>(VALIDATORS_QUERY),
+      getActiveValidatorSet(),
     ]);
 
     const p = propData.proposal_by_pk;
@@ -204,6 +206,43 @@ export async function GET(
       if (row) {
         row.operatorAddress = info.operator_address;
         row.selfDelegateAddress = info.self_delegate_address || "";
+      }
+    }
+
+    // Set membership and stake come from a source we control, not from the
+    // Coreum indexer. On 2026-08-18 that index held no status row at all for
+    // Kraken, SOLONATIONLABS, Huobi and Zeeve Inc., so this page rendered 50
+    // validators against the chain's 54 and silently omitted the fourth
+    // largest validator on the network. Hasura keeps the job it is good at
+    // here: the vote records, plus cosmetic bits like avatars.
+    if (validatorSet.validators.length > 0) {
+      const decorByOperator = new Map<
+        string,
+        { avatarUrl: string | null; website: string | null; consensusAddress: string }
+      >();
+      for (const row of byConsensus.values()) {
+        if (row.operatorAddress) {
+          decorByOperator.set(row.operatorAddress, {
+            avatarUrl: row.avatarUrl,
+            website: row.website,
+            consensusAddress: row.consensusAddress,
+          });
+        }
+      }
+      byConsensus.clear();
+      for (const v of validatorSet.validators) {
+        const decor = decorByOperator.get(v.operatorAddress);
+        byConsensus.set(v.operatorAddress, {
+          consensusAddress: decor?.consensusAddress ?? "",
+          operatorAddress: v.operatorAddress,
+          selfDelegateAddress: v.selfDelegateAddress,
+          moniker: v.moniker,
+          avatarUrl: decor?.avatarUrl ?? null,
+          website: decor?.website ?? null,
+          bondedStakeTX: v.bondedStakeTX,
+          status: v.status,
+          jailed: v.jailed,
+        });
       }
     }
 
@@ -339,6 +378,9 @@ export async function GET(
         recoveredFromChain: recovered,
         meta: {
           validatorCount: validatorVotes.length,
+          // "db", "lcd", or "none" when both failed and this fell back to
+          // whatever the indexer reported.
+          validatorSetSource: validatorSet.source,
           votedCount: validatorVotes.filter((v) => v.voteOption !== "DID_NOT_VOTE").length,
           delegatorVoteCount: delegatorVotes.length,
         },

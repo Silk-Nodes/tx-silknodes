@@ -27,6 +27,7 @@
 //
 // READ-ONLY against LCD and Hasura. Writes only to validator_snapshots.
 
+import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { query, closePool } from "./db.mjs";
 
 const LCD = process.env.COREUM_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
@@ -71,6 +72,22 @@ async function fetchAllPaged(path, key) {
     nextKey = page.pagination?.next_key || "";
   } while (nextKey);
   return out;
+}
+
+// An operator address and the account that votes for it are the same 20
+// bytes under different bech32 prefixes, so corevaloper1abc... re-encodes
+// to core1abc... with no lookup. We derive it rather than reading it from
+// the Coreum indexer because that index has been observed missing bonded
+// validators entirely: on 2026-08-18 it had no row at all for Kraken,
+// SOLONATIONLABS, Huobi or Zeeve Inc., 9.87% of bonded stake between them.
+// Anything we can compute ourselves should not depend on an upstream index.
+function deriveSelfDelegate(operatorAddress) {
+  try {
+    const { words } = bech32Decode(operatorAddress);
+    return bech32Encode("core", words);
+  } catch {
+    return "";
+  }
 }
 
 // consensus_address -> { operator_address, self_delegate_address }
@@ -160,6 +177,8 @@ async function main() {
     return {
       date: DATE,
       operator_address: operator,
+      self_delegate_address:
+        deriveSelfDelegate(operator) || selfDelegateByOperator.get(operator) || null,
       moniker: v.description?.moniker || operator.slice(0, 16),
       tokens: ucoreToTX(v.tokens),
       commission_rate: Number(v.commission?.commission_rates?.rate ?? 0),
@@ -189,8 +208,8 @@ async function main() {
     await query(
       `INSERT INTO validator_snapshots
          (date, operator_address, moniker, tokens, commission_rate, jailed, status,
-          delegator_count, self_bonded_tx, missed_blocks, tombstoned)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          delegator_count, self_bonded_tx, missed_blocks, tombstoned, self_delegate_address)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (date, operator_address) DO UPDATE SET
          moniker = EXCLUDED.moniker,
          tokens = EXCLUDED.tokens,
@@ -201,10 +220,11 @@ async function main() {
          self_bonded_tx = COALESCE(EXCLUDED.self_bonded_tx, validator_snapshots.self_bonded_tx),
          missed_blocks = COALESCE(EXCLUDED.missed_blocks, validator_snapshots.missed_blocks),
          tombstoned = COALESCE(EXCLUDED.tombstoned, validator_snapshots.tombstoned),
+         self_delegate_address = COALESCE(EXCLUDED.self_delegate_address, validator_snapshots.self_delegate_address),
          inserted_at = NOW()`,
       [
         r.date, r.operator_address, r.moniker, r.tokens, r.commission_rate, r.jailed, r.status,
-        r.delegator_count, r.self_bonded_tx, r.missed_blocks, r.tombstoned,
+        r.delegator_count, r.self_bonded_tx, r.missed_blocks, r.tombstoned, r.self_delegate_address,
       ],
     );
     written += 1;
