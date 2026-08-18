@@ -111,6 +111,25 @@ const VALIDATORS_QUERY = `{
   validator_info { consensus_address operator_address self_delegate_address }
 }`;
 
+/**
+ * Stamp UTC onto the indexer's naive timestamps.
+ *
+ * Hasura returns "2026-08-18T08:48:21" with no offset. Those values are
+ * UTC, but ECMAScript parses an offset-less date-time as LOCAL time, so
+ * every timestamp on this page landed wrong by the viewer's own timezone.
+ * A vote cast 19 minutes ago rendered as "3h ago" for a reader in UTC+3,
+ * and the countdown to voting close ran three hours fast, which matters
+ * rather more than a stale-looking relative time.
+ *
+ * Fixed here at the boundary rather than in each component, because the
+ * value is also used for sorting and for bucketing the velocity chart, and
+ * every one of those call sites would otherwise have to remember.
+ */
+function toUtcIso(ts: string | null | undefined): string | null {
+  if (!ts) return null;
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(ts) ? ts : `${ts}Z`;
+}
+
 function ucoreToTX(s: string | number | undefined | null): number {
   if (s === null || s === undefined) return 0;
   if (typeof s === "number") return s / UCORE_PER_TX;
@@ -168,6 +187,16 @@ export async function GET(
 
     const p = propData.proposal_by_pk;
     if (!p) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+    // Normalize every indexer timestamp to real UTC before anything reads
+    // them: vote rows feed relative times, sorting and the velocity chart,
+    // and the proposal times drive the countdown.
+    for (const v of propData.proposal_vote) {
+      v.timestamp = toUtcIso(v.timestamp) as string;
+    }
+    p.submit_time = toUtcIso(p.submit_time);
+    p.voting_start_time = toUtcIso(p.voting_start_time);
+    p.voting_end_time = toUtcIso(p.voting_end_time);
 
     // Build validator metadata index keyed by self_delegate_address (the
     // address that actually casts the vote). Each validator may map to one
