@@ -43,9 +43,11 @@ const UCORE = 1_000_000;
 const FLOW_DAYS = 30;
 const TOP_DELEGATORS = 25;
 const TOP_COUNTERPARTIES = 5;
-// Recent stake events shown on the page. The collector stores only moves
-// >= 5000 TX (MIN_AMOUNT_TX), so this is "significant events", not every tx.
-const EVENT_LIMIT = 40;
+// First page of stake events shipped inline with the page. Further pages
+// come from /api/validator/[address]/events via "Load more" (cursor on
+// height), so the tab is no longer capped. Collector stores only moves
+// >= 5000 TX, so this is "significant events", not every tx.
+const EVENT_LIMIT = 50;
 const EVENT_MIN_TX = 5000;
 const TIMEOUT_MS = 15_000;
 
@@ -379,6 +381,7 @@ export async function GET(
   };
   let history: unknown[] = [];
   let events: unknown[] = [];
+  let eventsHasMore = false;
   let delegatorFlow = { joined: 0, reduced: 0 };
   try {
     const [totals] = await sequelize.query<{
@@ -442,7 +445,9 @@ export async function GET(
     // >= 5000 TX: the VM collector applies that floor at write time, so
     // smaller delegations are not in the table at all. The UI says so
     // rather than implying this is every event.
-    events = await sequelize.query(
+    // Fetch one extra to learn whether a second page exists, without a
+    // separate COUNT. Trim it off before returning.
+    const eventRows = await sequelize.query(
       `SELECT tx_hash AS "txHash", height, timestamp, type, delegator, amount,
               source_validator AS "sourceValidator",
               CASE WHEN source_validator = :v THEN true ELSE false END AS outgoing
@@ -450,8 +455,10 @@ export async function GET(
        WHERE validator = :v OR source_validator = :v
        ORDER BY height DESC
        LIMIT :lim`,
-      { replacements: { v: address, lim: EVENT_LIMIT }, type: QueryTypes.SELECT },
+      { replacements: { v: address, lim: EVENT_LIMIT + 1 }, type: QueryTypes.SELECT },
     );
+    eventsHasMore = eventRows.length > EVENT_LIMIT;
+    events = eventsHasMore ? eventRows.slice(0, EVENT_LIMIT) : eventRows;
 
     // Delegator churn by wallet count (distinct wallets), not TX. "joined" =
     // wallets that added stake here (delegate or redelegate in); "reduced" =
@@ -540,6 +547,7 @@ export async function GET(
     flow30d,
     flowWindowDays: FLOW_DAYS,
     events,
+    eventsHasMore,
     eventMinTx: EVENT_MIN_TX,
     governance: (() => {
       // Dedupe to one (latest) vote per proposal, then order newest-first.

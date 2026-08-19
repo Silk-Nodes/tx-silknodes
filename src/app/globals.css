@@ -14615,3 +14615,19 @@ input[type="range"]::-moz-range-thumb {
    with five band chips and two sort chips beside it. */
 .ovp-search { flex: 0 0 210px; }
 @media (max-width: 760px) { .ovp-search { flex: 1 1 100%; } }
+
+/* Load more, in the validator Events tab. Same pill language as the vvt
+   filter chips, sized as a full action. */
+.vd-loadmore {
+  padding: 9px 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-medium);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.vd-loadmore:hover:not(:disabled) { border-color: var(--text-accent); color: var(--text-dark); }
+.vd-loadmore:disabled { opacity: 0.55; cursor: default; }
