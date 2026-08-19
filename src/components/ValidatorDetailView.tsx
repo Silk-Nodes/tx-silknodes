@@ -62,6 +62,7 @@ interface ValidatorDetail {
     type: "delegate" | "undelegate" | "redelegate";
     delegator: string; amount: string; sourceValidator: string | null; outgoing: boolean;
   }[];
+  eventsHasMore: boolean;
   eventMinTx: number;
 }
 
@@ -214,6 +215,13 @@ export default function ValidatorDetailView({
   const [amount, setAmount] = useState("");
   const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
   const [totalProposals, setTotalProposals] = useState(0);
+  // Events beyond the first page arrive here as the user clicks "Load more".
+  // Kept separate from data.events so a refetch of the whole page resets
+  // cleanly. eventsCursor is the height to page before; null once exhausted.
+  const [extraEvents, setExtraEvents] = useState<ValidatorDetail["events"]>([]);
+  const [eventsCursor, setEventsCursor] = useState<number | null>(null);
+  const [eventsMore, setEventsMore] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [proposalIds, setProposalIds] = useState<number[]>([]);
   // Proposal ids the vote indexer never recorded. Votes on these cannot be
   // recovered from anywhere (the chain prunes votes once a proposal settles),
@@ -259,7 +267,14 @@ export default function ValidatorDetailView({
         }
         return r.json();
       })
-      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
+      .then((d) => {
+        if (cancelled) return;
+        setData(d);
+        setExtraEvents([]);
+        setEventsMore(Boolean(d?.eventsHasMore));
+        setEventsCursor(d?.events?.length ? d.events[d.events.length - 1].height : null);
+        setLoading(false);
+      })
       .catch((e) => { if (!cancelled) { setError(String(e.message || e)); setLoading(false); } });
     return () => { cancelled = true; };
   }, [address]);
@@ -275,6 +290,20 @@ export default function ValidatorDetailView({
       </div>
     );
   }
+
+  const loadMoreEvents = () => {
+    if (eventsLoading || eventsCursor === null) return;
+    setEventsLoading(true);
+    fetch(`/api/validator/${address}/events?before=${eventsCursor}&limit=50`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => {
+        setExtraEvents((prev) => [...prev, ...(j.events ?? [])]);
+        setEventsMore(Boolean(j.hasMore));
+        setEventsCursor(j.nextBefore ?? null);
+      })
+      .catch(() => { /* leave the button; a transient failure can be retried */ })
+      .finally(() => setEventsLoading(false));
+  };
 
   const { validator: v, uptime, selfBond, delegators, flow30d, governance, history, events } = data;
   const bench = data.benchmarks;
@@ -308,7 +337,7 @@ export default function ValidatorDetailView({
     { id: "delegators", label: "Delegators", count: delegators.count },
     { id: "flow", label: "Stake Flow" },
     { id: "governance", label: "Governance", count: governance.votedCount },
-    { id: "events", label: "Events", count: events.length },
+    { id: "events", label: "Events", count: events.length + extraEvents.length },
     { id: "history", label: "History" },
   ];
 
@@ -774,7 +803,7 @@ export default function ValidatorDetailView({
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((e) => {
+                    {[...events, ...extraEvents].map((e) => {
                       const inbound = e.type === "delegate" || (e.type === "redelegate" && !e.outgoing);
                       const label = e.type === "delegate" ? "Delegated" : e.type === "undelegate" ? "Undelegated" : e.outgoing ? "Redelegated out" : "Redelegated in";
                       const color = inbound ? "var(--text-accent)" : "var(--danger)";
@@ -794,6 +823,18 @@ export default function ValidatorDetailView({
                     })}
                   </tbody>
                 </table>
+                {eventsMore && (
+                  <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
+                    <button
+                      type="button"
+                      className="vd-loadmore"
+                      onClick={loadMoreEvents}
+                      disabled={eventsLoading}
+                    >
+                      {eventsLoading ? "Loading..." : "Load more"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </section>
