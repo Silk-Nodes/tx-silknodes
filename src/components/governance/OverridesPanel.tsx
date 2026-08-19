@@ -16,6 +16,7 @@ interface Props {
 }
 
 type SortKey = "stake" | "votedAt";
+type VoteFilter = "all" | "YES" | "NO" | "NO_WITH_VETO" | "ABSTAIN";
 type BandId = "all" | "lt10k" | "10k100k" | "100k1m" | "gte1m";
 
 // Voting-power bands, in display TX. Ranges are non-overlapping so the chip
@@ -27,6 +28,16 @@ const BANDS: { id: BandId; label: string; test: (tx: number) => boolean }[] = [
   { id: "10k100k", label: "10K - 100K", test: (t) => t >= 10_000 && t < 100_000 },
   { id: "100k1m", label: "100K - 1M", test: (t) => t >= 100_000 && t < 1_000_000 },
   { id: "gte1m", label: "1M +", test: (t) => t >= 1_000_000 },
+];
+
+// Same ids and tones as the validator table's FILTERS, so a Yes chip is the
+// same colour whichever list you are looking at.
+const VOTE_FILTERS: { id: VoteFilter; label: string; tone: string }[] = [
+  { id: "all", label: "All", tone: "neutral" },
+  { id: "YES", label: "Yes", tone: "yes" },
+  { id: "NO", label: "No", tone: "no" },
+  { id: "NO_WITH_VETO", label: "Veto", tone: "veto" },
+  { id: "ABSTAIN", label: "Abstain", tone: "abstain" },
 ];
 
 const VOTE_LABEL: Record<string, string> = {
@@ -46,6 +57,7 @@ export default function OverridesPanel({
   const [drawerAddress, setDrawerAddress] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("stake");
   const [band, setBand] = useState<BandId>("all");
+  const [voteFilter, setVoteFilter] = useState<VoteFilter>("all");
   const [search, setSearch] = useState("");
 
   // Build a validator-vote index so we can compute rebellion stats in the
@@ -90,8 +102,13 @@ export default function OverridesPanel({
     // someone pasting core1q0t0hmg...r8dvgl's middle characters from an
     // explorer must still land on the row that renders as an ellipsis.
     const q = search.trim().toLowerCase();
-    return sorted.filter((r) => b.test(r.bondedTotalTX) && (q === "" || r.voterAddress.toLowerCase().includes(q)));
-  }, [sorted, band, search]);
+    return sorted.filter(
+      (r) =>
+        b.test(r.bondedTotalTX) &&
+        (voteFilter === "all" || r.voteOption === voteFilter) &&
+        (q === "" || r.voterAddress.toLowerCase().includes(q)),
+    );
+  }, [sorted, band, voteFilter, search]);
 
   // Aggregate stats. Only meaningful once enrichment lands.
   const stats = useMemo(() => {
@@ -182,25 +199,45 @@ export default function OverridesPanel({
           shape as the validator table's filter-chips-plus-search line. Two
           stacked rows of near-identical pills read as a mistake. Bands only
           appear once stake has loaded, so counts never render as zero. */}
-      <div className="ovp-controls">
+      {/* One line: vote chips | power chips | sort, search at the right
+          edge. The text labels ("Vote", "Voting power", "Sort by") paid for
+          themselves when these were separate rows; on one line they pushed
+          the row past 1400px, so hairline dividers group the chips instead.
+          Wraps gracefully when the viewport genuinely cannot hold it. */}
+      <div className="ovp-controls" role="toolbar" aria-label="Filter and sort override votes">
+        <span role="group" aria-label="Filter by vote" style={{ display: "contents" }}>
+          {VOTE_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`vvt-chip vvt-chip-${f.tone} ${voteFilter === f.id ? "active" : ""}`}
+              onClick={() => setVoteFilter(f.id)}
+            >
+              {f.label}{" "}
+              <span className="vvt-chip-count">
+                {f.id === "all" ? sorted.length : sorted.filter((r) => r.voteOption === f.id).length}
+              </span>
+            </button>
+          ))}
+        </span>
         {overrides && (
           <>
-            <span className="ovp-controls-label">Voting power</span>
-            {/* Same .vvt-chip as the validator table's filters, not a
-                lookalike: shared classes cannot drift apart. */}
-            {BANDS.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className={`vvt-chip ${band === b.id ? "active" : ""}`}
-                onClick={() => setBand(b.id)}
-              >
-                {b.label} <span className="vvt-chip-count">{sorted.filter((r) => b.test(r.bondedTotalTX)).length}</span>
-              </button>
-            ))}
+            <span className="ovp-controls-divider" aria-hidden="true" />
+            <span role="group" aria-label="Filter by voting power" style={{ display: "contents" }}>
+              {BANDS.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={`vvt-chip ${band === b.id ? "active" : ""}`}
+                  onClick={() => setBand(b.id)}
+                >
+                  {b.label} <span className="vvt-chip-count">{sorted.filter((r) => b.test(r.bondedTotalTX)).length}</span>
+                </button>
+              ))}
+            </span>
           </>
         )}
-        <span className="ovp-controls-label ovp-controls-sort">Sort by</span>
+        <span className="ovp-controls-divider ovp-controls-sort" aria-hidden="true" />
         <button
           type="button"
           className={`vvt-chip ${sortKey === "stake" ? "active" : ""}`}
@@ -249,8 +286,8 @@ export default function OverridesPanel({
             {sorted.length === 0
               ? "No delegator override votes on this proposal."
               : search.trim() !== ""
-                ? "No address matches that search in this power band."
-                : "No voters in this power band."}
+                ? "No address matches that search in these filters."
+                : "No voters match these filters."}
           </div>
         )}
       </div>
