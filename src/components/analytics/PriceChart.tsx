@@ -75,7 +75,7 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function PriceChart() {
+export default function PriceChart({ compact = false }: { compact?: boolean } = {}) {
   // Pull live price from the same hook the Overview page uses, so the big
   // number and end-of-line label always match the price box on Overview.
   // The historical JSON only drives the shape of the area chart; the latest
@@ -159,7 +159,7 @@ export default function PriceChart() {
 
   return (
     <Shareable title="TX Price" framed={false}>
-    <div className="chart-card-v2 chart-card-hero price-chart-card">
+    <div className={`chart-card-v2 price-chart-card ${compact ? "chart-card-small" : "chart-card-hero"}`}>
       <div className="price-header-left">
         <span className="chart-card-v2-title">
           TX Price
@@ -173,7 +173,7 @@ export default function PriceChart() {
           ${displayPrice.toFixed(4)}
         </span>
       </div>
-      <div style={{ width: "100%", height: 380 }}>
+      <div style={{ width: "100%", height: compact ? 220 : 380 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={priceData} margin={{ top: 12, right: 70, bottom: 4, left: 0 }}>
             <defs>

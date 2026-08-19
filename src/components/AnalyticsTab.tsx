@@ -172,9 +172,6 @@ export default function AnalyticsTab() {
         />
       </div>
 
-      {/* ═══ HERO CHART: TX Price (most important) ═══ */}
-      <PriceChart />
-
       {/* ═══ STAKING ACTIVITY FEED ═══ */}
       <StakingFeed globalRange={globalRange} />
 
@@ -263,6 +260,9 @@ export default function AnalyticsTab() {
           total={pendingUndelegations.next7dFormatted}
         />
       </div>
+
+      {/* ═══ FOOTNOTE: TX Price (deprioritised: single-source, CoinGecko only) ═══ */}
+      <PriceChart compact />
     </div>
   );
 }
