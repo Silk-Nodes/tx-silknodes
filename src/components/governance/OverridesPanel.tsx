@@ -199,45 +199,45 @@ export default function OverridesPanel({
           shape as the validator table's filter-chips-plus-search line. Two
           stacked rows of near-identical pills read as a mistake. Bands only
           appear once stake has loaded, so counts never render as zero. */}
-      {/* Vote filter first: "who voted no" is the question people arrive with,
-          power banding is the follow-up. Counts come from `sorted`, so they
-          describe the whole set rather than the current power band. */}
-      <div className="ovp-controls">
-        <span className="ovp-controls-label">Vote</span>
-        {VOTE_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className={`vvt-chip vvt-chip-${f.tone} ${voteFilter === f.id ? "active" : ""}`}
-            onClick={() => setVoteFilter(f.id)}
-          >
-            {f.label}{" "}
-            <span className="vvt-chip-count">
-              {f.id === "all" ? sorted.length : sorted.filter((r) => r.voteOption === f.id).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="ovp-controls">
+      {/* One line: vote chips | power chips | sort, search at the right
+          edge. The text labels ("Vote", "Voting power", "Sort by") paid for
+          themselves when these were separate rows; on one line they pushed
+          the row past 1400px, so hairline dividers group the chips instead.
+          Wraps gracefully when the viewport genuinely cannot hold it. */}
+      <div className="ovp-controls" role="toolbar" aria-label="Filter and sort override votes">
+        <span role="group" aria-label="Filter by vote" style={{ display: "contents" }}>
+          {VOTE_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`vvt-chip vvt-chip-${f.tone} ${voteFilter === f.id ? "active" : ""}`}
+              onClick={() => setVoteFilter(f.id)}
+            >
+              {f.label}{" "}
+              <span className="vvt-chip-count">
+                {f.id === "all" ? sorted.length : sorted.filter((r) => r.voteOption === f.id).length}
+              </span>
+            </button>
+          ))}
+        </span>
         {overrides && (
           <>
-            <span className="ovp-controls-label">Voting power</span>
-            {/* Same .vvt-chip as the validator table's filters, not a
-                lookalike: shared classes cannot drift apart. */}
-            {BANDS.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className={`vvt-chip ${band === b.id ? "active" : ""}`}
-                onClick={() => setBand(b.id)}
-              >
-                {b.label} <span className="vvt-chip-count">{sorted.filter((r) => b.test(r.bondedTotalTX)).length}</span>
-              </button>
-            ))}
+            <span className="ovp-controls-divider" aria-hidden="true" />
+            <span role="group" aria-label="Filter by voting power" style={{ display: "contents" }}>
+              {BANDS.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={`vvt-chip ${band === b.id ? "active" : ""}`}
+                  onClick={() => setBand(b.id)}
+                >
+                  {b.label} <span className="vvt-chip-count">{sorted.filter((r) => b.test(r.bondedTotalTX)).length}</span>
+                </button>
+              ))}
+            </span>
           </>
         )}
-        <span className="ovp-controls-label ovp-controls-sort">Sort by</span>
+        <span className="ovp-controls-divider ovp-controls-sort" aria-hidden="true" />
         <button
           type="button"
           className={`vvt-chip ${sortKey === "stake" ? "active" : ""}`}

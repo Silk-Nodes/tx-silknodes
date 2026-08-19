@@ -10384,8 +10384,16 @@ input[type="range"]::-moz-range-thumb {
 
 /* Sort controls */
 .ovp-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.82rem; }
-/* Pushes the sort group to the row's right edge; on narrow screens the row
-   wraps and the group starts a fresh line at the left, no special case. */
+/* Hairline between chip groups, doing the job the text labels used to do
+   without their width. The sort divider also pushes its group toward the
+   right edge; when the row wraps, groups start fresh lines, no special
+   case. */
+.ovp-controls-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--glass-border);
+  flex: none;
+}
 .ovp-controls-sort { margin-left: auto; }
 .ovp-controls-label { color: var(--text-light); font-weight: 500; letter-spacing: 0.04em; }
 
@@ -14613,7 +14621,7 @@ input[type="range"]::-moz-range-thumb {
 /* Address search on the override list: the same .vvt-search as the
    validator table, narrowed so the single controls row survives 1400px
    with five band chips and two sort chips beside it. */
-.ovp-search { flex: 0 0 210px; }
+.ovp-search { flex: 0 0 185px; }
 @media (max-width: 760px) { .ovp-search { flex: 1 1 100%; } }
 
 /* Load more, in the validator Events tab. Same pill language as the vvt
