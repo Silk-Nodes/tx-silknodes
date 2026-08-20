@@ -7,6 +7,7 @@ import {
   STATUS_LABELS,
   calcQuorumFraction,
   calcVoteFractions,
+  calcTotalShares,
   formatRelativeOrAbsolute,
   formatTxAmount,
   type Proposal,
@@ -279,6 +280,9 @@ function ActiveProposalCard({
   const { tally, status } = proposal;
   const quorumPct = calcQuorumFraction(tally);
   const fractions = calcVoteFractions(tally);
+  // Bar segments and the labels beside them use share of ALL votes cast, so the
+  // four widths sum to 100% and the veto figure matches the chain's own basis.
+  const shares = calcTotalShares(tally);
   const isLive = status === "voting" || status === "deposit";
   const projection = isLive
     ? projectActiveVote(tally, quorumRequired, yesThreshold, vetoThreshold)
@@ -319,25 +323,25 @@ function ActiveProposalCard({
       </div>
 
       <div className="gov-active-mini-bar">
-        <div className="gov-mini-yes" style={{ width: `${(fractions.yesPct * 100).toFixed(2)}%` }} />
-        <div className="gov-mini-no" style={{ width: `${(fractions.noPct * 100).toFixed(2)}%` }} />
-        <div className="gov-mini-veto" style={{ width: `${(fractions.vetoPct * 100).toFixed(2)}%` }} />
-        <div className="gov-mini-abstain" style={{ width: `${(fractions.abstainPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-yes" style={{ width: `${(shares.yesPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-no" style={{ width: `${(shares.noPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-veto" style={{ width: `${(shares.vetoPct * 100).toFixed(2)}%` }} />
+        <div className="gov-mini-abstain" style={{ width: `${(shares.abstainPct * 100).toFixed(2)}%` }} />
       </div>
       <div className="gov-active-bar-labels">
         {/* Hide 0% sides so unanimous outcomes don't show three "0.0%"
             labels. We only print labels for sides that actually got votes. */}
-        {fractions.yesPct > 0 && (
-          <span className="gov-mini-label vote-yes">Yes {(fractions.yesPct * 100).toFixed(1)}%</span>
+        {shares.yesPct > 0 && (
+          <span className="gov-mini-label vote-yes">Yes {(shares.yesPct * 100).toFixed(1)}%</span>
         )}
-        {fractions.noPct > 0 && (
-          <span className="gov-mini-label vote-no">No {(fractions.noPct * 100).toFixed(1)}%</span>
+        {shares.noPct > 0 && (
+          <span className="gov-mini-label vote-no">No {(shares.noPct * 100).toFixed(1)}%</span>
         )}
-        {fractions.vetoPct > 0 && (
-          <span className="gov-mini-label vote-veto">Veto {(fractions.vetoPct * 100).toFixed(1)}%</span>
+        {shares.vetoPct > 0 && (
+          <span className="gov-mini-label vote-veto">Veto {(shares.vetoPct * 100).toFixed(1)}%</span>
         )}
-        {fractions.abstainPct > 0 && (
-          <span className="gov-mini-label vote-abstain">Abs {(fractions.abstainPct * 100).toFixed(1)}%</span>
+        {shares.abstainPct > 0 && (
+          <span className="gov-mini-label vote-abstain">Abs {(shares.abstainPct * 100).toFixed(1)}%</span>
         )}
       </div>
 

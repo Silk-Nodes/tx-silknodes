@@ -13,6 +13,7 @@ import {
   STATUS_LABELS,
   calcQuorumFraction,
   calcVoteFractions,
+  calcTotalShares,
   formatTxAmount,
 } from "@/lib/governance";
 import ValidatorVoteTable from "@/components/governance/ValidatorVoteTable";
@@ -92,6 +93,9 @@ export default function ProposalDetailView({ id, onBack }: Props) {
   const quorumPct = calcQuorumFraction(tally);
   const quorumMet = quorumPct >= govParams.quorum;
   const fractions = calcVoteFractions(tally);
+  // Cards show share of ALL votes cast so the veto number a reader sees is the
+  // same one the chain compares to the veto threshold.
+  const shares = calcTotalShares(tally);
   const explainer = explainProposal(proposal);
   const isActive = status === "voting";
   const isSettled = status === "passed" || status === "rejected" || status === "failed";
@@ -160,6 +164,7 @@ export default function ProposalDetailView({ id, onBack }: Props) {
               isActive={isActive}
               projection={projection}
               fractions={fractions}
+              shares={shares}
               quorumPct={quorumPct}
               quorumMet={quorumMet}
               explainer={explainer}
@@ -174,7 +179,7 @@ export default function ProposalDetailView({ id, onBack }: Props) {
 }
 
 function LegacyActiveLayout({
-  data, wallet, delegations, isActive, projection, fractions, quorumPct, quorumMet, explainer,
+  data, wallet, delegations, isActive, projection, fractions, shares, quorumPct, quorumMet, explainer,
 }: {
   data: ProposalDetailData;
   wallet: ReturnType<typeof useCosmosWallet>;
@@ -182,6 +187,7 @@ function LegacyActiveLayout({
   isActive: boolean;
   projection: ReturnType<typeof projectActiveVote> | null;
   fractions: ReturnType<typeof calcVoteFractions>;
+  shares: ReturnType<typeof calcTotalShares>;
   quorumPct: number;
   quorumMet: boolean;
   explainer: ReturnType<typeof explainProposal>;
@@ -226,10 +232,14 @@ function LegacyActiveLayout({
             />
           </div>
           <div className="prop-page-votes-row">
-            <BigVoteCard label="Yes" amount={tally.yes} pct={fractions.yesPct} kind="yes" />
-            <BigVoteCard label="No" amount={tally.no} pct={fractions.noPct} kind="no" />
-            <BigVoteCard label="Veto" amount={tally.noWithVeto} pct={fractions.vetoPct} kind="veto" />
-            <BigVoteCard label="Abstain" amount={tally.abstain} pct={fractions.abstainPct} kind="abstain" />
+            <BigVoteCard label="Yes" amount={tally.yes} pct={shares.yesPct} kind="yes" />
+            <BigVoteCard label="No" amount={tally.no} pct={shares.noPct} kind="no" />
+            <BigVoteCard label="Veto" amount={tally.noWithVeto} pct={shares.vetoPct} kind="veto" />
+            <BigVoteCard label="Abstain" amount={tally.abstain} pct={shares.abstainPct} kind="abstain" />
+          </div>
+          <div className="prop-page-votes-basis">
+            Share of all votes cast. The yes threshold is measured against
+            non-abstain votes, where Yes is {(fractions.yesPct * 100).toFixed(2)}%.
           </div>
         </section>
 
