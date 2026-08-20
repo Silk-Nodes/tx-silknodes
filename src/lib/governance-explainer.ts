@@ -20,6 +20,7 @@
 // Adding a new type = one branch in explainProposal().
 
 import type { Proposal, ProposalTally } from "./governance";
+import { calcVetoShare } from "./governance";
 
 export interface ExplainerBullet {
   label: string;
@@ -343,32 +344,37 @@ export function projectActiveVote(
   const remainingForQuorum = Math.max(0, bonded * quorumRequired - voted);
   const unvotedStake = Math.max(0, bonded - voted);
 
-  const nonAbstain = tally.yes + tally.no + tally.noWithVeto;
+  // Veto uses the SDK denominator (all votes cast, abstain included); the yes
+  // threshold uses non-abstain. These are different denominators on purpose.
+  // cosmos-sdk v0.53.6 x/gov/keeper/tally.go
+  const nonAbstain = tally.totalVoted - tally.abstain;
   const yesShare = nonAbstain > 0 ? tally.yes / nonAbstain : 0;
-  const vetoShare = nonAbstain > 0 ? tally.noWithVeto / nonAbstain : 0;
+  const vetoShare = calcVetoShare(tally);
 
   if (!quorumMet) {
     return {
       outcome: "failing-quorum",
-      reason: `Quorum not met. ${formatTX(remainingForQuorum)} more bonded stake needs to vote to reach the ${(quorumRequired * 100).toFixed(0)}% quorum.`,
+      reason: `Quorum not met. ${formatTX(remainingForQuorum)} more bonded stake needs to vote to reach the ${(quorumRequired * 100).toFixed(0)}% quorum. The deposit is burned if a proposal fails on quorum.`,
       quorumMet,
       remainingForQuorum,
       unvotedStake,
     };
   }
-  if (vetoShare >= vetoThreshold) {
+  // Strictly greater than, matching the SDK's GT(). Sitting exactly on the
+  // threshold does not veto the proposal.
+  if (vetoShare > vetoThreshold) {
     return {
       outcome: "failing-veto",
-      reason: `Veto share is ${(vetoShare * 100).toFixed(1)}%, above the ${(vetoThreshold * 100).toFixed(1)}% veto threshold. The proposal will fail and the deposit will be burned if this holds.`,
+      reason: `Veto is ${(vetoShare * 100).toFixed(2)}% of all votes cast, above the ${(vetoThreshold * 100).toFixed(1)}% veto threshold. The proposal fails and the deposit is burned if this holds, even though Yes is ${(yesShare * 100).toFixed(2)}% of non-abstain votes.`,
       quorumMet,
       remainingForQuorum,
       unvotedStake,
     };
   }
-  if (yesShare >= yesThresholdRequired) {
+  if (yesShare > yesThresholdRequired) {
     return {
       outcome: "passing",
-      reason: `Yes share is ${(yesShare * 100).toFixed(1)}% of non-abstain votes, above the ${(yesThresholdRequired * 100).toFixed(0)}% threshold. Will pass if numbers hold.`,
+      reason: `Yes is ${(yesShare * 100).toFixed(2)}% of non-abstain votes, above the ${(yesThresholdRequired * 100).toFixed(0)}% threshold, and veto is ${(vetoShare * 100).toFixed(2)}% against a ${(vetoThreshold * 100).toFixed(1)}% limit. Will pass if numbers hold.`,
       quorumMet,
       remainingForQuorum,
       unvotedStake,
@@ -376,7 +382,7 @@ export function projectActiveVote(
   }
   return {
     outcome: "failing-threshold",
-    reason: `Yes share is ${(yesShare * 100).toFixed(1)}%, below the ${(yesThresholdRequired * 100).toFixed(0)}% threshold. Will fail unless Yes share rises.`,
+    reason: `Yes is ${(yesShare * 100).toFixed(2)}% of non-abstain votes, at or below the ${(yesThresholdRequired * 100).toFixed(0)}% threshold. Will fail unless Yes share rises.`,
     quorumMet,
     remainingForQuorum,
     unvotedStake,

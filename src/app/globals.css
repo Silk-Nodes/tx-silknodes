@@ -14639,3 +14639,12 @@ input[type="range"]::-moz-range-thumb {
 }
 .vd-loadmore:hover:not(:disabled) { border-color: var(--text-accent); color: var(--text-dark); }
 .vd-loadmore:disabled { opacity: 0.55; cursor: default; }
+
+/* Basis note under the four vote cards. The cards show share of all votes
+   cast, which is the denominator the chain uses for the veto threshold. */
+.prop-page-votes-basis {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-medium);
+}

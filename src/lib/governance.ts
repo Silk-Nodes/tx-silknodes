@@ -107,8 +107,12 @@ export function calcQuorumFraction(tally: ProposalTally): number {
   return tally.totalVoted / tally.bondedSnapshot;
 }
 
-// Yes / No / Veto fractions of NON-ABSTAIN votes — this is the basis on
-// which the threshold + veto_threshold checks apply.
+// Yes / No / Veto as fractions of NON-ABSTAIN votes. This is the basis the
+// SDK uses for the yes THRESHOLD check only, and it is what the stacked vote
+// bars are drawn from so the three segments sum to 100%.
+//
+// Do NOT use vetoPct for the veto-threshold check. The SDK divides veto by
+// total voting power INCLUDING abstain. Use calcVetoShare() for that.
 export function calcVoteFractions(tally: ProposalTally) {
   const nonAbstain = tally.yes + tally.no + tally.noWithVeto;
   if (nonAbstain <= 0) {
@@ -120,6 +124,70 @@ export function calcVoteFractions(tally: ProposalTally) {
     vetoPct: tally.noWithVeto / nonAbstain,
     abstainPct: tally.totalVoted > 0 ? tally.abstain / tally.totalVoted : 0,
   };
+}
+
+// Share of each option out of ALL votes cast, abstain included. This is the
+// denominator the SDK veto check uses, and the basis we display to readers so
+// that a quoted veto number is the same number the chain compares to the
+// veto threshold.
+export function calcTotalShares(tally: ProposalTally) {
+  const t = tally.totalVoted;
+  if (t <= 0) return { yesPct: 0, noPct: 0, vetoPct: 0, abstainPct: 0 };
+  return {
+    yesPct: tally.yes / t,
+    noPct: tally.no / t,
+    vetoPct: tally.noWithVeto / t,
+    abstainPct: tally.abstain / t,
+  };
+}
+
+// Veto share exactly as cosmos-sdk computes it:
+//   results[OptionNoWithVeto].Quo(totalVotingPower).GT(vetoThreshold)
+// totalVotingPower is yes + abstain + no + veto, so abstain IS in the
+// denominator here even though it is excluded from the yes threshold.
+// Source: cosmos-sdk v0.53.6 x/gov/keeper/tally.go (the version this chain runs).
+export function calcVetoShare(tally: ProposalTally): number {
+  if (tally.totalVoted <= 0) return 0;
+  return tally.noWithVeto / tally.totalVoted;
+}
+
+export type TallyVerdict =
+  | "quorum-not-met"
+  | "all-abstain"
+  | "vetoed"
+  | "passing"
+  | "rejected";
+
+// Direct port of cosmos-sdk v0.53.6 x/gov/keeper/tally.go. The order of the
+// checks matters: a proposal with a large yes majority still fails if the veto
+// share clears the threshold, because the veto test runs first.
+//
+// Every comparison below is STRICTLY greater than, matching the SDK's GT().
+// Landing exactly on a threshold does not clear it.
+export function evaluateTally(
+  tally: ProposalTally,
+  params: Pick<GovParams, "quorum" | "threshold" | "vetoThreshold">,
+): { verdict: TallyVerdict; depositBurned: boolean } {
+  const bonded = tally.bondedSnapshot;
+  const total = tally.totalVoted;
+
+  // percentVoting.LT(quorum) -> fail. Passing needs >= quorum.
+  if (bonded > 0 && total / bonded < params.quorum) {
+    // burn_vote_quorum is true on this chain.
+    return { verdict: "quorum-not-met", depositBurned: true };
+  }
+  const nonAbstain = total - tally.abstain;
+  if (nonAbstain <= 0) {
+    return { verdict: "all-abstain", depositBurned: false };
+  }
+  if (calcVetoShare(tally) > params.vetoThreshold) {
+    // burn_vote_veto is true on this chain.
+    return { verdict: "vetoed", depositBurned: true };
+  }
+  if (tally.yes / nonAbstain > params.threshold) {
+    return { verdict: "passing", depositBurned: false };
+  }
+  return { verdict: "rejected", depositBurned: false };
 }
 
 export function formatTxAmount(tx: number): string {
