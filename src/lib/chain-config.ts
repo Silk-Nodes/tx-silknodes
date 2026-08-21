@@ -11,6 +11,14 @@
  * - Max validators: 64
  */
 
+/**
+ * How far behind tip a node may be and still be trusted, for both LCD reads
+ * and RPC signing. Reachability is not health: a stalled node answers
+ * successfully with an out-of-date answer, which is worse than an outage
+ * because an outage is visible and stale data is not.
+ */
+const MAX_LAG_MS = 120_000;
+
 export const CHAIN_ID = "coreum-mainnet-1";
 export const DENOM = "ucore";
 export const DISPLAY_DENOM = "TX";
@@ -50,22 +58,74 @@ export const RPC_POOL: string[] = Array.from(
  * Picking the host BEFORE the wallet prompt keeps signing single-shot.
  */
 let cachedRpc: string | null = null;
+
+/**
+ * Lag of an RPC host in ms, or null when it cannot be established.
+ *
+ * catching_up is not trustworthy on its own. On 2026-08-21
+ * full-node.mainnet-1.coreum.dev:26657 reported catching_up=false while
+ * sitting 1,166s behind tip: it believed it was synced and was not. Only the
+ * block timestamp tells the truth, so that is what we measure.
+ */
+async function rpcLagMs(host: string, timeoutMs: number): Promise<number | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${host}/status`, { signal: controller.signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const sync = body?.result?.sync_info;
+    const t = Date.parse(sync?.latest_block_time ?? "");
+    if (!Number.isFinite(t)) return null;
+    // A node that admits it is catching up is never acceptable for signing.
+    if (sync?.catching_up === true) return null;
+    return Date.now() - t;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Pick an RPC host that is actually at the chain tip, not merely reachable.
+ *
+ * Signing over a stale node is not a cosmetic problem: account sequence and
+ * gas simulation come from that node's state, so a transaction built against
+ * a node 19 minutes behind can be rejected or silently mis-sequenced, and the
+ * user is told their vote or delegation failed for no visible reason.
+ *
+ * Hosts are probed in parallel and the freshest is taken, rather than the
+ * first that answers. If none are within MAX_LAG_MS we fall back to the
+ * least-stale reachable host rather than refusing outright, and only throw
+ * when nothing answers at all.
+ */
 export async function pickRpc(timeoutMs = 6000): Promise<string> {
   if (cachedRpc) return cachedRpc;
-  for (const host of RPC_POOL) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(`${host}/status`, { signal: controller.signal });
-      clearTimeout(timer);
-      if (res.ok) { cachedRpc = host; return host; }
-    } catch {
-      clearTimeout(timer);
-    }
-  }
-  throw new Error(
-    "No TX chain RPC node is reachable right now, so the transaction was not sent. Nothing was signed or broadcast.",
+  const probes = await Promise.all(
+    RPC_POOL.map(async (host) => ({ host, lag: await rpcLagMs(host, timeoutMs) })),
   );
+  const reachable = probes
+    .filter((p): p is { host: string; lag: number } => p.lag !== null)
+    .sort((a, b) => a.lag - b.lag);
+  if (reachable.length === 0) {
+    throw new Error(
+      "No TX chain RPC node is reachable right now, so the transaction was not sent. Nothing was signed or broadcast.",
+    );
+  }
+  const best = reachable[0];
+  if (best.lag > MAX_LAG_MS) {
+    console.warn(
+      `[chain] every RPC host is behind tip; using ${best.host} at ${Math.round(best.lag / 1000)}s lag`,
+    );
+  }
+  cachedRpc = best.host;
+  return best.host;
+}
+
+/** Forget the cached RPC choice so the next call re-probes the pool. */
+export function resetRpcChoice(): void {
+  cachedRpc = null;
 }
 
 /**
@@ -104,7 +164,6 @@ export const LCD_POOL: string[] = Array.from(
  * enough that a briefly-behind node is not discarded and tight enough that
  * a missing vote cannot hide inside it.
  */
-const MAX_LAG_MS = 120_000;
 /** How long a freshness verdict is reused before the host is re-checked. */
 const FRESHNESS_TTL_MS = 60_000;
 
