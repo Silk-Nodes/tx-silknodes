@@ -9,13 +9,17 @@
 //      changed a headline figure from "87% of the swing is one wallet" to
 //      "102%". Boundaries are now found by binary search on actual block times.
 //
-//   2. tx_search only sees what the node it is asked has indexed, and nodes
-//      differ enormously. All-time deposits into one Gate address: archive
-//      8,668, ecostake 757, polkachu 394, our own node 0 (tx indexing is off
-//      there entirely). A partial index returns a smaller number with no error,
-//      so the scan looks like it worked. The node is now checked against the
-//      window before any counting happens, and the run aborts if it cannot
-//      cover it.
+//   2. tx_search only sees what the node it is asked has indexed, and index
+//      COVERAGE is not the same as the tx_index setting. All-time deposits
+//      into one Gate address: archive 8,668, ecostake 757, polkachu 394,
+//      rpc.silknodes.io 0. That last node runs indexer = "kv" and reports
+//      tx_index "on"; its index simply starts a few hours back, because
+//      tx_index only fills for blocks a node actually executes, so a
+//      state-synced node has none of the history it can still serve blocks
+//      for. node_info tells you the setting, never the coverage. A short
+//      index returns a smaller number with no error, so the scan looks like
+//      it worked. The node's real index floor is measured below and the run
+//      aborts if it starts after the window.
 //
 // Usage:
 //   node scripts/exchange-flows.mjs --days 7
@@ -143,7 +147,26 @@ const endTime = Math.min(anchor + windowMs, tipTime);
 
 // Guard 2: the node must actually cover the window. A pruned index answers
 // with a smaller count and no error, which is the failure mode this prevents.
-const earliest = Number(sync.earliest_block_height || 0);
+/**
+ * Lowest block this node can actually serve.
+ *
+ * earliest_block_height is not dependable: rpc.silknodes.io reports 0 while
+ * refusing every block below 82,486,560. Trusting the field sends the binary
+ * search to block 1, where it fails and looks like a different problem. So we
+ * probe when the field claims full history.
+ */
+async function oldestServable(tipH) {
+  if (await blockTime(1) !== null) return 1;
+  let lo = 1, hi = tipH;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (await blockTime(mid) !== null) hi = mid; else lo = mid + 1;
+  }
+  return lo;
+}
+
+const reported = Number(sync.earliest_block_height || 0);
+const earliest = reported > 1 ? reported : await oldestServable(tipHeight);
 let startH;
 try {
   startH = await heightAt(startTime, tipHeight, earliest);
@@ -158,7 +181,8 @@ try {
 if (earliest > 1) {
   const floorTime = await blockTime(earliest);
   if (floorTime !== null && floorTime > startTime) {
-    console.error(`${RPC} retains only from ${new Date(floorTime).toISOString().slice(0, 10)} (height ${earliest.toLocaleString()}),`);
+    console.error(`${RPC} retains blocks only from ${new Date(floorTime).toISOString().slice(0, 10)} (height ${earliest.toLocaleString()}` +
+      (reported > 1 ? "" : ", measured; the node reports 0") + `),`);
     console.error(`but the window starts ${new Date(startTime).toISOString().slice(0, 10)}. Its index cannot cover this window.`);
     console.error(`Use the archive node: RPC=https://archive.rpc.mainnet-1.tx.org`);
     process.exit(2);
@@ -177,10 +201,47 @@ try {
 // Guard 2b: prove the index is populated. Our own node reports earliest 0 and
 // returns total_count 0 for every query because tx indexing is disabled, which
 // would otherwise read as "no flows at all".
-const probe = await rpc(`/tx_search?query=${encodeURIComponent(`"transfer.recipient='${EXCHANGES.Gate}' AND tx.height>=${startH}"`)}&page=1&per_page=1`);
-if (Number(probe?.result?.total_count ?? 0) === 0) {
-  console.error(`${RPC} returned zero indexed transfers for a known-active address.`);
-  console.error(`Transaction indexing is probably off on this node (tx_index.indexer = "null"). Use the archive node.`);
+/** Transactions the node has indexed in a slice, or -1 if the query errors. */
+async function indexedIn(fromH, toH) {
+  const q = encodeURIComponent(`"tx.height>=${fromH} AND tx.height<=${toH}"`);
+  const d = await rpc(`/tx_search?query=${q}&page=1&per_page=1`);
+  if (!d?.result) return -1;
+  return Number(d.result.total_count ?? 0);
+}
+
+/**
+ * Lowest height this node has transactions indexed for.
+ *
+ * Measured, not read from config: node_info reports the tx_index SETTING,
+ * which says nothing about coverage. rpc.silknodes.io reports tx_index "on"
+ * and indexes only the last few hours, because the index fills as blocks are
+ * executed and a state-synced node never executed the earlier ones.
+ */
+async function indexFloor(tipH) {
+  const SLICE = 2000;
+  if (await indexedIn(startH, startH + SLICE) > 0) return startH;
+  let lo = startH, hi = tipH;
+  while (hi - lo > SLICE) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (await indexedIn(mid, mid + SLICE) > 0) hi = mid; else lo = mid + 1;
+  }
+  return hi;
+}
+
+const floor = await indexFloor(tipHeight);
+if (floor > startH) {
+  const floorTime = await blockTime(floor);
+  console.error(`${RPC} has transactions indexed only from height ${floor.toLocaleString()}` +
+    (floorTime ? ` (${new Date(floorTime).toISOString().slice(0, 16)}Z)` : "") + ",");
+  console.error(`but this window starts at ${startH.toLocaleString()} (${new Date(startTime).toISOString().slice(0, 16)}Z).`);
+  console.error(``);
+  console.error(`This is index COVERAGE, not the tx_index setting. A node can report`);
+  console.error(`tx_index "on" and still hold only recent history: the index fills as`);
+  console.error(`blocks are executed, so a state-synced node has none for blocks before`);
+  console.error(`the snapshot it started from, even where it can still serve those blocks.`);
+  console.error(``);
+  console.error(`Use the archive node:`);
+  console.error(`  RPC=https://archive.rpc.mainnet-1.tx.org node scripts/exchange-flows.mjs ${args.join(" ")}`);
   process.exit(2);
 }
 
