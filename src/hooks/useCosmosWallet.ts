@@ -1,13 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { pickRpc, resetRpcChoice, SILK_RPC, SILK_LCD } from "@/lib/chain-config";
 
 // TX Network (rebranded Coreum) chain config. Keplr and Cosmostation use
 // the same registry format. We feed both providers the same suggest payload
 // and they handle it identically.
 export const TX_CHAIN_ID = "coreum-mainnet-1";
-const TX_RPC = "https://full-node.mainnet-1.coreum.dev:26657";
-const TX_REST = "https://full-node.mainnet-1.coreum.dev:1317";
+// Wallet registration endpoints. These were pinned to
+// full-node.mainnet-1.coreum.dev, which on 2026-08-21 ran ~19 minutes behind
+// tip while reporting catching_up=false. Every vote signed through this page
+// took its account sequence from that node, so the chain rejected the
+// transaction with "account sequence mismatch, expected 1147, got 1146" and
+// the voter was told their vote failed with no way to act on it.
+//
+// Signing now resolves a host through pickRpc(), which orders by measured lag.
+// These constants remain only as the payload handed to the wallet extension
+// for chain registration, and point at our own nodes, which are current.
+// The previously configured coreum-rpc/coreum-lcd.silknodes.io hostnames do
+// not resolve; the working endpoints are rpc/api.silknodes.io/coreum.
+const TX_RPC = SILK_RPC;
+const TX_REST = SILK_LCD;
 const TX_DENOM = "ucore";
 const TX_DECIMALS = 6;
 const TX_PREFIX = "core";
@@ -171,11 +184,6 @@ export function useCosmosWallet() {
       const { SigningStargateClient, GasPrice } = await import("@cosmjs/stargate");
       // SigningStargateClient understands MsgVote via gov.v1beta1; we cast
       // the signer type because OfflineSignerLike is a structural subset.
-      const client = await SigningStargateClient.connectWithSigner(
-        TX_RPC,
-        signerRef.current as unknown as Parameters<typeof SigningStargateClient.connectWithSigner>[1],
-        { gasPrice: GasPrice.fromString(`0.0625${TX_DENOM}`) },
-      );
       const msg = {
         typeUrl: "/cosmos.gov.v1beta1.MsgVote",
         value: {
@@ -184,11 +192,47 @@ export function useCosmosWallet() {
           option, // 1=YES 2=ABSTAIN 3=NO 4=NO_WITH_VETO (SDK enum order)
         },
       };
-      const result = await client.signAndBroadcast(state.address, [msg], "auto");
-      if (result.code !== 0) {
-        throw new Error(result.rawLog || `Tx failed with code ${result.code}`);
+
+      // Sequence mismatch is recoverable and worth one silent retry. It happens
+      // when the node the transaction was built against is behind the chain, and
+      // it costs the voter a second wallet prompt rather than a lost vote. We
+      // retry once, re-resolving the RPC host so the second attempt does not
+      // reuse a node that just proved itself stale.
+      const attempt = async (): Promise<string> => {
+        const client = await SigningStargateClient.connectWithSigner(
+          await pickRpc(),
+          signerRef.current as unknown as Parameters<typeof SigningStargateClient.connectWithSigner>[1],
+          { gasPrice: GasPrice.fromString(`0.0625${TX_DENOM}`) },
+        );
+        try {
+          const result = await client.signAndBroadcast(state.address!, [msg], "auto");
+          if (result.code !== 0) {
+            throw new Error(result.rawLog || `Tx failed with code ${result.code}`);
+          }
+          return result.transactionHash;
+        } finally {
+          client.disconnect();
+        }
+      };
+
+      try {
+        return await attempt();
+      } catch (err) {
+        const text = err instanceof Error ? err.message : String(err);
+        if (!/account sequence mismatch/i.test(text)) throw err;
+        resetRpcChoice();
+        try {
+          return await attempt();
+        } catch (retryErr) {
+          const retryText = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          if (/account sequence mismatch/i.test(retryText)) {
+            throw new Error(
+              "Your wallet and the network disagreed on your account sequence, so the vote was not cast. Nothing was submitted. Wait a few seconds and try again.",
+            );
+          }
+          throw retryErr;
+        }
       }
-      return result.transactionHash;
     },
     [state.address],
   );
