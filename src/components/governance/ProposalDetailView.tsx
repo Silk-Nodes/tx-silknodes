@@ -9,6 +9,7 @@ import { useProposalDetail, type ValidatorVote, type ProposalDetailData } from "
 import { useCosmosWallet } from "@/hooks/useCosmosWallet";
 import { useUserDelegations } from "@/hooks/useUserDelegations";
 import { explainProposal, projectActiveVote } from "@/lib/governance-explainer";
+import VotingCountdown from "./VotingCountdown";
 import {
   STATUS_LABELS,
   calcQuorumFraction,
@@ -155,6 +156,7 @@ export default function ProposalDetailView({ id, onBack }: Props) {
                     {proposal.votingEndTime ? formatAbsolute(proposal.votingEndTime) : "open"}
                   </span>
                 )}
+                {isActive && <VotingCountdown endTime={proposal.votingEndTime} />}
               </div>
             </header>
             <LegacyActiveLayout

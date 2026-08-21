@@ -24,6 +24,10 @@
 
   --accent-yellow: #EBF450;
   --accent-orange: #FFB078;
+  /* Orange as TEXT. --accent-orange is tuned for fills and dots and reaches
+     only 1.4:1 on the light pill, so it cannot carry type. Per-theme token,
+     measured at 4.76:1 light and 8.93:1 dark on the countdown pill. */
+  --countdown-urgent-text: #A34712;
   --accent-lime: #B1FC03;
   --accent-olive: #4a7a1a;
   --accent-olive-light: rgba(74,122,26,0.1);
@@ -114,6 +118,7 @@
 
   --accent-yellow: #EBF450;
   --accent-orange: #FFB078;
+  --countdown-urgent-text: #FFB078;
   --accent-lime: #B1FC03;
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
@@ -14647,4 +14652,46 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.8rem;
   line-height: 1.5;
   color: var(--text-medium);
+}
+
+/* Countdown beside the voting period on a live proposal. It inherits the
+   pill shape from `.prop-page-times > span`; only the tone differs. */
+.vote-countdown {
+  gap: 7px;
+  font-variant-numeric: tabular-nums;   /* digits stop jitter as they tick */
+  color: var(--text-dark);
+  font-weight: 600;
+}
+.vote-countdown-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  /* currentColor, so the dot can never drift from a contrast-checked value.
+     --accent-orange is a fill token and reaches only 1.48:1 on the light
+     background, below the 3:1 a non-text indicator needs. */
+  background: currentColor;
+  flex: 0 0 auto;
+}
+/* Under 24 hours the deadline is actionable. --accent-orange is the warn tone
+   already used for quorum and health, not --danger: a closing vote is a
+   deadline, not an error. */
+.vote-countdown.urgent {
+  color: var(--countdown-urgent-text);
+  border-color: rgba(255, 176, 120, 0.35);
+  background: rgba(255, 176, 120, 0.12);
+}
+.vote-countdown.urgent .vote-countdown-dot {
+  animation: vote-countdown-pulse 2s ease-in-out infinite;
+}
+.vote-countdown.ended {
+  color: var(--text-medium);
+  font-weight: 500;
+}
+@keyframes vote-countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+/* Respect a reduced-motion preference: the dot still marks urgency by colour. */
+@media (prefers-reduced-motion: reduce) {
+  .vote-countdown.urgent .vote-countdown-dot { animation: none; }
 }
