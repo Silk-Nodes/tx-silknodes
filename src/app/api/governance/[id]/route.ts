@@ -81,6 +81,50 @@ interface ValidatorVoteRow extends ValidatorRow {
   weight: number;
 }
 
+/**
+ * Load a proposal straight from the chain, for the ones the indexer never
+ * recorded. Shaped like the Hasura row so the rest of the route is unchanged.
+ *
+ * bonded_tokens is deliberately left null: the bonded total at voting time is
+ * not recoverable from the chain after the fact, and inventing one would
+ * produce a turnout percentage that looks authoritative and is wrong. A blank
+ * turnout is honest; a fabricated one is the failure we keep fixing.
+ *
+ * Votes are not fetched here because the SDK deletes them from state once a
+ * proposal is tallied, so a settled proposal has none to fetch.
+ */
+async function proposalFromChain(id: number): Promise<HasuraProposal | null> {
+  try {
+    const res = await lcdGet(`/cosmos/gov/v1/proposals/${id}`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    const pr = body?.proposal;
+    if (!pr) return null;
+    const ft = pr.final_tally_result ?? {};
+    const msgs = Array.isArray(pr.messages) ? pr.messages : [];
+    return {
+      id: Number(pr.id),
+      title: pr.title || msgs[0]?.["@type"] || `Proposal ${id}`,
+      description: pr.summary || "",
+      status: pr.status,
+      content: msgs,
+      proposer_address: pr.proposer || "",
+      submit_time: pr.submit_time ?? null,
+      voting_start_time: pr.voting_start_time ?? null,
+      voting_end_time: pr.voting_end_time ?? null,
+      proposal_tally_result: {
+        yes: ft.yes_count ?? "0",
+        no: ft.no_count ?? "0",
+        abstain: ft.abstain_count ?? "0",
+        no_with_veto: ft.no_with_veto_count ?? "0",
+      },
+      staking_pool_snapshot: null,
+    } as HasuraProposal;
+  } catch {
+    return null;
+  }
+}
+
 const PROPOSAL_QUERY = `query Q($id: Int!) {
   proposal_by_pk(id: $id) {
     id title description status content
@@ -214,8 +258,17 @@ export async function GET(
       fetchAllVotes(id),
     ]);
 
-    const p = propData.proposal_by_pk;
-    if (!p) return NextResponse.json({ error: "not found" }, { status: 404 });
+    let p = propData.proposal_by_pk;
+    let proposalSource = "indexer";
+    if (!p) {
+      // The Coreum indexer is missing some proposals outright: 40 ("Exclude
+      // Foundation staking addresses from PSE") and 42 both exist on chain and
+      // returned zero rows here, so the page 404'd on real governance history.
+      // The chain always has the proposal even when the indexer does not.
+      p = await proposalFromChain(id);
+      if (!p) return NextResponse.json({ error: "not found" }, { status: 404 });
+      proposalSource = "chain";
+    }
 
     // Normalize every indexer timestamp to real UTC before anything reads
     // them: vote rows feed relative times, sorting and the velocity chart,
@@ -401,32 +454,45 @@ export async function GET(
     let noWithVeto = ucoreToTX(tally?.no_with_veto);
     let tallySource = "indexer";
 
-    // While a proposal is live the indexer's tally snapshot lags its own vote
-    // table: on 2026-08-21 it carried proposal 45's votes but not the 240.9M TX
-    // abstain in the totals, which put the page on the wrong side of the veto
-    // threshold. The chain's tally endpoint runs the same code that decides the
-    // outcome, so for live proposals it is the authority. lcdGet orders hosts by
-    // freshness, so a stalled node cannot answer this.
-    if (p.status === "PROPOSAL_STATUS_VOTING_PERIOD") {
+    // The tally always comes from the chain when the chain can answer.
+    //
+    // The indexer is wrong in both directions. While a proposal is live its
+    // tally snapshot lags its own vote table: on 2026-08-21 it carried
+    // proposal 45's votes but not the 240.9M TX abstain in the totals, which
+    // put the page on the wrong side of the veto threshold. On settled
+    // proposals its stored totals drift from the final result by up to
+    // ~296k TX. The chain keeps a live tally while voting and
+    // final_tally_result forever after, so it is authoritative either way.
+    //
+    // lcdGet orders hosts by freshness, so a stalled node cannot answer this.
+    if (proposalSource === "chain") {
+      // Already read from final_tally_result in proposalFromChain.
+      tallySource = "chain";
+    } else {
       try {
-        const res = await lcdGet(`/cosmos/gov/v1/proposals/${p.id}/tally`);
+        const live = p.status === "PROPOSAL_STATUS_VOTING_PERIOD";
+        const res = await lcdGet(
+          live ? `/cosmos/gov/v1/proposals/${p.id}/tally` : `/cosmos/gov/v1/proposals/${p.id}`,
+        );
         const body = await res.json();
-        const t = body?.tally;
-        const n = (x: unknown) => Number(x ?? 0) / 1e6;
-        const total = n(t?.yes_count) + n(t?.no_count) + n(t?.abstain_count) + n(t?.no_with_veto_count);
+        const t = live ? body?.tally : body?.proposal?.final_tally_result;
+        const num = (x: unknown) => Number(x ?? 0) / 1e6;
+        const total =
+          num(t?.yes_count) + num(t?.no_count) + num(t?.abstain_count) + num(t?.no_with_veto_count);
         // Only take it if it is a real tally. A zeroed response means the host
         // answered without data, and a stale indexer beats an empty chart.
         if (total > 0) {
-          yes = n(t.yes_count);
-          no = n(t.no_count);
-          abstain = n(t.abstain_count);
-          noWithVeto = n(t.no_with_veto_count);
+          yes = num(t.yes_count);
+          no = num(t.no_count);
+          abstain = num(t.abstain_count);
+          noWithVeto = num(t.no_with_veto_count);
           tallySource = "chain";
         }
       } catch {
         // Keep the indexer numbers and say so, rather than failing the page.
       }
     }
+
     const rawType = Array.isArray(p.content) && p.content[0]?.["@type"]
       ? (p.content[0]["@type"] as string)
       : "";
@@ -466,6 +532,7 @@ export async function GET(
         // How many votes on this proposal came from the chain snapshot rather
         // than the indexer. Surfaced so the page can say the timeline is
         // incomplete instead of implying nobody voted early.
+        proposalSource,
         tallySource,
         recoveredFromChain: recovered,
         meta: {
