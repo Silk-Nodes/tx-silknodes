@@ -25,9 +25,10 @@
   --accent-yellow: #EBF450;
   --accent-orange: #FFB078;
   /* Orange as TEXT. --accent-orange is tuned for fills and dots and reaches
-     only 1.4:1 on the light pill, so it cannot carry type. Per-theme token,
-     measured at 4.76:1 light and 8.93:1 dark on the countdown pill. */
-  --countdown-urgent-text: #A34712;
+     only 1.4:1 on the light pill, so it cannot carry type. Per-theme token
+     for every warn-toned string: countdown, quorum, health. Measured at
+     4.76:1 on the light countdown pill and 5.03:1 on the plain page. */
+  --warn-text: #A34712;
   --accent-lime: #B1FC03;
   --accent-olive: #4a7a1a;
   --accent-olive-light: rgba(74,122,26,0.1);
@@ -118,7 +119,7 @@
 
   --accent-yellow: #EBF450;
   --accent-orange: #FFB078;
-  --countdown-urgent-text: #FFB078;
+  --warn-text: #FFB078;
   --accent-lime: #B1FC03;
   --accent-olive: #8fbc8f;
   --accent-olive-light: rgba(143, 188, 143, 0.15);
@@ -8583,10 +8584,10 @@ input[type="range"]::-moz-range-thumb {
 .gov-health-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .gov-health-pct { font-size: 2.2rem; font-weight: 300; letter-spacing: -0.025em; line-height: 1; color: var(--text-dark); font-variant-numeric: tabular-nums; }
 .gov-health.ok .gov-health-pct { color: var(--text-accent); }
-.gov-health.warn .gov-health-pct { color: var(--accent-orange); }
+.gov-health.warn .gov-health-pct { color: var(--warn-text); }
 .gov-health-status { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px; border-radius: var(--radius-pill); }
 .gov-health-status.ok { background: rgba(177, 252, 3, 0.15); color: var(--text-accent); border: 1px solid rgba(177, 252, 3, 0.25); }
-.gov-health-status.warn { background: rgba(255, 176, 120, 0.15); color: var(--accent-orange); border: 1px solid rgba(255, 176, 120, 0.25); }
+.gov-health-status.warn { background: rgba(255, 176, 120, 0.15); color: var(--warn-text); border: 1px solid rgba(255, 176, 120, 0.25); }
 .gov-health-delta { font-size: 0.78rem; color: var(--text-light); font-variant-numeric: tabular-nums; }
 .gov-health-label { font-size: 0.85rem; color: var(--text-medium); margin-bottom: 14px; }
 .gov-health-bar-wrap { position: relative; margin-top: auto; padding-top: 28px; }
@@ -8834,7 +8835,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-dark);
 }
 .gov-active-stat-value.ok { color: var(--text-accent); }
-.gov-active-stat-value.warn { color: var(--accent-orange); }
+.gov-active-stat-value.warn { color: var(--warn-text); }
 .gov-active-cta {
   align-self: end;
   padding: 8px 16px;
@@ -8931,7 +8932,7 @@ input[type="range"]::-moz-range-thumb {
 .gov-history-yes { font-size: 0.82rem; color: var(--text-light); }
 .gov-history-quorum { font-size: 0.82rem; font-weight: 600; }
 .gov-history-quorum.ok { color: var(--text-accent); }
-.gov-history-quorum.warn { color: var(--accent-orange); }
+.gov-history-quorum.warn { color: var(--warn-text); }
 .gov-history-chev { color: var(--text-light); text-align: right; font-size: 1.1rem; }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -14672,11 +14673,11 @@ input[type="range"]::-moz-range-thumb {
   background: currentColor;
   flex: 0 0 auto;
 }
-/* Under 24 hours the deadline is actionable. --accent-orange is the warn tone
-   already used for quorum and health, not --danger: a closing vote is a
+/* Under 24 hours the deadline is actionable. --warn-text is the warn tone
+   shared with quorum and health, not --danger: a closing vote is a
    deadline, not an error. */
 .vote-countdown.urgent {
-  color: var(--countdown-urgent-text);
+  color: var(--warn-text);
   border-color: rgba(255, 176, 120, 0.35);
   background: rgba(255, 176, 120, 0.12);
 }
