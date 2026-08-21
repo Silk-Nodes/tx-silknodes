@@ -62,3 +62,27 @@ if (seen.size > 1) {
   process.exit(1);
 }
 console.log("\nall responding hosts agree on the tally.");
+
+// RPC hosts sign transactions, so a stale one causes failed votes and
+// delegations rather than merely wrong reads. catching_up is not enough:
+// a node reported catching_up=false at 1,166s behind tip.
+const RPCS = [
+  "https://rpc-coreum.ecostake.com",
+  "https://coreum-rpc.polkachu.com",
+  "https://full-node.mainnet-1.coreum.dev:26657",
+  "https://coreum-rpc.silknodes.io",
+];
+console.log("\nRPC hosts (used for signing):");
+let rpcOk = 0;
+for (const h of RPCS) {
+  const d = await get(h, "/status");
+  const sync = d?.result?.sync_info;
+  if (!sync) { console.log(`  ${h.replace("https://", "").padEnd(44)} unreachable`); continue; }
+  const lag = Date.now() - Date.parse(sync.latest_block_time);
+  const stale = lag > MAX_LAG_MS || sync.catching_up === true;
+  if (!stale) rpcOk++;
+  console.log(
+    `  ${h.replace("https://", "").padEnd(44)} ${Number(sync.latest_block_height).toLocaleString().padStart(12)} lag ${`${(lag / 1000).toFixed(0)}s`.padStart(7)} catching_up=${sync.catching_up} ${stale ? " STALE" : " ok"}`,
+  );
+}
+if (rpcOk === 0) { console.log("\nWARNING: no fresh RPC host. Signing will use a stale node."); process.exit(1); }
