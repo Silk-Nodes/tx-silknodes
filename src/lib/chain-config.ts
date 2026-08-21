@@ -83,10 +83,80 @@ export const LCD_POOL: string[] = Array.from(
   new Set([
     SILK_LCD,
     "https://rest-coreum.ecostake.com",
-    "https://full-node.mainnet-1.coreum.dev:1317",
     "https://coreum-api.polkachu.com",
+    "https://coreum-rest.publicnode.com",
+    "https://rest.cosmos.directory/coreum",
+    // Demoted 2026-08-21. This host answers 200 OK while sitting ~4,100
+    // blocks (~51 min) behind tip, advancing at chain speed so it never
+    // catches up. It served a governance tally that was missing a 240.9M TX
+    // abstain vote, which put proposal 45 on the wrong side of the veto
+    // threshold on our page. Kept as a last resort, never preferred.
+    "https://full-node.mainnet-1.coreum.dev:1317",
   ]),
 );
+
+/**
+ * How far behind tip an LCD host may be and still be trusted.
+ *
+ * Reachability is not health. A stalled node returns 200 OK with a
+ * confidently wrong answer, which is worse than an outage: an outage is
+ * visible, stale data is not. Two minutes is ~160 blocks at 0.74s, wide
+ * enough that a briefly-behind node is not discarded and tight enough that
+ * a missing vote cannot hide inside it.
+ */
+const MAX_LAG_MS = 120_000;
+/** How long a freshness verdict is reused before the host is re-checked. */
+const FRESHNESS_TTL_MS = 60_000;
+
+const freshness = new Map<string, { fresh: boolean; checkedAt: number }>();
+
+/**
+ * True when the host's latest block is recent enough to trust.
+ *
+ * Failure to answer counts as not fresh: if we cannot establish that a host
+ * is current, we must not prefer it over one we can.
+ */
+export async function isLcdFresh(host: string, timeoutMs = 5_000): Promise<boolean> {
+  const cached = freshness.get(host);
+  const now = Date.now();
+  if (cached && now - cached.checkedAt < FRESHNESS_TTL_MS) return cached.fresh;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let fresh = false;
+  try {
+    const res = await fetch(`${host}/cosmos/base/tendermint/v1beta1/blocks/latest`, {
+      signal: controller.signal,
+    });
+    if (res.ok) {
+      const body = await res.json();
+      const t = Date.parse(body?.block?.header?.time ?? "");
+      fresh = Number.isFinite(t) && now - t <= MAX_LAG_MS;
+    }
+  } catch {
+    fresh = false;
+  } finally {
+    clearTimeout(timer);
+  }
+  freshness.set(host, { fresh, checkedAt: now });
+  return fresh;
+}
+
+/**
+ * Pool order with stale hosts moved to the back rather than dropped.
+ *
+ * Demoting instead of removing keeps the "never degrade to zeros" rule from
+ * the validator-not-found incident: if every node is behind, we still answer
+ * from the freshest available rather than throwing.
+ */
+async function freshestFirst(hosts: string[]): Promise<string[]> {
+  const verdicts = await Promise.all(
+    hosts.map(async (h) => ({ host: h, fresh: await isLcdFresh(h) })),
+  );
+  return [...verdicts.filter((v) => v.fresh), ...verdicts.filter((v) => !v.fresh)].map(
+    (v) => v.host,
+  );
+}
 
 /**
  * GET a path from the first LCD host that answers.
@@ -119,9 +189,19 @@ function lcdOrder(preferred?: string): string[] {
   return [...new Set([...head, ...LCD_POOL])];
 }
 
+/**
+ * Drop a host's cached freshness verdict. Called when a host errors so the
+ * next request re-checks it instead of trusting a minute-old "fresh".
+ */
+function forgetFreshness(host: string): void {
+  freshness.delete(host);
+}
+
 export async function lcdGet(path: string, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
   let lastErr: unknown = new Error("No chain hosts configured");
-  for (const host of lcdOrder()) {
+  // Freshness decides the order, not configuration. A host that answers but
+  // is behind tip goes to the back of the queue.
+  for (const host of await freshestFirst(lcdOrder())) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -132,6 +212,7 @@ export async function lcdGet(path: string, timeoutMs = FETCH_TIMEOUT): Promise<R
     } catch (err) {
       clearTimeout(timer);
       if (healthyLcd === host) healthyLcd = null;
+      forgetFreshness(host);
       lastErr = err;
     }
   }
@@ -186,7 +267,9 @@ export async function fetchWithTimeout(url: string, options?: RequestInit, timeo
 
   const path = url.slice(base.length);
   // Start at the host the caller asked for, then continue through the rest.
-  const ordered = lcdBase ? lcdOrder(base) : [base, ...pool.filter((h) => h !== base)];
+  const ordered = lcdBase
+    ? await freshestFirst(lcdOrder(base))
+    : [base, ...pool.filter((h) => h !== base)];
   let lastErr: unknown = new Error("No LCD hosts configured");
   for (const host of ordered) {
     const controller = new AbortController();
@@ -203,6 +286,7 @@ export async function fetchWithTimeout(url: string, options?: RequestInit, timeo
     } catch (err) {
       clearTimeout(timer);
       if (lcdBase && healthyLcd === host) healthyLcd = null;
+      forgetFreshness(host);
       lastErr = err;
     }
   }

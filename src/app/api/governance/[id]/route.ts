@@ -13,6 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { getActiveValidatorSet } from "@/lib/validator-set";
+import { lcdGet } from "@/lib/chain-config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -394,10 +395,38 @@ export async function GET(
     );
 
     const tally = p.proposal_tally_result;
-    const yes = ucoreToTX(tally?.yes);
-    const no = ucoreToTX(tally?.no);
-    const abstain = ucoreToTX(tally?.abstain);
-    const noWithVeto = ucoreToTX(tally?.no_with_veto);
+    let yes = ucoreToTX(tally?.yes);
+    let no = ucoreToTX(tally?.no);
+    let abstain = ucoreToTX(tally?.abstain);
+    let noWithVeto = ucoreToTX(tally?.no_with_veto);
+    let tallySource = "indexer";
+
+    // While a proposal is live the indexer's tally snapshot lags its own vote
+    // table: on 2026-08-21 it carried proposal 45's votes but not the 240.9M TX
+    // abstain in the totals, which put the page on the wrong side of the veto
+    // threshold. The chain's tally endpoint runs the same code that decides the
+    // outcome, so for live proposals it is the authority. lcdGet orders hosts by
+    // freshness, so a stalled node cannot answer this.
+    if (p.status === "PROPOSAL_STATUS_VOTING_PERIOD") {
+      try {
+        const res = await lcdGet(`/cosmos/gov/v1/proposals/${p.id}/tally`);
+        const body = await res.json();
+        const t = body?.tally;
+        const n = (x: unknown) => Number(x ?? 0) / 1e6;
+        const total = n(t?.yes_count) + n(t?.no_count) + n(t?.abstain_count) + n(t?.no_with_veto_count);
+        // Only take it if it is a real tally. A zeroed response means the host
+        // answered without data, and a stale indexer beats an empty chart.
+        if (total > 0) {
+          yes = n(t.yes_count);
+          no = n(t.no_count);
+          abstain = n(t.abstain_count);
+          noWithVeto = n(t.no_with_veto_count);
+          tallySource = "chain";
+        }
+      } catch {
+        // Keep the indexer numbers and say so, rather than failing the page.
+      }
+    }
     const rawType = Array.isArray(p.content) && p.content[0]?.["@type"]
       ? (p.content[0]["@type"] as string)
       : "";
@@ -437,6 +466,7 @@ export async function GET(
         // How many votes on this proposal came from the chain snapshot rather
         // than the indexer. Surfaced so the page can say the timeline is
         // incomplete instead of implying nobody voted early.
+        tallySource,
         recoveredFromChain: recovered,
         meta: {
           validatorCount: validatorVotes.length,
