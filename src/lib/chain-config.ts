@@ -30,8 +30,8 @@ export const SILK_NODES_MONIKER = "Silk Nodes";
 export const SILK_NODES_COMMISSION = 10; // 10%
 
 // Endpoints (Coreum LCD supports CORS directly, no proxy needed)
-export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://rpc-coreum.ecostake.com";
-export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://rest-coreum.ecostake.com";
+export const SILK_RPC = process.env.NEXT_PUBLIC_SILK_RPC || "https://rpc.silknodes.io/coreum";
+export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://api.silknodes.io/coreum";
 export const FALLBACK_LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 
 /**
@@ -44,8 +44,10 @@ export const RPC_POOL: string[] = Array.from(
   new Set([
     SILK_RPC,
     "https://rpc-coreum.ecostake.com",
-    "https://full-node.mainnet-1.coreum.dev:26657",
     "https://coreum-rpc.polkachu.com",
+    // Last resort. Ran ~19 min behind tip on 2026-08-21 while reporting
+    // catching_up=false, which is what broke voting on proposal 45.
+    "https://full-node.mainnet-1.coreum.dev:26657",
   ]),
 );
 

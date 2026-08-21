@@ -1,5 +1,6 @@
 "use client";
 
+import { SILK_LCD } from "@/lib/chain-config";
 import { useEffect, useState } from "react";
 
 // Returns the connected wallet's current delegations from the Cosmos LCD
@@ -10,7 +11,10 @@ import { useEffect, useState } from "react";
 // Returns operator addresses (corevaloper1...) - that's what ValidatorVoteTable
 // uses for highlighting, and what Cosmos staking semantically keys on.
 
-const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
+// Was pinned to full-node.mainnet-1.coreum.dev, which ran ~19 minutes behind
+// tip on 2026-08-21. Stale delegation reads make the vote-override panel show
+// the wrong validator and stake for a voter.
+const LCD = SILK_LCD;
 const UCORE_PER_TX = 1_000_000;
 
 interface DelegationResponseRaw {
