@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { getActiveValidatorSet } from "@/lib/validator-set";
 import { lcdGet } from "@/lib/chain-config";
+import { bondedAt } from "@/lib/chain-history";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -85,10 +86,9 @@ interface ValidatorVoteRow extends ValidatorRow {
  * Load a proposal straight from the chain, for the ones the indexer never
  * recorded. Shaped like the Hasura row so the rest of the route is unchanged.
  *
- * bonded_tokens is deliberately left null: the bonded total at voting time is
- * not recoverable from the chain after the fact, and inventing one would
- * produce a turnout percentage that looks authoritative and is wrong. A blank
- * turnout is honest; a fabricated one is the failure we keep fixing.
+ * bonded_tokens is read from the archive node at the height where voting
+ * closed. It stays null if the archive cannot answer: a blank turnout is
+ * honest, a fabricated one is the failure we keep fixing.
  *
  * Votes are not fetched here because the SDK deletes them from state once a
  * proposal is tallied, so a settled proposal has none to fetch.
@@ -102,6 +102,12 @@ async function proposalFromChain(id: number): Promise<HasuraProposal | null> {
     if (!pr) return null;
     const ft = pr.final_tally_result ?? {};
     const msgs = Array.isArray(pr.messages) ? pr.messages : [];
+    // Bonded stake when voting closed, so turnout is a real figure rather than
+    // a blank. Needs an archive node: a pruning node has dropped the state and
+    // today's pool is 4.6x the 2025 pool because of PSE, so substituting it
+    // would render a turnout that looks authoritative and is badly wrong.
+    // Null on failure, and the UI shows no turnout rather than a made-up one.
+    const bonded = pr.voting_end_time ? await bondedAt(pr.voting_end_time) : null;
     return {
       id: Number(pr.id),
       title: pr.title || msgs[0]?.["@type"] || `Proposal ${id}`,
@@ -118,7 +124,9 @@ async function proposalFromChain(id: number): Promise<HasuraProposal | null> {
         abstain: ft.abstain_count ?? "0",
         no_with_veto: ft.no_with_veto_count ?? "0",
       },
-      staking_pool_snapshot: null,
+      staking_pool_snapshot: bonded === null
+        ? null
+        : { bonded_tokens: String(Math.round(bonded * 1e6)) },
     } as HasuraProposal;
   } catch {
     return null;

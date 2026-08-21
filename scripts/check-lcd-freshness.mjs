@@ -6,12 +6,13 @@
 //
 // Run: node scripts/check-lcd-freshness.mjs [proposalId]
 const HOSTS = [
+  "https://api.silknodes.io/coreum",
   "https://rest-coreum.ecostake.com",
   "https://coreum-api.polkachu.com",
   "https://coreum-rest.publicnode.com",
   "https://rest.cosmos.directory/coreum",
+  "https://archive.rest.mainnet-1.tx.org",
   "https://full-node.mainnet-1.coreum.dev:1317",
-  "https://coreum-lcd.silknodes.io",
 ];
 const MAX_LAG_MS = 120_000;
 const PROPOSAL = process.argv[2] || "45";
@@ -67,10 +68,11 @@ console.log("\nall responding hosts agree on the tally.");
 // delegations rather than merely wrong reads. catching_up is not enough:
 // a node reported catching_up=false at 1,166s behind tip.
 const RPCS = [
+  "https://rpc.silknodes.io/coreum",
   "https://rpc-coreum.ecostake.com",
   "https://coreum-rpc.polkachu.com",
+  "https://archive.rpc.mainnet-1.tx.org",
   "https://full-node.mainnet-1.coreum.dev:26657",
-  "https://coreum-rpc.silknodes.io",
 ];
 console.log("\nRPC hosts (used for signing):");
 let rpcOk = 0;
