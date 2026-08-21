@@ -35,6 +35,21 @@ export const SILK_LCD = process.env.NEXT_PUBLIC_SILK_LCD || "https://api.silknod
 export const FALLBACK_LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 
 /**
+ * Archive nodes, which retain state from genesis (earliest_block_height 1).
+ *
+ * Use ARCHIVE_RPC for anything historical. A pruning node only keeps recent
+ * state, so questions like "what was bonded when this proposal closed" are
+ * unanswerable without one, which is why settled proposals recovered from
+ * chain had no turnout figure.
+ *
+ * ARCHIVE_REST is listed as a normal fresh REST host only. It does NOT honour
+ * the x-cosmos-block-height header: queries at height 1,000,000 and 40,000,000
+ * both return current state, so it cannot be used for historical reads.
+ */
+export const ARCHIVE_RPC = "https://archive.rpc.mainnet-1.tx.org";
+export const ARCHIVE_REST = "https://archive.rest.mainnet-1.tx.org";
+
+/**
  * Ordered RPC pool. Transactions sign over RPC, not LCD, so a dead RPC host
  * breaks delegate/undelegate/redelegate/claim with "Failed to fetch" while
  * read-only pages look healthy. Our own node has been unreachable, and every
@@ -45,6 +60,7 @@ export const RPC_POOL: string[] = Array.from(
     SILK_RPC,
     "https://rpc-coreum.ecostake.com",
     "https://coreum-rpc.polkachu.com",
+    ARCHIVE_RPC,
     // Last resort. Ran ~19 min behind tip on 2026-08-21 while reporting
     // catching_up=false, which is what broke voting on proposal 45.
     "https://full-node.mainnet-1.coreum.dev:26657",
@@ -148,6 +164,7 @@ export const LCD_POOL: string[] = Array.from(
     "https://coreum-api.polkachu.com",
     "https://coreum-rest.publicnode.com",
     "https://rest.cosmos.directory/coreum",
+    ARCHIVE_REST,
     // Demoted 2026-08-21. This host answers 200 OK while sitting ~4,100
     // blocks (~51 min) behind tip, advancing at chain speed so it never
     // catches up. It served a governance tally that was missing a 240.9M TX
