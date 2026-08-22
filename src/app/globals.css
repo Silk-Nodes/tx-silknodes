@@ -14272,7 +14272,14 @@ input[type="range"]::-moz-range-thumb {
 .wa-delrow:last-child { border-bottom: none; }
 .wa-delrow-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .wa-delrow-name { font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
-.wa-delrow-amount { font-size: 0.86rem; font-weight: 700; color: var(--text-dark); }
+.wa-delrow-amount {
+  font-size: 0.86rem; font-weight: 700; color: var(--text-dark);
+  /* Six decimals make these strings long. nowrap keeps a number from breaking
+     across two lines mid-digit, which is unreadable, and tabular figures keep
+     the column aligned as amounts change. */
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .wa-delrow-sub {
   display: flex; justify-content: space-between; gap: 12px;
   font-size: 0.64rem; color: var(--text-medium); margin-top: 3px;
@@ -14364,7 +14371,9 @@ input[type="range"]::-moz-range-thumb {
 
 .wa-drow {
   display: grid;
-  grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(90px, 0.7fr) auto;
+  /* Amount column widened from 140px: a six-decimal balance such as
+     "12,345,678.901235 TX" needs about 168px and would otherwise spill. */
+  grid-template-columns: minmax(160px, 1.4fr) minmax(168px, 1fr) minmax(90px, 0.7fr) auto;
   align-items: center; gap: 16px;
   padding: 12px 0; border-bottom: 1px solid var(--glass-border);
 }
