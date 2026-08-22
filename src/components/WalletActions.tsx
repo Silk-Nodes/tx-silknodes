@@ -29,6 +29,25 @@ import { fetchStakingParams } from "@/lib/passport";
 const GAS_RESERVE = 0.1;
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+
+/**
+ * A TX amount belonging to the reader: their balance, their delegation, the
+ * amount they are about to sign for.
+ *
+ * ucore carries six decimals, and rounding a holder's own stake to a whole
+ * token hides real value. 40.218195 TX rendered as "40 TX" reads as a bug to
+ * the person who staked it, and it disagrees with every explorer. Trailing
+ * zeros are dropped, so a round number stays "100 TX" rather than
+ * "100.000000 TX".
+ *
+ * fmt() stays for aggregate figures like a validator's total stake, where a
+ * decimal on a nine-figure number is noise.
+ */
+const fmtTX = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
+
+/** Fiat, which is always two decimals regardless of the token precision. */
+const fmtUsd = (n: number) =>
+  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtRewards = (n: number) =>
   n > 1 ? fmt(n) : n < 0.01 ? n.toFixed(6) : n.toFixed(2);
 
@@ -198,7 +217,7 @@ export default function WalletActions({
       <div className="wa-field-head">
         <span className="wa-field-label">Amount</span>
         <span className="wa-field-hint">
-          {dialog?.mode === "add" ? "Available" : "Max"}: {fmt(maxAmount)} TX
+          {dialog?.mode === "add" ? "Available" : "Max"}: {fmtTX(maxAmount)} TX
         </span>
       </div>
       <div className="wa-amount">
@@ -229,7 +248,7 @@ export default function WalletActions({
         <div className="wa-strip-top">
         <div className="wa-stat">
           <span className="wa-stat-label">Available</span>
-          <span className="wa-stat-value mono">{fmt(wallet.balance)} TX</span>
+          <span className="wa-stat-value mono">{fmtTX(wallet.balance)} TX</span>
         </div>
         <div className="wa-darkcard wa-strip-pse" title={`Your accrued score measured against the last settled cycle, paid ${nextDistDate}. Not a promise: the final share depends on every delegator at the snapshot block.`}>
           <span className="wa-stat-label on-dark">Cycle #{pseInfo.currentCycle} so far</span>
@@ -264,7 +283,7 @@ export default function WalletActions({
           </div>
           <div>
             <span className="wa-stat-label on-dark">PSE eligible bonded</span>
-            <span className="wa-info-value mono">{fmt(pseEligibleBonded)} TX</span>
+            <span className="wa-info-value mono">{fmtTX(pseEligibleBonded)} TX</span>
           </div>
           <div>
             <span className="wa-stat-label on-dark">Next PSE</span>
@@ -310,8 +329,8 @@ export default function WalletActions({
                   <span className="wa-drow-meta">VP {vp.toFixed(3)}%</span>
                 </div>
                 <div className="wa-drow-nums">
-                  <span className="mono wa-delrow-amount">{fmt(del.amount)} TX</span>
-                  <span className="wa-drow-meta">{price > 0 ? `$${fmt(del.amount * price)}` : ""}</span>
+                  <span className="mono wa-delrow-amount">{fmtTX(del.amount)} TX</span>
+                  <span className="wa-drow-meta">{price > 0 ? `$${fmtUsd(del.amount * price)}` : ""}</span>
                 </div>
                 <div className="wa-drow-rewards">
                   {del.rewards > 0.01 && <span className="wa-delrow-rewards">+{fmtRewards(del.rewards)} TX</span>}
@@ -353,7 +372,7 @@ export default function WalletActions({
               <div key={i} className="wa-delrow">
                 <div className="wa-delrow-top">
                   <span className="wa-delrow-name">{u.validatorMoniker}</span>
-                  <span className="mono wa-delrow-amount">{fmt(u.amount)} TX</span>
+                  <span className="mono wa-delrow-amount">{fmtTX(u.amount)} TX</span>
                 </div>
                 <div className="wa-delrow-sub">
                   <span className="wa-unbond-time">
@@ -465,7 +484,7 @@ export default function WalletActions({
                   </button>
                 ) : (
                   <button type="button" className="wa-btn-danger wa-modal-submit" onClick={handleSubmit} disabled={!canSubmit}>
-                    Undelegate {parsedAmount > 0 ? `${fmt(parsedAmount)} TX` : ""}
+                    Undelegate {parsedAmount > 0 ? `${fmtTX(parsedAmount)} TX` : ""}
                   </button>
                 )
               ) : (
@@ -473,8 +492,8 @@ export default function WalletActions({
                   {txPending
                     ? "Processing..."
                     : dialog.mode === "add"
-                      ? `Delegate${parsedAmount > 0 ? ` ${fmt(parsedAmount)} TX` : ""}${destInfo ? ` to ${destInfo.moniker}` : ""}`
-                      : `Redelegate${parsedAmount > 0 ? ` ${fmt(parsedAmount)} TX` : ""}`}
+                      ? `Delegate${parsedAmount > 0 ? ` ${fmtTX(parsedAmount)} TX` : ""}${destInfo ? ` to ${destInfo.moniker}` : ""}`
+                      : `Redelegate${parsedAmount > 0 ? ` ${fmtTX(parsedAmount)} TX` : ""}`}
                 </button>
               )}
             </div>
@@ -491,7 +510,7 @@ export default function WalletActions({
             <div className="wa-modal-body">
               <div className="wa-modal-facts">
                 <div><span>Validator</span><strong>{cancelTarget.validatorMoniker}</strong></div>
-                <div><span>Amount</span><strong className="mono earn">{fmt(cancelTarget.amount)} TX</strong></div>
+                <div><span>Amount</span><strong className="mono earn">{fmtTX(cancelTarget.amount)} TX</strong></div>
               </div>
               <p className="wa-modal-note">
                 Your stake will be restored to <strong>{cancelTarget.validatorMoniker}</strong> and
