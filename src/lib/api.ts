@@ -1,6 +1,7 @@
 import type { TokenData, StakingData, ValidatorInfo, NetworkStatus } from "./types";
 import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-config";
 import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES, fetchOnChainExcludedAddresses } from "./pse-calculator";
+import { realAnnualIssuance } from "./chain-economics";
 
 const COINGECKO_API = "https://api.coingecko.com/api/v3";
 const COINGECKO_ID = "tx"; // Changed from "coreum" after SOLO+Coreum merge (March 6, 2026)
@@ -176,9 +177,13 @@ export async function fetchStakingData(): Promise<StakingData> {
     // Staking ratio for DISPLAY: bonded vs circulating supply (meaningful for users)
     const stakingRatio = circulatingSupply > 0 ? (bondedTokens / circulatingSupply) * 100 : 0;
 
-    // APR: Cosmos SDK applies inflation to TOTAL supply, distributes to bonded stakers
+    // APR: inflation applies to TOTAL supply and is distributed to bonded
+    // stakers. annual_provisions is NOT the amount actually issued: the chain
+    // mints provisions/blocks_per_year per block, and blocks_per_year is set
+    // to 33,000,000 against a real ~42,478,000. See lib/chain-economics.
+    const issuedPerYear = await realAnnualIssuance(annualProvisions);
     const apr = bondedTokens > 0
-      ? (annualProvisions * (1 - communityTax) / bondedTokens) * 100
+      ? (issuedPerYear * (1 - communityTax) / bondedTokens) * 100
       : 0;
 
     // Fetch excluded PSE stake (non-blocking — falls back to 0)
@@ -194,7 +199,11 @@ export async function fetchStakingData(): Promise<StakingData> {
       notBondedTokens: Math.round(notBondedTokens),
       totalValidators: parseInt(valCount.pagination?.total || "0"),
       activeValidators: parseInt(valCount.pagination?.total || "0"),
-      annualProvisions: Math.round(annualProvisions),
+      // The REAL amount issued per year, not the annual_provisions
+      // projection. Downstream code recomputes APR and validator income from
+      // this field, so it must already be corrected or every consumer
+      // re-introduces the same understatement.
+      annualProvisions: Math.round(issuedPerYear),
       communityTax,
       excludedPSEStake,
       pseEligibleBonded,
@@ -244,7 +253,7 @@ export async function fetchAllValidators(txPrice: number = 0): Promise<Validator
     );
 
     // Annual rewards to validators = annualProvisions × (1 - communityTax)
-    const annualRewardsToValidators = annualProvisions * (1 - communityTax);
+    const annualRewardsToValidators = (await realAnnualIssuance(annualProvisions)) * (1 - communityTax);
 
     return allValidators
       .map((val: any) => {

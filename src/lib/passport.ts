@@ -7,6 +7,7 @@
 // endpoints; this file owns the on-chain read plus the behavior-badge
 // logic that turns all of it into a few human labels.
 
+import { realAnnualIssuance } from "./chain-economics";
 import { fetchWithTimeout } from "@/lib/chain-config";
 
 const LCD_PROXY = "https://api.silknodes.io/coreum";
@@ -214,7 +215,9 @@ export async function fetchStakingApr(): Promise<number | null> {
     const tax = Number(dist?.params?.community_tax ?? 0);
     const bonded = ucoreToTX(pool?.pool?.bonded_tokens);
     if (!(annual > 0) || !(bonded > 0)) return null;
-    return (annual * (1 - tax) / bonded) * 100;
+    // annual_provisions understates real issuance; see lib/chain-economics.
+    const issued = await realAnnualIssuance(annual);
+    return (issued * (1 - tax) / bonded) * 100;
   } catch {
     return null;
   }
