@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "COREUM monthly average USD price for the seven months BEFORE PSE emissions began.",
+    "Archived because CoinPaprika's free tier serves only a rolling one-year window:",
+    "as of 2026-08-24 it refuses anything before 2025-08-24, so this range is no longer",
+    "retrievable. It is the evidence for the claim that the decline predates PSE, so it",
+    "is committed rather than re-fetched.",
+    "Pulled 2026-08-20 from /v1/tickers/core-coreum/historical, 7 day interval, averaged",
+    "per calendar month. COREUM is the pre-merge identity of TX."
+  ],
+  "source": "coinpaprika:core-coreum",
+  "pulledAt": "2026-08-20",
+  "note": "monthly mean of 7-day samples, USD",
+  "monthly": {
+    "2025-08": 0.16779,
+    "2025-09": 0.138829,
+    "2025-10": 0.102634,
+    "2025-11": 0.087939,
+    "2025-12": 0.0675,
+    "2026-01": 0.058506,
+    "2026-02": 0.045051,
+    "2026-03": 0.027164
+  }
+}
