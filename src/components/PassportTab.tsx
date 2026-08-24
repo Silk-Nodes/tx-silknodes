@@ -187,6 +187,7 @@ export default function PassportTab({
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Loaded | null>(null);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   // Whether the wallet on screen is already in the portfolio list. This is the
   // only discoverability the feature has: someone looking at a wallet they own
   // is exactly the person who would want it tracked, and nothing else on the
@@ -355,23 +356,61 @@ export default function PassportTab({
     if (fromQuery && isValidAddr(fromQuery)) {
       setInput(fromQuery);
       load(fromQuery);
+      // Normalise the legacy ?address= form onto the shareable path.
+      if (window.location.pathname !== `/passport/${fromQuery}`) {
+        window.history.replaceState({}, "", `/passport/${fromQuery}`);
+      }
     } else {
       load(randomFeatured());
     }
   }, [load, initialAddress]);
 
-  const submit = () => load(input);
+  // Keep the address bar in step with whatever wallet is on screen, so the
+  // URL is always copyable. /passport/core1... already renders correctly and
+  // deep links from other pages use it; the page just never wrote it back
+  // when you looked someone up here, so there was nothing to share.
+  //
+  // Raw pushState rather than router.push: PassportTab is keyed on the
+  // pathname upstream, so a Next navigation would remount the component and
+  // refetch a wallet we have already loaded. This updates the URL and leaves
+  // the mounted view alone.
+  const syncUrl = useCallback((addr: string) => {
+    if (typeof window === "undefined" || !isValidAddr(addr)) return;
+    const next = `/passport/${addr}`;
+    if (window.location.pathname !== next) {
+      window.history.pushState({}, "", next);
+    }
+  }, []);
+
+  const go = useCallback((addr: string) => {
+    load(addr);
+    syncUrl(addr);
+  }, [load, syncUrl]);
+
+  const submit = () => go(input);
   // Jump to another featured wallet (different from the current one).
-  const shuffle = () => { setInput(""); load(randomFeatured(data?.address)); if (typeof window !== "undefined") window.scrollTo({ top: 0 }); };
+  const shuffle = () => { setInput(""); const a = randomFeatured(data?.address); go(a); if (typeof window !== "undefined") window.scrollTo({ top: 0 }); };
   // Peek a related wallet in the side panel; a core1 address only.
   const peek = (a?: string) => { if (a && isValidAddr(a)) setPeekAddress(a); };
   // Promote the peeked wallet to the full-page passport.
   const openFull = (a: string) => {
     setPeekAddress(null);
     setInput(a);
-    load(a);
+    go(a);
     if (typeof window !== "undefined") window.scrollTo({ top: 0 });
   };
+  // Copy the shareable URL rather than the raw address. Pasting a link into
+  // a group chat is the thing people actually want to do here; pasting a
+  // bare address makes the reader go and look it up themselves.
+  const copyLink = () => {
+    if (!data || typeof window === "undefined") return;
+    const url = `${window.location.origin}/passport/${data.address}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    }).catch(() => {});
+  };
+
   const copyAddr = () => {
     if (!data) return;
     navigator.clipboard?.writeText(data.address).then(() => {
@@ -402,7 +441,7 @@ export default function PassportTab({
         <button className="psp-topbar-btn" onClick={submit} disabled={!input.trim()}>View</button>
         <button className="psp-topbar-btn ghost" onClick={shuffle} title="Show a random wallet">Shuffle</button>
         {connectedAddress && (
-          <button className="psp-topbar-btn ghost" onClick={() => { setInput(connectedAddress); load(connectedAddress); }}>My wallet</button>
+          <button className="psp-topbar-btn ghost" onClick={() => { setInput(connectedAddress); go(connectedAddress); }}>My wallet</button>
         )}
       </div>
     </div>
@@ -479,6 +518,7 @@ export default function PassportTab({
               <div className="psp-hero-addr-row">
                 <span className="psp-addr mono">{shortAddr(address)}</span>
                 <button className="psp-copy" onClick={copyAddr} aria-label="Copy address">{copied ? "Copied" : "Copy"}</button>
+                <button className="psp-copy" onClick={copyLink} aria-label="Copy shareable link to this passport">{linkCopied ? "Link copied" : "Copy link"}</button>
                 {tracked.includes(address) ? (
                   <span className="psp-copy psp-copy-static">In your portfolio</span>
                 ) : (
