@@ -17,6 +17,9 @@ export interface StakingData {
   notBondedTokens: number;
   totalValidators: number;
   activeValidators: number;
+  /** TX actually issued per year. NOT the mint module's annual_provisions,
+   *  which assumes blocks_per_year = 33,000,000 against a real ~42,478,000.
+   *  Corrected in lib/api.ts via lib/chain-economics. */
   annualProvisions: number; // in TX
   communityTax: number; // decimal, e.g. 0.05
   excludedPSEStake: number; // TX staked by excluded addresses (not eligible for PSE)

@@ -3,6 +3,7 @@
 // Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
 const BASE_PATH = "";
 
+import { realAnnualIssuance } from "@/lib/chain-economics";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
@@ -146,7 +147,11 @@ export default function ValidatorList({
           const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
           const price = priceRes.status === "fulfilled" ? await priceRes.value.json() : {};
 
-          const annualProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
+          // Correct for the misconfigured blocks_per_year, same as the
+          // canonical path in lib/api.ts. Without this the fallback shows an
+          // APR ~2.7 points lower than the rest of the site.
+          const rawProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
+          const annualProvisions = await realAnnualIssuance(rawProvisions);
           const communityTax = parseFloat(dist.params?.community_tax || "0.05");
           const totalBonded = parseInt(pool.pool?.bonded_tokens || "0") / 1e6;
 

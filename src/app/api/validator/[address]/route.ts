@@ -18,6 +18,7 @@
 // failure, so one slow LCD call can't blank the whole page.
 
 import { NextResponse } from "next/server";
+import { realAnnualIssuance } from "@/lib/chain-economics";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 
@@ -249,7 +250,9 @@ export async function GET(
   // Delegator APR: the per-token reward rate (annual provisions net of
   // community tax, over total bonded) times this validator's take-home
   // share (1 - commission). This is base staking APR, PSE is on top.
-  const annualProvisions = toTX(provRes?.annual_provisions);
+  // Real issuance, not the annual_provisions projection. blocks_per_year is
+  // misconfigured on this chain; see lib/chain-economics.
+  const annualProvisions = await realAnnualIssuance(toTX(provRes?.annual_provisions));
   const communityTax = Number(distRes?.params?.community_tax ?? 0);
   const perTokenApr =
     totalBonded > 0 && annualProvisions > 0
