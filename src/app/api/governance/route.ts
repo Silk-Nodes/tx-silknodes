@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { withCache } from "@/lib/response-cache";
+import { lcdGet } from "@/lib/chain-config";
 
 const ROUTE_TAG = "governance";
 
@@ -87,6 +88,57 @@ function ucoreToTX(s: string | undefined | null): number {
   }
 }
 
+/**
+ * The proposal list read from the chain, for when the indexer is unreachable.
+ *
+ * The chain carries every proposal with its status, title, times and final
+ * tally, which is everything this list renders. It does not carry the vote
+ * timeline or per-validator rows, and the list does not show those.
+ *
+ * Returns null rather than an empty list on failure, so the caller can tell
+ * "the chain says there are no proposals" from "we could not ask".
+ */
+async function proposalsFromChain(): Promise<Record<string, unknown>[] | null> {
+  try {
+    const out: Record<string, unknown>[] = [];
+    let key: string | null = null;
+    for (let page = 0; page < 10; page++) {
+      const q = new URLSearchParams({ "pagination.limit": "100" });
+      if (key) q.set("pagination.key", key);
+      const res = await lcdGet(`/cosmos/gov/v1/proposals?${q}`);
+      if (!res.ok) return out.length ? out : null;
+      const body = await res.json();
+      for (const pr of body?.proposals ?? []) {
+        const ft = pr.final_tally_result ?? {};
+        const n = (x: unknown) => Number(x ?? 0) / 1e6;
+        const msgs = Array.isArray(pr.messages) ? pr.messages : [];
+        out.push({
+          id: Number(pr.id),
+          title: pr.title || msgs[0]?.["@type"] || `Proposal ${pr.id}`,
+          status: pr.status,
+          type: msgs[0]?.["@type"] ?? "",
+          submitTime: pr.submit_time ?? null,
+          votingStartTime: pr.voting_start_time ?? null,
+          votingEndTime: pr.voting_end_time ?? null,
+          tally: {
+            yes: n(ft.yes_count), no: n(ft.no_count),
+            abstain: n(ft.abstain_count), noWithVeto: n(ft.no_with_veto_count),
+            totalVoted: n(ft.yes_count) + n(ft.no_count) + n(ft.abstain_count) + n(ft.no_with_veto_count),
+            // Not recoverable per proposal from the chain; the UI hides
+            // turnout rather than dividing by a number we invented.
+            bondedSnapshot: 0,
+          },
+        });
+      }
+      key = body?.pagination?.next_key ?? null;
+      if (!key) break;
+    }
+    return out.length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 async function handler(_req: Request) {
   try {
     const res = await fetch(HASURA_URL, {
@@ -98,6 +150,16 @@ async function handler(_req: Request) {
       cache: "no-store",
     });
     if (!res.ok) {
+      // The indexer was 503 for everyone on 2026-08-27 and this route answered
+      // 502, blanking the governance page during a live vote. The chain has
+      // every proposal and its tally, so serve that instead of an error.
+      const fromChain = await proposalsFromChain();
+      if (fromChain) {
+        return NextResponse.json(
+          { proposals: fromChain, source: "chain", indexerUp: false },
+          { headers: { "cache-control": "no-store" } },
+        );
+      }
       return NextResponse.json(
         { error: `hasura HTTP ${res.status}` },
         { status: 502, headers: { "cache-control": "no-store" } },

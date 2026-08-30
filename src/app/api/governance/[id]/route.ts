@@ -227,6 +227,48 @@ function normalizeOption(opt: string): ValidatorVoteRow["voteOption"] {
   }
 }
 
+/**
+ * Votes read from the chain instead of the indexer.
+ *
+ * The chain only keeps votes while a proposal is in its voting period: the
+ * SDK deletes them once tallied. So this covers exactly the case that matters
+ * during an indexer outage, which is a live vote people are trying to follow.
+ * Settled proposals fall back to whatever the indexer last gave us, and to
+ * nothing if it is unreachable.
+ *
+ * No timestamps: the chain does not record when a vote was cast, only that it
+ * was. Callers must treat a chain-sourced vote as having no time, which is why
+ * the velocity chart is suppressed rather than drawn wrong.
+ */
+async function votesFromChain(id: number): Promise<HasuraVote[]> {
+  const out: HasuraVote[] = [];
+  let key: string | null = null;
+  try {
+    for (let page = 0; page < 20; page++) {
+      const q = new URLSearchParams({ "pagination.limit": "1000" });
+      if (key) q.set("pagination.key", key);
+      const res = await lcdGet(`/cosmos/gov/v1/proposals/${id}/votes?${q}`);
+      if (!res.ok) break;
+      const body = await res.json();
+      for (const v of body?.votes ?? []) {
+        const opt = v?.options?.[0]?.option;
+        if (!opt) continue;
+        out.push({
+          voter_address: v.voter,
+          option: opt,
+          weight: String(v.options[0].weight ?? "1"),
+          timestamp: null as unknown as string,
+        });
+      }
+      key = body?.pagination?.next_key ?? null;
+      if (!key) break;
+    }
+  } catch {
+    return out;
+  }
+  return out;
+}
+
 async function hasura<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_URL, {
     method: "POST",
@@ -251,22 +293,31 @@ export async function GET(
       return NextResponse.json({ error: "bad id" }, { status: 400 });
     }
 
-    const [propData, validatorData, validatorSet, allVotes] = await Promise.all([
-      hasura<{
+    // The indexer goes down. It returned HTTP 503 for everyone on 2026-08-27
+    // and this route answered 500, even though the chain could still serve the
+    // live proposal, its tally, its params and its votes. Each indexer call now
+    // degrades to null on failure so the chain fallbacks below can run.
+    const settle = <T,>(p: Promise<T>) => p.then((v) => v).catch(() => null);
+
+    const [propData, validatorData, validatorSet, indexerVotes] = await Promise.all([
+      settle(hasura<{
         proposal_by_pk: HasuraProposal | null;
         gov_params: { params: { quorum: string; threshold: string; veto_threshold: string; voting_period: number } }[];
-      }>(PROPOSAL_QUERY, { id }),
-      hasura<{
+      }>(PROPOSAL_QUERY, { id })),
+      settle(hasura<{
         validator_voting_power: { validator_address: string; voting_power: number }[];
         validator_description: { validator_address: string; moniker: string | null; avatar_url: string | null; website: string | null }[];
         validator_status: { validator_address: string; status: number; jailed: boolean }[];
         validator_info: { consensus_address: string; operator_address: string; self_delegate_address: string }[];
-      }>(VALIDATORS_QUERY),
+      }>(VALIDATORS_QUERY)),
       getActiveValidatorSet(),
-      fetchAllVotes(id),
+      settle(fetchAllVotes(id)),
     ]);
 
-    let p = propData.proposal_by_pk;
+    const indexerUp = propData !== null;
+    let p = propData?.proposal_by_pk ?? null;
+    let voteSource = indexerVotes ? "indexer" : "none";
+    let allVotes: HasuraVote[] = indexerVotes ?? [];
     let proposalSource = "indexer";
     if (!p) {
       // The Coreum indexer is missing some proposals outright: 40 ("Exclude
@@ -276,6 +327,13 @@ export async function GET(
       p = await proposalFromChain(id);
       if (!p) return NextResponse.json({ error: "not found" }, { status: 404 });
       proposalSource = "chain";
+    }
+
+    // With no indexer votes, read them from the chain. Only possible while the
+    // proposal is live, which is also the only time anyone urgently needs them.
+    if (allVotes.length === 0 && p.status === "PROPOSAL_STATUS_VOTING_PERIOD") {
+      allVotes = await votesFromChain(id);
+      if (allVotes.length > 0) voteSource = "chain";
     }
 
     // Normalize every indexer timestamp to real UTC before anything reads
@@ -292,7 +350,7 @@ export async function GET(
     // address that actually casts the vote). Each validator may map to one
     // self-delegate address; we ignore validators we can't fully resolve.
     const byConsensus = new Map<string, ValidatorRow>();
-    for (const vp of validatorData.validator_voting_power) {
+    for (const vp of validatorData?.validator_voting_power ?? []) {
       byConsensus.set(vp.validator_address, {
         consensusAddress: vp.validator_address,
         operatorAddress: "",
@@ -305,7 +363,7 @@ export async function GET(
         jailed: false,
       });
     }
-    for (const d of validatorData.validator_description) {
+    for (const d of (validatorData?.validator_description ?? [])) {
       const row = byConsensus.get(d.validator_address);
       if (row) {
         row.moniker = d.moniker || row.consensusAddress.slice(0, 14);
@@ -313,14 +371,14 @@ export async function GET(
         row.website = d.website;
       }
     }
-    for (const s of validatorData.validator_status) {
+    for (const s of (validatorData?.validator_status ?? [])) {
       const row = byConsensus.get(s.validator_address);
       if (row) {
         row.status = s.status;
         row.jailed = s.jailed;
       }
     }
-    for (const info of validatorData.validator_info) {
+    for (const info of (validatorData?.validator_info ?? [])) {
       const row = byConsensus.get(info.consensus_address);
       if (row) {
         row.operatorAddress = info.operator_address;
@@ -473,17 +531,21 @@ export async function GET(
     // final_tally_result forever after, so it is authoritative either way.
     //
     // lcdGet orders hosts by freshness, so a stalled node cannot answer this.
-    if (proposalSource === "chain") {
-      // Already read from final_tally_result in proposalFromChain.
+    // final_tally_result is empty until a proposal settles, so a chain-sourced
+    // LIVE proposal has a zero tally until we ask the tally endpoint. That is
+    // the case that matters most during an indexer outage, so it is not an
+    // optimisation to skip.
+    const isLive = p.status === "PROPOSAL_STATUS_VOTING_PERIOD";
+    if (proposalSource === "chain" && !isLive) {
+      // Settled: final_tally_result was already read in proposalFromChain.
       tallySource = "chain";
     } else {
       try {
-        const live = p.status === "PROPOSAL_STATUS_VOTING_PERIOD";
         const res = await lcdGet(
-          live ? `/cosmos/gov/v1/proposals/${p.id}/tally` : `/cosmos/gov/v1/proposals/${p.id}`,
+          isLive ? `/cosmos/gov/v1/proposals/${p.id}/tally` : `/cosmos/gov/v1/proposals/${p.id}`,
         );
         const body = await res.json();
-        const t = live ? body?.tally : body?.proposal?.final_tally_result;
+        const t = isLive ? body?.tally : body?.proposal?.final_tally_result;
         const num = (x: unknown) => Number(x ?? 0) / 1e6;
         const total =
           num(t?.yes_count) + num(t?.no_count) + num(t?.abstain_count) + num(t?.no_with_veto_count);
@@ -506,7 +568,7 @@ export async function GET(
       : "";
     const contentPayload = Array.isArray(p.content) && p.content[0] ? p.content[0] : null;
 
-    const rawParams = propData.gov_params?.[0]?.params;
+    const rawParams = propData?.gov_params?.[0]?.params;
     const govParams = {
       quorum: rawParams ? Number(rawParams.quorum) : 0.4,
       threshold: rawParams ? Number(rawParams.threshold) : 0.5,
@@ -541,6 +603,8 @@ export async function GET(
         // than the indexer. Surfaced so the page can say the timeline is
         // incomplete instead of implying nobody voted early.
         proposalSource,
+        voteSource,
+        indexerUp,
         tallySource,
         recoveredFromChain: recovered,
         meta: {
