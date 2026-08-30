@@ -1,0 +1,1516 @@
+{
+ "_comment": [
+  "Point in time capture of proposal 46 while it is still live.",
+  "The SDK deletes votes from chain state the moment a proposal tallies, so",
+  "after voting closes on 2026-09-02 this record cannot be reconstructed from",
+  "anywhere. Captured by hand because the VM collector could not be deployed",
+  "in time. observedAt is our clock; the chain does not record when a vote",
+  "was cast, only that it exists."
+ ],
+ "proposalId": 46,
+ "title": "Postpone Proof of Support Emissions by at least One (1) Year",
+ "status": "PROPOSAL_STATUS_VOTING_PERIOD",
+ "votingStartTime": "2026-08-28T19:14:39.495528493Z",
+ "votingEndTime": "2026-09-02T19:14:39.495528493Z",
+ "observedAt": "2026-08-30T07:57:05+00:00",
+ "bondedAtObservation": 3497330759.37343,
+ "tally": {
+  "yes": 1982400194.337058,
+  "no": 17317073.958963,
+  "abstain": 4138130.338849,
+  "noWithVeto": 6418513.560304
+ },
+ "voteCount": 298,
+ "votes": [
+  {
+   "voter": "core1qpp7h6pakzlp5r77a9j63hc09smp9lhj5hyvl8",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qp46aagxyy637euksjvfqf5gad28st75td95h6",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qz6wg02k8mhavva9z2g8kl30cdzn45usd0szpj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qgz4fghm7nxuynkyqzwtjw9y74f88xw60m8qs9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qfyk2rr2t4susnvc37f3s2uu65vk5upmwgej30",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qt0qchazps3f8kpl5h9xu8k607p4sxu07hduhj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qvnzdy3dkd9d7ldeweqrk5aqxf0lkjl25v2vdw",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1q0t0hmgqsujfm46cdyh4uza77qxdrynvr8dvgl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qjzphf7a0zuwnu4x22gum3vwdry5vjajje2t7w",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qjskjl4vdv46rr9l35npqegpj9rvlgcyuuz33j",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1q48k8lxwutwgd59wgdkxn2mmlng9ma8fkgw9nv",
+   "option": "ABSTAIN",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qmu97d5vmteukukt9ct8w2jnsgmc20k4s95jv7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qu986lms4vtntej2czljd2p20k8ngna3ugdry4",
+   "option": "NO_WITH_VETO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1qlz337qq422aq8azwz709mu8ndc85vta9jekwk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1py4v5d2825pzynnstmuk4lzlhtd222x3rl03w2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1p82vh9p3jg90sgaxc7wwft2ddn3z6pynn3hq0h",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1p2zujexcdg7vuxjkfvahnwhutqradsjfclyx9m",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1pvumefqn86duxk7tds49nz7q9tqpsqyp6uhefk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1pnjzhu7z9w3c4zecakqmnnmzv2awey4szvfmfq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1pheeqzjp270s7m7vsd44fpslfgh3ku4za6e6s5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1p6nmk8kr9x436h6hzqxs9zt5v6vxh83wfk7dce",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1pulqspt7t3tcnvcde38hmyngj0x43y0ugwjvuw",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1p7fvyew8m8zjc5cqk7d9hpvx462vgvjn2ca8ff",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1zrs4z4f9s29cx8dk4cchrhuvgp7numy5vltqkt",
+   "option": "ABSTAIN",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1zr39972wtxkpcjr94evm58vl95ps6jkf0zh8z0",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ztcdezsjxl36gmrte2uch79ezdjj3pq7z2kncx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1znmgc453xfp920gsgy3vn62jx7rrfe7957ef74",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1zeu60z4lwjf752kpjrxhc46yg4ukv0xzl680m2",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1z6v74we0c2djtx8gez7amr85kdla89m33hsa2k",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1z6dgyskznu3rj7zht3uftejvsqvldw6m6m95au",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1zuta5kuqpsqnatq9sf7memysmhc7r8ear2zmqc",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1zu0exype787594uytzjevq08sy40gcx3pgx4rk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1z7vpjuxrmsn6ddw2ahplj77e79w64p59fuz6al",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1z70vp4dzdfvs5zj5x227y2fh0v8rl9mnl4hwg4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rp2zdvx5des8mz5jl3v2tpzljg32gfvsc9gx47",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rpd7fkvahspzk55nmsfymnjc0zr0avljjad58t",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rx4vyc2jmt4ccdq9j7uhtucl3n7el6gsdrgzp3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rvrklg3uwwz5szrmlkcwqjzk8k8c4fclgcd0r2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rdp9c0fkph59dy0uulu0jlluuc3f0gcwyx3hw3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rjg4rrhad733tvnantrewg66cgfqv5frjecgwk",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1r59a8wrwpaye7zf7ultc4slze0juv04emkawjj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1r5k7x42fed36m6lvr3ank7gy7ukn27443zr8gf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1r4k9kr6sugcj9pmvtza93eaats6qwxwcvewcag",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1rakz7z86qk0nma7p30kmfyfxafju7ac9ddv8de",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yq95svzs6p73j2vmk6ukv460799ya98kl7jal2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yrhlpq7f6zyvpwp4z0tuxcks2qu2netsfrp89l",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yy2sfn2vfs6ks8rrs06rjj0sxax7ckny063u9v",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y9r4plnacar0znzs49xgggwvmffauwtd7tdlwe",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y95nactj4y5a2l8tyyjdtrsvda0ntqj8fdkyzt",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y97mt8pr2qdqrr36xf9r324e6qfryf57qars2g",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y8w0ghqxfn9nah6du8lqc6ldlqtjph7lx7upkk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y844pk7w7yppcjr20rewkklfwywh09ypkmvyuv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yguf8tr4ztzkwgl9pxhqgq3ylra5ndtrugrhjt",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y0alndz056k294hapuqun2kue26u254kpg9t9q",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yja0sapxhkej53rgynv847r0s060x7yph8q2zx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ynjgt7wvvvfmsz2s5jnpf54xavndfku0s8hj7m",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y5vl4vtcaeyzavshsk0ula7l9qh23lafqthup6",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1y4f0kd6qydxxqgyn77ygt4q3yc25jjxgl9xq4p",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yk40h0ntph0v9a3agrq0aha4unp0d3susfzrjg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1yug9jqx0um5ktv3c0hhd9zkdawakavr44fz3pd",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ylpm985e88flnzyr4qheqq522s9tm4v0cchz0y",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19q3r88qm3klqut0am8cwyz6fvrhy6cp0naufj8",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core199uzpzej4tpdc6m2248ajxn0rrsh3nssdj60hu",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19gqufsezn8c9nxdje5vvgl9ct87948dz242q4s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19glku34gldkl2dmxs8kmylp2t6c9exalgqveq4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19wee9saxm7ap3049gvtgfwaqctaaggwgjuc8x3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19jc83dh9p9urr064fe8rc2v0r9tf5m2wps3t3z",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1944yg7cfztp5sy0n5yrh8u520plm8vq6zlp8p5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core19k42l236gqux56747r5k0njvekt4z7w9wkw0uq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core197dzl43mkpxrhfh0x522w5fch2vq02x7eawx5z",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1xzyam2g77wlwvdywucseg6rsux84dqna94aaj7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1xyvn0p9tqr00xqlr9yarzzyxfh87582xr37zgh",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1x9hd9r7duv2gagztvvqlw94v5gy4zd9x5f7kl9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1x84n9yexfzj0fhfh9c9vqn5rhzs5vtuj5f4fm7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1x24sejvh46mu38gn4phgr0wzeeresxwadqw827",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1xcn33a9r8rquyf0r7l3vdnthwwzz0r9k3qq64v",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18rexzjk8pamarfwgn685ua7792a30q9j3k7s47",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18x2vmeyxlqx39vhdpw8etuxtky3aylv6apf009",
+   "option": "NO_WITH_VETO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18x03kv8wv3f4p5jhqlgs3awwqstd3qe3400phu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18g4e4tax29873etmfqrepzwfud8aavhlmlnkzj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18fanmdvepwtj6hn7udq4gykvsy3f0eenh7f7pm",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18tvkw9huakse0gtv72d533733xg4509dtw5lrl",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core180w20rhw8q9xwytxr9sm6ncjk505cgtqxr5cw3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core183eahq3jz2caffynwd866mnnhfqnycn4pq45ht",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18ncvewe7afeewpx7x7ttmljlrff4sqgcv4slyd",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core18l5h4dcjrtde6exnx4ca4e48gmxqte7zuq02uz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1g8cgd2kekrkxppky6320evjzx4pdlfg30r3u0w",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1g8mr253w8fywwsc2rzy0s5vumspgl2ad4nva7s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gvqpnat5a5yadk0wwrxlzq9qsyhzuye8crnu66",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gdgh02r22a9ct5xvv652al43mrdxmafwup2w3e",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gss605kanac0a6ucmfzcczzje30hckv7twts9f",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1g3geck4wm7z5g8c54q0x5texl25xhtcqj2n99r",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1g5pjefg8jmk5emzzngjl4vhld0c8kxazkul9wg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gkpnjsljrv5yz7jyg6ktlr56xcdevrh82swcjx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gcfuwhtd3jelcew0354e0tqae9t7506rhgpvc5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gcu8l38xtuawde3slnhykzv9833uqvtnvqfg3h",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1gaaf6adm7ns5hay7xnzph02nv6kq3dshmljp5g",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fqa9svsm9mn5pg2uhu4sy779xk6kketa05ae2s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fzuz2k4m85cquj0vuw3586zcpl5rhafad8knze",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fdwyss0gye7v0m26j25cv87drlehuadcpxp6nu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fw0z3rataxav978nm8nr0qjgfs5vd9m7rvf8dv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fk0p6ta6yzuvcwexsqxspy8rlzkql4f4hhh9v3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1fc9n2x0xk85mgva9eg623uneknnm9t9kfxrv57",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12qp29pmd3q5l7uuynwn9ghzf2xga8m0uhzyhzn",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1285pu5rdwf0hf5y7pp627w9lmzlar4ykmeq5s3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core122vs08vjafs02wdp9w8efaz80j8u8jfxfvdvw4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12d8ulx0xeat38es3plfqmgfg60fvvxezkzp5l2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12wj7fma9kvjnxpxx4pajj7vsj5elvszakua5ju",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12svf4aacunl32av0ggsu6vdrxlcj25zxz4ruk2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core123620alpzk8m7h9l9pp7n4ra2v39qk7st3ac5f",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core124yc7v9ekazwfq4jkygqjv0zprrdn9d2tzjqsn",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12kwzl3qksuh0ftgv4ltfsk6n7yfdgx8v8nd9j5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core12cughmx7sseanyxqtutrtdrfca8kamgt2u7432",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1t8j84dsf9afsupea989ncru9cr8dhek7kl8n06",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1tgpjkatqummq5m9fur23d98nteze34n566v2e3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1tdqxy332mhxjmcpq6qck4k8n78tuh993ckrh57",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1td027ax809kjz5pseehh9clvhndwyc8dw24mhl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1t3e22e6syychnyckza5ewwz8fh234z6ld5gqy7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1t3mljp4fvatwcz0stg7vsyqgg8n5e27h7ppyyg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1tk78fkp4u0ruxfhqkgvgpurkx2xjdf4e6ul5ej",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1tue6lhzkgv6aze6tzsx65y69we7jpsefstg4y4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1t74d9k4x775s3f767f3lw5xltc72sr2684g3wu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1tld6cuknspeytywx6aw8f8qhlwc9xcl5xkxj84",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1vrz76uffsj8pu6fqf52pkyc7hdvyz5vqf2drkv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1vdtgudmjs7jknxpw67hekhm7ny76k8zhpaukqy",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1vcclp04ngtkyxafr2u97hvk2v4q0hhaqw8th74",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1d9sa4yeyqavtylxwux7ssk6p6u49cheagu5gft",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1dwcv0a9f2j6wg4xkljzduyvetakusupae0m07h",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1dh2vuvhtryv8wl62lrnuw9q5f8jf2ex59lydlz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1d64a0wd7urnu8fqgv03kzymzgtr7lep5grgngk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1dar36t4d20f6rcm4r8ynp9yprz4kpagugslwrx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1d7cspnnumqxy380hwjmckgaantm7em7gvj5y3w",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wzy8z0f6ll73tjvkdcd6644fmdapsez29dz2nv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wsdj9wrdtcyzdhsuzz3jzq4tx3x3frqxj0u3yy",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1w3rjrysfqxu8wtsgrhtc72lyazgqrw5xg26rvz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wjufqc4q3dadz69u655kul5wvndxq4vkpeg9at",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1w5qsqzxf4ghp0gcwqm3yc7e7r77szfs8k4r050",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wc6n4f5w7s3ly0c8x5qctl99mge26xcu0yyar0",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1w6fj7jmzawwt78avuje7rqpuj4fyw5pt8zucxs",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wutx77qqd2wuqwrrh6s30cj4kcgkzesz9vjgws",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1wl2vlcpl73a8jg68f4gwje07rrmdahate3gqg2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10rvahxqja4wk609jx6lhkrar6g7qh4xc6xx23j",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10r37d9xnm5jphy550z922k5fntzkw7496pgjx4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10gq88py0q52xmf6wu6tytszee7durnwc5q857h",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10svtm30ngh7823pgj5e0c3xn4hj65qypmycw77",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10s45kp5nxzumcpx8u2j9r7z7dgcqrzq995397v",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10klcgfvhdhavmhfhf7z34macmk4wrqdpzgp9ta",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core106hu5d46yeuaxud2v2v9av8crltmegcax7pwlv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core10mjtpxrlryep5x4tyca6sks5nrgsrzzynrpajw",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1szy2ul5v3mdm0dncjc6jtn77dwrpr05u5jqrsu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1sr0grwaczts6c5l4xngk2y4jzm5eqf0czxl5v5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1swywq0hkzqssjef5evr35dw6uxngatf5sxgy26",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1s3yrzde9xvr5mjwt0nq42uw67s8xrzmhx6x9ms",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1s5ac3rqsczrkjnytrralxpzyszly5qnhnarlss",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1sc4c9rn9rqry94rd9p2y8mh3gwvp9803vj0tdh",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1s6cy2ka5lnvg9vvafryxa8g6ha3ga2yrrnxgqh",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1s78zmygv5drr5e643a8ypv02em3vajydjr6jxe",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core139u686ywuv7wr7yhfnhwjz693778y3rvez4eu4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core13xd2ej6ja2u6ytm0za340pryf4at5y6umv326a",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core13x022657lmk2fxp7q7d9qwr69whtnrw0txq03s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core13fj9aq0gdt8vjrndzgvxaldtq87g3g6rajz6w3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1352jtsanc369772ktpyppjg6267k2654r5t206",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core134rlslat3yqfu4nr6fpx9cmarv35eeyhu66hxu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core13c9n9n4nmd8alsynlaf5m70zr4ez0jcs2s4xwn",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jpwcln9n9j5hj76dy0ykck69aw6amklhq3vhzv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jxmp2srcsgluk5xhpjdvvnclcq2elsm5n7rakj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jvw4premcpn3jacsegae8n4yx96llgn7x8mep9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jwr5uhqrr3ap6jdv5mnkkdpkqjhpfe20j9pyak",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jn7zlrf2husc32sr2uj7ys3e9d0d545y022lfk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1jetrmsvwzjtwektvpttekt6uahmvhs7f48lyrx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1nvpa6k5y95weqj6ne8n9g40sgydamfptwzjk89",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1nvtc4w9zcz25dsst0n0vvcqaqda4jvm02d4j4p",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1n0rs9w6f6qy3w95xaxse9gk0m5ulsf8xsqzwjf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1n3sc9c65v3xrz5cdkjlk3k22caj7n0n4ef4sll",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1n3kjp5j7e77w0u43r0r6hm5jfj6c9524uq3cnj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1njqlacgnh5230lu9npfgdugul2plz43ndnn3ep",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1nnwgx7mdtw6zezljsw2wqysu7e4hgs2hvv9v8d",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1nhelda078d0d5t8gceql6gzs8j8pf6a5v0a6du",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1n74hyvdxahw8xzalwf239cfp3qkvngxcesxah8",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1593tad4s2d96qumt0wpltmgjnyvzp776mj4fez",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core152dky2kdnme6l4zkq6txvzdqa8fkv9cw044u92",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core15v6chuxqt6xr5rv5ggj6mk2z7e8khp4m7ysppy",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core15jycjwzxj6ll6rmp09hg4ge47pccl7f8mtfw7z",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core15js2xmtxh3ctjxtf4s4f3aqde9z5whfznusrag",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14ysjs9vu4qrkn6zh67t0gymgsmrywdsdc3q7hd",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14x2c6vm4df70vqf0ydvnaejqpxset6xcypw4gl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14t9235vp7f23erugflme3lzszykwsfwcgh7gck",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14txsza04v6wchnygscec4nhh7stgksnd2w2h03",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1446a7ze6pxmpcrg8qt2guakew9sv9hunemy8la",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14kcalfceq8aylmafluxhcrpc0t35g2rvn8qxn5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core14akln56c84g8fa0zlknxwnh749zk02trmf5cux",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1479v677ssrmw8e6ahaqrgn8470d2xh6sj70vlc",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kqkp4zf069j7kstqsyyx035xh6hj0t3gzp7yll",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kzhaw7la50qpjkw0lcm7kujczk548fjvwnw5mf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kytf0m6uxpvksvvph4rymv63zrvrahuxr9e4qn",
+   "option": "NO_WITH_VETO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kyaqkqsk92n2g7kfpfjrntxaqu344cs0e5sv9c",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kdzzgy39askd4k5r0x5xzl87ggxayx963vnnjq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kw6w2yk6xqz9n0nt2fztdjr3gyzaf9yvh3jshu",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1k3hfg0mmzspz4e9reh9egjwmz9k8yd9emm7l9z",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1kumwsxklheykef4qad6tld3066jwcdlvq3hfxs",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hq4xd74da93gjhu78a34d7j7kx8d77w8ae0j4d",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hfgcgyuzlh3pj2jrukmzf0qt0uxa9agj5fdvts",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1htfvfhxt653xm0swxye9seggjc0csenr3f3xl4",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hdn9r99vaw53r6xl6cg0ltyuwqmrqrkaevvphm",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hwy6l7n7fqhslkjmhw53luvzn5tvn3p942lpwz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1h3y0nl7a2253aja89hu2fx8883zssavnl7dur5",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1h4n6djnwt5jyhcjxv5url72cg9jpk5ut8memwq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hkmx3gjyt5s6v9k3wc9nmzqnnujhswxzgv8kzq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1hlt7c8tkaqq6mrxk7nm02e6v63904ygd3xdc8r",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cy976slgpy6axxc3zr95ykkq9a3rs0pmujxv0a",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cy8v4l4d99d2qj95lrx0lysje24e9hhft3wekw",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1c9j2lv09s74vxlvcacxdjk7htgj0vs6spsxvc0",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cg8y0xknep2wkkv6a06sjy7jrmf26nycdkd7pg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1c2qahc8826tst86xhpatepm72wpfrva6lruc7s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1c2fwwy2zvnjrrjkrr833l3t8306twn87lqup26",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cd873rqz8uexpe9xw0p3xhhxj3pdy043pdkcd9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1c3sda6v52jllfsvdpd3fu43mnwek79wj3vshgd",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cne2nczs0yxyrfhpcd307tvkcl73yyhnwn902j",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1chywt35er88cm7fnlvyf5anqds5hl7965uyf68",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ccp3sq066qwln6hxdsm0605w3m7y2aatns84ss",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cm2maym5s7rcnxrsggt2qllqmxst6rehp8ja5p",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1canhhk0rwh7wjz83e5kudv0alzc785h5zqvsrl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1cl2p57c9lw4jytm926tnz4jzspjrrrrqdf3dct",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1epd4hzzzd9f9jwa5vc83v3txjylslahrrkf6mz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1exktc90yvwt882ednrqw5mu47hq6z6hudel7fq",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1egwjpf0xcgjhfx3chyje3wjjdqsqf566m3xkus",
+   "option": "ABSTAIN",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1e26z79cugzx85fy3ku9g5jddaxj7m44ctz7s0s",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1et4w2rzl23n3ghyryhmnk642e3dfq8jv3ejy3q",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1eslnhwcpm07q4t28sa6yd40k469a9u83226cyn",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1enyfdd2qls7qxswgr0hylr36xacxg4d2v0alsu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1env4gpcj87jwyh0klpc9z8gd4mvz4lux4vkc07",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1enwns3jn7f74hdrjy9w3hv9m8cumnqw85ex4zt",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1eegug92k2gp9c6kqjsadk3tku29sr2rs46laqm",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1eew7f4saeusluppvtr2lszuz2uca7envu6x50q",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1euq600s8mzwpv0tusuh2snaw9u6ajanhrzz3dj",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1eukkjcq05sq52u5ha4d4vt92kr9plqezpnvh3p",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16rsclq7hn780hxtdunsnr9nthtm3kpk6lvv2g7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16g5qzz0z0vp45ejak7h9nvym0hfla5vp8765yy",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16f3sgek7hzwpa4v0us2e870r0cnnq58a9dcr4t",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core162rz66878up7fj22uys6csdnsr5q70v7mhtspp",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16w23lx70w7rjezwyenud6khc20gt6rk6kr5r88",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16j4vddrez2t5vn7s8vmmwj8lh6myw2mawkk0ss",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16580mfyrmx4q8947h3fwd5f2vv2pyltrx7laqf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1666mxn68erru5st8s3hzm0ny0rhrrgzm5vygr3",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16mwy7lnarnsvxtkry85m060y3r6h58z6nkgfrv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core16u3jmd8cqmr0fav9r8vqe29m42aqdw9yngr234",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mr4czyhh5f8w9zx86vfv2u5m3whvust60uzz43",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mr6a0qkpsfcvtj95wx8dy4ef0wn2qec607dqcd",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1m2zzfv08ndxjnxnxu9tlwa3r2myte5upqs0ff9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1m5gtdjwydst4zr4ywe2mrcllla4kj33l328qnz",
+   "option": "ABSTAIN",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mkuv50dcgda42mwfw0r2g6r35jslfy8pn4qfgh",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mhp7649dwrq5peycl8m3wjqa9jpm6td2gfgf6j",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mcny36w8c4qjaja3y2myz0ycuxj76wy97u8w9f",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1mljzgpum856p3wgkd8gz6u8x7myrrw4pzsr7sx",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1uyf6447wvejas5xy9my6t25h9hww03gu52vyph",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1u976l6pxrec0jslqexvzvw6mgssdua3cuc2naa",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1uxengudkvpu5feqfqs4ant2hvukvf9ahugy5gf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ugst55r4cg7hy6vrf6gxapp5zcl20akhvjd6ym",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ug5rspw2m3e9mna708vhx9mtdlv05wc74exvqk",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1usl5ptljwxcmy3dvuhjgqr0y3703jmy9wmcjwf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1u3tpnrekxqqjnz7mrwy4fxuu27xnu25fhf3g5m",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1u58yrxacwhuc9q3rsurcs835xf05vfez6d2rq8",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ucgmeguc363n4wstpznlutqtyd8fh3mj8wtjhw",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1uez9wc9yngcvsqf8zldrrqlvk8dzpld8d9lplv",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1uu4kz46k34fq7jrl8kjgvynvg6h7zrqd7eh8vp",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ulq44wructjc45p0af9dutkc3jwfn7ljnkj6q2",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ul34lz6rf5zy5j36dekqrg92qs9qjf4u0mwyxz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1azuuetrc0knr6pke0ckwy7khwr5ra8gzr99k2e",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ar3fttzrpr7ljqmxxnmp944wn43vrsv2zy3ksz",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1a8lll03ke5c27pzfw47unlszs7w6ljr7wag9pl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1a5zq4v8uqdl3kzuahyrgzw8lw2hr9fzyw06fux",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1a45gkg9gq04z8twx0tkxhzh6v5x53wyalyavd6",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ahxfdhe7e3uwdwayv6nrupuvcg4w8j5ugfaegy",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1aewmp5zgphcn8s3lupw3gmkgl8cnkg43alxwre",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1aakq20yh47vpkdhj5c8nqjgh2srylm4qywmz8l",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1a7k3hscytjkspp8ugwh9n3afvmas52w47arp33",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17qz653809nfge5w96ksw67cydcd2rn5zwjxj3e",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17qvhgq5jxz5f8uxv9yhlphphza84kamca9yfd6",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17pjd3vm8xl9vkq6j2qhd3vc6s9tufy0sg6nxp8",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17zamtgypfu96azqduaq3lcttyqy0a73c5qmt9a",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17yjlmdr4xlmrm5lp4ghtguyn74eqsk0pur65c9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17gkxlfvznlwdy7ahx8l8z2xdp400yw4equuwhf",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17fvmla2h8xhjmz63783xp5nm5u72qf3p9hlq33",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17w02t4t5sc0feclsz90zccermyl3gcjnmtclzg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core170u7jkrfpr9nx5d5pswq9w9y966wptewps7klj",
+   "option": "NO_WITH_VETO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17nr839legpv70n90kycuvfyw42hylah30ngaqp",
+   "option": "NO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17nets676dqq7eykt8unf4rcfzj6n97lqp9mwzp",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core175fvhhhlqk45kegvt3q69knnezlmfr6fkhzccd",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core174t4havhkhrnxudhtprxxgayvf33a7dn87krl9",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core17hwlhack4fk34395q26hplaq2qed2k026laxw7",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1lrphptsmnff58z9pmpy64wn60vp7d6zsp3ssau",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1lr5j0mlcqmt6642hl4l9wqg502kd3tlr8wffcg",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1lvz6mf0mgl0u3r6hjw53cfvdsm54pvndfn2fye",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1ldd5m0z6hqwgvq47u38gttkxvcp73fsv7p7kg0",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1l3g059pz7j9tfjknkt3mppvrmsfgpvprw06tyn",
+   "option": "NO_WITH_VETO",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1lepqtazhjac9sxv8f3wfelmc7z5cs3qhtr7n2n",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1lannnfxzrmpnd4ljjgmkpf8kw4lzvnqjycahvu",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  },
+  {
+   "voter": "core1l78znwx5y4q8l4h6shz9s5jj8h43lgnkxvagvl",
+   "option": "YES",
+   "weight": "1.000000000000000000"
+  }
+ ]
+}
