@@ -356,6 +356,8 @@ export async function GET(
         operatorAddress: "",
         selfDelegateAddress: "",
         moniker: "",
+        // Populated below from the indexer when it is up; validator_identity
+        // fills it in otherwise, which is why logos survive an outage.
         avatarUrl: null,
         website: null,
         bondedStakeTX: ucoreToTX(vp.voting_power),
@@ -434,6 +436,18 @@ export async function GET(
     const bySelfDelegate = new Map<string, ValidatorRow>();
     for (const row of byConsensus.values()) {
       if (row.selfDelegateAddress) bySelfDelegate.set(row.selfDelegateAddress, row);
+    }
+
+    // Logos and websites from our own validator_identity table. The indexer's
+    // validator_description was the only source until 2026-08-30, when it
+    // returned 503 for two days and every validator logo on the site vanished.
+    // The chain carries the Keybase identity; we resolve and store it, so an
+    // indexer outage no longer blanks them.
+    for (const v of validatorSet.validators) {
+      const row = bySelfDelegate.get(v.selfDelegateAddress);
+      if (!row) continue;
+      if (!row.avatarUrl && v.avatarUrl) row.avatarUrl = v.avatarUrl;
+      if (!row.website && v.website) row.website = v.website;
     }
 
     // Build vote map keyed by voter address. Non-validator votes (regular
