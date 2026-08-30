@@ -24,6 +24,9 @@ FLOWS_PRUNE_TIMER_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.timer"
 HEALTH_SERVICE_NAME="silknodes-health"
 HEALTH_SERVICE_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.service"
 HEALTH_TIMER_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.timer"
+GOV_SERVICE_NAME="silknodes-governance"
+GOV_SERVICE_FILE="/etc/systemd/system/${GOV_SERVICE_NAME}.service"
+GOV_TIMER_FILE="/etc/systemd/system/${GOV_SERVICE_NAME}.timer"
 VSNAP_SERVICE_NAME="silknodes-validator-snapshots"
 VSNAP_SERVICE_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.service"
 VSNAP_TIMER_FILE="/etc/systemd/system/${VSNAP_SERVICE_NAME}.timer"
@@ -163,6 +166,13 @@ install_unit "$SCRIPT_DIR/silknodes-health.timer" "$HEALTH_TIMER_FILE"
 # Records per-validator tokens, commission, uptime, and delegator count so
 # the validator detail pages can show history. This cannot be backfilled
 # from chain state, so the timer wants to be running as early as possible.
+# Governance collector: proposals, votes and tally history every 10 min.
+# Votes are deleted from chain state on tally, so this is the only chance
+# to record them.
+echo "Installing $GOV_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-governance.service" "$GOV_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-governance.timer" "$GOV_TIMER_FILE"
+
 echo "Installing $VSNAP_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.service" "$VSNAP_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-validator-snapshots.timer" "$VSNAP_TIMER_FILE"
@@ -205,6 +215,8 @@ sudo systemctl enable "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl start "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl enable "${HEALTH_SERVICE_NAME}.timer"
 sudo systemctl start "${HEALTH_SERVICE_NAME}.timer"
+sudo systemctl enable "${GOV_SERVICE_NAME}.timer"
+sudo systemctl start "${GOV_SERVICE_NAME}.timer"
 sudo systemctl enable "${VSNAP_SERVICE_NAME}.timer"
 sudo systemctl start "${VSNAP_SERVICE_NAME}.timer"
 sudo systemctl enable "${SLASH_SERVICE_NAME}.timer"

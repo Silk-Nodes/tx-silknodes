@@ -1,0 +1,16 @@
+[Unit]
+Description=Run Silk Nodes Governance Collector every 10 minutes
+Requires=silknodes-governance.service
+
+[Timer]
+# Every 10 minutes. Votes are deleted from chain state the moment a proposal
+# tallies, so anything not captured while it is live is gone permanently.
+# A 5 day voting period sampled daily yields 5 points of history; sampled
+# every 10 minutes it yields 720, which is what makes the velocity chart
+# worth drawing.
+OnCalendar=*:0/10
+Persistent=true
+Unit=silknodes-governance.service
+
+[Install]
+WantedBy=timers.target
