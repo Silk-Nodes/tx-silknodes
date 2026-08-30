@@ -388,9 +388,17 @@ function HistoryRow({
         {STATUS_LABELS[proposal.status]}
       </span>
       <span className="gov-history-yes">Yes {(fractions.yesPct * 100).toFixed(0)}%</span>
-      <span className={`gov-history-quorum ${quorumPct >= quorumRequired ? "ok" : "warn"}`}>
-        Q {(quorumPct * 100).toFixed(0)}%
-      </span>
+      {/* bondedSnapshot 0 means we do not know the denominator, not that
+          turnout was zero. Rendering "Q 0%" on a proposal that actually had
+          strong turnout reads as "nobody voted", which is worse than saying
+          nothing. */}
+      {proposal.tally.bondedSnapshot > 0 ? (
+        <span className={`gov-history-quorum ${quorumPct >= quorumRequired ? "ok" : "warn"}`}>
+          Q {(quorumPct * 100).toFixed(0)}%
+        </span>
+      ) : (
+        <span className="gov-history-quorum" title="Bonded stake at voting time is not recorded for this proposal">Q n/a</span>
+      )}
       <span className="gov-history-chev">→</span>
     </Link>
   );

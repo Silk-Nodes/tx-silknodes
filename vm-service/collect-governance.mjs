@@ -89,6 +89,57 @@ async function lcd(path, timeoutMs = 25_000) {
 
 const toTX = (x) => Number(x ?? 0) / 1e6;
 
+const ARCHIVE_RPC = process.env.ARCHIVE_RPC || "https://archive.rpc.mainnet-1.tx.org";
+const BLOCK_SECONDS = 0.742;
+
+/** Bonded stake at a past moment, from the archive node's mint event.
+ *
+ *  Settled proposals need this and the chain will not give it back: the gov
+ *  module keeps no per-proposal bonded figure, so turnout on a closed vote is
+ *  uncomputable without recording it. Filled once per proposal and then left
+ *  alone, because it never changes after the fact. */
+async function bondedAtTime(iso) {
+  try {
+    const j = async (u, ms = 25_000) => {
+      const c = new AbortController();
+      const t = setTimeout(() => c.abort(), ms);
+      try {
+        const r = await fetch(`${ARCHIVE_RPC}${u}`, { signal: c.signal });
+        return r.ok ? await r.json() : null;
+      } finally { clearTimeout(t); }
+    };
+    const st = (await j("/status"))?.result?.sync_info;
+    if (!st) return null;
+    const tipH = Number(st.latest_block_height);
+    const tipT = Date.parse(st.latest_block_time);
+    const target = Date.parse(iso);
+    if (!Number.isFinite(target) || target >= tipT) return null;
+
+    let h = Math.max(1, Math.round(tipH - (tipT - target) / 1000 / BLOCK_SECONDS));
+    for (let i = 0; i < 2; i++) {
+      const b = await j(`/block?height=${h}`);
+      const t = b?.result?.block?.header?.time;
+      if (!t) return null;
+      const drift = (Date.parse(t) - target) / 1000;
+      if (Math.abs(drift) < 60) break;
+      h = Math.max(1, Math.min(tipH, Math.round(h - drift / BLOCK_SECONDS)));
+    }
+    const br = await j(`/block_results?height=${h}`, 40_000);
+    const evs = [...(br?.result?.finalize_block_events ?? []), ...(br?.result?.begin_block_events ?? [])];
+    for (const e of evs) {
+      if (e.type !== "mint") continue;
+      const kv = {};
+      for (const a of e.attributes) kv[a.key] = a.value;
+      const infl = Number(kv.inflation);
+      if (!infl) return null;
+      return Number(kv.bonded_ratio) * (Number(kv.annual_provisions) / 1e6 / infl);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function allProposals() {
   const out = [];
   let key = null;
@@ -141,7 +192,7 @@ async function main() {
     .then((b) => Number(b?.block?.header?.height) || null)
     .catch(() => null);
 
-  let liveSeen = 0, votesWritten = 0, tallySnapshots = 0;
+  let liveSeen = 0, votesWritten = 0, tallySnapshots = 0, backfilled = 0;
 
   for (const p of proposals) {
     const id = Number(p.id);
@@ -177,7 +228,21 @@ async function main() {
        live ? bonded : null],
     );
 
-    if (!live) continue;
+    if (!live) {
+      // Settled proposals: fill bonded once from the archive so turnout stays
+      // computable. Without it the list renders "Q 0%" on votes that had real
+      // turnout, which reads as "nobody voted".
+      const have = await query(
+        "SELECT bonded_snapshot FROM gov_proposals WHERE id=$1", [id]);
+      if (!have.rows?.[0]?.bonded_snapshot && p.voting_end_time) {
+        const b = await bondedAtTime(p.voting_end_time);
+        if (b) {
+          await query("UPDATE gov_proposals SET bonded_snapshot=$2 WHERE id=$1", [id, b]);
+          backfilled++;
+        }
+      }
+      continue;
+    }
     liveSeen++;
 
     // Votes: capture now or lose them when this proposal tallies.
@@ -223,7 +288,8 @@ async function main() {
   log("info",
     `done in ${((Date.now() - started) / 1000).toFixed(1)}s: ` +
     `${proposals.length} proposals, ${liveSeen} live, ` +
-    `${votesWritten} new votes, ${tallySnapshots} tally points`);
+    `${votesWritten} new votes, ${tallySnapshots} tally points, ` +
+    `${backfilled} bonded backfilled`);
 }
 
 main()

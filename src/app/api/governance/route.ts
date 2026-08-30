@@ -9,6 +9,8 @@
 //   2. We can cache / sanitize / normalize in one place.
 //   3. If we ever switch indexers, only this route changes.
 
+import { QueryTypes } from "sequelize";
+import { sequelize } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { withCache } from "@/lib/response-cache";
 import { lcdGet } from "@/lib/chain-config";
@@ -106,6 +108,18 @@ async function proposalsFromChain(): Promise<Record<string, unknown>[] | null> {
     // the pool is the right denominator. Without it bondedSnapshot is 0 and
     // the page renders "FAILING - QUORUM / 0.0%" on a proposal sitting at
     // 57% turnout, which is worse than showing nothing.
+    // Historical bonded per proposal, recorded by the governance collector
+    // from the archive node. The chain keeps no per-proposal bonded figure,
+    // so without this every settled proposal renders "Q 0%".
+    const ownBonded = new Map<number, number>();
+    try {
+      const rows = await sequelize.query<{ id: number; bonded_snapshot: string | null }>(
+        "SELECT id, bonded_snapshot FROM gov_proposals WHERE bonded_snapshot IS NOT NULL",
+        { type: QueryTypes.SELECT },
+      );
+      for (const r of rows) ownBonded.set(Number(r.id), Number(r.bonded_snapshot));
+    } catch { /* table may not exist yet; fall through to 0 */ }
+
     let liveBonded = 0;
     try {
       const poolRes = await lcdGet("/cosmos/staking/v1beta1/pool");
@@ -155,7 +169,9 @@ async function proposalsFromChain(): Promise<Record<string, unknown>[] | null> {
             // Live: current bonded, which is what the SDK tallies against.
             // Settled: not recoverable from the chain, so 0 and the UI hides
             // turnout rather than dividing by a number we invented.
-            bondedSnapshot: pr.status === "PROPOSAL_STATUS_VOTING_PERIOD" ? liveBonded : 0,
+            bondedSnapshot: pr.status === "PROPOSAL_STATUS_VOTING_PERIOD"
+              ? liveBonded
+              : (ownBonded.get(Number(pr.id)) ?? 0),
           },
         });
       }
