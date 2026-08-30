@@ -16,6 +16,7 @@
 // height, which Hasura's passthrough doesn't reliably support. We
 // approximate with current stake and label it as such in the UI.
 
+import { lcdGet } from "@/lib/chain-config";
 import { NextResponse } from "next/server";
 import { getActiveValidatorSet } from "@/lib/validator-set";
 
@@ -169,20 +170,53 @@ export async function GET(
     // Proposal 45 had 132 votes, and the unpaged version of this query
     // silently dropped the last 32.
     const votes: HasuraVote[] = [];
-    for (let off = 0; ; off += 100) {
-      const page = await hasura<{ proposal_vote: HasuraVote[] }>(
-        `query V($id: Int!, $off: Int!) {
-          proposal_vote(
-            where: {proposal_id: {_eq: $id}}
-            order_by: [{timestamp: asc}, {voter_address: asc}]
-            limit: 100
-            offset: $off
-          ) { voter_address option timestamp }
-        }`,
-        { id, off },
-      );
-      votes.push(...page.proposal_vote);
-      if (page.proposal_vote.length < 100 || off >= 10_000) break;
+    try {
+      for (let off = 0; ; off += 100) {
+        const page = await hasura<{ proposal_vote: HasuraVote[] }>(
+          `query V($id: Int!, $off: Int!) {
+            proposal_vote(
+              where: {proposal_id: {_eq: $id}}
+              order_by: [{timestamp: asc}, {voter_address: asc}]
+              limit: 100
+              offset: $off
+            ) { voter_address option timestamp }
+          }`,
+          { id, off },
+        );
+        votes.push(...page.proposal_vote);
+        if (page.proposal_vote.length < 100 || off >= 10_000) break;
+      }
+    } catch {
+      // The indexer goes down. It was 503 for three days from 2026-08-27 and
+      // this route answered 500, so the page showed "Couldn't enrich override
+      // data" on a live vote. The chain can answer for a live proposal and the
+      // historical archive covers settled ones, so degrade instead of failing.
+    }
+
+    // Nothing from the indexer: read the votes from the chain. Only possible
+    // while a proposal is live, since the SDK deletes votes once it tallies,
+    // which is also the only time anyone urgently needs this list.
+    if (votes.length === 0) {
+      try {
+        let key: string | null = null;
+        for (let page = 0; page < 20; page++) {
+          const q = new URLSearchParams({ "pagination.limit": "1000" });
+          if (key) q.set("pagination.key", key);
+          const res = await lcdGet(`/cosmos/gov/v1/proposals/${id}/votes?${q}`);
+          if (!res.ok) break;
+          const body = await res.json();
+          for (const v of body?.votes ?? []) {
+            const opt = v?.options?.[0]?.option;
+            if (!opt) continue;
+            // No timestamp: the chain records that a vote exists, never when
+            // it was cast. These sort last rather than claiming a position in
+            // the voting timeline.
+            votes.push({ voter_address: v.voter, option: opt, timestamp: null } as unknown as HasuraVote);
+          }
+          key = body?.pagination?.next_key ?? null;
+          if (!key) break;
+        }
+      } catch { /* fall through to the historical archive below */ }
     }
     const data = {
       proposal_vote: votes,
