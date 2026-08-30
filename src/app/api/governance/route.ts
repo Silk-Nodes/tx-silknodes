@@ -102,6 +102,17 @@ async function proposalsFromChain(): Promise<Record<string, unknown>[] | null> {
   try {
     const out: Record<string, unknown>[] = [];
     let key: string | null = null;
+    // Quorum on a LIVE proposal is measured against CURRENT bonded stake, so
+    // the pool is the right denominator. Without it bondedSnapshot is 0 and
+    // the page renders "FAILING - QUORUM / 0.0%" on a proposal sitting at
+    // 57% turnout, which is worse than showing nothing.
+    let liveBonded = 0;
+    try {
+      const poolRes = await lcdGet("/cosmos/staking/v1beta1/pool");
+      if (poolRes.ok) {
+        liveBonded = Number((await poolRes.json())?.pool?.bonded_tokens ?? 0) / 1e6;
+      }
+    } catch { /* leave 0; settled rows do not use it */ }
     for (let page = 0; page < 10; page++) {
       const q = new URLSearchParams({ "pagination.limit": "100" });
       if (key) q.set("pagination.key", key);
@@ -109,24 +120,42 @@ async function proposalsFromChain(): Promise<Record<string, unknown>[] | null> {
       if (!res.ok) return out.length ? out : null;
       const body = await res.json();
       for (const pr of body?.proposals ?? []) {
-        const ft = pr.final_tally_result ?? {};
         const n = (x: unknown) => Number(x ?? 0) / 1e6;
+        // final_tally_result stays empty until a proposal settles, so a LIVE
+        // proposal needs the tally endpoint or it renders as all zeros.
+        let ft = pr.final_tally_result ?? {};
+        if (pr.status === "PROPOSAL_STATUS_VOTING_PERIOD") {
+          try {
+            const tRes = await lcdGet(`/cosmos/gov/v1/proposals/${pr.id}/tally`);
+            if (tRes.ok) ft = (await tRes.json())?.tally ?? ft;
+          } catch { /* keep the empty final tally rather than failing the list */ }
+        }
+        const yes = n(ft.yes_count), no = n(ft.no_count);
+        const abstain = n(ft.abstain_count), noWithVeto = n(ft.no_with_veto_count);
         const msgs = Array.isArray(pr.messages) ? pr.messages : [];
+        // Shape must match the Hasura branch exactly. The client normalises
+        // rawStatus itself and derives the friendly type from rawType, so
+        // returning `status`/`type` instead renders an unknown status and a
+        // blank row. That is what happened to proposal 46 during the
+        // 2026-08-30 outage: the API answered 200 and the page showed nothing.
         out.push({
           id: Number(pr.id),
           title: pr.title || msgs[0]?.["@type"] || `Proposal ${pr.id}`,
-          status: pr.status,
-          type: msgs[0]?.["@type"] ?? "",
+          description: pr.summary ?? "",
+          rawStatus: pr.status,
+          rawType: msgs[0]?.["@type"] ?? "",
+          content: msgs[0] ?? null,
+          proposer: pr.proposer ?? null,
           submitTime: pr.submit_time ?? null,
           votingStartTime: pr.voting_start_time ?? null,
           votingEndTime: pr.voting_end_time ?? null,
           tally: {
-            yes: n(ft.yes_count), no: n(ft.no_count),
-            abstain: n(ft.abstain_count), noWithVeto: n(ft.no_with_veto_count),
-            totalVoted: n(ft.yes_count) + n(ft.no_count) + n(ft.abstain_count) + n(ft.no_with_veto_count),
-            // Not recoverable per proposal from the chain; the UI hides
+            yes, no, abstain, noWithVeto,
+            totalVoted: yes + no + abstain + noWithVeto,
+            // Live: current bonded, which is what the SDK tallies against.
+            // Settled: not recoverable from the chain, so 0 and the UI hides
             // turnout rather than dividing by a number we invented.
-            bondedSnapshot: 0,
+            bondedSnapshot: pr.status === "PROPOSAL_STATUS_VOTING_PERIOD" ? liveBonded : 0,
           },
         });
       }
