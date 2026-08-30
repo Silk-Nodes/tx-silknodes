@@ -98,7 +98,7 @@ const BLOCK_SECONDS = 0.742;
  *  module keeps no per-proposal bonded figure, so turnout on a closed vote is
  *  uncomputable without recording it. Filled once per proposal and then left
  *  alone, because it never changes after the fact. */
-async function bondedAtTime(iso) {
+async function bondedAtTime(iso, votedTX) {
   try {
     const j = async (u, ms = 25_000) => {
       const c = new AbortController();
@@ -111,19 +111,30 @@ async function bondedAtTime(iso) {
     const st = (await j("/status"))?.result?.sync_info;
     if (!st) return null;
     const tipH = Number(st.latest_block_height);
-    const tipT = Date.parse(st.latest_block_time);
     const target = Date.parse(iso);
-    if (!Number.isFinite(target) || target >= tipT) return null;
+    if (!Number.isFinite(target)) return null;
 
-    let h = Math.max(1, Math.round(tipH - (tipT - target) / 1000 / BLOCK_SECONDS));
-    for (let i = 0; i < 2; i++) {
+    const timeAt = async (h) => {
       const b = await j(`/block?height=${h}`);
       const t = b?.result?.block?.header?.time;
-      if (!t) return null;
-      const drift = (Date.parse(t) - target) / 1000;
-      if (Math.abs(drift) < 60) break;
-      h = Math.max(1, Math.min(tipH, Math.round(h - drift / BLOCK_SECONDS)));
+      return t ? Date.parse(t) : null;
+    };
+
+    // True binary search on block timestamps. The previous version estimated
+    // the height from a fixed 0.742s block time and refined twice, which was
+    // wrong for anything old: block time averaged ~1.27s over the chain's
+    // life, so a proposal from 2023 estimated to a NEGATIVE height, clamped
+    // to 1, and read genesis-era bonded stake. That produced turnout figures
+    // like "Q 140564%". A search makes no assumption about block time at all.
+    let lo = 1, hi = tipH;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const t = await timeAt(mid);
+      if (t === null) return null;
+      if (t < target) lo = mid + 1; else hi = mid;
     }
+    const h = lo;
+
     const br = await j(`/block_results?height=${h}`, 40_000);
     const evs = [...(br?.result?.finalize_block_events ?? []), ...(br?.result?.begin_block_events ?? [])];
     for (const e of evs) {
@@ -132,7 +143,16 @@ async function bondedAtTime(iso) {
       for (const a of e.attributes) kv[a.key] = a.value;
       const infl = Number(kv.inflation);
       if (!infl) return null;
-      return Number(kv.bonded_ratio) * (Number(kv.annual_provisions) / 1e6 / infl);
+      const bonded = Number(kv.bonded_ratio) * (Number(kv.annual_provisions) / 1e6 / infl);
+      if (!(bonded > 0)) return null;
+      // Turnout above 100% is impossible: more stake cannot vote than exists.
+      // If we compute one, the height is wrong and writing it would publish a
+      // number worse than publishing nothing.
+      if (votedTX > 0 && votedTX / bonded > 1.05) {
+        log("warn", `rejected bonded ${Math.round(bonded)} at h=${h} for ${iso}: implies ${(votedTX / bonded * 100).toFixed(0)}% turnout`);
+        return null;
+      }
+      return bonded;
     }
     return null;
   } catch {
@@ -235,7 +255,9 @@ async function main() {
       const have = await query(
         "SELECT bonded_snapshot FROM gov_proposals WHERE id=$1", [id]);
       if (!have.rows?.[0]?.bonded_snapshot && p.voting_end_time) {
-        const b = await bondedAtTime(p.voting_end_time);
+        const votedTX = toTX(ft.yes_count) + toTX(ft.no_count) +
+                        toTX(ft.abstain_count) + toTX(ft.no_with_veto_count);
+        const b = await bondedAtTime(p.voting_end_time, votedTX);
         if (b) {
           await query("UPDATE gov_proposals SET bonded_snapshot=$2 WHERE id=$1", [id, b]);
           backfilled++;
