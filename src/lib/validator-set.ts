@@ -34,6 +34,10 @@ import { lcdGet } from "@/lib/chain-config";
 
 export interface ValidatorSetRow {
   operatorAddress: string;
+  /** Keybase-resolved logo, from our own validator_identity table. Null when
+   *  the validator has no Keybase identity, which is a real answer. */
+  avatarUrl: string | null;
+  website: string | null;
   /** Account address that casts this validator's governance vote. */
   selfDelegateAddress: string;
   moniker: string;
@@ -78,10 +82,16 @@ async function fromDb(): Promise<ValidatorSetRow[]> {
     tokens: string;
     status: string;
     jailed: boolean;
+    avatar_url: string | null;
+    website: string | null;
   }>(
-    `SELECT operator_address, self_delegate_address, moniker, tokens, status, jailed
-       FROM validator_snapshots
-      WHERE date = (SELECT MAX(date) FROM validator_snapshots)`,
+    // LEFT JOIN so a validator missing from validator_identity still appears
+    // with a null logo rather than dropping out of the set entirely.
+    `SELECT s.operator_address, s.self_delegate_address, s.moniker, s.tokens,
+            s.status, s.jailed, i.avatar_url, i.website
+       FROM validator_snapshots s
+       LEFT JOIN validator_identity i ON i.operator_address = s.operator_address
+      WHERE s.date = (SELECT MAX(date) FROM validator_snapshots)`,
     { type: QueryTypes.SELECT },
   );
   return rows.map((r) => ({
@@ -91,6 +101,8 @@ async function fromDb(): Promise<ValidatorSetRow[]> {
     selfDelegateAddress:
       deriveSelfDelegate(r.operator_address) || r.self_delegate_address || "",
     moniker: r.moniker,
+    avatarUrl: r.avatar_url ?? null,
+    website: r.website ?? null,
     bondedStakeTX: Number(r.tokens) || 0,
     status: STATUS_TO_NUM[r.status] ?? 0,
     jailed: r.jailed,
@@ -109,13 +121,18 @@ async function fromLcd(): Promise<ValidatorSetRow[]> {
       tokens: string;
       jailed: boolean;
       status: string;
-      description?: { moniker?: string };
+      description?: { moniker?: string; website?: string };
     }[];
   };
   return (json.validators || []).map((v) => ({
     operatorAddress: v.operator_address,
     selfDelegateAddress: deriveSelfDelegate(v.operator_address),
     moniker: v.description?.moniker || v.operator_address.slice(0, 16),
+    // The chain has no avatar. Resolving Keybase for every validator on a
+    // request path would add ~14s, so this fallback renders without logos
+    // rather than slowly. validator_identity is the supported source.
+    avatarUrl: null,
+    website: v.description?.website || null,
     bondedStakeTX: Number(v.tokens) / 1_000_000,
     status: STATUS_TO_NUM[v.status] ?? 0,
     jailed: v.jailed,

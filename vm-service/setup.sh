@@ -24,6 +24,9 @@ FLOWS_PRUNE_TIMER_FILE="/etc/systemd/system/${FLOWS_PRUNE_SERVICE_NAME}.timer"
 HEALTH_SERVICE_NAME="silknodes-health"
 HEALTH_SERVICE_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.service"
 HEALTH_TIMER_FILE="/etc/systemd/system/${HEALTH_SERVICE_NAME}.timer"
+VID_SERVICE_NAME="silknodes-validator-identity"
+VID_SERVICE_FILE="/etc/systemd/system/${VID_SERVICE_NAME}.service"
+VID_TIMER_FILE="/etc/systemd/system/${VID_SERVICE_NAME}.timer"
 GOV_SERVICE_NAME="silknodes-governance"
 GOV_SERVICE_FILE="/etc/systemd/system/${GOV_SERVICE_NAME}.service"
 GOV_TIMER_FILE="/etc/systemd/system/${GOV_SERVICE_NAME}.timer"
@@ -169,6 +172,12 @@ install_unit "$SCRIPT_DIR/silknodes-health.timer" "$HEALTH_TIMER_FILE"
 # Governance collector: proposals, votes and tally history every 10 min.
 # Votes are deleted from chain state on tally, so this is the only chance
 # to record them.
+# Validator identity: monikers, Keybase avatars and websites, so logos do
+# not depend on the Coreum indexer.
+echo "Installing $VID_SERVICE_NAME.service + .timer..."
+install_unit "$SCRIPT_DIR/silknodes-validator-identity.service" "$VID_SERVICE_FILE"
+install_unit "$SCRIPT_DIR/silknodes-validator-identity.timer" "$VID_TIMER_FILE"
+
 echo "Installing $GOV_SERVICE_NAME.service + .timer..."
 install_unit "$SCRIPT_DIR/silknodes-governance.service" "$GOV_SERVICE_FILE"
 install_unit "$SCRIPT_DIR/silknodes-governance.timer" "$GOV_TIMER_FILE"
@@ -215,6 +224,8 @@ sudo systemctl enable "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl start "${FLOWS_PRUNE_SERVICE_NAME}.timer"
 sudo systemctl enable "${HEALTH_SERVICE_NAME}.timer"
 sudo systemctl start "${HEALTH_SERVICE_NAME}.timer"
+sudo systemctl enable "${VID_SERVICE_NAME}.timer"
+sudo systemctl start "${VID_SERVICE_NAME}.timer"
 sudo systemctl enable "${GOV_SERVICE_NAME}.timer"
 sudo systemctl start "${GOV_SERVICE_NAME}.timer"
 sudo systemctl enable "${VSNAP_SERVICE_NAME}.timer"

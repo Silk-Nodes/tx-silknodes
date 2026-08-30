@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Silk Nodes Validator Identity Collector daily
+Requires=silknodes-validator-identity.service
+
+[Timer]
+# Daily is plenty: monikers and logos change rarely. 04:10 UTC keeps it clear
+# of the 03:30 cohort run and the 02:00 analytics window so they are not
+# competing for connection-pool slots.
+OnCalendar=*-*-* 04:10:00 UTC
+Persistent=true
+Unit=silknodes-validator-identity.service
+
+[Install]
+WantedBy=timers.target
