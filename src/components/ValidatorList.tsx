@@ -309,7 +309,7 @@ export default function ValidatorList({
             }}>
               Loading validator set...
             </div>
-            <div style={{ fontSize: "0.68rem", opacity: 0.45, marginTop: 6 }}>
+            <div style={{ fontSize: "0.68rem", color: "var(--text-light)", marginTop: 6 }}>
               Fetching {">"}100 active validators from TX mainnet
             </div>
           </div>
@@ -322,7 +322,7 @@ export default function ValidatorList({
           padding: "14px 16px", borderRadius: 12,
           background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
-          <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Active Validators</div>
+          <div style={{ fontSize: "0.6rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Active Validators</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {validators.length}
           </div>
@@ -331,11 +331,11 @@ export default function ValidatorList({
           padding: "14px 16px", borderRadius: 12,
           background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
-          <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Bonded</div>
+          <div style={{ fontSize: "0.6rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Bonded</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {fmt(economics?.totalBonded || 0)}
           </div>
-          <div style={{ fontSize: "0.55rem", opacity: 0.35, marginTop: 2 }}>
+          <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginTop: 2 }}>
             {economics?.txPrice ? `~${fmtUsd((economics.totalBonded || 0) * economics.txPrice)}` : ""}
           </div>
         </div>
@@ -343,7 +343,7 @@ export default function ValidatorList({
           padding: "14px 16px", borderRadius: 12,
           background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
-          <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Avg Commission</div>
+          <div style={{ fontSize: "0.6rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Avg Commission</div>
           <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)", marginTop: 4 }}>
             {(avgCommission * 100).toFixed(1)}%
           </div>
@@ -352,8 +352,8 @@ export default function ValidatorList({
           padding: "14px 16px", borderRadius: 12,
           background: "var(--glass-bg)", border: "1px solid rgba(0,0,0,0.04)",
         }}>
-          <div style={{ fontSize: "0.6rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Base APR</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)", marginTop: 4 }}>
+          <div style={{ fontSize: "0.6rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Base APR</div>
+          <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-accent)", marginTop: 4 }}>
             {economics && economics.totalBonded > 0 ? ((economics.annualProvisions * (1 - economics.communityTax) / economics.totalBonded) * 100).toFixed(2) : "..."}%
           </div>
           <Tooltip text="Network base APR before validator commission. PSE rewards are added on top." position="bottom" />
@@ -497,7 +497,7 @@ export default function ValidatorList({
                       {isSilk && <span className="silk-badge">Our Node</span>}
                     </div>
                     {v.website && (
-                      <div style={{ fontSize: "0.6rem", opacity: 0.3, marginTop: 1 }}>
+                      <div style={{ fontSize: "0.6rem", color: "var(--text-light)", marginTop: 1 }}>
                         {v.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                       </div>
                     )}
@@ -524,7 +524,7 @@ export default function ValidatorList({
                         }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: "0.6rem", opacity: 0.35, fontFamily: "var(--font-mono)", marginTop: 2 }}>
+                    <div style={{ fontSize: "0.6rem", color: "var(--text-light)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
                       {v.votingPowerPct.toFixed(2)}%
                     </div>
                   </td>
@@ -569,9 +569,9 @@ export default function ValidatorList({
                         ? "rgba(180,74,62,0.08)"
                         : "transparent",
                       color: v.commission <= 0.05
-                        ? "var(--accent-olive)"
+                        ? "var(--text-accent)"
                         : v.commission >= 0.1
-                        ? "#b44a3e"
+                        ? "var(--danger-text)"
                         : "var(--text-dark)",
                     }}>
                       {(v.commission * 100).toFixed(1)}%
@@ -580,17 +580,17 @@ export default function ValidatorList({
                   <td>
                     <div style={{
                       fontFamily: "var(--font-mono)", fontSize: "0.9rem", fontWeight: 700,
-                      color: "var(--accent-olive)",
+                      color: "var(--text-accent)",
                     }}>
                       {v.delegatorApr.toFixed(2)}%
                     </div>
-                    <div style={{ fontSize: "0.55rem", opacity: 0.3, marginTop: 1 }}>+ PSE</div>
+                    <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginTop: 1 }}>+ PSE</div>
                   </td>
                   <td>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 500 }}>
                       {fmt(v.monthlyIncome)} TX
                     </div>
-                    <div style={{ fontSize: "0.6rem", color: "var(--accent-olive)", opacity: 0.7, marginTop: 1 }}>
+                    <div style={{ fontSize: "0.6rem", color: "var(--text-accent)", marginTop: 1 }}>
                       ~{fmtUsd(v.monthlyIncomeUsd)}/mo
                     </div>
                   </td>
@@ -601,7 +601,7 @@ export default function ValidatorList({
                       // genuinely "no movement", not missing data.
                       if (!f) {
                         return (
-                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", opacity: 0.3 }}>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", color: "var(--text-light)" }}>
                             &ndash;
                           </div>
                         );
@@ -617,14 +617,14 @@ export default function ValidatorList({
                             <div style={{
                               fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 700,
                               color: f.net > 0
-                                ? "var(--accent-olive)"
+                                ? "var(--text-accent)"
                                 : f.net < 0
-                                ? "#b44a3e"
+                                ? "var(--danger-text)"
                                 : "var(--text-dark)",
                             }}>
                               {fmtFlow(f.net)} TX
                             </div>
-                            <div style={{ fontSize: "0.55rem", opacity: 0.3, marginTop: 1 }}>
+                            <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginTop: 1 }}>
                               {f.net > 0 ? "gaining" : f.net < 0 ? "losing" : "flat"}
                             </div>
                           </div>
@@ -640,7 +640,7 @@ export default function ValidatorList({
       </div>
 
       {/* Bottom note */}
-      <div style={{ marginTop: 12, fontSize: "0.6rem", opacity: 0.3, textAlign: "center" }}>
+      <div style={{ marginTop: 12, fontSize: "0.6rem", color: "var(--text-light)", textAlign: "center" }}>
         APR shown is base staking APR only. PSE rewards are additional and depend on your stake duration and network participation.
         Validator Income = commission earned from delegator rewards.
       </div>
