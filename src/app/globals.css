@@ -54,8 +54,13 @@
   /* Text accent used for "positive/success" headlines and labels (e.g. a
      PASSED outcome). In light mode --tx-neon is too bright to read on the
      cream background, so we use the darker olive. Dark mode overrides
-     this back to --tx-neon below. */
-  --text-accent: #4a7a1a;
+     this back to --tx-neon below.
+
+     #4a7a1a is the same value as --accent-olive, which is tuned to be a BAR
+     fill. As text on the ground it measures 4.24:1 and misses the floor.
+     Darkened to 4.9:1 on the ground and 5.93:1 on white. --accent-olive keeps
+     its own value: a fill and a label are not the same colour problem. */
+  --text-accent: #456f18;
   /* Sticky / floating surface that needs more opacity than a regular
      glass card so it reads cleanly over scrolling content. */
   --strip-bg: rgba(255, 255, 255, 0.92);
@@ -63,7 +68,14 @@
 
   --text-dark: #0F1B07;
   --text-medium: #3a4a2a;
-  --text-light: #8E8D8A;
+  /* Muted body text. #8E8D8A measured 2.74:1 against the page ground
+     (#ede9e0), which is not readable text at any size: it was carrying table
+     headers, field labels and whole FAQ answers. #676661 keeps the same
+     neutral grey but measures 4.75:1 on the ground, 5.14:1 on cards and
+     5.75:1 on white, and still sits well below --text-medium (7.9:1) so the
+     hierarchy it exists to express survives. The dark theme already measured
+     7.72:1 and is unchanged. */
+  --text-light: #676661;
 
   --glass-bg: rgba(255, 255, 255, 0.45);
   --glass-border: rgba(255, 255, 255, 0.7);
@@ -1740,6 +1752,9 @@ input[type="range"]::-moz-range-thumb {
 .silk-badge {
   display: inline-block;
   background: var(--accent-olive);
+  /* White reads at 5.13:1 on the light theme's olive but only 2.15:1 on the
+     dark theme's, which is a pale sage. The badge flips to dark ink there
+     (9.09:1) rather than keeping one colour that fails half the time. */
   color: #fff;
   font-size: 0.65rem;
   font-weight: 600;
@@ -1748,6 +1763,7 @@ input[type="range"]::-moz-range-thumb {
   margin-left: 8px;
   vertical-align: middle;
 }
+[data-theme="dark"] .silk-badge { color: #0a0d07; }
 
 /* ═══════════════════════════════════════════
    FILTER CHIPS
@@ -13988,8 +14004,9 @@ input[type="range"]::-moz-range-thumb {
 .pdp-wrap { overflow-x: auto; }
 .pdp-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
 .pdp-table th {
-  /* --text-light is #8e8d8a, which is 3.24:1 on the light background and
-     fails the 4.5 floor. --text-medium is 9.33:1. */
+  /* --text-medium (9.33:1) rather than --text-light. --text-light was #8e8d8a
+     and failed the 4.5 floor outright when this was written; it now clears it,
+     but --text-medium is still the right weight for a column heading. */
   text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-medium); font-weight: 600; padding: 0 12px 8px 0;
   border-bottom: 1px solid var(--glass-border); white-space: nowrap;
