@@ -45,6 +45,12 @@ function fmtFlow(num: number): string {
 }
 type SortDir = "asc" | "desc";
 
+// The Silk Nodes spotlight strip is dark in both themes, so its labels take a
+// fixed white rather than a theme token. opacity 0.4 put them at 3.79:1 on the
+// strip background (#0F1B07); 0.72 alpha measures 9.5:1. Opacity also compounds
+// with any ancestor, which is how they got that low without anyone picking it.
+const STRIP_LABEL = "rgba(255,255,255,0.72)";
+
 const LCD = SILK_LCD;
 const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 
@@ -393,19 +399,19 @@ export default function ValidatorList({
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Commission</div>
+              <div style={{ fontSize: "0.55rem", color: STRIP_LABEL }}>Commission</div>
               <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>
                 {(silkNode.commission * 100).toFixed(1)}%
               </div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Delegator APR</div>
+              <div style={{ fontSize: "0.55rem", color: STRIP_LABEL }}>Delegator APR</div>
               <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>
                 {silkNode.delegatorApr.toFixed(2)}%
               </div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Total Delegated</div>
+              <div style={{ fontSize: "0.55rem", color: STRIP_LABEL }}>Total Delegated</div>
               <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>
                 {fmt(silkNode.tokens)} TX
               </div>
