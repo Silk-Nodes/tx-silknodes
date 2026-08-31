@@ -209,6 +209,37 @@ export default function ValidatorList({
     });
   }, [validators, economics, flows]);
 
+  /**
+   * Cumulative share of bonded stake, by voting-power rank.
+   *
+   * Deliberately computed from the power-descending order, not from whatever
+   * the table is currently sorted or filtered by. A running total down a
+   * commission-sorted list would add up to a number that means nothing. This
+   * way the column always answers the same question: how much of the network
+   * do this validator and everyone larger than it control.
+   */
+  const cumulativeByAddress = useMemo(() => {
+    const byPower = [...validatorsWithIncome].sort((a, b) => b.tokens - a.tokens);
+    const out = new Map<string, { pct: number; rank: number }>();
+    let running = 0;
+    byPower.forEach((v, i) => {
+      running += v.votingPowerPct;
+      out.set(v.operatorAddress, { pct: running, rank: i + 1 });
+    });
+    return out;
+  }, [validatorsWithIncome]);
+
+  /**
+   * Nakamoto coefficient: how many validators it takes to reach 33.4% of
+   * bonded stake, the point where a colluding group can halt the chain.
+   */
+  const nakamoto = useMemo(() => {
+    for (const [, c] of cumulativeByAddress) {
+      if (c.pct > 33.33) return c.rank;
+    }
+    return 0;
+  }, [cumulativeByAddress]);
+
   // Find Silk node data
   const silkNode = validatorsWithIncome.find((v) => v.operatorAddress === SILK_OPERATOR);
   const maxTokens = validatorsWithIncome.length > 0 ? Math.max(...validatorsWithIncome.map((v) => v.tokens)) : 1;
@@ -437,6 +468,13 @@ export default function ValidatorList({
               <th style={{ width: 36 }}>#</th>
               <th onClick={() => handleSort("moniker")} style={{ minWidth: 160 }}>Validator{sortIcon("moniker")}</th>
               <th onClick={() => handleSort("tokens")} style={{ minWidth: 200 }}>Voting Power{sortIcon("tokens")}</th>
+              <th
+                onClick={() => handleSort("tokens")}
+                title="Share of bonded stake held by this validator and every larger one. Always ranked by voting power, whatever the table is sorted by."
+                style={{ minWidth: 108 }}
+              >
+                Cumulative
+              </th>
               <th onClick={() => handleSort("commission")}>Commission{sortIcon("commission")}</th>
               <th onClick={() => handleSort("delegatorApr")}>Your APR{sortIcon("delegatorApr")}</th>
               <th onClick={() => handleSort("monthlyIncome")}>Validator Income{sortIcon("monthlyIncome")}</th>
@@ -489,6 +527,37 @@ export default function ValidatorList({
                     <div style={{ fontSize: "0.6rem", opacity: 0.35, fontFamily: "var(--font-mono)", marginTop: 2 }}>
                       {v.votingPowerPct.toFixed(2)}%
                     </div>
+                  </td>
+                  <td>
+                    {(() => {
+                      const c = cumulativeByAddress.get(v.operatorAddress);
+                      if (!c) return null;
+                      const atNakamoto = nakamoto > 0 && c.rank === nakamoto;
+                      return (
+                        <>
+                          <div style={{
+                            fontFamily: "var(--font-mono)", fontSize: "0.85rem", fontWeight: 600,
+                            color: atNakamoto ? "var(--danger-text)" : "var(--text-dark)",
+                          }}>
+                            {c.pct.toFixed(2)}%
+                          </div>
+                          <div style={{
+                            marginTop: 3, height: 4, borderRadius: 2,
+                            background: "rgba(0,0,0,0.04)", overflow: "hidden",
+                          }}>
+                            <div style={{
+                              height: "100%", borderRadius: 2, width: `${Math.min(c.pct, 100)}%`,
+                              background: atNakamoto ? "var(--danger)" : "var(--tx-subtle)",
+                            }} />
+                          </div>
+                          {atNakamoto && (
+                            <div style={{ fontSize: "0.55rem", color: "var(--danger-text)", marginTop: 2 }}>
+                              33% here
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td>
                     <span style={{
