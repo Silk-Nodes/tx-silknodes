@@ -38,9 +38,11 @@
   --danger: #b44a3e;
   /* Destructive text, which is not the same colour as a destructive fill.
      --danger is tuned to be filled and only reaches 3.82:1 as text on the
-     translucent chip background in dark mode. Light's red happens to clear
-     4.5:1 already, so the two themes differ in value but not in intent. */
-  --danger-text: #b44a3e;
+     translucent chip background in dark mode. The light theme was assumed to
+     clear 4.5:1 on the fill colour, but measured against the real page
+     background (#ede9e0) it only reaches 4.34:1, so it is darkened here to
+     5.01:1. The fill (--danger) is unchanged. */
+  --danger-text: #a8412f;
   /* Perceivable pill border. The shared --glass-border measures 1.62:1 here,
      below the 3:1 that non-text UI needs to read as a boundary at all. */
   --pill-border-strong: rgba(74, 122, 26, 0.8);
