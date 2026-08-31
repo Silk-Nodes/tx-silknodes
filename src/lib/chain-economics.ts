@@ -27,9 +27,13 @@ import { SILK_LCD, SILK_RPC, fetchWithTimeout } from "./chain-config";
 
 /** Seconds in a year, the numerator the SDK assumes for blocks_per_year. */
 const SECONDS_PER_YEAR = 31_536_000;
-/** Window for the block-time measurement. Wide enough that a few slow blocks
- *  do not move it, short enough to stay on a pruning node. */
-const SAMPLE_BLOCKS = 20_000;
+/** Window for the block-time measurement. The cost is identical regardless
+ *  of width (two block fetches, tip and tip minus window), but the sampling
+ *  noise shrinks with width: two 20,000-block windows disagreed by ~1%,
+ *  which was enough to show 12.24% and 12.35% APY on two surfaces at the
+ *  same moment. 100,000 blocks (~20h) averages that out while staying well
+ *  inside what a pruning node retains. */
+const SAMPLE_BLOCKS = 100_000;
 const CACHE_MS = 10 * 60 * 1000;
 
 let cached: { factor: number; blockSeconds: number; at: number } | null = null;
@@ -60,6 +64,24 @@ export async function issuanceFactor(): Promise<{ factor: number; blockSeconds: 
     return { factor: cached.factor, blockSeconds: cached.blockSeconds };
   }
   const fallback = { factor: 1, blockSeconds: 0 };
+
+  // In the browser, take the server's measurement rather than making one.
+  // Every context that measures its own window gets a slightly different
+  // sample, and users compare the surfaces against each other. One number,
+  // measured server-side, keeps every page in agreement. Falls through to a
+  // local measurement if the endpoint is unreachable.
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetchWithTimeout("/api/issuance-factor", undefined, 10_000);
+      if (res.ok) {
+        const body = await res.json();
+        if (body?.factor > 0.5 && body.factor < 3) {
+          cached = { factor: body.factor, blockSeconds: body.blockSeconds ?? 0, at: Date.now() };
+          return { factor: body.factor, blockSeconds: cached.blockSeconds };
+        }
+      }
+    } catch { /* fall through to measuring locally */ }
+  }
   try {
     const tip = await blockTimeAt("latest");
     if (!tip) return fallback;
