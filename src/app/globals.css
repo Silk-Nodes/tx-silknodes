@@ -1191,7 +1191,12 @@ body {
 .brand-mark-primary { stroke: currentColor; }
 .brand-mark-accent { stroke: var(--brand-accent); }
 .brand-word { font-weight: 700; letter-spacing: -0.02em; }
-.brand-word .brand-in { color: var(--brand-accent); font-weight: 500; }
+/* --text-accent, not --brand-accent. The latter is #8FCB02, which measures
+   1.77:1 against the light nav's near-white glass and is effectively invisible
+   there. --text-accent is the per-theme text green: 5.35:1 on the light nav,
+   and it resolves to --tx-neon on dark (9.26:1), which is what this already
+   looked like in dark mode. */
+.brand-word .brand-in { color: var(--text-accent); font-weight: 500; }
 
 .nav-tabs {
   display: flex;
@@ -2509,7 +2514,13 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: space-between;
   padding: 18px 32px;
-  background: rgba(0, 0, 0, 0.5);
+  /* Solid, not rgba(0,0,0,0.5). Every colour in this footer (white at 60%,
+     neon links, neon italic) is designed for a dark bar, but a 50% black wash
+     over the light theme's cream ground composites to a mid grey (#777570).
+     On that grey the three text colours measured 2.75:1, 3.68:1 and 2.76:1.
+     Painting the bar itself dark in both themes puts all of them back over
+     the floor with no colour changes: 7.11:1, 14.83:1 and 8.64:1. */
+  background: #101508;
   border-top: 1px solid rgba(177, 252, 3, 0.25);
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.7);
@@ -10980,7 +10991,9 @@ input[type="range"]::-moz-range-thumb {
    ════════════════════════════════════════════════════════════════════ */
 .nav-tools { position: relative; }
 .nav-tools-trigger { cursor: pointer; }
-.nav-tools-chev { font-size: 0.65rem; margin-left: 2px; opacity: 0.7; }
+/* opacity 0.7 dropped this to 4.15:1 on the dark nav. It is the only affordance
+   saying the Tools tab opens a menu, so it carries meaning and needs the floor. */
+.nav-tools-chev { font-size: 0.65rem; margin-left: 2px; opacity: 0.85; }
 .nav-tools-menu {
   position: absolute;
   top: calc(100% + 8px);
