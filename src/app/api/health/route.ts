@@ -64,6 +64,32 @@ export async function GET(req: Request) {
       PseScore.count(),
     ]);
 
+    // Per-type freshness for staking_events.
+    //
+    // Row counts cannot see the failure that prompted this: on 2026-09-03 the
+    // collector's RPC stopped serving tx_search for message.action while still
+    // answering /status in 0.11s. Delegations silently stopped arriving and
+    // undelegations kept flowing, because the undelegate index is small enough
+    // to still answer. Total row count rose the whole time, so every liveness
+    // signal we had stayed green while 27 events and 68.66M TX went missing in
+    // a day. A stale delegate clock next to a fresh undelegate clock is the
+    // exact fingerprint of that outage.
+    const freshness = Object.fromEntries(
+      await Promise.all(
+        (["delegate", "undelegate", "redelegate"] as const).map(async (type) => {
+          const newest = await StakingEvent.max("timestamp", { where: { type } });
+          const at = newest ? new Date(newest as string) : null;
+          return [
+            type,
+            {
+              newest: at ? at.toISOString() : null,
+              ageMinutes: at ? Math.round((Date.now() - at.getTime()) / 60_000) : null,
+            },
+          ];
+        }),
+      ),
+    );
+
     // Row counts and table names are an operator diagnostic, not public data.
     // Served openly they hand anyone a free map of the schema, which is exactly
     // the reconnaissance step you want to make expensive. Gated behind a shared
@@ -78,6 +104,7 @@ export async function GET(req: Request) {
         at: new Date().toISOString(),
         ...(authorized
           ? {
+              staking_freshness: freshness,
               tables: {
                 staking_events: stakingEvents,
                 validators,
