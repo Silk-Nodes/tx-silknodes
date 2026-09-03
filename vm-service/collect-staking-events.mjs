@@ -86,7 +86,48 @@ const GIT_PUSH_ENABLED = process.env.GIT_PUSH !== "false";
 const JSON_WRITES_ENABLED = process.env.JSON_WRITES === "true";
 
 // ═══ CONFIG ═══
-const RPC = "https://rpc-coreum.ecostake.com";
+/**
+ * Ordered RPC pool for tx_search.
+ *
+ * This was a single host (rpc-coreum.ecostake.com) until 2026-09-03, when
+ * that node started hanging on exactly the two query shapes this collector
+ * depends on while looking perfectly healthy from every other angle:
+ *
+ *   /status                                     200 in 0.11s
+ *   /tx?hash=0x4280...                          200 in 0.11s  (tx IS indexed)
+ *   tx_search "tx.height=85360355"              200 in 0.10s
+ *   tx_search "message.action='...MsgDelegate'" hangs past every timeout
+ *   tx_search "delegate.validator='corevaloper1mpf...'"  hangs at per_page=1
+ *
+ * So both the direct searches and the per-validator fallback were dead while
+ * the node answered liveness probes instantly. In 24 hours that lost 27 of
+ * the 69 staking events over the 5000 TX display threshold, 68.66M TX in
+ * total, including a single 66.5M TX delegation to Coreum Community DAO at
+ * height 85360355. Undelegations and redelegations kept arriving, because
+ * those indexes are small enough to still answer, which is why the feed
+ * looked alive the whole time.
+ *
+ * The lesson is the probe, not the pool: a /status check passes on a node
+ * whose tx_search is gone. pickRpc below probes with the real query.
+ */
+const RPC_POOL = [
+  "https://rpc-coreum.ecostake.com",
+  "https://coreum-rpc.publicnode.com",
+  "https://rpc.cosmos.directory/coreum",
+];
+let activeRpc = RPC_POOL[0];
+let lastRpcProbe = 0;
+const RPC_PROBE_MS = 10 * 60_000;
+// The heaviest query the collector runs. If a host cannot serve this, it
+// cannot serve the collector, whatever /status says.
+const RPC_PROBE_QUERY = encodeURIComponent(
+  `"message.action='/cosmos.staking.v1beta1.MsgDelegate'"`,
+);
+// tx_search over a large index is slow even on a healthy node: publicnode
+// answers the per-validator query in ~12s. The old 15s ceiling was shared
+// with cheap /block reads and left almost no headroom.
+const SEARCH_TIMEOUT_MS = 45_000;
+
 const LCD = "https://rest-coreum.ecostake.com";
 const DECIMALS = 6;
 const MIN_AMOUNT_TX = 5000;
@@ -224,11 +265,11 @@ function bailIfTooManyFailures(kind, count) {
   process.exit(2);
 }
 
-async function fetchWithRetry(url, attempts = 3) {
+async function fetchWithRetry(url, attempts = 3, timeoutMs = 15000) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (e) {
@@ -316,7 +357,7 @@ async function getBlockTime(height) {
     return blockTimestampCache.get(height);
   }
   try {
-    const data = await fetchWithRetry(`${RPC}/block?height=${height}`);
+    const data = await fetchWithRetry(`${activeRpc}/block?height=${height}`);
     const time = data?.result?.block?.header?.time;
     if (time) {
       blockTimestampCache.set(height, time);
@@ -929,18 +970,70 @@ async function refreshTopDelegators() {
   }
 }
 
+// ═══ RPC SELECTION ═══
+/**
+ * Choose an RPC that can actually answer a tx_search. Re-probes at most
+ * every RPC_PROBE_MS, or immediately when `force` is set after a failure.
+ * Falls back to the first host so the collector still tries rather than
+ * stopping outright.
+ */
+async function pickRpc(force = false) {
+  if (!force && Date.now() - lastRpcProbe < RPC_PROBE_MS) return activeRpc;
+  lastRpcProbe = Date.now();
+  for (const host of RPC_POOL) {
+    const url = `${host}/tx_search?query=${RPC_PROBE_QUERY}&per_page=1&order_by="desc"`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      if (!body?.result?.txs) throw new Error("no result.txs");
+      if (host !== activeRpc) {
+        log("warn", `RPC switched to ${host} (previous host failed the tx_search probe)`);
+      }
+      activeRpc = host;
+      return activeRpc;
+    } catch (e) {
+      log("warn", `RPC probe failed for ${host}: ${e.message}`);
+    }
+  }
+  log("error", "no RPC in the pool can serve tx_search; staking events will be missed");
+  activeRpc = RPC_POOL[0];
+  return activeRpc;
+}
+
+// Consecutive tx_search failures, keyed by query label. A dead search is
+// silent by nature: it returns zero events, which is indistinguishable from
+// a quiet chain. Counting them is what makes the outage visible.
+const searchFailures = new Map();
+const SEARCH_FAILURE_ALARM = 3;
+
 // ═══ POLLING ═══
 // Shared core: hit tx_search with `query`, parse each returned tx via
 // `parser`, ingest novel staking events. Returns count of new events.
 async function pollSearch(query, parser, label) {
   const q = encodeURIComponent(`"${query}"`);
-  const url = `${RPC}/tx_search?query=${q}&per_page=100&order_by="desc"`;
+  const rpc = await pickRpc();
+  const url = `${rpc}/tx_search?query=${q}&per_page=100&order_by="desc"`;
 
   let data;
   try {
-    data = await fetchWithRetry(url);
+    data = await fetchWithRetry(url, 3, SEARCH_TIMEOUT_MS);
+    searchFailures.delete(label);
   } catch (e) {
-    log("warn", `tx_search failed for ${label}:`, e.message);
+    const n = (searchFailures.get(label) || 0) + 1;
+    searchFailures.set(label, n);
+    if (n >= SEARCH_FAILURE_ALARM) {
+      // Loud, because the symptom of this failing quietly is a feed that
+      // renders fine and is missing 66.5M TX.
+      log(
+        "error",
+        `tx_search for ${label} has failed ${n} times in a row on ${rpc}: ${e.message}. ` +
+          `Events of this type are being LOST, not delayed. Re-probing the RPC pool.`,
+      );
+      await pickRpc(true);
+    } else {
+      log("warn", `tx_search failed for ${label} on ${rpc}:`, e.message);
+    }
     return 0;
   }
 

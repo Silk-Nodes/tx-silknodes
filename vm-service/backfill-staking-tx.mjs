@@ -19,7 +19,14 @@
 // Usage:
 //   node vm-service/backfill-staking-tx.mjs
 //   node vm-service/backfill-staking-tx.mjs --hash=E251...0C69
+//   node vm-service/backfill-staking-tx.mjs --hashes=A1B2...,C3D4...
+//   node vm-service/backfill-staking-tx.mjs --file=vm-service/backfills/2026-09-03-rpc-outage.txt
 //   node vm-service/backfill-staking-tx.mjs --dry-run
+//
+// --file takes one hash per line and ignores blanks and # comments, which
+// is how a whole outage window gets replayed in one run.
+
+import { readFileSync } from "node:fs";
 
 import { writeStakingEvents } from "./db-writes.mjs";
 import { closePool } from "./db.mjs";
@@ -36,8 +43,25 @@ const args = Object.fromEntries(
     return [k, v ?? "true"];
   }),
 );
-const HASH = (args.hash || DEFAULT_HASH).replace(/^0x/, "").toUpperCase();
 const DRY_RUN = args["dry-run"] === "true";
+
+function loadHashes() {
+  if (args.file) {
+    return readFileSync(args.file, "utf-8")
+      .split("\n")
+      .map((l) => l.split("#")[0].trim())
+      .filter(Boolean)
+      .map((h) => h.replace(/^0x/, "").toUpperCase());
+  }
+  if (args.hashes) {
+    return args.hashes
+      .split(",")
+      .map((h) => h.trim().replace(/^0x/, "").toUpperCase())
+      .filter(Boolean);
+  }
+  return [(args.hash || DEFAULT_HASH).replace(/^0x/, "").toUpperCase()];
+}
+const HASHES = loadHashes();
 
 const STAKING_EVENT_TYPES = {
   delegate: "delegate",
@@ -126,7 +150,7 @@ function extractEvents(tx) {
   return out;
 }
 
-async function main() {
+async function backfillOne(HASH) {
   log("info", `Backfill tx ${HASH} (dry_run=${DRY_RUN})`);
 
   const tx = await fetchTx(HASH);
@@ -161,14 +185,13 @@ async function main() {
 
   if (DRY_RUN) {
     log("info", "[dry-run] would insert these events");
-    await closePool();
-    return;
+    return { parsed: parsed.length, inserted: 0 };
   }
 
   const timestamp = await fetchBlockTime(height);
   if (!timestamp) {
     log("error", `Could not resolve block timestamp for height ${height}`);
-    process.exit(1);
+    throw new Error(`no block timestamp for height ${height}`);
   }
   log("info", `Block timestamp: ${timestamp}`);
 
@@ -178,8 +201,36 @@ async function main() {
     "info",
     `Inserted ${inserted} new rows into staking_events (${enriched.length - inserted} were already present)`,
   );
+  return { parsed: parsed.length, inserted };
+}
+
+async function main() {
+  log("info", `${HASHES.length} tx to backfill`);
+  let totalParsed = 0;
+  let totalInserted = 0;
+  const failed = [];
+
+  for (const hash of HASHES) {
+    try {
+      const r = await backfillOne(hash);
+      totalParsed += r.parsed;
+      totalInserted += r.inserted;
+    } catch (e) {
+      // One unreachable tx must not abandon the rest of the window.
+      log("error", `${hash} failed: ${e.message}`);
+      failed.push(hash);
+    }
+  }
+
+  log(
+    "info",
+    `Done. ${HASHES.length - failed.length}/${HASHES.length} tx processed, ` +
+      `${totalParsed} events parsed, ${totalInserted} rows inserted.`,
+  );
+  if (failed.length) log("error", `Failed hashes: ${failed.join(",")}`);
 
   await closePool();
+  if (failed.length) process.exit(1);
 }
 
 main().catch((e) => {
