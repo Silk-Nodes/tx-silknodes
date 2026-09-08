@@ -125,6 +125,46 @@ async function getAllPages<T>(
   return { rows, total: total || rows.length, complete: false };
 }
 
+/**
+ * Identity facts for one validator, from our own Postgres.
+ *
+ * Returns null when the row is missing so the caller can fall back rather
+ * than render a validator with no consensus address (no uptime) and no
+ * self-delegate address (no governance record).
+ */
+type LocalIdentity = {
+  consensus_address: string | null;
+  self_delegate_address: string | null;
+  avatar_url: string | null;
+};
+async function localIdentity(address: string): Promise<LocalIdentity | null> {
+  try {
+    const [row] = await sequelize.query<LocalIdentity>(
+      `SELECT consensus_address, self_delegate_address, avatar_url
+         FROM validator_identity WHERE operator_address = :v`,
+      { replacements: { v: address }, type: QueryTypes.SELECT },
+    );
+    // A row with neither address is no better than no row: the collector has
+    // seen this validator but the indexer had not published it yet.
+    if (!row || (!row.consensus_address && !row.self_delegate_address)) return null;
+    return row;
+  } catch {
+    return null;
+  }
+}
+
+/** Live indexer lookup, used only when localIdentity comes back empty. */
+async function liveIdentity(address: string): Promise<LocalIdentity | null> {
+  const r = await hasura<{ validator_info: { consensus_address: string; self_delegate_address: string }[] }>(
+    `query($v:String!){ validator_info(where:{operator_address:{_eq:$v}}){ consensus_address self_delegate_address } }`,
+    { v: address },
+  );
+  const row = r?.validator_info?.[0];
+  return row
+    ? { consensus_address: row.consensus_address, self_delegate_address: row.self_delegate_address, avatar_url: null }
+    : null;
+}
+
 async function hasura<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -203,10 +243,13 @@ export async function GET(
   const [vRes, poolRes, info, setRes, provRes, distRes] = await Promise.all([
     getJSON<{ validator: Record<string, any> }>(`${LCD}/cosmos/staking/v1beta1/validators/${address}`),
     getJSON<{ pool: { bonded_tokens: string } }>(`${LCD}/cosmos/staking/v1beta1/pool`),
-    hasura<{ validator_info: { consensus_address: string; self_delegate_address: string }[] }>(
-      `query($v:String!){ validator_info(where:{operator_address:{_eq:$v}}){ consensus_address self_delegate_address } }`,
-      { v: address },
-    ),
+    // Our own copy, not the indexer. These two addresses gate everything in
+    // the second stage below, so the request could not proceed until Coreum's
+    // Hasura answered: 767ms cold, 489ms warm, and it happened twice per
+    // request because the second call needed the first one's result. That
+    // was most of a 1.2 to 1.6s endpoint. Both values are static per
+    // validator and the identity collector now caches them.
+    localIdentity(address),
     getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
       `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
     ),
@@ -231,10 +274,15 @@ export async function GET(
   }
   const v = vRes.validator;
   const tokens = toTX(v.tokens);
-  const consensusAddress = info?.validator_info?.[0]?.consensus_address || "";
-  const selfDelegateAddress = info?.validator_info?.[0]?.self_delegate_address || "";
+  // A validator created since the collector last ran has no row yet. Fall
+  // back to the indexer for that one reader rather than rendering a page
+  // with no uptime and no governance record.
+  const addrs = info ?? (await liveIdentity(address));
+  const consensusAddress = addrs?.consensus_address || "";
+  const selfDelegateAddress = addrs?.self_delegate_address || "";
   const commissionRate = Number(v.commission?.commission_rates?.rate ?? 0);
   const identity = v.description?.identity || "";
+  const cachedAvatar = info?.avatar_url || null;
 
   // Rank by voting power across the bonded set, and total bonded from the
   // same list (falls back to the pool endpoint if the set didn't load).
@@ -322,8 +370,11 @@ export async function GET(
     getJSON<{ unbonding_responses: { entries: { balance: string }[] }[]; pagination: { total: string } }>(
       `${LCD}/cosmos/staking/v1beta1/validators/${address}/unbonding_delegations?pagination.limit=500&pagination.count_total=true`,
     ),
-    // Keybase avatar from the identity key. Best-effort, degrades to no avatar.
-    identity
+    // Keybase, only when our own table has no avatar for this validator.
+    // collect-validator-identity.mjs resolves these on a timer and writes
+    // them to validator_identity, so the common path costs nothing. Calling
+    // keybase.io live measured ~500ms on every single page load, for a logo.
+    !cachedAvatar && identity
       ? getJSON<{ them: { pictures?: { primary?: { url?: string } } }[] }>(
           `https://keybase.io/_/api/1.0/user/lookup.json?key_suffix=${encodeURIComponent(identity)}&fields=pictures`,
         )
@@ -369,7 +420,7 @@ export async function GET(
       : null;
 
   // Keybase avatar (may be absent) and the stake currently unbonding away.
-  const avatarUrl = kbRes?.them?.[0]?.pictures?.primary?.url || "";
+  const avatarUrl = cachedAvatar || kbRes?.them?.[0]?.pictures?.primary?.url || "";
   const unbondingResponses = unbRes?.unbonding_responses || [];
   const unbondingTx = unbondingResponses.reduce(
     (s, r) => s + (r.entries || []).reduce((e, x) => e + toTX(x.balance), 0),
@@ -387,7 +438,13 @@ export async function GET(
   let eventsHasMore = false;
   let delegatorFlow = { joined: 0, reduced: 0 };
   try {
-    const [totals] = await sequelize.query<{
+    // All six queries below are independent: same address filter, no shared
+    // state, combined only after they return. They used to run one after the
+    // other, so the endpoint paid six round trips to a Postgres that is not
+    // in the same datacentre. /api/health runs nine COUNTs in parallel and
+    // finishes in 211ms, which is what set the expectation here.
+    const [[totals], sources, dests, historyRows, eventRows, [flow]] = await Promise.all([
+      sequelize.query<{
       delegated_in: string; redelegated_in: string; undelegated_out: string; redelegated_out: string;
     }>(
       `SELECT
@@ -399,11 +456,11 @@ export async function GET(
        WHERE timestamp >= NOW() - (:days || ' days')::interval
          AND (validator = :v OR source_validator = :v)`,
       { replacements: { v: address, days: FLOW_DAYS }, type: QueryTypes.SELECT },
-    );
+    ),
 
     // Who this validator won stake FROM, and lost it TO. This is the part
     // no other TX explorer can answer, because it needs source_validator.
-    const sources = await sequelize.query<{ counterparty: string; moniker: string | null; amount: string }>(
+    sequelize.query<{ counterparty: string; moniker: string | null; amount: string }>(
       `SELECT e.source_validator AS counterparty, val.moniker, SUM(e.amount) AS amount
        FROM staking_events e
        LEFT JOIN validators val ON val.operator_address = e.source_validator
@@ -412,8 +469,8 @@ export async function GET(
        GROUP BY e.source_validator, val.moniker
        ORDER BY SUM(e.amount) DESC LIMIT :lim`,
       { replacements: { v: address, days: FLOW_DAYS, lim: TOP_COUNTERPARTIES }, type: QueryTypes.SELECT },
-    );
-    const dests = await sequelize.query<{ counterparty: string; moniker: string | null; amount: string }>(
+    ),
+    sequelize.query<{ counterparty: string; moniker: string | null; amount: string }>(
       `SELECT e.validator AS counterparty, val.moniker, SUM(e.amount) AS amount
        FROM staking_events e
        LEFT JOIN validators val ON val.operator_address = e.validator
@@ -422,7 +479,50 @@ export async function GET(
        GROUP BY e.validator, val.moniker
        ORDER BY SUM(e.amount) DESC LIMIT :lim`,
       { replacements: { v: address, days: FLOW_DAYS, lim: TOP_COUNTERPARTIES }, type: QueryTypes.SELECT },
-    );
+    ),
+
+    sequelize.query(
+      `SELECT date, tokens, delegator_count AS "delegatorCount",
+              commission_rate AS "commissionRate", missed_blocks AS "missedBlocks"
+       FROM validator_snapshots
+       WHERE operator_address = :v
+       ORDER BY date ASC`,
+      { replacements: { v: address }, type: QueryTypes.SELECT },
+    ),
+
+    // Individual stake events, newest first. Note these are only moves of
+    // >= 5000 TX: the VM collector applies that floor at write time, so
+    // smaller delegations are not in the table at all. The UI says so
+    // rather than implying this is every event.
+    // Fetch one extra to learn whether a second page exists, without a
+    // separate COUNT. Trim it off before returning.
+    sequelize.query(
+      `SELECT tx_hash AS "txHash", height, timestamp, type, delegator, amount,
+              source_validator AS "sourceValidator",
+              CASE WHEN source_validator = :v THEN true ELSE false END AS outgoing
+       FROM staking_events
+       WHERE validator = :v OR source_validator = :v
+       ORDER BY height DESC
+       LIMIT :lim`,
+      { replacements: { v: address, lim: EVENT_LIMIT + 1 }, type: QueryTypes.SELECT },
+    ),
+
+    // Delegator churn by wallet count (distinct wallets), not TX. "joined" =
+    // wallets that added stake here (delegate or redelegate in); "reduced" =
+    // wallets that pulled stake out (undelegate, or redelegate to elsewhere).
+    sequelize.query<{ joined: string; reduced: string }>(
+      `SELECT
+         COUNT(DISTINCT delegator) FILTER (WHERE type IN ('delegate','redelegate') AND validator = :v) AS joined,
+         COUNT(DISTINCT delegator) FILTER (
+           WHERE (type = 'undelegate' AND validator = :v)
+              OR (type = 'redelegate' AND source_validator = :v)
+         ) AS reduced
+       FROM staking_events
+       WHERE (validator = :v OR source_validator = :v)
+         AND timestamp >= NOW() - (:days || ' days')::interval`,
+      { replacements: { v: address, days: FLOW_DAYS }, type: QueryTypes.SELECT },
+    ),
+  ]);
 
     const di = Number(totals?.delegated_in ?? 0);
     const ri = Number(totals?.redelegated_in ?? 0);
@@ -435,49 +535,9 @@ export async function GET(
       topDestinations: dests.map((s) => ({ address: s.counterparty, moniker: s.moniker || "", amount: Number(s.amount) })),
     };
 
-    history = await sequelize.query(
-      `SELECT date, tokens, delegator_count AS "delegatorCount",
-              commission_rate AS "commissionRate", missed_blocks AS "missedBlocks"
-       FROM validator_snapshots
-       WHERE operator_address = :v
-       ORDER BY date ASC`,
-      { replacements: { v: address }, type: QueryTypes.SELECT },
-    );
-
-    // Individual stake events, newest first. Note these are only moves of
-    // >= 5000 TX: the VM collector applies that floor at write time, so
-    // smaller delegations are not in the table at all. The UI says so
-    // rather than implying this is every event.
-    // Fetch one extra to learn whether a second page exists, without a
-    // separate COUNT. Trim it off before returning.
-    const eventRows = await sequelize.query(
-      `SELECT tx_hash AS "txHash", height, timestamp, type, delegator, amount,
-              source_validator AS "sourceValidator",
-              CASE WHEN source_validator = :v THEN true ELSE false END AS outgoing
-       FROM staking_events
-       WHERE validator = :v OR source_validator = :v
-       ORDER BY height DESC
-       LIMIT :lim`,
-      { replacements: { v: address, lim: EVENT_LIMIT + 1 }, type: QueryTypes.SELECT },
-    );
+    history = historyRows;
     eventsHasMore = eventRows.length > EVENT_LIMIT;
     events = eventsHasMore ? eventRows.slice(0, EVENT_LIMIT) : eventRows;
-
-    // Delegator churn by wallet count (distinct wallets), not TX. "joined" =
-    // wallets that added stake here (delegate or redelegate in); "reduced" =
-    // wallets that pulled stake out (undelegate, or redelegate to elsewhere).
-    const [flow] = await sequelize.query<{ joined: string; reduced: string }>(
-      `SELECT
-         COUNT(DISTINCT delegator) FILTER (WHERE type IN ('delegate','redelegate') AND validator = :v) AS joined,
-         COUNT(DISTINCT delegator) FILTER (
-           WHERE (type = 'undelegate' AND validator = :v)
-              OR (type = 'redelegate' AND source_validator = :v)
-         ) AS reduced
-       FROM staking_events
-       WHERE (validator = :v OR source_validator = :v)
-         AND timestamp >= NOW() - (:days || ' days')::interval`,
-      { replacements: { v: address, days: FLOW_DAYS }, type: QueryTypes.SELECT },
-    );
     delegatorFlow = { joined: Number(flow?.joined ?? 0), reduced: Number(flow?.reduced ?? 0) };
   } catch (err) {
     console.error("[validator] db section failed", err);
