@@ -72,8 +72,46 @@ async function keybaseAvatar(identity) {
   }
 }
 
+/**
+ * consensus_address and self_delegate_address per operator, from Coreum's
+ * indexer.
+ *
+ * These live here rather than on the request path because the validator
+ * detail route used to fetch them itself, and could not begin its second
+ * round of chain calls until the answer arrived. That call measured 767ms
+ * cold and 489ms warm. Paying it once per collector run instead of once per
+ * page view is the whole point of this table.
+ *
+ * Returns an empty map on failure. The route keeps a live Hasura fallback,
+ * so a missing row costs that one reader latency rather than correctness.
+ */
+async function fetchAddressMap() {
+  try {
+    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "{ validator_info { operator_address consensus_address self_delegate_address } }",
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const json = await res.json();
+    const rows = json?.data?.validator_info ?? [];
+    const map = new Map();
+    for (const r of rows) {
+      if (r.operator_address) map.set(r.operator_address, r);
+    }
+    log("info", `indexer returned addresses for ${map.size} validators`);
+    return map;
+  } catch (e) {
+    log("warn", `could not fetch validator addresses: ${e.message}. Existing rows are kept.`);
+    return new Map();
+  }
+}
+
 async function main() {
   const started = Date.now();
+  const addrs = await fetchAddressMap();
   const all = [];
   let key = null;
   for (let page = 0; page < 10; page++) {
@@ -108,8 +146,8 @@ async function main() {
     await query(
       `INSERT INTO validator_identity
          (operator_address, moniker, identity, avatar_url, website, details,
-          avatar_checked_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, now())
+          avatar_checked_at, consensus_address, self_delegate_address, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
        ON CONFLICT (operator_address) DO UPDATE SET
          moniker=EXCLUDED.moniker,
          identity=EXCLUDED.identity,
@@ -119,9 +157,15 @@ async function main() {
          -- a Keybase outage does not blank every logo on the site.
          avatar_url=COALESCE(EXCLUDED.avatar_url, validator_identity.avatar_url),
          avatar_checked_at=COALESCE(EXCLUDED.avatar_checked_at, validator_identity.avatar_checked_at),
+         -- Same reasoning as the avatar: an indexer outage must not blank
+         -- addresses we already know, so a null never overwrites a value.
+         consensus_address=COALESCE(EXCLUDED.consensus_address, validator_identity.consensus_address),
+         self_delegate_address=COALESCE(EXCLUDED.self_delegate_address, validator_identity.self_delegate_address),
          updated_at=now()`,
       [v.operator_address, d.moniker || v.operator_address, identity || null,
-       avatar, d.website || null, d.details || null, checked],
+       avatar, d.website || null, d.details || null, checked,
+       addrs.get(v.operator_address)?.consensus_address || null,
+       addrs.get(v.operator_address)?.self_delegate_address || null],
     );
   }
 
