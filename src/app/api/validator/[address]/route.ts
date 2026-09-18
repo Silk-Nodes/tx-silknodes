@@ -153,6 +153,45 @@ async function localIdentity(address: string): Promise<LocalIdentity | null> {
   }
 }
 
+/**
+ * Every vote this address has cast, from our own gov_votes.
+ *
+ * Shaped like the Hasura response it replaces so the merge below is
+ * untouched. Ordered by proposal so a changed vote resolves the same way.
+ * Returns null on failure rather than an empty list: an empty list reads as
+ * "this validator has never voted", which is a claim, and a database we could
+ * not reach is not entitled to make it.
+ */
+async function localVotes(voter: string) {
+  try {
+    const rows = await sequelize.query<{ proposal_id: number; option: string; height: number | null }>(
+      `SELECT proposal_id, option, observed_height AS height
+         FROM gov_votes WHERE voter_address = :v ORDER BY proposal_id DESC`,
+      { replacements: { v: voter }, type: QueryTypes.SELECT },
+    );
+    return { proposal_vote: rows.map((r) => ({ ...r, option: `VOTE_OPTION_${r.option}` })) };
+  } catch {
+    return null;
+  }
+}
+
+/** Proposals this consensus address was in the validator set for. */
+async function localTenure(consensus: string) {
+  try {
+    const rows = await sequelize.query<{ proposal_id: number }>(
+      `SELECT proposal_id FROM gov_validator_status WHERE validator_address = :c`,
+      { replacements: { c: consensus }, type: QueryTypes.SELECT },
+    );
+    // No rows is a real answer for a validator that joined after the last
+    // settled proposal, but it is indistinguishable from a table that was
+    // never backfilled. Fall back so a fresh deploy is not silently wrong.
+    if (rows.length === 0) return null;
+    return { proposal_validator_status_snapshot: rows };
+  } catch {
+    return null;
+  }
+}
+
 /** Live indexer lookup, used only when localIdentity comes back empty. */
 async function liveIdentity(address: string): Promise<LocalIdentity | null> {
   const r = await hasura<{ validator_info: { consensus_address: string; self_delegate_address: string }[] }>(
@@ -337,26 +376,19 @@ export async function GET(
           `${LCD}/cosmos/staking/v1beta1/validators/${address}/delegations/${selfDelegateAddress}`,
         )
       : Promise.resolve(null),
-    selfDelegateAddress
-      ? hasura<{ proposal_vote: { proposal_id: number; option: string; height: number }[] }>(
-          // Ordered by height desc so that when a validator changed its vote
-          // (the chain keeps both rows), the first row seen per proposal is
-          // the latest, current vote. Deduped below.
-          `query($v:String!){ proposal_vote(where:{voter_address:{_eq:$v}}, order_by:{height:desc}){ proposal_id option height } }`,
-          { v: selfDelegateAddress },
-        )
-      : Promise.resolve(null),
+    // Both of these used to ask Coreum's Hasura indexer, and they are the
+    // reason PR #287 only bought 255ms of the ~1s it was aiming at: they sit
+    // after the chain calls, run in parallel with each other, and cost one
+    // 390 to 460ms round trip that no amount of batching elsewhere removes.
+    // They are now local reads. See migration 020 and
+    // backfill-governance-history.mjs for how the history got here.
+    selfDelegateAddress ? localVotes(selfDelegateAddress) : Promise.resolve(null),
     // Which proposals this validator was actually IN THE SET for. Without
     // this, participation is measured against every proposal that ever
     // existed, so a validator that joined at proposal 12 is scored against 11
     // votes it could never have cast. TX Forge read 31 of 43 (72%) when its
     // real record is a perfect one for its whole tenure.
-    consensusAddress
-      ? hasura<{ proposal_validator_status_snapshot: { proposal_id: number }[] }>(
-          `query($c:String!){ proposal_validator_status_snapshot(where:{validator_address:{_eq:$c}}){ proposal_id } }`,
-          { c: consensusAddress },
-        )
-      : Promise.resolve(null),
+    consensusAddress ? localTenure(consensusAddress) : Promise.resolve(null),
     Promise.resolve(
       selfDelegateAddress ? archivedVotes(selfDelegateAddress) : new Map<number, string>(),
     ),
