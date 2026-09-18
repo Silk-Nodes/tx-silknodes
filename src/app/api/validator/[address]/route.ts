@@ -126,6 +126,43 @@ async function getAllPages<T>(
 }
 
 /**
+ * Per-stage timings, emitted as a Server-Timing header.
+ *
+ * Two attempts at speeding this endpoint up (PRs #287 and #289) predicted
+ * about a second between them and delivered 351ms, because both were reasoned
+ * from the outside about which call looked slowest. The header is here so the
+ * next change is argued from measurements taken inside the request.
+ *
+ * Durations only, with opaque stage names. No hostnames, table names or query
+ * shapes, so this does not hand out the schema map that /api/health is gated
+ * to protect.
+ */
+class Timings {
+  private readonly marks: [string, number][] = [];
+  private readonly t0 = performance.now();
+  private last = performance.now();
+  mark(name: string) {
+    const now = performance.now();
+    this.marks.push([name, now - this.last]);
+    this.last = now;
+  }
+  /** Time one promise without changing when it settles. */
+  async watch<T>(name: string, p: Promise<T>): Promise<T> {
+    const start = performance.now();
+    try {
+      return await p;
+    } finally {
+      this.marks.push([name, performance.now() - start]);
+    }
+  }
+  header(): string {
+    const parts = this.marks.map(([n, d]) => `${n};dur=${d.toFixed(1)}`);
+    parts.push(`total;dur=${(performance.now() - this.t0).toFixed(1)}`);
+    return parts.join(", ");
+  }
+}
+
+/**
  * Identity facts for one validator, from our own Postgres.
  *
  * Returns null when the row is missing so the caller can fall back rather
@@ -275,23 +312,25 @@ export async function GET(
     return NextResponse.json({ error: "invalid validator address" }, { status: 400 });
   }
 
+  const T = new Timings();
+
   // ── live chain state ──────────────────────────────────────────────
   // The bonded set is fetched to rank this validator and to derive total
   // bonded, and the mint/distribution params give the delegator APR. All
   // parallel; each degrades independently.
   const [vRes, poolRes, info, setRes, provRes, distRes] = await Promise.all([
-    getJSON<{ validator: Record<string, any> }>(`${LCD}/cosmos/staking/v1beta1/validators/${address}`),
-    getJSON<{ pool: { bonded_tokens: string } }>(`${LCD}/cosmos/staking/v1beta1/pool`),
+    T.watch("s1_validator", getJSON<{ validator: Record<string, any> }>(`${LCD}/cosmos/staking/v1beta1/validators/${address}`)),
+    T.watch("s1_pool", getJSON<{ pool: { bonded_tokens: string } }>(`${LCD}/cosmos/staking/v1beta1/pool`)),
     // Our own copy, not the indexer. These two addresses gate everything in
     // the second stage below, so the request could not proceed until Coreum's
     // Hasura answered: 767ms cold, 489ms warm, and it happened twice per
     // request because the second call needed the first one's result. That
     // was most of a 1.2 to 1.6s endpoint. Both values are static per
     // validator and the identity collector now caches them.
-    localIdentity(address),
-    getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
+    T.watch("s1_identity_db", localIdentity(address)),
+    T.watch("s1_validator_set", getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
       `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
-    ),
+    )),
     getJSON<{ annual_provisions: string }>(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
     getJSON<{ params: { community_tax: string } }>(`${LCD}/cosmos/distribution/v1beta1/params`),
   ]);
@@ -339,7 +378,8 @@ export async function GET(
   // share (1 - commission). This is base staking APR, PSE is on top.
   // Real issuance, not the annual_provisions projection. blocks_per_year is
   // misconfigured on this chain; see lib/chain-economics.
-  const annualProvisions = await realAnnualIssuance(toTX(provRes?.annual_provisions));
+  T.mark("stage1");
+  const annualProvisions = await T.watch("s2_issuance", realAnnualIssuance(toTX(provRes?.annual_provisions)));
   const communityTax = Number(distRes?.params?.community_tax ?? 0);
   const perTokenApr =
     totalBonded > 0 && annualProvisions > 0
@@ -367,10 +407,10 @@ export async function GET(
         )
       : Promise.resolve(null),
     // Every page, not the first 500. See getAllPages.
-    getAllPages<any>(
+    T.watch("s3_delegations", getAllPages<any>(
       `/cosmos/staking/v1beta1/validators/${address}/delegations`,
       (d) => d?.delegation_responses ?? [],
-    ),
+    )),
     selfDelegateAddress
       ? getJSON<{ delegation_response: { balance: { amount: string } } }>(
           `${LCD}/cosmos/staking/v1beta1/validators/${address}/delegations/${selfDelegateAddress}`,
@@ -382,13 +422,13 @@ export async function GET(
     // 390 to 460ms round trip that no amount of batching elsewhere removes.
     // They are now local reads. See migration 020 and
     // backfill-governance-history.mjs for how the history got here.
-    selfDelegateAddress ? localVotes(selfDelegateAddress) : Promise.resolve(null),
+    T.watch("s3_votes_db", selfDelegateAddress ? localVotes(selfDelegateAddress) : Promise.resolve(null)),
     // Which proposals this validator was actually IN THE SET for. Without
     // this, participation is measured against every proposal that ever
     // existed, so a validator that joined at proposal 12 is scored against 11
     // votes it could never have cast. TX Forge read 31 of 43 (72%) when its
     // real record is a perfect one for its whole tenure.
-    consensusAddress ? localTenure(consensusAddress) : Promise.resolve(null),
+    T.watch("s3_tenure_db", consensusAddress ? localTenure(consensusAddress) : Promise.resolve(null)),
     Promise.resolve(
       selfDelegateAddress ? archivedVotes(selfDelegateAddress) : new Map<number, string>(),
     ),
@@ -459,6 +499,8 @@ export async function GET(
     0,
   );
   const unbondingWallets = unbRes?.pagination?.total ? Number(unbRes.pagination.total) : unbondingResponses.length;
+
+  T.mark("stage3");
 
   // ── flows from Postgres ───────────────────────────────────────────
   let flow30d: Record<string, unknown> = {
@@ -574,6 +616,7 @@ export async function GET(
   } catch (err) {
     console.error("[validator] db section failed", err);
   }
+  T.mark("stage4_db");
 
   return NextResponse.json({
     validator: {
@@ -680,5 +723,5 @@ export async function GET(
       return { votedCount: deduped.length, votes: deduped, firstProposalId: firstSeen, recoveredFromChain: recovered };
     })(),
     history,
-  });
+  }, { headers: { "Server-Timing": T.header() } });
 }
