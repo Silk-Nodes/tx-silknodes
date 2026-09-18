@@ -21,6 +21,7 @@ import { NextResponse } from "next/server";
 import { realAnnualIssuance } from "@/lib/chain-economics";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
+import { cached } from "@/lib/response-cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -123,6 +124,43 @@ async function getAllPages<T>(
   // Hit the page ceiling. Report it rather than silently presenting a
   // partial set as if it were the whole thing.
   return { rows, total: total || rows.length, complete: false };
+}
+
+/**
+ * How long a cached chain read stays good.
+ *
+ * Server-Timing on the deployed endpoint said the request was 1281ms, of which
+ * s1_validator_set was 741ms and s3_delegations was 441ms: 92% of the request
+ * in two chain calls. Every Postgres read in the same request totalled ~110ms,
+ * which is the opposite of what PRs #287 and #289 were built on.
+ *
+ * 45s because the underlying facts move on the order of a block. Rank and
+ * total bonded shift when stake moves, and a delegator list changes when
+ * someone delegates. Neither is a number anyone reads to the second, and the
+ * page already prints its own timestamp.
+ */
+const CHAIN_CACHE_MS = 45_000;
+
+/**
+ * Cache a chain read, but never cache a failure.
+ *
+ * getJSON resolves to null rather than throwing, so without this a single
+ * transient LCD blip would pin null for the full TTL and every reader for the
+ * next 45 seconds would see a validator with no rank and no delegators. The
+ * throw keeps the empty result out of the store (cached only writes on
+ * success), and the catch turns it back into the null the callers already
+ * handle.
+ */
+async function cachedChain<T>(key: string, fn: () => Promise<T>, usable: (v: T) => boolean): Promise<T | null> {
+  try {
+    return await cached(key, CHAIN_CACHE_MS, async () => {
+      const v = await fn();
+      if (!usable(v)) throw new Error("empty upstream result, not caching");
+      return v;
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -328,8 +366,15 @@ export async function GET(
     // was most of a 1.2 to 1.6s endpoint. Both values are static per
     // validator and the identity collector now caches them.
     T.watch("s1_identity_db", localIdentity(address)),
-    T.watch("s1_validator_set", getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
-      `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
+    // Not keyed by address: the bonded set is the same response whichever
+    // validator page you are on, and it is only read here for rank, validator
+    // count and total bonded. One fetch serves every reader in the window.
+    T.watch("s1_validator_set", cachedChain(
+      "validator-set",
+      () => getJSON<{ validators: { operator_address: string; tokens: string; commission: { commission_rates: { rate: string } } }[] }>(
+        `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=300`,
+      ),
+      (v) => Boolean(v?.validators?.length),
     )),
     getJSON<{ annual_provisions: string }>(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
     getJSON<{ params: { community_tax: string } }>(`${LCD}/cosmos/distribution/v1beta1/params`),
@@ -407,9 +452,16 @@ export async function GET(
         )
       : Promise.resolve(null),
     // Every page, not the first 500. See getAllPages.
-    T.watch("s3_delegations", getAllPages<any>(
-      `/cosmos/staking/v1beta1/validators/${address}/delegations`,
-      (d) => d?.delegation_responses ?? [],
+    T.watch("s3_delegations", cachedChain(
+      `delegations:${address}`,
+      () => getAllPages<any>(
+        `/cosmos/staking/v1beta1/validators/${address}/delegations`,
+        (d) => d?.delegation_responses ?? [],
+      ),
+      // complete=false means getAllPages hit its page ceiling, so the set is
+      // partial. Caching a partial set would freeze a wrong concentration
+      // figure for the window; better to refetch and let it be slow.
+      (r) => Boolean(r?.rows?.length) && r.complete !== false,
     )),
     selfDelegateAddress
       ? getJSON<{ delegation_response: { balance: { amount: string } } }>(
