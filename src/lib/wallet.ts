@@ -11,6 +11,50 @@ import {
   suggestChainToKeplr,
 } from "./chain-config";
 
+
+/**
+ * Offline signer for the connected account, Amino when the key is on a Ledger.
+ *
+ * Reported by a delegator on 2026-09-22, trying to add to their stake:
+ *
+ *   Incompatible Signing Requested
+ *   Error: SIGN_MODE_DIRECT can't be signed on Ledger.
+ *   Contact the web app provider to fix this issue.
+ *
+ * Ledger's Cosmos app cannot sign SIGN_MODE_DIRECT. Direct mode signs an
+ * opaque protobuf blob, and the device will not put its key to bytes it
+ * cannot render on its own screen, which is the whole point of the device.
+ * It signs SIGN_MODE_LEGACY_AMINO_JSON, where the payload is JSON the screen
+ * can show.
+ *
+ * getOfflineSigner returns a signer that offers both modes, and CosmJS then
+ * prefers direct, so every staking action on this site was unsignable on a
+ * Ledger. Not a degraded path, a hard stop at the confirmation step, and it
+ * would have applied to delegate, undelegate, redelegate, claim and vote.
+ *
+ * getOfflineSignerOnlyAmino offers amino alone, so CosmJS has no choice to
+ * get wrong. It is used only for Ledger accounts: amino is the older encoding
+ * and there is no reason to put software-key users on it.
+ *
+ * getKey is the detection, and it needs enable() to have run first.
+ * isNanoLedger is already in our Keplr type definition, and both Keplr and
+ * Leap set it.
+ */
+async function getSigner(provider: KeplrLikeWallet): Promise<any> {
+  let isLedger = false;
+  try {
+    isLedger = (await provider.getKey(CHAIN_ID)).isNanoLedger === true;
+  } catch (err) {
+    // A wallet that cannot answer getKey still has to be able to sign, so
+    // fall through to the direct signer rather than blocking the action.
+    // Software keys are the common case and they sign either way.
+    console.warn("Could not read key info, assuming a software key:", err);
+  }
+  return isLedger
+    ? provider.getOfflineSignerOnlyAmino(CHAIN_ID)
+    : provider.getOfflineSigner(CHAIN_ID);
+}
+
 function toDisplay(amount: string | number): number {
   return parseInt(String(amount)) / Math.pow(10, COIN_DECIMALS);
 }
@@ -111,7 +155,7 @@ export async function connectWallet(walletType: "keplr" | "leap" | "cosmostation
   await provider.enable(CHAIN_ID);
 
   // Get offline signer
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
 
   if (!accounts.length) {
@@ -264,7 +308,7 @@ export async function delegateTokens(
   if (!provider) throw new Error(`${walletType} not available`);
 
   await provider.enable(CHAIN_ID);
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
   const address = accounts[0].address;
 
@@ -302,7 +346,7 @@ export async function undelegateTokens(
   if (!provider) throw new Error(`${walletType} not available`);
 
   await provider.enable(CHAIN_ID);
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
   const address = accounts[0].address;
 
@@ -348,7 +392,7 @@ export async function cancelUnbondingTokens(
   if (!provider) throw new Error(`${walletType} not available`);
 
   await provider.enable(CHAIN_ID);
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
   const address = accounts[0].address;
 
@@ -399,7 +443,7 @@ export async function claimAllRewards(
   if (!provider) throw new Error(`${walletType} not available`);
 
   await provider.enable(CHAIN_ID);
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
   const address = accounts[0].address;
 
@@ -456,7 +500,7 @@ export async function redelegateTokens(
   if (!provider) throw new Error(`${walletType} not available`);
 
   await provider.enable(CHAIN_ID);
-  const offlineSigner = provider.getOfflineSigner(CHAIN_ID);
+  const offlineSigner = await getSigner(provider);
   const accounts = await offlineSigner.getAccounts();
   const address = accounts[0].address;
 
