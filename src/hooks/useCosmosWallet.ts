@@ -147,7 +147,17 @@ export function useCosmosWallet() {
       // they already know about.
       try { await provider.experimentalSuggestChain(CHAIN_SUGGEST); } catch { /* ignore */ }
       await provider.enable(TX_CHAIN_ID);
-      const signer = provider.getOfflineSigner(TX_CHAIN_ID);
+      // Amino when the key lives on a Ledger. The device cannot sign
+      // SIGN_MODE_DIRECT, and CosmJS picks direct whenever the signer offers
+      // it, so governance voting had the same hard stop that staking did.
+      // See getSigner in lib/wallet.ts for the full reasoning.
+      let isLedger = false;
+      try {
+        isLedger = (await provider.getKey(TX_CHAIN_ID)).isNanoLedger === true;
+      } catch { /* software key is the common case, and it signs either way */ }
+      const signer = isLedger
+        ? provider.getOfflineSignerOnlyAmino(TX_CHAIN_ID)
+        : provider.getOfflineSigner(TX_CHAIN_ID);
       const accounts = await signer.getAccounts();
       const address = accounts[0]?.address;
       if (!address) throw new Error("Wallet returned no accounts.");
