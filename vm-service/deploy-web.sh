@@ -22,8 +22,38 @@
 
 set -euo pipefail
 
+# Explicit override for a box where nvm is not the answer.
+if [ -n "${NODE_BIN_DIR:-}" ]; then
+  export PATH="$NODE_BIN_DIR:$PATH"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# ── node on PATH ────────────────────────────────────────────────────────
+# node and npm live under nvm on this box, and nvm puts them on PATH from
+# ~/.bashrc, which a non-interactive shell never reads. So `npm` resolves
+# interactively and not when this script runs, which is how a deploy died at
+# "npm: command not found" twice while node was installed and working the
+# whole time. The same trap already cost a run of the staking backfill.
+#
+# Source nvm if it is there, then fail loudly with the actual versions if npm
+# still is not resolvable. A deploy that cannot build must not continue to the
+# restart, or systemd cheerfully serves the previous build and the deploy looks
+# like it worked.
+if ! command -v npm >/dev/null 2>&1; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  # shellcheck disable=SC1091
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+fi
+if ! command -v npm >/dev/null 2>&1; then
+  echo "ERROR: npm is not on PATH and nvm did not provide it." >&2
+  echo "       Looked for nvm at: ${NVM_DIR:-$HOME/.nvm}/nvm.sh" >&2
+  echo "       Set NODE_BIN_DIR to the directory holding node and npm, e.g." >&2
+  echo "         NODE_BIN_DIR=\$HOME/.nvm/versions/node/vXX.X.X/bin bash vm-service/deploy-web.sh" >&2
+  exit 1
+fi
+echo "==> Using node $(node --version), npm $(npm --version)"
 
 echo "==> Pulling latest main from origin..."
 cd "$REPO_PATH"
