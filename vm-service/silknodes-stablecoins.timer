@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Silk Nodes Stablecoin Collector hourly
+Requires=silknodes-stablecoins.service
+
+[Timer]
+# Hourly, at :17 to stay clear of the collectors that fire on the hour and
+# half hour. Hourly is what makes launch day legible: a daily snapshot would
+# show USTX as zero, then as whatever it was 24 hours later.
+OnCalendar=*-*-* *:17:00 UTC
+Persistent=true
+Unit=silknodes-stablecoins.service
+
+[Install]
+WantedBy=timers.target
