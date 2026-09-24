@@ -30,9 +30,13 @@ const { query, closePool } = DRY
   ? { query: async () => ({ rows: [] }), closePool: async () => {} }
   : await import("./db.mjs");
 
+// coreum-api.polkachu.com was here and no longer resolves in DNS, from the VM
+// or anywhere else (checked 2026-09-24). A dead fallback is worse than none:
+// it costs a failed lookup on every failover and reads as redundancy that is
+// not there. publicnode answers the same routes, including tx_search.
 const MAINNET_POOL = (process.env.STABLECOIN_LCD_POOL || [
   "https://rest-coreum.ecostake.com",
-  "https://coreum-api.polkachu.com",
+  "https://coreum-rest.publicnode.com",
 ].join(",")).split(",").map((s) => s.trim()).filter(Boolean);
 
 const TESTNET_LCD = process.env.STABLECOIN_TESTNET_LCD || "https://rest.testnet-1.tx.org";
