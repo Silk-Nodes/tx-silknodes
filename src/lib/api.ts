@@ -3,8 +3,6 @@ import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-con
 import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES, fetchOnChainExcludedAddresses } from "./pse-calculator";
 import { realAnnualIssuance } from "./chain-economics";
 
-const COINGECKO_API = "https://api.coingecko.com/api/v3";
-const COINGECKO_ID = "tx"; // Changed from "coreum" after SOLO+Coreum merge (March 6, 2026)
 
 // Total PSE pre-minted at TGE (held in PSE module, distributed over 84 months)
 const TOTAL_PSE_PREMINT = 100_000_000_000; // 100B TX
@@ -34,12 +32,12 @@ const TX_CHAIN_API = "https://api.mainnet-1.tx.org/api/chain-data/v1";
 export async function fetchTokenData(): Promise<TokenData> {
   try {
     const [cgRes, supplyRes, txCircRes] = await Promise.allSettled([
-      fetchWithTimeout(`${COINGECKO_API}/coins/${COINGECKO_ID}?localization=false&tickers=false&community_data=false&developer_data=false`),
+      fetchWithTimeout("/api/coin"),
       fetchWithTimeout(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
       fetchWithTimeout(`${TX_CHAIN_API}/circulating-supply`),
     ]);
 
-    const cgData = cgRes.status === "fulfilled" ? await cgRes.value.json() : null;
+    const cgData = cgRes.status === "fulfilled" && cgRes.value.ok ? (await cgRes.value.json())?.data : null;
     const supplyData = supplyRes.status === "fulfilled" ? await supplyRes.value.json() : null;
 
     const price = cgData?.market_data?.current_price?.usd ?? 0;
