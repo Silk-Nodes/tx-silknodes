@@ -28,7 +28,8 @@ const { query, closePool } = DRY
 const LCD_POOL = (process.env.GOV_LCD_POOL || [
   "https://api.silknodes.io/coreum",
   "https://rest-coreum.ecostake.com",
-  "https://coreum-api.polkachu.com",
+  // Replaced coreum-api.polkachu.com on 2026-09-25, which no longer resolves.
+  "https://coreum-rest.publicnode.com",
 ].join(",")).split(",").map((s) => s.trim()).filter(Boolean);
 
 const levels = { debug: 0, info: 1, warn: 2, error: 3 };

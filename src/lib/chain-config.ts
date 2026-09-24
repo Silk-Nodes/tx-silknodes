@@ -59,7 +59,10 @@ export const RPC_POOL: string[] = Array.from(
   new Set([
     SILK_RPC,
     "https://rpc-coreum.ecostake.com",
-    "https://coreum-rpc.polkachu.com",
+    // Replaced coreum-rpc.polkachu.com on 2026-09-25. That host no longer
+    // resolves in DNS from a laptop or from the production VM, so every
+    // failover past ecostake paid a failed lookup for a node that is gone.
+    "https://coreum-rpc.publicnode.com",
     ARCHIVE_RPC,
     // Last resort. Ran ~19 min behind tip on 2026-08-21 while reporting
     // catching_up=false, which is what broke voting on proposal 45.
@@ -161,7 +164,9 @@ export const LCD_POOL: string[] = Array.from(
   new Set([
     SILK_LCD,
     "https://rest-coreum.ecostake.com",
-    "https://coreum-api.polkachu.com",
+    // coreum-api.polkachu.com removed 2026-09-25: no DNS record anywhere, and
+    // it produced 16 ERR_NAME_NOT_RESOLVED errors on a single page load.
+    // publicnode was already next in line, so nothing replaces it.
     "https://coreum-rest.publicnode.com",
     "https://rest.cosmos.directory/coreum",
     ARCHIVE_REST,
