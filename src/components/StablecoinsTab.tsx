@@ -11,6 +11,9 @@
 import { useEffect, useState } from "react";
 
 type CoinRole = "incumbent" | "issued" | "test";
+type HolderKind = "dex" | "contract" | "known" | "wallet";
+interface Holder { address: string; amount: number; share: number; label: string | null; kind: HolderKind }
+interface Breakdown { top1: number; second: number; next8: number; rest: number }
 interface Coin {
   denom: string;
   symbol: string;
@@ -21,6 +24,8 @@ interface Coin {
   holders: number | null;
   top1Share: number | null;
   top10Share: number | null;
+  breakdown: Breakdown | null;
+  topHolders: Holder[];
 }
 interface Fragment { denom: string; hops: number; firstChannel: string; viaChain: string | null; amount: number }
 interface HistoryPoint { denom: string; takenAt: string; supply: number; holders: number | null; top1Share: number | null }
@@ -29,6 +34,7 @@ interface Payload {
   coins: Coin[];
   ustx: { issued: boolean; denom: string | null; foundBy: string | null; testnetDenom: string | null; checkedAt: string } | null;
   watching: { mainnetIssuer: string; testnetIssuer: string };
+  recording: { since: string | null; snapshots: number } | null;
   usdc: { routes: number; total: number; canonical: number | null; canonicalShare: number | null; fragments: Fragment[] };
   history: { available: boolean; points: HistoryPoint[] };
 }
@@ -77,81 +83,231 @@ const MUTED = { color: "var(--text-light)" } as const;
 // here, so the class's dimming is cancelled rather than compounded.
 const CARD_TITLE = { ...MUTED, opacity: 1 } as const;
 
-function Bar({ share, tone }: { share: number; tone: "neutral" | "warn" }) {
+
+
+// Bands of the "who holds the dollar" bar, largest wallet outwards. Fills,
+// not text, so they only need to read as distinct from each other; the legend
+// carries the words.
+const BANDS = [
+  "var(--danger)",
+  "color-mix(in srgb, var(--danger) 45%, transparent)",
+  "rgba(128,128,128,0.42)",
+  "rgba(128,128,128,0.16)",
+];
+const BAND_LABELS = ["Largest wallet", "Second", "Next eight", "Everyone else"];
+
+const dateOnly = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
+function Dot() {
   return (
-    <div
-      role="presentation"
-      style={{ height: 8, borderRadius: 4, background: "rgba(128,128,128,0.16)", overflow: "hidden", marginTop: 8 }}
-    >
-      <div
-        style={{
-          height: "100%",
-          width: `${Math.min(100, Math.max(0, share * 100))}%`,
-          background: tone === "warn" ? "var(--danger)" : "var(--accent-olive)",
-          borderRadius: 4,
-        }}
-      />
+    <span
+      aria-hidden="true"
+      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--accent-olive)", marginRight: 8, flexShrink: 0 }}
+    />
+  );
+}
+
+function WatchRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: "0.82rem", alignItems: "center" }}>
+      <span style={{ display: "flex", alignItems: "center", color: "var(--text-dark)" }}><Dot />{label}</span>
+      <span className="mono" style={MUTED}>{value}</span>
     </div>
   );
 }
 
-function UstxPanel({ d }: { d: Payload }) {
+// The hero reads as a monitor, not a paragraph: something is watching, it
+// last looked a few minutes ago, and it has been recording since a date.
+function UstxHero({ d }: { d: Payload }) {
   const u = d.ustx;
   const issued = u?.issued ?? false;
+  const headline = issued ? "USTX is live on TX" : u?.testnetDenom ? "Seen on testnet, not yet on mainnet" : "Not issued yet";
+  const rec = d.recording;
   return (
-    <div className="panel" style={{ padding: 24, marginBottom: 16 }}>
-      <div className="section-sub" style={{ ...MUTED, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.72rem" }}>
-        USTX · announced for October 2026
+    <div className="panel stc-hero" style={{ padding: 24, marginBottom: 14 }}>
+      <div>
+        <div style={{ ...MUTED, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.72rem" }}>
+          USTX · announced for October 2026
+        </div>
+        <h2 style={{ fontSize: "1.9rem", fontWeight: 700, margin: "6px 0 10px", color: "var(--text-dark)" }}>{headline}</h2>
+        <p style={{ color: "var(--text-medium)", lineHeight: 1.6, margin: 0, maxWidth: 520 }}>
+          {issued
+            ? "The first mint has landed. Supply and holders below are read live and recorded every hour from launch."
+            : "Brale's native stablecoin for TX, backed 1:1. We record it from the first mint, because the chain keeps no history of who held a token on launch day."}
+        </p>
       </div>
-      <h2 style={{ fontSize: "1.9rem", fontWeight: 700, margin: "6px 0 10px", color: "var(--text-dark)" }}>
-        {issued ? "USTX is live on TX" : u?.testnetDenom ? "Seen on testnet, not yet on mainnet" : "Not issued yet"}
-      </h2>
-      <p style={{ color: "var(--text-medium)", lineHeight: 1.6, maxWidth: 720, margin: 0 }}>
-        {issued
-          ? "The first mint has landed. Supply and holders below are read live, and the hourly collector is recording them from launch."
-          : "USTX is Brale's native stablecoin for TX, backed 1:1. It is not on mainnet or testnet yet. We check both every hour and record it from the first mint, because the chain keeps no history of who held a token on launch day."}
+      <div className="stc-watch">
+        <WatchRow label="Brale, mainnet issuer" value={u ? ago(u.checkedAt) : "n/a"} />
+        <WatchRow label="Brale, testnet issuer" value={u ? ago(u.checkedAt) : "n/a"} />
+        <div style={{ borderTop: "1px solid rgba(128,128,128,0.2)", paddingTop: 8, display: "flex", justifyContent: "space-between", gap: 12, fontSize: "0.82rem" }}>
+          <span style={{ color: "var(--text-dark)" }}>Recording since</span>
+          <span className="mono" style={MUTED}>
+            {rec?.since ? `${dateOnly(rec.since)} · ${rec.snapshots} runs` : "not started"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="stc-stat">
+      <div className="card-title" style={CARD_TITLE}>{label}</div>
+      <div className="mono stc-stat-value" style={{ color: "var(--text-dark)" }}>{value}</div>
+      <div style={{ ...MUTED, fontSize: "0.76rem" }}>{note}</div>
+    </div>
+  );
+}
+
+function StackedBar({ b }: { b: Breakdown }) {
+  const parts = [b.top1, b.second, b.next8, b.rest];
+  return (
+    <div role="presentation" style={{ display: "flex", height: 16, borderRadius: 4, overflow: "hidden", background: "rgba(128,128,128,0.08)" }}>
+      {parts.map((p, i) => (p > 0 ? <div key={i} style={{ width: `${p * 100}%`, background: BANDS[i] }} /> : null))}
+    </div>
+  );
+}
+
+// The centrepiece. Concentration reads without reading a number, and USTX
+// holds a dashed row from before launch, so on launch day the new bar fills a
+// space the reader was already looking at.
+function WhoHolds({ d }: { d: Payload }) {
+  const rows = d.coins.filter((c) => c.role !== "test" && c.breakdown);
+  const sbc = d.coins.find((c) => c.symbol === "SBC");
+  const ustxLive = d.ustx?.issued;
+  return (
+    <div className="panel" style={{ padding: 24, marginTop: 14 }}>
+      <div className="section-head" style={{ color: "var(--text-dark)" }}>Who holds the dollar</div>
+      <p style={{ ...MUTED, margin: "4px 0 18px", lineHeight: 1.55, maxWidth: 720 }}>
+        Share of each coin by holder.{" "}
+        {sbc?.top1Share != null
+          ? `SBC is Brale's first stablecoin here, and one wallet holds ${pct(sbc.top1Share)} of it. When USTX mints, this is the shape to watch.`
+          : ""}
       </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginTop: 18, fontSize: "0.82rem" }}>
-        <div>
-          <div style={MUTED}>Watching Brale on mainnet</div>
-          <div className="mono" style={{ color: "var(--text-dark)" }}>{short(d.watching.mainnetIssuer)}</div>
-        </div>
-        <div>
-          <div style={MUTED}>and on testnet</div>
-          <div className="mono" style={{ color: "var(--text-dark)" }}>{short(d.watching.testnetIssuer)}</div>
-        </div>
-        {u && (
+      <div style={{ display: "grid", gap: 16 }}>
+        {rows.map((c) => (
+          <div key={c.denom}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: "0.88rem" }}>
+              <span style={{ fontWeight: 700, color: "var(--text-dark)" }}>{c.symbol}</span>
+              <span className="mono" style={MUTED}>
+                {c.holders?.toLocaleString("en-US") ?? "?"} holders · largest{" "}
+                <span style={{ color: (c.top1Share ?? 0) > 0.5 ? "var(--danger-text)" : "var(--text-dark)" }}>{pct(c.top1Share)}</span>
+              </span>
+            </div>
+            <StackedBar b={c.breakdown!} />
+          </div>
+        ))}
+        {!ustxLive && (
           <div>
-            <div style={MUTED}>Last checked</div>
-            <div className="mono" style={{ color: "var(--text-dark)" }}>{ago(u.checkedAt)}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: "0.88rem" }}>
+              <span style={{ fontWeight: 700, ...MUTED }}>USTX</span>
+              <span className="mono" style={MUTED}>awaiting first mint</span>
+            </div>
+            <div style={{ height: 16, borderRadius: 4, border: "1px dashed rgba(128,128,128,0.45)" }} />
           </div>
         )}
       </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 16, fontSize: "0.76rem" }}>
+        {BAND_LABELS.map((l, i) => (
+          <span key={l} style={{ display: "flex", alignItems: "center", gap: 6, ...MUTED }}>
+            <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 2, background: BANDS[i] }} />
+            {l}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
-function CoinTile({ c }: { c: Coin }) {
-  const concentrated = (c.top1Share ?? 0) > 0.5;
+const KIND_STYLE: Record<HolderKind, { color: string; background: string }> = {
+  dex: { color: "var(--text-accent)", background: "rgba(128,128,128,0.10)" },
+  contract: { color: "var(--text-dark)", background: "rgba(128,128,128,0.10)" },
+  known: { color: "var(--text-dark)", background: "rgba(128,128,128,0.10)" },
+  wallet: { color: "var(--text-light)", background: "transparent" },
+};
+
+function HolderList({ c }: { c: Coin }) {
   return (
     <div className="panel" style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-dark)" }}>{c.symbol}</div>
-        <div style={{ ...MUTED, fontSize: "0.78rem", textAlign: "right" }}>{c.name}</div>
+        <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)" }}>{c.symbol}</div>
+        <div className="mono" style={{ ...MUTED, fontSize: "0.8rem" }}>top 10 of {c.holders?.toLocaleString("en-US") ?? "?"}</div>
       </div>
-      <div className="card-value mono" style={{ fontSize: "1.6rem", marginTop: 10, color: "var(--text-dark)" }}>
-        {num(c.supply)}
+      <ol style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
+        {c.topHolders.map((h, i) => {
+          const ks = KIND_STYLE[h.kind];
+          return (
+            <li key={h.address} className="stc-holder">
+              <span className="mono" style={{ ...MUTED, width: 20 }}>{i + 1}</span>
+              <span style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <span
+                  className="mono"
+                  style={{ fontSize: "0.72rem", color: ks.color, background: ks.background, borderRadius: 4, padding: h.kind === "wallet" ? 0 : "1px 6px", alignSelf: "flex-start" }}
+                >
+                  {h.label ?? "Unlabelled wallet"}
+                </span>
+                <a
+                  href={`/passport/${h.address}`}
+                  className="mono stc-addr"
+                  style={{ color: "var(--text-dark)" }}
+                >
+                  {short(h.address)}
+                </a>
+              </span>
+              <span className="mono" style={{ textAlign: "right", color: "var(--text-dark)" }}>{num(h.amount)}</span>
+              <span className="mono" style={{ textAlign: "right", ...MUTED }}>{pct(h.share)}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function Routes({ d }: { d: Payload }) {
+  const f = d.usdc.fragments;
+  if (f.length === 0) return null;
+  const share = d.usdc.canonicalShare ?? 0;
+  const rest = f.slice(1).reduce((s, x) => s + x.amount, 0);
+  return (
+    <div className="panel" style={{ padding: 24, marginTop: 14 }}>
+      <div className="section-head" style={{ color: "var(--text-dark)" }}>One dollar, {d.usdc.routes} tokens</div>
+      <p style={{ ...MUTED, margin: "4px 0 14px", lineHeight: 1.55, maxWidth: 720 }}>
+        Every route USDC takes into TX mints its own token, and they cannot be swapped for one another directly.
+      </p>
+      <div role="presentation" style={{ display: "flex", height: 26, borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ width: `${share * 100}%`, background: "var(--accent-olive)" }} />
+        <div style={{ width: `${(1 - share) * 100}%`, background: "var(--danger)" }} />
       </div>
-      <div style={{ ...MUTED, fontSize: "0.8rem" }}>in circulation on TX</div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, fontSize: "0.85rem" }}>
-        <span style={MUTED}>Holders</span>
-        <span className="mono" style={{ color: "var(--text-dark)" }}>{c.holders == null ? "n/a" : c.holders.toLocaleString("en-US")}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 8, fontSize: "0.82rem" }}>
+        <span style={{ color: "var(--text-dark)" }}>noble-1, main route · <span className="mono">{pct(share)}</span></span>
+        <span style={MUTED}>{f.length - 1} other routes · <span className="mono">{num(rest)}</span> USDC</span>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: "0.85rem" }}>
-        <span style={MUTED}>Largest wallet</span>
-        <span className="mono" style={{ color: concentrated ? "var(--danger-text)" : "var(--text-dark)" }}>{pct(c.top1Share)}</span>
-      </div>
-      {c.top1Share != null && <Bar share={c.top1Share} tone={concentrated ? "warn" : "neutral"} />}
+      <details style={{ marginTop: 14 }}>
+        <summary style={{ cursor: "pointer", fontSize: "0.85rem", color: "var(--text-dark)" }}>Every route</summary>
+        <div style={{ overflowX: "auto", marginTop: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left" }}>
+                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px" }}>Arrives from</th>
+                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px" }}>Hops</th>
+                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px", textAlign: "right" }}>USDC</th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.map((r, i) => (
+                <tr key={r.denom} style={{ borderTop: "1px solid rgba(128,128,128,0.18)" }}>
+                  <td className="mono" style={{ padding: 8, color: "var(--text-dark)" }}>{i === 0 ? "noble-1, main route" : r.viaChain ?? r.firstChannel}</td>
+                  <td className="mono" style={{ padding: 8, color: "var(--text-dark)" }}>{r.hops}</td>
+                  <td className="mono" style={{ padding: 8, textAlign: "right", color: "var(--text-dark)" }}>{num(r.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </div>
   );
 }
@@ -218,94 +374,64 @@ export default function StablecoinsTab() {
 
   const main = d.coins.filter((c) => c.role !== "test");
   const tests = d.coins.filter((c) => c.role === "test");
-  const sbc = d.coins.find((c) => c.symbol === "SBC");
   const totalStable = main.reduce((s, c) => s + c.supply, 0);
-  const smallRoutes = d.usdc.fragments.filter((f) => f.denom !== d.usdc.fragments[0]?.denom);
-  const smallTotal = smallRoutes.reduce((s, f) => s + f.amount, 0);
+  const withHolders = main.filter((c) => c.topHolders.length > 0);
 
   return (
     <div>
-      <div style={{ marginBottom: 18 }}>
+      <style>{`
+        .stc-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
+        .stc-watch { display: grid; gap: 8px; align-content: center; padding: 14px 16px; border-radius: 10px; background: rgba(128,128,128,0.07); }
+        .stc-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .stc-stat { padding: 18px 20px; min-width: 0; }
+        .stc-stat + .stc-stat { border-left: 1px solid rgba(128,128,128,0.18); }
+        .stc-stat-value { font-size: 1.9rem; margin: 4px 0 2px; }
+        .stc-holders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+        .stc-holder { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 58px; gap: 10px; align-items: center;
+                      padding: 8px 0; border-top: 1px solid rgba(128,128,128,0.16); font-size: 0.84rem; }
+        .stc-addr { font-size: 0.8rem; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stc-addr:hover { text-decoration: underline; }
+        @media (max-width: 860px) {
+          .stc-hero { grid-template-columns: minmax(0, 1fr); }
+          .stc-holders { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 520px) {
+          .stc-stat { padding: 14px 10px; }
+          .stc-stat-value { font-size: 1.25rem; }
+        }
+      `}</style>
+
+      <div style={{ marginBottom: 16 }}>
         <h1 className="page-title" style={{ color: "var(--text-dark)" }}>Stablecoins on TX</h1>
         <p className="section-sub" style={{ ...MUTED, marginTop: 4 }}>
           Every dollar on the chain, read live. Updated {ago(d.updatedAt)}.
         </p>
       </div>
 
-      <UstxPanel d={d} />
+      <UstxHero d={d} />
 
-      <div className="responsive-grid-3" style={{ gap: 16, marginBottom: 16 }}>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="card-title" style={CARD_TITLE}>Stable supply on TX</div>
-          <div className="card-value mono" style={{ color: "var(--text-dark)" }}>{num(totalStable, 0)}</div>
-          <div style={{ ...MUTED, fontSize: "0.78rem" }}>canonical USDC plus SBC</div>
-        </div>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="card-title" style={CARD_TITLE}>USDC tokens on TX</div>
-          <div className="card-value mono" style={{ color: "var(--text-dark)" }}>{d.usdc.routes}</div>
-          <div style={{ ...MUTED, fontSize: "0.78rem" }}>separate routes, none interchangeable</div>
-        </div>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="card-title" style={CARD_TITLE}>Held on the main route</div>
-          <div className="card-value mono" style={{ color: "var(--text-dark)" }}>{pct(d.usdc.canonicalShare)}</div>
-          <div style={{ ...MUTED, fontSize: "0.78rem" }}>of all USDC, via Noble</div>
-        </div>
+      <div className="panel stc-strip">
+        <Stat label="Stablecoins on chain" value={num(totalStable, 0)} note="canonical USDC plus SBC" />
+        <Stat label="USDC tokens" value={String(d.usdc.routes)} note="routes, none interchangeable" />
+        <Stat label="On the main route" value={pct(d.usdc.canonicalShare)} note="of all USDC, via Noble" />
       </div>
 
-      <div className="section-head" style={{ color: "var(--text-dark)", marginTop: 8 }}>The dollars on TX today</div>
-      <div className="responsive-grid-2" style={{ gap: 16, marginTop: 10 }}>
-        {main.map((c) => <CoinTile key={c.denom} c={c} />)}
-      </div>
+      <WhoHolds d={d} />
 
-      {sbc && sbc.top1Share != null && (
-        <div className="panel" style={{ padding: 24, marginTop: 16 }}>
-          <div className="section-head" style={{ color: "var(--text-dark)" }}>The number to watch at launch</div>
-          <p style={{ color: "var(--text-medium)", lineHeight: 1.6, margin: "10px 0 0", maxWidth: 760 }}>
-            SBC is Brale&apos;s first stablecoin on this chain, issued in 2024. After nearly two years it holds{" "}
-            <strong className="mono" style={{ color: "var(--text-dark)" }}>{num(sbc.supply)}</strong> across{" "}
-            <strong className="mono" style={{ color: "var(--text-dark)" }}>{sbc.holders}</strong> wallets, and the largest
-            one holds <strong className="mono" style={{ color: "var(--danger-text)" }}>{pct(sbc.top1Share)}</strong> of it.
-            Same issuer, same chain, same token standard as USTX. Supply alone would never have shown that. When USTX
-            mints, how many wallets hold it is the figure that says whether it is being used.
+      {withHolders.length > 0 && (
+        <>
+          <div className="section-head" style={{ color: "var(--text-dark)", marginTop: 22 }}>The largest holders</div>
+          <p style={{ ...MUTED, margin: "4px 0 0", lineHeight: 1.55, maxWidth: 720 }}>
+            Contracts name themselves on chain, so DEX pools are labelled automatically. Wallets are named only when we know
+            who they are.
           </p>
-        </div>
+          <div className="stc-holders">
+            {withHolders.map((c) => <HolderList key={c.denom} c={c} />)}
+          </div>
+        </>
       )}
 
-      <div className="panel" style={{ padding: 24, marginTop: 16 }}>
-        <div className="section-head" style={{ color: "var(--text-dark)" }}>One dollar, {d.usdc.routes} tokens</div>
-        <p style={{ color: "var(--text-medium)", lineHeight: 1.6, margin: "10px 0 14px", maxWidth: 760 }}>
-          Every route USDC takes into TX mints its own token, and they cannot be swapped for one another directly. The
-          main route from Noble holds {pct(d.usdc.canonicalShare)} of all USDC here. The other {smallRoutes.length} routes
-          hold {num(smallTotal)} between them.
-        </p>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-            <thead>
-              <tr style={{ textAlign: "left" }}>
-                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px" }}>Route</th>
-                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px" }}>Hops</th>
-                <th style={{ ...MUTED, fontWeight: 500, padding: "6px 8px", textAlign: "right" }}>USDC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.usdc.fragments.slice(0, 8).map((f, i) => (
-                <tr key={f.denom} style={{ borderTop: "1px solid rgba(128,128,128,0.18)" }}>
-                  <td className="mono" style={{ padding: "8px", color: "var(--text-dark)" }}>
-                    {i === 0 ? "noble-1, main route" : `via ${f.viaChain ?? f.firstChannel}`}
-                  </td>
-                  <td className="mono" style={{ padding: "8px", color: "var(--text-dark)" }}>{f.hops}</td>
-                  <td className="mono" style={{ padding: "8px", textAlign: "right", color: "var(--text-dark)" }}>{num(f.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {d.usdc.fragments.length > 8 && (
-          <div style={{ ...MUTED, fontSize: "0.8rem", marginTop: 8 }}>
-            and {d.usdc.fragments.length - 8} more routes, the longest {Math.max(...d.usdc.fragments.map((f) => f.hops))} hops deep
-          </div>
-        )}
-      </div>
+      <Routes d={d} />
 
       <History d={d} />
 

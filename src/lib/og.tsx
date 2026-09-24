@@ -44,8 +44,11 @@ export function ogFrame(opts: {
   title: string;
   subtitle?: string;
   children?: ReactNode;
+  // Cards that carry data under the title need the height back. Defaults to
+  // the size every existing card was designed at, so none of them move.
+  titleSize?: number;
 }): ReactElement {
-  const { eyebrow, title, subtitle, children } = opts;
+  const { eyebrow, title, subtitle, children, titleSize = 78 } = opts;
   const logo = logoSrc();
   return (
     <div
@@ -97,7 +100,7 @@ export function ogFrame(opts: {
             {eyebrow}
           </div>
         ) : null}
-        <div style={{ display: "flex", fontSize: 78, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, maxWidth: 1010 }}>
+        <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, maxWidth: 1010 }}>
           {title}
         </div>
         {subtitle ? (
