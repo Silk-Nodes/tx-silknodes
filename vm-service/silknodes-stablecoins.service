@@ -1,0 +1,23 @@
+[Unit]
+Description=Silk Nodes Stablecoin Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=__REPO_PATH__/vm-service
+ExecStart=__NODE_PATH__ __REPO_PATH__/vm-service/collect-stablecoins.mjs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=silknodes-stablecoins
+Environment=NODE_ENV=production
+Environment=REPO_PATH=__REPO_PATH__
+Environment=LOG_LEVEL=info
+EnvironmentFile=-/home/%i/.silknodes-db.env
+# A full run is ~2s today. Canonical USDC's 2,964 holders are three pages;
+# the margin is for a slow node, not for work.
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target
