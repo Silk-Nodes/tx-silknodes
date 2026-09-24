@@ -5,7 +5,10 @@
 // the page works without the collector (and locally, with no database), while
 // the collector supplies the history the chain itself does not keep.
 
+import { QueryTypes } from "sequelize";
 import { lcdGet } from "@/lib/chain-config";
+import { sequelize } from "@/lib/db";
+import { cached } from "@/lib/response-cache";
 
 // Chain accounts, not network infrastructure. Found by reading which address
 // issued SBC; SBC, YSBC and USDX all live under it.
@@ -38,11 +41,27 @@ export const TRACKED: TrackedCoin[] = [
   { denom: `uusdx-${BRALE_MAINNET}`, symbol: "USDX", name: "Brale test token", issuer: BRALE_MAINNET, role: "test" },
 ];
 
+export type HolderKind = "dex" | "contract" | "known" | "wallet";
+
+export interface Holder {
+  address: string;
+  amount: number;
+  share: number;        // 0..1 of supply
+  label: string | null; // null for an unlabelled wallet
+  kind: HolderKind;
+}
+
+// The stacked "who holds the dollar" bar. Four bands, always summing to 1, so
+// concentration reads without reading a number.
+export interface Breakdown { top1: number; second: number; next8: number; rest: number }
+
 export interface CoinState extends TrackedCoin {
   supply: number;
   holders: number | null;   // null when the owner list could not be read in full
   top1Share: number | null; // 0..1
   top10Share: number | null;
+  breakdown: Breakdown | null;
+  topHolders: Holder[];
 }
 
 async function json<T>(path: string): Promise<T> {
@@ -65,35 +84,85 @@ export async function measureCoin(coin: TrackedCoin): Promise<CoinState> {
 
   // by_query, not the path form: IBC denoms contain a slash, which breaks path
   // parameters and returns "Not Implemented".
-  const balances: number[] = [];
+  const balances: { address: string; amount: number }[] = [];
   let key: string | null = null;
   let complete = false;
   for (let p = 0; p < OWNERS_MAX_PAGES; p++) {
     const q = new URLSearchParams({ denom: coin.denom, "pagination.limit": String(OWNERS_PAGE) });
     if (key) q.set("pagination.key", key);
-    const d = await json<{ denom_owners?: { balance: { amount: string } }[]; pagination?: { next_key?: string | null } }>(
+    const d = await json<{ denom_owners?: { address: string; balance: { amount: string } }[]; pagination?: { next_key?: string | null } }>(
       `/cosmos/bank/v1beta1/denom_owners_by_query?${q}`,
     );
     for (const o of d.denom_owners ?? []) {
       const amt = Number(o?.balance?.amount ?? 0) / scale;
-      if (amt > 0) balances.push(amt);
+      if (amt > 0) balances.push({ address: o.address, amount: amt });
     }
     key = d.pagination?.next_key ?? null;
     if (!key) { complete = true; break; }
   }
 
   if (!complete || supply <= 0) {
-    return { ...coin, supply, holders: null, top1Share: null, top10Share: null };
+    return { ...coin, supply, holders: null, top1Share: null, top10Share: null, breakdown: null, topHolders: [] };
   }
-  balances.sort((a, b) => b - a);
-  const top10 = balances.slice(0, 10).reduce((s, v) => s + v, 0);
+  balances.sort((a, b) => b.amount - a.amount);
+  const at = (i: number) => balances[i]?.amount ?? 0;
+  const top10 = balances.slice(0, 10).reduce((s, v) => s + v.amount, 0);
+  const next8 = balances.slice(2, 10).reduce((s, v) => s + v.amount, 0);
+  const breakdown: Breakdown = {
+    top1: at(0) / supply,
+    second: at(1) / supply,
+    next8: next8 / supply,
+    rest: Math.max(0, 1 - top10 / supply),
+  };
+  const labels = await labelHolders(balances.slice(0, 10).map((b) => b.address));
   return {
     ...coin,
     supply,
     holders: balances.length,
-    top1Share: (balances[0] ?? 0) / supply,
+    top1Share: at(0) / supply,
     top10Share: top10 / supply,
+    breakdown,
+    topHolders: balances.slice(0, 10).map((b) => {
+      const l = labels.get(b.address);
+      return { address: b.address, amount: b.amount, share: b.amount / supply, label: l?.label ?? null, kind: l?.kind ?? "wallet" };
+    }),
   };
+}
+
+/**
+ * Names for the largest holders, from two places.
+ *
+ * Contracts label themselves on chain. The fourth-largest USDC holder on
+ * 2026-09-24 was a CosmWasm contract labelled "pair": a DEX pool, which is
+ * the on-chain USDC liquidity and needs nobody to tag it. Wallets can only be
+ * named from our own known_entities table (validators, exchanges), which is
+ * empty locally, so an unmatched wallet stays unlabelled rather than guessed.
+ */
+async function labelHolders(addresses: string[]): Promise<Map<string, { label: string; kind: HolderKind }>> {
+  const out = new Map<string, { label: string; kind: HolderKind }>();
+  if (addresses.length === 0) return out;
+
+  try {
+    const rows = await sequelize.query<{ address: string; label: string }>(
+      `SELECT address, label FROM known_entities WHERE address IN (:a)`,
+      { replacements: { a: addresses }, type: QueryTypes.SELECT },
+    );
+    for (const r of rows) out.set(r.address, { label: r.label, kind: "known" });
+  } catch { /* no database, e.g. local development. Contracts still label below. */ }
+
+  await Promise.all(addresses.filter((a) => !out.has(a)).map(async (a) => {
+    try {
+      const res = await lcdGet(`/cosmwasm/wasm/v1/contract/${a}`);
+      if (!res.ok) return; // not a contract, which is the common case
+      const c = (await res.json()) as { contract_info?: { label?: string } };
+      const raw = c.contract_info?.label?.trim();
+      if (!raw) return;
+      out.set(a, /pair|pool|\blp\b|swap/i.test(raw)
+        ? { label: "DEX pool", kind: "dex" }
+        : { label: `Contract: ${raw}`, kind: "contract" });
+    } catch { /* leave it unlabelled */ }
+  }));
+  return out;
 }
 
 export interface UstxStatus {
@@ -212,4 +281,56 @@ export async function usdcFragments(): Promise<UsdcFragment[]> {
   }));
   for (const f of out) f.viaChain = chainOf.get(f.firstChannel) ?? null;
   return out.sort((a, b) => b.amount - a.amount);
+}
+
+// ── cached reads, shared by /api/stablecoins and the OG card ─────────────
+//
+// One cache for both, so a shared link's preview can never show a different
+// number from the page it opens.
+
+
+// Five minutes for coins and USTX status: holder lists move slowly, and the
+// page flips to "live" within five minutes of the first mint.
+const LIVE_MS = 5 * 60_000;
+// The USDC route list is ~90 trace lookups and changes over weeks.
+const FRAGMENTS_MS = 6 * 60 * 60_000;
+
+export function liveCoins(): Promise<CoinState[]> {
+  return cached("stablecoins:coins", LIVE_MS, async () => {
+    const settled = await Promise.allSettled(TRACKED.map((c) => measureCoin(c)));
+    const ok = settled
+      .filter((r): r is PromiseFulfilledResult<CoinState> => r.status === "fulfilled")
+      .map((r) => r.value);
+    // A coin that could not be read is left out rather than shown as zero.
+    // Throwing when none succeed keeps a total outage out of the cache.
+    if (ok.length === 0) throw new Error("no stablecoin could be measured");
+    return ok;
+  }).catch(() => []);
+}
+
+export function liveUstx(): Promise<UstxStatus | null> {
+  return cached("stablecoins:ustx", LIVE_MS, () => ustxStatus()).catch(() => null);
+}
+
+export function liveFragments(): Promise<UsdcFragment[]> {
+  return cached("stablecoins:fragments", FRAGMENTS_MS, async () => {
+    const f = await usdcFragments();
+    if (f.length === 0) throw new Error("no USDC routes resolved");
+    return f;
+  }).catch(() => []);
+}
+
+export interface Recording { since: string | null; snapshots: number }
+
+/** When the hourly collector started, and how many runs it has recorded. */
+export async function recording(): Promise<Recording | null> {
+  try {
+    const [r] = await sequelize.query<{ since: string | null; runs: string }>(
+      `SELECT MIN(taken_at) AS since, COUNT(DISTINCT taken_at) AS runs FROM stablecoin_snapshots`,
+      { type: QueryTypes.SELECT },
+    );
+    return { since: r?.since ? new Date(r.since).toISOString() : null, snapshots: Number(r?.runs ?? 0) };
+  } catch {
+    return null; // no database locally, or migration 021 not run
+  }
 }

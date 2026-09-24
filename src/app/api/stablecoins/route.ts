@@ -12,29 +12,22 @@
 
 import { NextResponse } from "next/server";
 import { QueryTypes } from "sequelize";
-import { cached } from "@/lib/response-cache";
 import { sequelize } from "@/lib/db";
 import {
-  TRACKED,
   BRALE_MAINNET,
   BRALE_TESTNET,
   USDC_CANONICAL,
-  measureCoin,
-  ustxStatus,
-  usdcFragments,
-  type CoinState,
+  liveCoins,
+  liveUstx,
+  liveFragments,
+  recording,
 } from "@/lib/stablecoins";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Five minutes for the coins: holder lists move slowly and USDC's 2,964
-// holders are three upstream pages. USTX status on the same clock, so launch
-// shows within five minutes of the first mint.
-const LIVE_MS = 5 * 60_000;
-// Fragmentation is one trace lookup per IBC denom, about ninety calls, and
-// the set of USDC routes changes over weeks. Six hours.
-const FRAGMENTS_MS = 6 * 60 * 60_000;
+// Cache lifetimes live with the reads in lib/stablecoins, shared with the OG
+// card so a shared link and the page it opens always agree.
 const HISTORY_DAYS = 90;
 
 type HistoryPoint = { denom: string; takenAt: string; supply: number; holders: number | null; top1Share: number | null };
@@ -67,24 +60,12 @@ async function history(): Promise<{ points: HistoryPoint[]; available: boolean }
 }
 
 export async function GET() {
-  const [coins, ustx, fragments, hist] = await Promise.all([
-    cached("stablecoins:coins", LIVE_MS, async () => {
-      const settled = await Promise.allSettled(TRACKED.map((c) => measureCoin(c)));
-      const ok = settled
-        .filter((s): s is PromiseFulfilledResult<CoinState> => s.status === "fulfilled")
-        .map((s) => s.value);
-      // A coin that could not be read is left out rather than shown as zero.
-      // Throwing when none succeed keeps a total outage out of the cache.
-      if (ok.length === 0) throw new Error("no stablecoin could be measured");
-      return ok;
-    }).catch(() => [] as CoinState[]),
-    cached("stablecoins:ustx", LIVE_MS, () => ustxStatus()).catch(() => null),
-    cached("stablecoins:fragments", FRAGMENTS_MS, async () => {
-      const f = await usdcFragments();
-      if (f.length === 0) throw new Error("no USDC routes resolved");
-      return f;
-    }).catch(() => []),
+  const [coins, ustx, fragments, hist, rec] = await Promise.all([
+    liveCoins(),
+    liveUstx(),
+    liveFragments(),
     history(),
+    recording(),
   ]);
 
   const usdcTotal = fragments.reduce((s, f) => s + f.amount, 0);
@@ -96,6 +77,7 @@ export async function GET() {
       coins,
       ustx,
       watching: { mainnetIssuer: BRALE_MAINNET, testnetIssuer: BRALE_TESTNET },
+      recording: rec,
       usdc: {
         routes: fragments.length,
         total: usdcTotal,
