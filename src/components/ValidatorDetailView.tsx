@@ -212,6 +212,21 @@ export default function ValidatorDetailView({
   // back when switching tabs from deep inside a long list, so the new tab
   // opens at its top instead of wherever the old list happened to be.
   const tabsAnchorRef = useRef<HTMLDivElement>(null);
+  // TX price from /api/coin (server side, cached a minute). Null while
+  // loading or when CoinGecko is down, and the USD lines are then left out
+  // rather than shown as $0.
+  const [usdPrice, setUsdPrice] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("/api/coin")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const p = d?.data?.market_data?.current_price?.usd;
+        if (p > 0) setUsdPrice(p);
+      })
+      .catch(() => {});
+  }, []);
+  const usd = (tx: number | null) =>
+    usdPrice && tx ? `$${(tx * usdPrice).toLocaleString("en-US", { maximumFractionDigits: tx * usdPrice < 100 ? 2 : 0 })}` : null;
   const [amount, setAmount] = useState("");
   const [govMeta, setGovMeta] = useState<Record<number, GovMeta>>({});
   const [totalProposals, setTotalProposals] = useState(0);
@@ -520,16 +535,17 @@ export default function ValidatorDetailView({
               in a hover tooltip to keep the strip minimal. */}
           <div className="vd-card" style={{ padding: "12px 16px", marginBottom: 14, display: "flex", flexWrap: "wrap", gap: "10px 32px" }}>
             {[
-              ["Reward pool", `${fmt(rew.outstandingPoolTx)} TX`, "Undistributed rewards accruing to this validator's delegators plus its commission."],
-              rew.estMonthlyCommissionTx !== null ? ["Commission income", `~${fmt(rew.estMonthlyCommissionTx)} TX/mo`, "Estimated monthly commission the operator earns, from its share of staking rewards."] : null,
-              ["Unclaimed commission", `${fmt(rew.commissionAccruedTx)} TX`, "Commission earned but not yet withdrawn by the operator."],
+              ["Reward pool", `${fmt(rew.outstandingPoolTx)} TX`, "Undistributed rewards accruing to this validator's delegators plus its commission.", usd(rew.outstandingPoolTx)],
+              rew.estMonthlyCommissionTx !== null ? ["Commission income", `~${fmt(rew.estMonthlyCommissionTx)} TX/mo`, "Estimated monthly commission the operator earns, from its share of staking rewards.", usd(rew.estMonthlyCommissionTx) && `~${usd(rew.estMonthlyCommissionTx)}/mo`] : null,
+              ["Unclaimed commission", `${fmt(rew.commissionAccruedTx)} TX`, "Commission earned but not yet withdrawn by the operator.", usd(rew.commissionAccruedTx)],
             ].filter(Boolean).map((row) => {
-              const [label, value, note] = row as string[];
+              const [label, value, note, dollars] = row as (string | null)[];
               return (
-                <Tooltip key={label} text={note}>
+                <Tooltip key={label!} text={note!}>
                   <div style={{ cursor: "help" }}>
                     <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.5, borderBottom: "1px dotted var(--glass-border)", display: "inline-block", paddingBottom: 1 }}>{label}</div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, marginTop: 3 }}>{value}</div>
+                    {dollars && <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", opacity: 0.72, marginTop: 2 }}>{dollars}</div>}
                   </div>
                 </Tooltip>
               );
