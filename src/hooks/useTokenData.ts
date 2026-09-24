@@ -45,7 +45,13 @@ export function useTokenData(): UseTokenDataReturn {
       const newTokenData = tokenRes.status === "fulfilled" ? tokenRes.value : null;
       const newStakingData = stakingRes.status === "fulfilled" ? stakingRes.value : null;
 
-      if (newTokenData) setTokenData(newTokenData);
+      // A refresh that lost the price keeps the last good one instead of
+      // blanking the card.
+      if (newTokenData) {
+        setTokenData((prev) =>
+          newTokenData.price > 0 || !prev ? newTokenData : { ...newTokenData, price: prev.price, priceChange24h: prev.priceChange24h, marketCap: prev.marketCap, volume24h: prev.volume24h },
+        );
+      }
       if (newStakingData) setStakingData(newStakingData);
       if (networkRes.status === "fulfilled") setNetworkStatus(networkRes.value);
       if (validatorRes.status === "fulfilled") setValidators(validatorRes.value);
