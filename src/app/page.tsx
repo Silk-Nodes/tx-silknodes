@@ -63,6 +63,7 @@ import SeoSection from "@/components/SeoSection";
 import type { SEO_PAGES } from "@/lib/seo-content";
 type SeoPageKey = keyof typeof SEO_PAGES;
 import { useRWATokens } from "@/hooks/useRWATokens";
+import StablecoinsTab from "@/components/StablecoinsTab";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
 // ─── Helpers ───
@@ -83,7 +84,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
+type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "stablecoins" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
 
 // Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
 // Daily-relevance ordering: Today first, your-data and chain-wide signals next.
@@ -107,7 +108,8 @@ const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: 
   // for cold and hardware wallets. Hiding the whole page until someone
   // connects hid it from exactly the people who cannot connect.
   { id: "portfolio", label: "Portfolio", description: "Your wallets and delegations" },
-  { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on Coreum" },
+  { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on TX" },
+  { id: "stablecoins", label: "Stablecoins", description: "Every dollar on TX, and USTX" },
   { id: "silknodes", label: "Silk Nodes", description: "About the validator" },
   { id: "feedback", label: "Feedback", description: "Share ideas with us" },
 ];
@@ -134,6 +136,7 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/validators": "validators",
   "/calculator": "calculator",
   "/rwa": "rwa",
+  "/stablecoins": "stablecoins",
   "/silknodes": "silknodes",
   "/portfolio": "portfolio",
   "/feedback": "feedback",
@@ -828,6 +831,8 @@ export default function HomePage() {
         {activeTab === "rwa" && (
           <RWATab bondedTokens={bondedTokens} price={price} setActiveTab={setActiveTab} />
         )}
+
+        {activeTab === "stablecoins" && <StablecoinsTab />}
 
         {activeTab === "silknodes" && (
           <SilkNodesTab networkStatus={networkStatus} stakingData={stakingData} validators={validators} setActiveTab={setActiveTab} wallet={wallet} setShowWalletModal={setShowWalletModal} />
