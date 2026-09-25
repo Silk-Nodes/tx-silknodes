@@ -21,6 +21,7 @@ import {
   liveUstx,
   liveFragments,
   recording,
+  activity,
 } from "@/lib/stablecoins";
 
 export const dynamic = "force-dynamic";
@@ -60,12 +61,13 @@ async function history(): Promise<{ points: HistoryPoint[]; available: boolean }
 }
 
 export async function GET() {
-  const [coins, ustx, fragments, hist, rec] = await Promise.all([
+  const [coins, ustx, fragments, hist, rec, act] = await Promise.all([
     liveCoins(),
     liveUstx(),
     liveFragments(),
     history(),
     recording(),
+    activity(),
   ]);
 
   const usdcTotal = fragments.reduce((s, f) => s + f.amount, 0);
@@ -86,6 +88,7 @@ export async function GET() {
         fragments,
       },
       history: hist,
+      activity: act,
     },
     { headers: { "cache-control": "no-store" } },
   );

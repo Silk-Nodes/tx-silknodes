@@ -55,6 +55,41 @@ export interface Holder {
 // concentration reads without reading a number.
 export interface Breakdown { top1: number; second: number; next8: number; rest: number }
 
+// Wallets by balance, in dollars. Counts and the dollars each band holds,
+// because a coin can have thousands of holders and still sit in five wallets.
+export interface SizeBand { label: string; wallets: number; amount: number }
+const BANDS: [string, number][] = [
+  ["under $1", 1], ["$1 to 10", 10], ["$10 to 100", 100],
+  ["$100 to 1k", 1_000], ["$1k to 10k", 10_000], ["$10k and up", Infinity],
+];
+function sizeBands(balances: { amount: number }[]): SizeBand[] {
+  const out = BANDS.map(([label]) => ({ label, wallets: 0, amount: 0 }));
+  for (const b of balances) {
+    const i = BANDS.findIndex(([, max]) => b.amount < max);
+    out[i].wallets++;
+    out[i].amount += b.amount;
+  }
+  return out;
+}
+
+// Smart Token controls the issuer switched on at issuance (x/assetft). Fixed
+// for the life of the token, which is why they are worth showing: they are
+// what the issuer can do to a holder's balance. USDC arrives over IBC and
+// its controls live on Noble, so it has none here.
+export interface Controls { features: string[]; admin: string | null; globallyFrozen: boolean }
+
+async function controlsOf(coin: TrackedCoin): Promise<Controls | null> {
+  if (coin.denom.startsWith("ibc/")) return null;
+  try {
+    const t = await json<{ token: { features?: string[]; admin?: string; globally_frozen?: boolean } }>(
+      `/coreum/asset/ft/v1/tokens/${encodeURIComponent(coin.denom)}`,
+    );
+    return { features: t.token.features ?? [], admin: t.token.admin || null, globallyFrozen: Boolean(t.token.globally_frozen) };
+  } catch {
+    return null;
+  }
+}
+
 export interface CoinState extends TrackedCoin {
   supply: number;
   holders: number | null;   // null when the owner list could not be read in full
@@ -62,6 +97,8 @@ export interface CoinState extends TrackedCoin {
   top10Share: number | null;
   breakdown: Breakdown | null;
   topHolders: Holder[];
+  sizes: SizeBand[] | null;
+  controls: Controls | null;
 }
 
 async function json<T>(path: string): Promise<T> {
@@ -76,7 +113,10 @@ const OWNERS_MAX_PAGES = 20;
 /** Supply plus holder concentration for one denom. */
 export async function measureCoin(coin: TrackedCoin): Promise<CoinState> {
   const enc = encodeURIComponent(coin.denom);
-  const sup = await json<{ amount: { amount: string } }>(`/cosmos/bank/v1beta1/supply/by_denom?denom=${enc}`);
+  const [sup, controls] = await Promise.all([
+    json<{ amount: { amount: string } }>(`/cosmos/bank/v1beta1/supply/by_denom?denom=${enc}`),
+    controlsOf(coin),
+  ]);
   // Every tracked coin uses 6 decimals. Stated rather than looked up, because a
   // metadata miss would otherwise silently scale supply by a million.
   const scale = 1e6;
@@ -102,7 +142,7 @@ export async function measureCoin(coin: TrackedCoin): Promise<CoinState> {
   }
 
   if (!complete || supply <= 0) {
-    return { ...coin, supply, holders: null, top1Share: null, top10Share: null, breakdown: null, topHolders: [] };
+    return { ...coin, supply, holders: null, top1Share: null, top10Share: null, breakdown: null, topHolders: [], sizes: null, controls };
   }
   balances.sort((a, b) => b.amount - a.amount);
   const at = (i: number) => balances[i]?.amount ?? 0;
@@ -122,6 +162,8 @@ export async function measureCoin(coin: TrackedCoin): Promise<CoinState> {
     top1Share: at(0) / supply,
     top10Share: top10 / supply,
     breakdown,
+    sizes: sizeBands(balances),
+    controls,
     topHolders: balances.slice(0, 10).map((b) => {
       const l = labels.get(b.address);
       return { address: b.address, amount: b.amount, share: b.amount / supply, label: l?.label ?? null, kind: l?.kind ?? "wallet" };
@@ -332,5 +374,81 @@ export async function recording(): Promise<Recording | null> {
     return { since: r?.since ? new Date(r.since).toISOString() : null, snapshots: Number(r?.runs ?? 0) };
   } catch {
     return null; // no database locally, or migration 021 not run
+  }
+}
+
+// ── transfer activity, from stablecoin_transfers (migration 022) ─────────
+
+export interface ActivityDay {
+  day: string;          // YYYY-MM-DD, UTC
+  txs: number;
+  volume: number;       // largest leg per transaction, summed
+  ibcIn: number;        // volume by kind
+  ibcOut: number;
+  chain: number;
+  senders: number;
+}
+export interface Activity {
+  denom: string;
+  since: string | null; // oldest transfer recorded, so the page can say how far back
+  days: ActivityDay[];
+  txs: number;
+  volume: number;
+  wallets: number;      // distinct senders and recipients over the window
+}
+
+const ACTIVITY_DAYS = 30;
+
+/**
+ * Daily activity per coin. Volume counts the largest leg of each
+ * transaction, not the sum: a swap moves the same dollars wallet to pool and
+ * pool to wallet, and summing both legs would double it.
+ */
+export async function activity(): Promise<Activity[] | null> {
+  try {
+    const days = await sequelize.query<{
+      denom: string; day: string; txs: string; volume: string; ibc_in: string; ibc_out: string; chain: string; senders: string;
+    }>(
+      `WITH per_tx AS (
+         SELECT denom, txhash, MIN(ts) AS ts, MAX(amount) AS amount, MIN(kind) AS kind, MIN(sender) AS sender
+           FROM stablecoin_transfers
+          WHERE ts >= NOW() - (:days || ' days')::interval
+          GROUP BY denom, txhash
+       )
+       SELECT denom, to_char(date_trunc('day', ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+              COUNT(*) AS txs, SUM(amount) AS volume,
+              SUM(amount) FILTER (WHERE kind = 'ibc_in') AS ibc_in,
+              SUM(amount) FILTER (WHERE kind = 'ibc_out') AS ibc_out,
+              SUM(amount) FILTER (WHERE kind = 'chain') AS chain,
+              COUNT(DISTINCT sender) AS senders
+         FROM per_tx GROUP BY 1, 2 ORDER BY 1, 2`,
+      { replacements: { days: ACTIVITY_DAYS }, type: QueryTypes.SELECT },
+    );
+    const totals = await sequelize.query<{ denom: string; since: string | null; wallets: string }>(
+      `SELECT denom, MIN(ts) AS since,
+              (SELECT COUNT(*) FROM (
+                 SELECT sender AS a FROM stablecoin_transfers x WHERE x.denom = t.denom AND x.ts >= NOW() - (:days || ' days')::interval
+                 UNION
+                 SELECT recipient FROM stablecoin_transfers x WHERE x.denom = t.denom AND x.ts >= NOW() - (:days || ' days')::interval
+               ) w) AS wallets
+         FROM stablecoin_transfers t GROUP BY denom`,
+      { replacements: { days: ACTIVITY_DAYS }, type: QueryTypes.SELECT },
+    );
+    const n = (v: string | null) => Number(v ?? 0);
+    return totals.map((t) => {
+      const ds: ActivityDay[] = days.filter((d) => d.denom === t.denom).map((d) => ({
+        day: d.day, txs: n(d.txs), volume: n(d.volume), ibcIn: n(d.ibc_in), ibcOut: n(d.ibc_out), chain: n(d.chain), senders: n(d.senders),
+      }));
+      return {
+        denom: t.denom,
+        since: t.since ? new Date(t.since).toISOString() : null,
+        days: ds,
+        txs: ds.reduce((s, d) => s + d.txs, 0),
+        volume: ds.reduce((s, d) => s + d.volume, 0),
+        wallets: n(t.wallets),
+      };
+    });
+  } catch {
+    return null; // no database, or migration 022 not run
   }
 }

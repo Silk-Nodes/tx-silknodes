@@ -23,6 +23,10 @@
  * Usage:
  *   node vm-service/collect-stablecoins.mjs
  *   node vm-service/collect-stablecoins.mjs --dry-run   # reads, writes nothing
+ *
+ * Transfers (migration 022): each run also copies new transfer legs of every
+ * mainnet coin from the tx index into stablecoin_transfers, and fills back to
+ * TRANSFER_DAYS if an earlier run stopped short.
  */
 
 const DRY = process.argv.includes("--dry-run");
@@ -63,7 +67,7 @@ async function lcd(path, hosts = MAINNET_POOL) {
   let lastErr;
   for (const host of hosts) {
     try {
-      const res = await fetch(`${host}${path}`, { signal: AbortSignal.timeout(30_000) });
+      const res = await fetch(`${host}${path}`, { signal: AbortSignal.timeout(60_000) });
       if (res.ok) return await res.json();
       lastErr = new Error(`HTTP ${res.status} from ${host}`);
     } catch (e) {
@@ -196,6 +200,108 @@ async function measure(denom) {
   };
 }
 
+
+// ── transfers ───────────────────────────────────────────────────────────
+// Walked newest first by height window, always page 1. Deep page numbers on
+// the tx index fail (pages 30 to 45 of canonical USDC returned 500 after 44s
+// on 2026-09-25), and an open-ended height range took 19s against 2.6s for a
+// bounded one, so the window never reaches below the 30 day horizon.
+// publicnode rejects height ranges outright, so this leans on the first host.
+const TRANSFER_DAYS = 30;
+const TX_PAGE = 100;
+const TX_MAX_CALLS = 200; // per coin per run; the 30 day fill is ~6 calls today
+
+function kindOf(tx) {
+  const types = (tx?.tx?.body?.messages ?? []).map((m) => m["@type"] ?? "");
+  if (types.some((t) => t.endsWith("MsgRecvPacket"))) return "ibc_in";
+  if (types.some((t) => t.endsWith("MsgTransfer"))) return "ibc_out";
+  return "chain";
+}
+
+function legsOf(tx, denom) {
+  const legs = [];
+  for (const e of tx.events ?? []) {
+    if (e.type !== "transfer") continue;
+    const a = Object.fromEntries((e.attributes ?? []).map((x) => [x.key, x.value]));
+    for (const part of String(a.amount ?? "").split(",")) {
+      const m = part.match(/^(\d+)(.+)$/);
+      if (!m || m[2] !== denom) continue;
+      legs.push({ sender: a.sender, recipient: a.recipient, amount: Number(m[1]) / 1e6 });
+    }
+  }
+  return legs;
+}
+
+async function txPage(denom, above, below) {
+  let q = `transfer.amount CONTAINS '${denom}' AND tx.height>${above}`;
+  if (below != null) q += ` AND tx.height<${below}`;
+  const p = new URLSearchParams({ query: q, page: "1", limit: String(TX_PAGE), order_by: "ORDER_BY_DESC" });
+  const d = await lcd(`/cosmos/tx/v1beta1/txs?${p}`);
+  return d?.tx_responses ?? [];
+}
+
+// Walks (above, below) from the top down, stopping at `stopTs` or when the
+// window is empty. Returns how many legs were written.
+async function walk(denom, above, below, stopTs) {
+  let written = 0;
+  for (let call = 0; call < TX_MAX_CALLS; call++) {
+    const txs = await txPage(denom, above, below);
+    if (txs.length === 0) break;
+    let minH = Infinity;
+    let oldest = Infinity;
+    for (const tx of txs) {
+      const h = Number(tx.height);
+      minH = Math.min(minH, h);
+      const ts = new Date(tx.timestamp).getTime();
+      oldest = Math.min(oldest, ts);
+      if (tx.code !== 0 || ts < stopTs) continue;
+      const kind = kindOf(tx);
+      const legs = legsOf(tx, denom);
+      for (let i = 0; i < legs.length; i++) {
+        written++;
+        if (DRY) continue;
+        await query(
+          `INSERT INTO stablecoin_transfers (txhash, leg, height, ts, denom, sender, recipient, amount, kind)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+          [tx.txhash, i, h, tx.timestamp, denom, legs[i].sender, legs[i].recipient, legs[i].amount, kind],
+        );
+      }
+    }
+    if (oldest < stopTs || txs.length < TX_PAGE) break;
+    below = minH; // strictly below, so a height is never read twice
+  }
+  return written;
+}
+
+// The height TRANSFER_DAYS ago, from the average block time over the last
+// 100,000 blocks. Only a lower bound for the query; timestamps decide.
+let horizonHeightMemo = null;
+async function horizonHeight() {
+  if (horizonHeightMemo != null) return horizonHeightMemo;
+  const top = await lcd(`/cosmos/base/tendermint/v1beta1/blocks/latest`);
+  const h = Number(top.block.header.height);
+  const back = await lcd(`/cosmos/base/tendermint/v1beta1/blocks/${h - 100_000}`);
+  const secPerBlock = (new Date(top.block.header.time) - new Date(back.block.header.time)) / 1000 / 100_000;
+  // 10% extra so a slower stretch cannot leave the oldest day short.
+  horizonHeightMemo = Math.max(0, Math.floor(h - (TRANSFER_DAYS * 86_400 * 1.1) / secPerBlock));
+  return horizonHeightMemo;
+}
+
+async function collectTransfers(denom) {
+  const horizon = Date.now() - TRANSFER_DAYS * 86_400_000;
+  const floor = await horizonHeight();
+  const r = DRY ? { rows: [{}] } : await query(
+    `SELECT MAX(height) AS hi, MIN(height) AS lo, MIN(ts) AS oldest FROM stablecoin_transfers WHERE denom = $1`,
+    [denom],
+  );
+  const { hi, lo, oldest } = r.rows?.[0] ?? {};
+  if (hi == null) return walk(denom, floor, null, horizon);
+  let n = await walk(denom, Math.max(Number(hi), floor), null, horizon);
+  // A first run that stopped short leaves a hole at the old end. Fill it.
+  if (new Date(oldest).getTime() > horizon + 86_400_000) n += await walk(denom, floor, Number(lo), horizon);
+  return n;
+}
+
 async function main() {
   const started = Date.now();
   const takenAt = new Date().toISOString();
@@ -226,6 +332,16 @@ async function main() {
     } catch (e) {
       // One unreadable coin must not cost the others their snapshot.
       log("error", `${t.symbol} (${t.denom}) could not be measured: ${e.message}`);
+    }
+  }
+
+  for (const t of mainnet) {
+    try {
+      const n = await collectTransfers(t.denom);
+      if (n > 0) log("info", `${t.symbol.padEnd(5)} ${n} transfer legs ${DRY ? "read" : "written"}`);
+    } catch (e) {
+      // Snapshots above are already written; a tx index outage costs only this.
+      log("error", `${t.symbol} transfers: ${e.message}`);
     }
   }
 
