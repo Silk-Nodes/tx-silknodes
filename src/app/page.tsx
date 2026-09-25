@@ -39,6 +39,8 @@ import AnalyticsTab from "@/components/AnalyticsTab";
 import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
 import WhatsNewBanner from "@/components/WhatsNewBanner";
+import NewTag, { isNew } from "@/components/NewTag";
+import { StablecoinsFilmPopup } from "@/components/StablecoinsFilm";
 import GovernanceTab from "@/components/GovernanceTab";
 import PassportTab from "@/components/PassportTab";
 import PortfolioPanel from "@/components/PortfolioPanel";
@@ -96,6 +98,23 @@ const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "flows", label: "Flows" },
   { id: "passport", label: "Passport" },
 ];
+
+// A Tools page promoted to the primary row while it is new. On wide screens
+// it sits after Passport, on phones second (right after Today) so it is in
+// view without swiping, and between 769 and 1279px, where the row has no
+// room, it stays in Tools and the Tools button wears the tag instead. All of
+// that is CSS (see .nav-tab-featured). After `until` it is a normal Tools
+// entry again.
+const FEATURED = { id: "stablecoins" as TabId, label: "Stablecoins", until: "2026-10-31T23:59:59Z" };
+
+// Phones show four links and a More button. These primaries move into the
+// More menu there, so the row fits a 393px screen without swiping.
+const PHONE_IN_MORE: TabId[] = ["analytics", "flows", "passport"];
+const PHONE_MORE_DESC: Partial<Record<TabId, string>> = {
+  analytics: "Charts across the chain",
+  flows: "Exchange and staking flows",
+  passport: "Any wallet at a glance",
+};
 
 // Tools dropdown: the long tail. Each entry maps to a tab id the rest of
 // the app already knows how to render. Validators is first because it's
@@ -185,6 +204,8 @@ export default function HomePage() {
   // half-off the edge (e.g. Passport). Scrolls only the strip, never the
   // page (we adjust scrollLeft directly rather than scrollIntoView).
   const navTabsRef = useRef<HTMLDivElement>(null);
+  const featuredLive = isNew(FEATURED.until);
+  const featuredNew = featuredLive;
   useEffect(() => {
     const center = () => {
       const c = navTabsRef.current;
@@ -536,20 +557,33 @@ export default function HomePage() {
           {PRIMARY_TABS.filter((tab) => !tab.walletOnly || wallet.connected).map((tab) => {
             const href = (Object.entries(PATHNAME_TO_TAB).find(([, id]) => id === tab.id)?.[0]) || "/";
             return (
-              <Link
-                key={tab.id}
-                href={href}
-                className={`nav-tab ${activeTab === tab.id ? "active" : ""}`}
-                onClick={() => trackEvent("tab_switch", { tab_name: tab.id })}
-              >
-                {tab.label}
-              </Link>
+              <Fragment key={tab.id}>
+                <Link
+                  href={href}
+                  className={`nav-tab ${activeTab === tab.id ? "active" : ""} ${PHONE_IN_MORE.includes(tab.id) ? "nav-tab-phone-more" : ""}`}
+                  onClick={() => trackEvent("tab_switch", { tab_name: tab.id })}
+                >
+                  {tab.label}
+                </Link>
+                {tab.id === "today" && featuredLive && (
+                  <Link
+                    href={`/${FEATURED.id}`}
+                    className={`nav-tab nav-tab-featured ${activeTab === FEATURED.id ? "active" : ""}`}
+                    onClick={() => trackEvent("tab_switch", { tab_name: FEATURED.id })}
+                  >
+                    {FEATURED.label}
+                    {featuredNew && <NewTag />}
+                  </Link>
+                )}
+              </Fragment>
             );
           })}
           <ToolsDropdown
             tools={TOOLS_TABS.filter((t) => !t.walletOnly || wallet.connected)}
             activeTab={activeTab}
             pathnameMap={PATHNAME_TO_TAB}
+            featured={featuredLive ? { id: FEATURED.id, isNew: featuredNew } : null}
+            phoneExtras={PRIMARY_TABS.filter((t) => PHONE_IN_MORE.includes(t.id)).map((t) => ({ id: t.id, label: t.label, description: PHONE_MORE_DESC[t.id] ?? "" }))}
           />
         </div>
 
@@ -564,7 +598,7 @@ export default function HomePage() {
             <WalletMenu address={wallet.address} onDisconnect={disconnect} />
           ) : (
             <button className="wallet-pill" onClick={() => setShowWalletModal(true)}>
-              {walletLoading ? "Connecting..." : "Connect Wallet"}
+              {walletLoading ? "Connecting..." : <>Connect<span className="wallet-pill-word"> Wallet</span></>}
             </button>
           )}
         </div>
@@ -731,6 +765,10 @@ export default function HomePage() {
             connectedAddress={wallet.connected ? wallet.address : undefined}
             txPrice={tokenData?.price ?? 0}
           />
+        )}
+        {activeTab === "today" && proposalIdFromUrl === null && (
+          // Waits for the cookie banner so the two never stack.
+          <StablecoinsFilmPopup ready={cookieConsent !== null} />
         )}
         {activeTab === "today" && (
           <TodayTab
@@ -4177,11 +4215,16 @@ function RWATab({ bondedTokens, price, setActiveTab }: { bondedTokens: number; p
 // a new tab. A small close-delay prevents flicker when the cursor
 // briefly leaves the trigger on its way to a menu item.
 function ToolsDropdown({
-  tools, activeTab, pathnameMap,
+  tools, activeTab, pathnameMap, featured, phoneExtras,
 }: {
   tools: { id: TabId; label: string; description: string }[];
   activeTab: TabId;
   pathnameMap: Record<string, TabId>;
+  // The promoted entry. Its menu row is hidden by CSS wherever the primary
+  // row shows it, and the trigger wears its tag where the primary row cannot.
+  featured: { id: TabId; isNew: boolean } | null;
+  // Primary links that live in this menu on phones only (CSS shows them).
+  phoneExtras: { id: TabId; label: string; description: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -4244,7 +4287,12 @@ function ToolsDropdown({
 
   useEffect(() => () => cancelClose(), []);
 
-  const isActiveTool = tools.some((t) => t.id === activeTab);
+  // The featured page is a Tools entry, but where it has its own link in
+  // the row, lighting Tools as well would mark two places. "active-mid"
+  // lights Tools for it only in the range where Tools is its home (CSS).
+  const isActiveTool = tools.some((t) => t.id === activeTab && t.id !== featured?.id);
+  const isActiveFeatured = featured?.id === activeTab;
+  const isActiveExtra = phoneExtras.some((t) => t.id === activeTab);
   return (
     <div
       className="nav-tools"
@@ -4255,12 +4303,17 @@ function ToolsDropdown({
       <button
         ref={triggerRef}
         type="button"
-        className={`nav-tab nav-tools-trigger ${isActiveTool || open ? "active" : ""}`}
+        className={`nav-tab nav-tools-trigger ${isActiveTool || open ? "active" : ""} ${isActiveExtra ? "active-phone" : ""} ${isActiveFeatured ? "active-mid" : ""}`}
         onClick={() => (open ? setOpen(false) : openMenu())}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="More pages"
       >
-        Tools <span className="nav-tools-chev">▾</span>
+        <span className="nav-tools-label">Tools <span className="nav-tools-chev">▾</span></span>
+        <svg className="nav-more-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="3" cy="8" r="1.6" fill="currentColor" /><circle cx="8" cy="8" r="1.6" fill="currentColor" /><circle cx="13" cy="8" r="1.6" fill="currentColor" />
+        </svg>
+        {featured?.isNew && <span className="nav-tools-newtag"><NewTag /></span>}
       </button>
       {open && menuPos && typeof document !== "undefined" && createPortal(
         <div
@@ -4271,6 +4324,21 @@ function ToolsDropdown({
           onMouseEnter={cancelClose}
           onMouseLeave={() => scheduleClose()}
         >
+          {phoneExtras.map((t) => {
+            const href = (Object.entries(pathnameMap).find(([, id]) => id === t.id)?.[0]) || "/";
+            return (
+              <Link
+                key={t.id}
+                href={href}
+                role="menuitem"
+                className={`nav-tools-item nav-tools-item-phone ${activeTab === t.id ? "active" : ""}`}
+                onClick={() => setOpen(false)}
+              >
+                <span className="nav-tools-item-label">{t.label}</span>
+                <span className="nav-tools-item-desc">{t.description}</span>
+              </Link>
+            );
+          })}
           {tools.map((t) => {
             const href = (Object.entries(pathnameMap).find(([, id]) => id === t.id)?.[0]) || "/";
             return (
@@ -4278,10 +4346,13 @@ function ToolsDropdown({
                 key={t.id}
                 href={href}
                 role="menuitem"
-                className={`nav-tools-item ${activeTab === t.id ? "active" : ""}`}
+                className={`nav-tools-item ${activeTab === t.id ? "active" : ""} ${featured?.id === t.id ? "nav-tools-item-featured" : ""}`}
                 onClick={() => setOpen(false)}
               >
-                <span className="nav-tools-item-label">{t.label}</span>
+                <span className="nav-tools-item-label">
+                  {t.label}
+                  {featured?.id === t.id && featured.isNew && <NewTag />}
+                </span>
                 <span className="nav-tools-item-desc">{t.description}</span>
               </Link>
             );
