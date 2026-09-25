@@ -23,6 +23,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import Shareable from "@/components/share/Shareable";
 
 type CoinRole = "incumbent" | "issued" | "test";
 type HolderKind = "dex" | "contract" | "known" | "wallet";
@@ -121,11 +122,15 @@ const AXIS = { fontSize: 11, fill: "var(--text-light)" } as const;
 
 function Panel({ title, sub, children, className = "" }: { title: string; sub?: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className={`panel stc-panel ${className}`}>
-      <div className="section-head" style={{ color: "var(--text-dark)" }}>{title}</div>
-      {sub && <p className="stc-sub" style={MUTED}>{sub}</p>}
-      <div className="stc-body">{children}</div>
-    </section>
+    // Every panel exports as a snapshot card, same as the flows and analytics
+    // charts. framed=false: the panel already carries its own heading.
+    <Shareable title={title} subtitle={sub} framed={false}>
+      <section className={`panel stc-panel ${className}`}>
+        <div className="section-head" style={{ color: "var(--text-dark)" }}>{title}</div>
+        {sub && <p className="stc-sub" style={MUTED}>{sub}</p>}
+        <div className="stc-body">{children}</div>
+      </section>
+    </Shareable>
   );
 }
 
@@ -163,12 +168,14 @@ function Spark({ data, k }: { data: ActivityDay[]; k: "volume" | "txs" | "sender
 
 function Kpi({ label, value, note, spark }: { label: string; value: string; note: string; spark?: React.ReactNode }) {
   return (
-    <div className="stc-kpi">
-      <div className="card-title" style={CARD_TITLE}>{label}</div>
-      <div className="mono stc-kpi-value" style={{ color: "var(--text-dark)" }}>{value}</div>
-      <div style={{ ...MUTED, fontSize: "0.76rem" }}>{note}</div>
-      {spark}
-    </div>
+    <Shareable title={label} subtitle="Stablecoins on TX" framed={false}>
+      <div className="stc-kpi">
+        <div className="card-title" style={CARD_TITLE}>{label}</div>
+        <div className="mono stc-kpi-value" style={{ color: "var(--text-dark)" }}>{value}</div>
+        <div style={{ ...MUTED, fontSize: "0.76rem" }}>{note}</div>
+        {spark}
+      </div>
+    </Shareable>
   );
 }
 
@@ -341,8 +348,9 @@ const KIND_STYLE: Record<HolderKind, { color: string; background: string }> = {
 function HolderList({ c }: { c: Coin }) {
   const max = c.topHolders[0]?.share || 1;
   return (
+    <Shareable title={`Largest ${c.symbol} holders`} subtitle="Stablecoins on TX" framed={false}>
     <div className="panel" style={{ padding: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, paddingRight: 40 }}>
         <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)" }}>{c.symbol}</div>
         <div className="mono" style={{ ...MUTED, fontSize: "0.8rem" }}>top 10 of {c.holders?.toLocaleString("en-US") ?? "?"}</div>
       </div>
@@ -369,6 +377,7 @@ function HolderList({ c }: { c: Coin }) {
         })}
       </ol>
     </div>
+    </Shareable>
   );
 }
 
@@ -553,9 +562,11 @@ export default function StablecoinsTab() {
       <style>{`
         .stc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .stc-kpi { padding: 18px 20px; min-width: 0; }
-        .stc-kpi + .stc-kpi { border-left: 1px solid rgba(128,128,128,0.18); }
+        .stc-kpis > .shareable + .shareable { border-left: 1px solid rgba(128,128,128,0.18); }
         .stc-kpi-value { font-size: 1.7rem; margin: 4px 0 2px; white-space: nowrap; }
         .stc-panel { padding: 22px 24px; display: flex; flex-direction: column; min-width: 0; }
+        .stc-panel .section-head { padding-right: 40px; }
+        .stc-kpi .card-title { padding-right: 32px; }
         .stc-sub { margin: 4px 0 14px; font-size: 0.84rem; line-height: 1.5; }
         .stc-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .stc-row { display: grid; gap: 14px; margin-top: 14px; align-items: stretch; }
@@ -593,8 +604,8 @@ export default function StablecoinsTab() {
         @media (max-width: 980px) {
           .stc-row-main, .stc-grid-2 { grid-template-columns: minmax(0, 1fr); }
           .stc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .stc-kpi:nth-child(3) { border-left: none; }
-          .stc-kpi:nth-child(n+3) { border-top: 1px solid rgba(128,128,128,0.18); }
+          .stc-kpis > .shareable:nth-child(3) { border-left: none; }
+          .stc-kpis > .shareable:nth-child(n+3) { border-top: 1px solid rgba(128,128,128,0.18); }
         }
         @media (max-width: 520px) {
           .stc-kpi { padding: 14px 12px; }
