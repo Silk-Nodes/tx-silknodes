@@ -1,5 +1,5 @@
 import { ogFrame, ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og";
-import { liveCoins, liveUstx } from "@/lib/stablecoins";
+import { liveCoins, liveFragments, liveUstx } from "@/lib/stablecoins";
 
 // Drawn from the same cached reads as /api/stablecoins, so a shared link's
 // preview can never show a different number from the page it opens. Rebuilt
@@ -20,9 +20,14 @@ const BANDS = ["#e0795a", "#f0b49c", "rgba(240,236,227,0.38)", "rgba(240,236,227
 const fmt = (v: number) => Math.round(v).toLocaleString("en-US");
 
 export default async function Image() {
-  const [coins, ustx] = await Promise.all([liveCoins(), liveUstx()]);
+  const [coins, ustx, routes] = await Promise.all([liveCoins(), liveUstx(), liveFragments()]);
   const shown = coins.filter((c) => c.role !== "test" && c.breakdown);
-  const supply = shown.reduce((s, c) => s + c.supply, 0);
+  // Same total as the page's first tile: every USDC route plus SBC. Only the
+  // main USDC route is a tracked coin, so summing `shown` fell short by the
+  // other 38 routes (66,814 against the page's 69.2K on 2026-09-25).
+  const usdcAll = routes.reduce((s, r) => s + r.amount, 0);
+  const sbc = coins.find((c) => c.symbol === "SBC")?.supply ?? 0;
+  const supply = usdcAll > 0 ? usdcAll + sbc : shown.reduce((s, c) => s + c.supply, 0);
   const live = ustx?.issued === true;
 
   return ogImage(
