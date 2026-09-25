@@ -1058,7 +1058,7 @@ body {
      through it. Opaque page background + padding so rows slide cleanly under
      a crisp edge. */
   position: sticky;
-  top: 70px;
+  top: var(--nav-bottom, 70px);
   z-index: 20;
   background: var(--bg-base);
   padding-top: 8px;
@@ -1071,7 +1071,7 @@ body {
   .vd-tablewrap { overflow-x: auto; }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 768px) {
   /* Mobile nav pins full-width at top:0 and is 83px tall; the tab bar must
      start at its bottom edge. The earlier 56 slid the bar's top 24px (half
      the labels) underneath the nav. */
@@ -1990,7 +1990,7 @@ input[type="range"]::-moz-range-thumb {
 
 .validator-table thead {
   position: sticky;
-  top: 72px;
+  top: calc(var(--nav-bottom, 70px) + 2px);
   z-index: 5;
 }
 
@@ -2626,7 +2626,7 @@ input[type="range"]::-moz-range-thumb {
 /* ═══ STICKY TIME RANGE ═══ */
 .sticky-pills-bar {
   position: fixed;
-  top: 88px;
+  top: calc(var(--nav-bottom, 70px) + 18px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
@@ -14737,3 +14737,149 @@ input[type="range"]::-moz-range-thumb {
 @media (prefers-reduced-motion: reduce) {
   .vote-countdown.urgent .vote-countdown-dot { animation: none; }
 }
+
+/* ── NEW tag and the featured nav entry ────────────────────────────────
+   Lime on near-black reads in both themes. One sweep on load, then still:
+   a tag that keeps moving turns into noise by the second visit. */
+.new-tag {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--tx-neon);
+  color: #101208;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  vertical-align: middle;
+}
+.new-tag-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.85) 50%, transparent 80%);
+  transform: translateX(-120%);
+  animation: new-tag-sweep 1.1s ease-out 0.6s 1 forwards;
+}
+@keyframes new-tag-sweep { to { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) {
+  .new-tag-sweep::after { animation: none; display: none; }
+}
+/* On the active (lime) tab the tag would vanish into the fill. */
+.nav-tab.active .new-tag { background: #101208; color: var(--tx-neon); }
+
+/* Wide screens: after Passport. The row is flex, so order moves it without
+   touching the DOM, which stays "Today, Stablecoins" for phones. */
+.nav-tab-featured { order: 1; display: inline-flex; align-items: center; }
+.nav-tabs > .nav-tools { order: 2; }
+.nav-tools-newtag { display: none; }
+.nav-tools-newtag .new-tag { margin-left: 4px; }
+@media (min-width: 1280px) { .nav-tools-item-featured { display: none !important; } }
+
+/* 769 to 1279: no room for another link. It lives in Tools and the Tools
+   button carries the tag. Tabs also tighten here: at 1024 the row was
+   already 21px wider than the window before this entry existed. */
+@media (min-width: 769px) and (max-width: 1279px) {
+  .nav-tab-featured { display: none !important; }
+  .nav-tools-newtag { display: inline-flex; align-items: center; }
+  .nav-tools-trigger.active-mid { background: var(--tx-neon); color: var(--tx-dark-green); font-weight: 600; }
+  .nav-tools-trigger { display: inline-flex; align-items: center; }
+  .nav-tabs { gap: 2px; }
+  .nav-tab { padding: 8px 10px; }
+}
+
+/* 769 to 1099: brand, links and buttons need about 1,045px in one row, so
+   production scrolled sideways by 251px at 800. The links take their own
+   row under the brand and buttons, as on phones, and the nav stays sticky.
+   --nav-bottom carries the taller nav to everything that pins under it. */
+@media (min-width: 769px) and (max-width: 1099px) {
+  :root { --nav-bottom: 102px; }
+  .top-nav { flex-wrap: wrap; row-gap: 6px; border-radius: 22px; padding: 6px 6px 6px 16px; }
+  .brand { order: 1; }
+  .nav-right { order: 2; margin-left: auto; }
+  .nav-tabs { order: 3; width: 100%; justify-content: center; }
+}
+
+/* The More icon and the phone-only menu rows exist only on phones. */
+.nav-more-icon, .nav-tools-item-phone { display: none; }
+
+/* Phones: Today, Stablecoins, PSE, Governance and a More button. The rest
+   open from More, so the row fits without swiping. */
+@media (max-width: 768px) {
+  .nav-tab-featured, .nav-tabs > .nav-tools { order: 0; }
+  .nav-tools-item-featured { display: none !important; }
+  .nav-tab-phone-more { display: none !important; }
+  .nav-tools-item-phone { display: flex; }
+  .nav-tools-label { display: none; }
+  .nav-more-icon { display: block; }
+  .nav-tools-trigger { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; }
+  .nav-tools-trigger.active-phone { background: var(--tx-neon); color: var(--tx-dark-green); }
+}
+
+/* Small phones: brand, theme switch, Portfolio and Connect Wallet ran 9px
+   past the nav's right padding at 393, so the wallet button met the screen
+   edge. Tighter gaps put it back inside. */
+@media (max-width: 480px) {
+  .nav-right { margin-left: 8px; gap: 5px; }
+  .wallet-pill { padding: 6px 10px; }
+}
+/* Below 380 the button still ran 18px off a 360px screen. "Connect" alone
+   is enough there; the word Wallet comes back on wider phones. */
+@media (max-width: 379px) {
+  .wallet-pill-word { display: none; }
+}
+
+/* ── stablecoins film: dialog, phone card, page button ───────────────── */
+.film-backdrop {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(6, 8, 4, 0.72); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.film-dialog {
+  position: relative; width: min(880px, 100%);
+  background: #0a0d07; color: #f0ece3;
+  border: 1px solid rgba(177, 252, 3, 0.25); border-radius: 18px;
+  overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); outline: none;
+}
+.film-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0a0d07; }
+.film-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 14px 18px 16px; }
+.film-title { font-weight: 700; font-size: 1rem; }
+.film-sub { font-size: 0.84rem; color: rgba(240, 236, 227, 0.72); margin-top: 2px; }
+.film-cta {
+  background: var(--tx-neon); color: #101208; font-weight: 700; font-size: 0.88rem;
+  padding: 9px 18px; border-radius: 999px; text-decoration: none; white-space: nowrap;
+}
+.film-close {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(10, 13, 7, 0.75); color: #f0ece3; font-size: 0.9rem;
+}
+.film-card {
+  position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 1500;
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  background: #0a0d07; color: #f0ece3; border: 1px solid rgba(177, 252, 3, 0.3);
+  border-radius: 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  animation: film-card-in 0.35s ease-out;
+}
+@keyframes film-card-in { from { transform: translateY(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .film-card { animation: none; } }
+.film-card-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+  background: none; border: none; color: inherit; text-align: left; cursor: pointer; padding: 0;
+}
+.film-card-open img { border-radius: 8px; flex-shrink: 0; }
+.film-card-open > span { display: flex; flex-direction: column; min-width: 0; }
+.film-card-title { font-weight: 700; font-size: 0.9rem; }
+.film-card-sub { font-size: 0.8rem; color: var(--tx-neon); }
+.film-card-close { width: 32px; height: 32px; border: none; background: none; color: rgba(240, 236, 227, 0.75); cursor: pointer; flex-shrink: 0; }
+.film-button {
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--accent-olive); background: transparent;
+  color: var(--text-dark); font-weight: 600; font-size: 0.84rem;
+}
+.film-button:hover { background: var(--accent-olive-light); }

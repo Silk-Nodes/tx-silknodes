@@ -24,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import Shareable from "@/components/share/Shareable";
+import { FilmButton } from "@/components/StablecoinsFilm";
 
 type CoinRole = "incumbent" | "issued" | "test";
 type HolderKind = "dex" | "contract" | "known" | "wallet";
@@ -560,6 +561,7 @@ export default function StablecoinsTab() {
   return (
     <div>
       <style>{`
+        .stc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
         .stc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .stc-kpi { padding: 18px 20px; min-width: 0; }
         .stc-kpis > .shareable + .shareable { border-left: 1px solid rgba(128,128,128,0.18); }
@@ -615,11 +617,14 @@ export default function StablecoinsTab() {
         }
       `}</style>
 
-      <div style={{ marginBottom: 16 }}>
-        <h1 className="page-title" style={{ color: "var(--text-dark)" }}>Stablecoins on TX</h1>
-        <p className="section-sub" style={{ ...MUTED, marginTop: 4 }}>
-          Every dollar on the chain, read live. Updated {ago(d.updatedAt)}.
-        </p>
+      <div className="stc-head">
+        <div>
+          <h1 className="page-title" style={{ color: "var(--text-dark)" }}>Stablecoins on TX</h1>
+          <p className="section-sub" style={{ ...MUTED, marginTop: 4 }}>
+            Every dollar on the chain, read live. Updated {ago(d.updatedAt)}.
+          </p>
+        </div>
+        <FilmButton />
       </div>
 
       <div className="panel stc-kpis">
