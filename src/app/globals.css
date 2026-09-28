@@ -78,6 +78,10 @@
   --text-light: #676661;
 
   --glass-bg: rgba(255, 255, 255, 0.45);
+  /* Solid fill for the fixed mobile nav. The shipped CSS only keeps
+     -webkit-backdrop-filter, which current Chrome ignores, so a
+     translucent bar lets scrolled text show through. */
+  --nav-solid-bg: #ede9e0;
   --glass-border: rgba(255, 255, 255, 0.7);
   --glass-shadow: 0 12px 40px rgba(15, 27, 7, 0.04);
 
@@ -157,6 +161,7 @@
      as green, not charcoal. #17261a at low brightness was perceptually
      grey on many displays; #233f28 pushes green channel higher. */
   --glass-bg: #233f28;
+  --nav-solid-bg: #233f28;
   --glass-border: rgba(177, 252, 3, 0.18);
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 
@@ -2369,6 +2374,7 @@ input[type="range"]::-moz-range-thumb {
     right: 0;
     z-index: 1000;
     border-top: none;
+    background: var(--nav-solid-bg);
   }
   .nav-spacer {
     display: block;
