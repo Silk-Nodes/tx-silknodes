@@ -22,6 +22,7 @@ import {
   liveFragments,
   recording,
   activity,
+  issuerFlows,
 } from "@/lib/stablecoins";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ async function history(): Promise<{ points: HistoryPoint[]; available: boolean }
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const [coins, ustx, fragments, hist, rec, act] = await Promise.all([
     liveCoins(),
     liveUstx(),
@@ -69,6 +70,13 @@ export async function GET() {
     recording(),
     activity(),
   ]);
+
+  // USTX conversions, once it exists. Outside production a denom can be
+  // passed as ?previewFlows= to see the tracker filled with another coin's
+  // data (SBC shares Brale's issuer); the page labels that as a preview.
+  const preview = process.env.NODE_ENV !== "production" ? new URL(req.url).searchParams.get("previewFlows") : null;
+  const flowsDenom = preview ?? (ustx?.issued ? ustx.denom : null);
+  const flows = flowsDenom ? await issuerFlows(flowsDenom) : null;
 
   const usdcTotal = fragments.reduce((s, f) => s + f.amount, 0);
   const canonical = fragments.find((f) => f.denom === USDC_CANONICAL);
@@ -89,6 +97,7 @@ export async function GET() {
       },
       history: hist,
       activity: act,
+      ustxFlows: flows ? { ...flows, preview: Boolean(preview) } : null,
     },
     { headers: { "cache-control": "no-store" } },
   );

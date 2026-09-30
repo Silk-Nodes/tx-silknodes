@@ -452,3 +452,80 @@ export async function activity(): Promise<Activity[] | null> {
     return null; // no database, or migration 022 not run
   }
 }
+
+// ── issuer flows: USDC in, USTX out ──────────────────────────────────────
+//
+// Brale converts USDC sent from another chain into USTX on tx. On tx that
+// shows up as one thing only: USTX leaving Brale's issuer address for the
+// buyer's wallet. Redemptions are the reverse, USTX sent back to the issuer.
+// The source chain and the time from deposit to mint are not on tx, so they
+// are not shown. Legs from the mint module to the issuer are the mint itself
+// and are left out, so nothing is counted twice.
+
+export interface IssuerDay { day: string; issued: number; redeemed: number; wallets: number }
+export interface Issuance { txhash: string; ts: string; wallet: string; amount: number }
+export interface IssuerFlows {
+  denom: string;
+  issuer: string;
+  since: string | null;
+  days: IssuerDay[];
+  issued: number;
+  redeemed: number;
+  wallets: number;     // distinct wallets that received from the issuer
+  largest: Issuance[];
+}
+
+/** Issuer address of a Smart Token denom (subunit-issuer). Null for IBC. */
+export function issuerOf(denom: string): string | null {
+  if (denom.startsWith("ibc/")) return null;
+  const i = denom.indexOf("-");
+  return i > 0 ? denom.slice(i + 1) : null;
+}
+
+export async function issuerFlows(denom: string, days = 30): Promise<IssuerFlows | null> {
+  const issuer = issuerOf(denom);
+  if (!issuer) return null;
+  try {
+    const r = { denom, issuer, days };
+    const daily = await sequelize.query<{ day: string; issued: string; redeemed: string; wallets: string }>(
+      `SELECT to_char(date_trunc('day', ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+              COALESCE(SUM(amount) FILTER (WHERE sender = :issuer AND recipient <> :issuer), 0) AS issued,
+              COALESCE(SUM(amount) FILTER (WHERE recipient = :issuer AND sender <> :issuer), 0) AS redeemed,
+              COUNT(DISTINCT recipient) FILTER (WHERE sender = :issuer AND recipient <> :issuer) AS wallets
+         FROM stablecoin_transfers
+        WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
+          AND (sender = :issuer OR recipient = :issuer)
+        GROUP BY 1 ORDER BY 1`,
+      { replacements: r, type: QueryTypes.SELECT },
+    );
+    const [tot] = await sequelize.query<{ issued: string; redeemed: string; wallets: string; since: string | null }>(
+      `SELECT COALESCE(SUM(amount) FILTER (WHERE sender = :issuer AND recipient <> :issuer), 0) AS issued,
+              COALESCE(SUM(amount) FILTER (WHERE recipient = :issuer AND sender <> :issuer), 0) AS redeemed,
+              COUNT(DISTINCT recipient) FILTER (WHERE sender = :issuer AND recipient <> :issuer) AS wallets,
+              MIN(ts) AS since
+         FROM stablecoin_transfers
+        WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval`,
+      { replacements: r, type: QueryTypes.SELECT },
+    );
+    const largest = await sequelize.query<{ txhash: string; ts: string; recipient: string; amount: string }>(
+      `SELECT txhash, ts, recipient, amount FROM stablecoin_transfers
+        WHERE denom = :denom AND sender = :issuer AND recipient <> :issuer
+          AND ts >= NOW() - (:days || ' days')::interval
+        ORDER BY amount DESC LIMIT 5`,
+      { replacements: r, type: QueryTypes.SELECT },
+    );
+    const n = (v: string | null | undefined) => Number(v ?? 0);
+    return {
+      denom,
+      issuer,
+      since: tot?.since ? new Date(tot.since).toISOString() : null,
+      days: daily.map((d) => ({ day: d.day, issued: n(d.issued), redeemed: n(d.redeemed), wallets: n(d.wallets) })),
+      issued: n(tot?.issued),
+      redeemed: n(tot?.redeemed),
+      wallets: n(tot?.wallets),
+      largest: largest.map((l) => ({ txhash: l.txhash, ts: new Date(l.ts).toISOString(), wallet: l.recipient, amount: n(l.amount) })),
+    };
+  } catch {
+    return null; // no database, or migration 022 not run
+  }
+}
