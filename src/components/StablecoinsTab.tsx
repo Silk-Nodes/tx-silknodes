@@ -23,7 +23,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import Shareable from "@/components/share/Shareable";
+import Shareable, { useInSnapshot } from "@/components/share/Shareable";
 import { FilmButton } from "@/components/StablecoinsFilm";
 
 type CoinRole = "incumbent" | "issued" | "test";
@@ -283,6 +283,8 @@ const BRALE_SBC_PAGE = "https://brale.xyz/stablecoins/SBC";
 // USDC, Brale, USTX. A dot travels each path so the direction reads without
 // words. Colours come from classes so both themes apply.
 function FlowDiagram() {
+  // A snapshot is a still: dots only have a position while animating.
+  const still = useInSnapshot();
   const W = 640, H = 262, cy = H / 2 + 6;
   const chainX = 8, chainW = 92, gap = 27;
   const top = cy - ((SOURCE_CHAINS.length - 1) * gap) / 2;
@@ -300,39 +302,45 @@ function FlowDiagram() {
       aria-label="USDC from eight chains goes to Brale, which issues USTX to a tx wallet, one for one">
       {fan.map((f, i) => (
         <g key={f.c}>
-          <path d={f.d} className="ud-line" />
-          <circle r="2.6" className="ud-dot">
+          <path d={f.d} fill="none" stroke="rgba(128,128,128,0.35)" strokeWidth={1.3} />
+          {!still && (
+          <circle r="2.6" fill="var(--text-dark)" opacity={0.75} className="ud-dot">
             <animateMotion dur="3.2s" begin={`${(i * 0.37).toFixed(2)}s`} repeatCount="indefinite" path={f.d} />
           </circle>
-          <rect x={chainX} y={f.y - 10} width={chainW} height={20} rx={10} className="ud-chip" />
-          <text x={chainX + chainW / 2} y={f.y + 4} textAnchor="middle" className="ud-chip-t">{f.c}</text>
+          )}
+          <rect x={chainX} y={f.y - 10} width={chainW} height={20} rx={10} fill="var(--glass-bg)" stroke="rgba(128,128,128,0.35)" />
+          <text x={chainX + chainW / 2} y={f.y + 4} textAnchor="middle" fontSize={10.5} fill="var(--text-dark)">{f.c}</text>
         </g>
       ))}
-      <path d={mid} className="ud-line ud-line-strong" />
-      <path d={end} className="ud-line ud-line-lime" markerEnd="url(#ud-arrow)" />
-      <circle r="3.2" className="ud-dot">
+      <path d={mid} fill="none" stroke="rgba(128,128,128,0.6)" strokeWidth={1.8} />
+      <path d={end} fill="none" stroke="var(--tx-neon)" strokeWidth={2} markerEnd="url(#ud-arrow)" />
+      {!still && (
+      <circle r="3.2" fill="var(--text-dark)" opacity={0.75} className="ud-dot">
         <animateMotion dur="1.6s" repeatCount="indefinite" path={mid} />
       </circle>
-      <circle r="3.2" className="ud-dot ud-dot-lime">
+      )}
+      {!still && (
+      <circle r="3.2" fill="var(--tx-neon)" className="ud-dot">
         <animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite" path={end} />
       </circle>
+      )}
       <defs>
         <marker id="ud-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" className="ud-arrowhead" />
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--tx-neon)" />
         </marker>
       </defs>
-      <circle cx={usdc.x} cy={cy} r={R} className="ud-node" />
-      <text x={usdc.x} y={cy + 4} textAnchor="middle" className="ud-node-t">USDC</text>
-      <circle cx={brale.x} cy={cy} r={R} className="ud-node ud-node-dashed" />
-      <text x={brale.x} y={cy + 4} textAnchor="middle" className="ud-node-t">Brale</text>
-      <circle cx={ustx.x} cy={cy} r={R + 7} className="ud-halo" />
-      <circle cx={ustx.x} cy={cy} r={R} className="ud-node-lime" />
-      <text x={ustx.x} y={cy + 4} textAnchor="middle" className="ud-node-t ud-node-t-dark">USTX</text>
-      <text x={usdc.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">Send USDC</text>
-      <text x={brale.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">Brale issues</text>
-      <text x={ustx.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">In your tx wallet</text>
-      <text x={(usdc.x + brale.x) / 2} y={cy - 12} textAnchor="middle" className="ud-rate">1 : 1</text>
-      <text x={chainX} y={top - 20} className="ud-cap-sm">8 source chains</text>
+      <circle cx={usdc.x} cy={cy} r={R} fill="var(--glass-bg)" stroke="rgba(128,128,128,0.55)" strokeWidth={1.5} />
+      <text x={usdc.x} y={cy + 4} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={11} fontWeight={700} fill="var(--text-dark)">USDC</text>
+      <circle cx={brale.x} cy={cy} r={R} fill="var(--glass-bg)" stroke="rgba(128,128,128,0.55)" strokeWidth={1.5} strokeDasharray="4 3" />
+      <text x={brale.x} y={cy + 4} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={11} fontWeight={700} fill="var(--text-dark)">Brale</text>
+      <circle cx={ustx.x} cy={cy} r={R + 7} fill="rgba(177,252,3,0.18)" />
+      <circle cx={ustx.x} cy={cy} r={R} fill="var(--tx-neon)" />
+      <text x={ustx.x} y={cy + 4} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={11} fontWeight={700} fill="#101208">USTX</text>
+      <text x={usdc.x} y={cy + R + 24} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="var(--text-dark)">Send USDC</text>
+      <text x={brale.x} y={cy + R + 24} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="var(--text-dark)">Brale issues</text>
+      <text x={ustx.x} y={cy + R + 24} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="var(--text-dark)">In your tx wallet</text>
+      <text x={(usdc.x + brale.x) / 2} y={cy - 12} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={11} fontWeight={700} fill="var(--text-accent)">1 : 1</text>
+      <text x={chainX} y={top - 20} fontSize={10.5} fill="var(--text-light)" letterSpacing="0.08em">8 SOURCE CHAINS</text>
     </svg>
   );
 }
@@ -827,23 +835,6 @@ export default function StablecoinsTab() {
         .ustx-key { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
         .ustx-key-month { background: var(--tx-neon); }
         .ustx-diagram { width: 100%; height: auto; display: block; }
-        .ud-line { fill: none; stroke: rgba(128,128,128,0.35); stroke-width: 1.3; }
-        .ud-line-strong { stroke: rgba(128,128,128,0.6); stroke-width: 1.8; }
-        .ud-line-lime { stroke: var(--tx-neon); stroke-width: 2; }
-        .ud-arrowhead { fill: var(--tx-neon); }
-        .ud-dot { fill: var(--text-dark); opacity: 0.75; }
-        .ud-dot-lime { fill: var(--tx-neon); opacity: 1; }
-        .ud-chip { fill: var(--glass-bg); stroke: rgba(128,128,128,0.35); }
-        .ud-chip-t { font-size: 10.5px; fill: var(--text-dark); font-family: inherit; }
-        .ud-node { fill: var(--glass-bg); stroke: rgba(128,128,128,0.55); stroke-width: 1.5; }
-        .ud-node-dashed { stroke-dasharray: 4 3; }
-        .ud-node-lime { fill: var(--tx-neon); }
-        .ud-halo { fill: color-mix(in srgb, var(--tx-neon) 18%, transparent); }
-        .ud-node-t { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-dark); }
-        .ud-node-t-dark { fill: #101208; }
-        .ud-cap { font-size: 12.5px; font-weight: 700; fill: var(--text-dark); }
-        .ud-cap-sm { font-size: 10.5px; fill: var(--text-light); text-transform: uppercase; letter-spacing: 0.08em; }
-        .ud-rate { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-accent); }
         .ustx-narrow { display: none; }
         @media (max-width: 640px) {
           .ustx-diagram { display: none; }
