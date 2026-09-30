@@ -8,7 +8,7 @@
 // per section. Every figure comes from /api/stablecoins, which reads the chain
 // live and the hourly collector's tables (migrations 021 and 022).
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -60,6 +60,13 @@ interface Payload {
   usdc: { routes: number; total: number; canonical: number | null; canonicalShare: number | null; fragments: Fragment[] };
   history: { available: boolean; points: HistoryPoint[] };
   activity: Activity[] | null;
+  ustxFlows: IssuerFlows | null;
+}
+interface IssuerDay { day: string; issued: number; redeemed: number; wallets: number }
+interface IssuerFlows {
+  denom: string; issuer: string; since: string | null; days: IssuerDay[];
+  issued: number; redeemed: number; wallets: number; preview: boolean;
+  largest: { txhash: string; ts: string; wallet: string; amount: number }[];
 }
 
 const REFRESH_MS = 5 * 60_000;
@@ -73,7 +80,9 @@ function useStablecoins() {
     let alive = true;
     const load = async () => {
       try {
-        const res = await fetch("/api/stablecoins", { cache: "no-store" });
+        // ?previewFlows=<denom> only does anything outside production.
+        const q = new URLSearchParams(window.location.search).get("previewFlows");
+        const res = await fetch(`/api/stablecoins${q ? `?previewFlows=${encodeURIComponent(q)}` : ""}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const j = (await res.json()) as Payload;
         if (alive) { setData(j); setError(null); }
@@ -256,6 +265,218 @@ function UstxMonitor({ d }: { d: Payload }) {
 }
 
 // ── who holds ────────────────────────────────────────────────────────────
+
+
+// ── USDC to USTX ─────────────────────────────────────────────────────────
+
+// From tx's announcement, 2026-09-28. Brale runs the conversion; this page
+// only reads the result on chain and links to their flow.
+const ANNOUNCEMENT = "https://x.com/txEcosystem/status/2104606576997024056";
+// Set when Brale publishes the conversion flow. Until then no button, so
+// nobody is sent to a page that does not exist yet.
+const GET_USTX_URL: string | null = null;
+const SOURCE_CHAINS = ["Ethereum", "Base", "Solana", "Arbitrum", "Optimism", "Polygon", "Avalanche", "Celo"];
+// Brale's reserve reports are monthly PDFs per coin, with no data feed.
+const BRALE_SBC_PAGE = "https://brale.xyz/stablecoins/SBC";
+
+// The wide version of the flow: eight source chains fan into USDC, then
+// USDC, Brale, USTX. A dot travels each path so the direction reads without
+// words. Colours come from classes so both themes apply.
+function FlowDiagram() {
+  const W = 640, H = 262, cy = H / 2 + 6;
+  const chainX = 8, chainW = 92, gap = 27;
+  const top = cy - ((SOURCE_CHAINS.length - 1) * gap) / 2;
+  const usdc = { x: 250, y: cy }, brale = { x: 410, y: cy }, ustx = { x: 570, y: cy };
+  const R = 34;
+  const fan = SOURCE_CHAINS.map((c, i) => {
+    const y = top + i * gap;
+    const x0 = chainX + chainW;
+    return { c, y, d: `M${x0},${y} C${x0 + 70},${y} ${usdc.x - R - 60},${cy} ${usdc.x - R},${cy}` };
+  });
+  const mid = `M${usdc.x + R},${cy} L${brale.x - R},${cy}`;
+  const end = `M${brale.x + R},${cy} L${ustx.x - R - 6},${cy}`;
+  return (
+    <svg className="ustx-diagram" viewBox={`0 0 ${W} ${H + 24}`} role="img"
+      aria-label="USDC from eight chains goes to Brale, which issues USTX to a tx wallet, one for one">
+      {fan.map((f, i) => (
+        <g key={f.c}>
+          <path d={f.d} className="ud-line" />
+          <circle r="2.6" className="ud-dot">
+            <animateMotion dur="3.2s" begin={`${(i * 0.37).toFixed(2)}s`} repeatCount="indefinite" path={f.d} />
+          </circle>
+          <rect x={chainX} y={f.y - 10} width={chainW} height={20} rx={10} className="ud-chip" />
+          <text x={chainX + chainW / 2} y={f.y + 4} textAnchor="middle" className="ud-chip-t">{f.c}</text>
+        </g>
+      ))}
+      <path d={mid} className="ud-line ud-line-strong" />
+      <path d={end} className="ud-line ud-line-lime" markerEnd="url(#ud-arrow)" />
+      <circle r="3.2" className="ud-dot">
+        <animateMotion dur="1.6s" repeatCount="indefinite" path={mid} />
+      </circle>
+      <circle r="3.2" className="ud-dot ud-dot-lime">
+        <animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite" path={end} />
+      </circle>
+      <defs>
+        <marker id="ud-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" className="ud-arrowhead" />
+        </marker>
+      </defs>
+      <circle cx={usdc.x} cy={cy} r={R} className="ud-node" />
+      <text x={usdc.x} y={cy + 4} textAnchor="middle" className="ud-node-t">USDC</text>
+      <circle cx={brale.x} cy={cy} r={R} className="ud-node ud-node-dashed" />
+      <text x={brale.x} y={cy + 4} textAnchor="middle" className="ud-node-t">Brale</text>
+      <circle cx={ustx.x} cy={cy} r={R + 7} className="ud-halo" />
+      <circle cx={ustx.x} cy={cy} r={R} className="ud-node-lime" />
+      <text x={ustx.x} y={cy + 4} textAnchor="middle" className="ud-node-t ud-node-t-dark">USTX</text>
+      <text x={usdc.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">Send USDC</text>
+      <text x={brale.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">Brale issues</text>
+      <text x={ustx.x} y={cy + R + 24} textAnchor="middle" className="ud-cap">In your tx wallet</text>
+      <text x={(usdc.x + brale.x) / 2} y={cy - 12} textAnchor="middle" className="ud-rate">1 : 1</text>
+      <text x={chainX} y={top - 20} className="ud-cap-sm">8 source chains</text>
+    </svg>
+  );
+}
+
+function HowUstx() {
+  const nodes: { k: string; title: string; sub: string; tone: "usdc" | "brale" | "ustx" }[] = [
+    { k: "USDC", title: "Send USDC", sub: "from a wallet you control", tone: "usdc" },
+    { k: "Brale", title: "Brale issues", sub: "backed by its reserves", tone: "brale" },
+    { k: "USTX", title: "USTX arrives", sub: "in your tx wallet", tone: "ustx" },
+  ];
+  return (
+    <Panel title="How USDC becomes USTX" sub="Brale runs the conversion. This page reads the result on chain.">
+      <FlowDiagram />
+      <div className="ustx-flow ustx-narrow">
+        {nodes.map((n, i) => (
+          <Fragment key={n.k}>
+            <div className="ustx-node">
+              <span className={`ustx-token ustx-token-${n.tone}`}>{n.k}</span>
+              <span className="ustx-node-title">{n.title}</span>
+              <span className="ustx-node-sub">{n.sub}</span>
+            </div>
+            {i < nodes.length - 1 && (
+              <span className="ustx-arrow" aria-hidden="true">
+                <svg width="28" height="12" viewBox="0 0 28 12"><path d="M0 6h24M19 1l6 5-6 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </span>
+            )}
+          </Fragment>
+        ))}
+      </div>
+      <div className="ustx-rate mono">1 USDC = 1 USTX</div>
+      <div className="ustx-from ustx-narrow">
+        <span className="ustx-from-label">From</span>
+        {SOURCE_CHAINS.map((c) => <span key={c} className="ustx-chip">{c}</span>)}
+      </div>
+      <div className="ustx-actions">
+        {GET_USTX_URL ? (
+          <a className="film-cta" href={GET_USTX_URL} target="_blank" rel="noopener noreferrer">Get USTX</a>
+        ) : (
+          <span className="ustx-status mono">Conversion opens at launch</span>
+        )}
+        <a href={ANNOUNCEMENT} target="_blank" rel="noopener noreferrer" className="stc-link">tx&apos;s announcement</a>
+      </div>
+    </Panel>
+  );
+}
+
+function UstxReserves({ d }: { d: Payload }) {
+  const f = d.ustxFlows;
+  const live = Boolean(d.ustx?.issued && !f?.preview);
+  const supply = live ? d.coins.find((c) => c.denom === d.ustx?.denom)?.supply ?? 0 : 0;
+  return (
+    <Panel title="Backed 1:1">
+      <div className="ustx-eq">
+        <div className="ustx-eq-side">
+          <span className="mono ustx-eq-v" style={{ color: "var(--text-dark)" }}>{num(supply, 0)}</span>
+          <span className="ustx-eq-k">USTX on tx</span>
+        </div>
+        <span className="ustx-eq-sign mono" aria-label="equals">=</span>
+        <div className="ustx-eq-side">
+          <span className="mono ustx-eq-v" style={{ color: "var(--text-light)" }}>$ ?</span>
+          <span className="ustx-eq-k">in reserve</span>
+        </div>
+      </div>
+      <p className="ustx-eq-note">Reserves are attested monthly by an independent firm. First report after launch.</p>
+      <div className="ustx-actions">
+        <span />
+        <a href={BRALE_SBC_PAGE} target="_blank" rel="noopener noreferrer" className="stc-link">Brale&apos;s reports</a>
+      </div>
+    </Panel>
+  );
+}
+
+function UstxTracker({ d }: { d: Payload }) {
+  const f = d.ustxFlows;
+  const sym = f?.preview ? d.coins.find((c) => c.denom === f.denom)?.symbol ?? "preview" : "USTX";
+  const data = f?.days.map((x) => ({ ...x, redeemedNeg: -x.redeemed })) ?? [];
+  return (
+    <Panel
+      title="USDC converted to USTX"
+      sub={f ? `Issued from Brale's address to wallets, and sent back to redeem, daily${f.since ? ` since ${dateOnly(f.since)}` : ""}.` : "Every issuance from Brale's address lands here within the hour of the first mint."}
+    >
+      {f?.preview && (
+        <div className="ustx-preview mono">Preview with {sym} data, same issuer. Local only.</div>
+      )}
+      {!f ? (
+        <div className="ustx-waiting">
+          <div className="ustx-ghost" aria-hidden="true">
+            {[18, 30, 22, 44, 36, 58, 40, 66, 52, 74, 60, 82, 70, 90].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}
+          </div>
+          <div className="ustx-waiting-label">
+            <span className="mono" style={{ color: "var(--text-dark)" }}>Waiting for the first mint</span>
+            <span style={{ ...MUTED, fontSize: "0.78rem" }}>Watching {short(d.watching.mainnetIssuer)} every hour</span>
+          </div>
+        </div>
+      ) : (
+        <div className="ustx-track">
+          <div className="ustx-kpis">
+            <div><div className="card-title" style={CARD_TITLE}>Issued, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.issued, 0)}</div></div>
+            <div><div className="card-title" style={CARD_TITLE}>Sent back, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.redeemed, 0)}</div></div>
+            <div><div className="card-title" style={CARD_TITLE}>Wallets issued to</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{f.wallets.toLocaleString("en-US")}</div></div>
+          </div>
+          <div style={{ height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} stackOffset="sign" margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.2)" />
+                <XAxis dataKey="day" tickFormatter={dayLabel} tick={AXIS} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tickFormatter={(v) => usd(Math.abs(v as number))} tick={AXIS} tickLine={false} axisLine={false} width={52} />
+                <Tooltip
+                  cursor={{ fill: "rgba(128,128,128,0.08)" }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const x = payload[0].payload as IssuerDay;
+                    return (
+                      <TipBox>
+                        <strong>{dayLabel(x.day)}</strong>
+                        <span>issued <b className="mono">{num(x.issued)}</b> to <b className="mono">{x.wallets}</b> wallets</span>
+                        <span>sent back <b className="mono">{num(x.redeemed)}</b></span>
+                      </TipBox>
+                    );
+                  }}
+                />
+                <Bar dataKey="issued" stackId="f" fill={C.ibcIn} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="redeemedNeg" stackId="f" fill={C.ibcOut} radius={[0, 0, 3, 3]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <Legend items={[["Issued to wallets", C.ibcIn], ["Sent back to Brale", C.ibcOut]]} />
+          {f.largest.length > 0 && (
+            <div className="ustx-largest">
+              <div className="card-title" style={CARD_TITLE}>Largest issuances</div>
+              {f.largest.map((l) => (
+                <div key={l.txhash + l.wallet} className="ustx-largest-row">
+                  <a href={`/passport/${l.wallet}`} className="mono stc-addr" style={{ color: "var(--text-dark)" }}>{short(l.wallet)}</a>
+                  <span className="mono" style={MUTED}>{dateOnly(l.ts)}</span>
+                  <span className="mono" style={{ color: "var(--text-dark)", textAlign: "right" }}>{num(l.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 function WhoHolds({ d }: { d: Payload }) {
   const rows = d.coins
@@ -561,6 +782,94 @@ export default function StablecoinsTab() {
   return (
     <div>
       <style>{`
+        .ustx-flow { display: grid; grid-template-columns: minmax(0,1fr) 28px minmax(0,1fr) 28px minmax(0,1fr); align-items: start; gap: 8px; }
+        .ustx-node { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0; }
+        .ustx-token { width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+                      font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 6px; }
+        .ustx-token-usdc { border: 1.5px solid rgba(128,128,128,0.5); color: var(--text-dark); }
+        .ustx-token-brale { border: 1.5px dashed rgba(128,128,128,0.6); color: var(--text-dark); }
+        .ustx-token-ustx { background: var(--tx-neon); color: #101208; box-shadow: 0 0 0 5px color-mix(in srgb, var(--tx-neon) 20%, transparent); }
+        .ustx-node-title { font-weight: 700; font-size: 0.9rem; color: var(--text-dark); }
+        .ustx-node-sub { font-size: 0.76rem; color: var(--text-light); line-height: 1.35; }
+        .ustx-arrow { color: var(--text-light); align-self: start; margin-top: 20px; display: flex; justify-content: center; }
+        .ustx-rate { margin: 18px auto 0; padding: 8px 18px; border-radius: 999px; font-size: 0.9rem; font-weight: 700; text-align: center; width: fit-content;
+                     color: var(--text-dark); border: 1px solid color-mix(in srgb, var(--accent-olive) 70%, transparent);
+                     background: color-mix(in srgb, var(--accent-olive) 14%, transparent); }
+        .ustx-from { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 16px; }
+        .ustx-from-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-light); margin-right: 2px; }
+        .ustx-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(128,128,128,0.3); color: var(--text-dark); }
+        .ustx-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+                        margin-top: auto; padding-top: 18px; }
+        .ustx-status { font-size: 0.74rem; padding: 4px 10px; border-radius: 999px; background: rgba(128,128,128,0.12); color: var(--text-dark); }
+        .stc-link { color: var(--text-accent); font-size: 0.82rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .ustx-bars { display: grid; gap: 16px; }
+        .ustx-bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 0.86rem; margin-bottom: 6px; }
+        .ustx-bar { height: 14px; border-radius: 7px; background: rgba(128,128,128,0.10); overflow: hidden; }
+        .ustx-bar > span { display: block; height: 100%; background: var(--tx-neon); }
+        .ustx-bar-empty { background: transparent; border: 1px dashed rgba(128,128,128,0.5); }
+        .ustx-bar-note { font-size: 0.74rem; color: var(--text-light); margin-top: 5px; }
+        .ustx-eq { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 12px; min-height: 180px; }
+        .ustx-eq-side { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+        .ustx-eq-v { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1; font-weight: 600; }
+        .ustx-eq-k { font-size: 0.86rem; color: var(--text-light); }
+        .ustx-eq-sign { font-size: 2.4rem; color: var(--text-accent); font-weight: 700; }
+        .ustx-eq-note { text-align: center; font-size: 0.8rem; color: var(--text-light); margin: 0; }
+        .ustx-cadence { margin-top: 18px; }
+        .ustx-coverage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
+                         padding: 14px 16px; border-radius: 12px; background: rgba(128,128,128,0.07); margin-bottom: 18px; }
+        .ustx-coverage-v { font-size: 2.2rem; line-height: 1.05; margin-top: 2px; }
+        .ustx-coverage-note { font-size: 0.78rem; line-height: 1.5; color: var(--text-light); }
+        .ustx-ticks { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; align-items: end; height: 34px; }
+        .ustx-tick { height: 40%; border-radius: 2px; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
+        .ustx-tick-month { height: 100%; background: var(--tx-neon); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tx-neon) 25%, transparent); }
+        .ustx-cadence-legend { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 0.76rem; color: var(--text-light); }
+        .ustx-cadence-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .ustx-key { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
+        .ustx-key-month { background: var(--tx-neon); }
+        .ustx-diagram { width: 100%; height: auto; display: block; }
+        .ud-line { fill: none; stroke: rgba(128,128,128,0.35); stroke-width: 1.3; }
+        .ud-line-strong { stroke: rgba(128,128,128,0.6); stroke-width: 1.8; }
+        .ud-line-lime { stroke: var(--tx-neon); stroke-width: 2; }
+        .ud-arrowhead { fill: var(--tx-neon); }
+        .ud-dot { fill: var(--text-dark); opacity: 0.75; }
+        .ud-dot-lime { fill: var(--tx-neon); opacity: 1; }
+        .ud-chip { fill: var(--glass-bg); stroke: rgba(128,128,128,0.35); }
+        .ud-chip-t { font-size: 10.5px; fill: var(--text-dark); font-family: inherit; }
+        .ud-node { fill: var(--glass-bg); stroke: rgba(128,128,128,0.55); stroke-width: 1.5; }
+        .ud-node-dashed { stroke-dasharray: 4 3; }
+        .ud-node-lime { fill: var(--tx-neon); }
+        .ud-halo { fill: color-mix(in srgb, var(--tx-neon) 18%, transparent); }
+        .ud-node-t { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-dark); }
+        .ud-node-t-dark { fill: #101208; }
+        .ud-cap { font-size: 12.5px; font-weight: 700; fill: var(--text-dark); }
+        .ud-cap-sm { font-size: 10.5px; fill: var(--text-light); text-transform: uppercase; letter-spacing: 0.08em; }
+        .ud-rate { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-accent); }
+        .ustx-narrow { display: none; }
+        @media (max-width: 640px) {
+          .ustx-diagram { display: none; }
+          .ustx-narrow { display: grid; }
+          .ustx-from.ustx-narrow { display: flex; }
+        }
+        @media (prefers-reduced-motion: reduce) { .ud-dot { display: none; } }
+        .ustx-ghost { position: absolute; inset: 16px 16px 0; display: flex; align-items: flex-end; gap: 6%; opacity: 0.9; }
+        .ustx-ghost span { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(to top, rgba(128,128,128,0.28), rgba(128,128,128,0.06)); }
+        .ustx-waiting-label { position: relative; display: grid; gap: 4px; justify-items: center; padding: 10px 16px; border-radius: 12px;
+                              background: var(--glass-bg); border: 1px solid rgba(128,128,128,0.25); }
+        .ustx-big { font-size: 1.5rem; margin: 4px 0 2px; }
+        .ustx-waiting { position: relative; overflow: hidden; display: grid; gap: 6px; place-content: center; text-align: center; min-height: 200px;
+                        border: 1px dashed rgba(128,128,128,0.45); border-radius: 12px; padding: 20px; }
+        .ustx-preview { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 12px;
+                        background: color-mix(in srgb, var(--accent-orange) 22%, transparent); color: var(--text-dark); }
+        .ustx-track { display: grid; gap: 14px; }
+        .ustx-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .ustx-largest { display: grid; gap: 4px; }
+        .ustx-largest-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; font-size: 0.84rem;
+                            padding: 6px 0; border-top: 1px solid rgba(128,128,128,0.16); }
+        @media (max-width: 520px) {
+          .ustx-kpis { grid-template-columns: minmax(0, 1fr); }
+          .ustx-flow { grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr); gap: 4px; }
+          .ustx-arrow svg { width: 18px; }
+        }
         .stc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
         .stc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .stc-kpi { padding: 18px 20px; min-width: 0; }
@@ -659,6 +968,15 @@ export default function StablecoinsTab() {
             : <p style={{ ...MUTED, margin: 0 }}>Transfers are recorded by the hourly collector. The chart fills after its next run.</p>}
         </Panel>
         <UstxMonitor d={d} />
+      </div>
+
+      <div className="stc-row stc-grid-2">
+        <HowUstx />
+        <UstxReserves d={d} />
+      </div>
+
+      <div className="stc-row">
+        <UstxTracker d={d} />
       </div>
 
       <div className="stc-row stc-grid-2">
