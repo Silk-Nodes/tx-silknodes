@@ -81,7 +81,7 @@ async function handler(req: Request) {
     const sql = `
       WITH outflows AS (
         SELECT counterparty, amount
-        FROM exchange_flows
+        FROM exchange_flows_listed
         WHERE direction = 'outflow'
           ${sinceDate ? "AND timestamp >= :sinceDate" : ""}
       ),

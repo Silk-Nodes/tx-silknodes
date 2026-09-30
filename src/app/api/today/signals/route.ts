@@ -93,7 +93,7 @@ async function handler(_req: Request) {
     sequelize
       .query<{ direction: "inflow" | "outflow"; total: string }>(
         `SELECT direction, COALESCE(SUM(amount), 0)::text AS total
-           FROM exchange_flows
+           FROM exchange_flows_listed
           WHERE timestamp >= NOW() - INTERVAL '24 hours'
           GROUP BY direction`,
         { type: QueryTypes.SELECT },

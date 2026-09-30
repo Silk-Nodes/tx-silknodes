@@ -65,7 +65,7 @@ async function handler(req: Request) {
         counterparty,
         SUM(amount)::numeric AS total_amount,
         COUNT(*)::int        AS tx_count
-      FROM exchange_flows
+      FROM exchange_flows_listed
       WHERE direction = :direction
         ${sinceDate ? "AND timestamp >= :sinceDate" : ""}
       GROUP BY counterparty

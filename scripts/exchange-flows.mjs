@@ -40,7 +40,10 @@ const EXCHANGES = {
   Kraken: "core1ctpu5ssl0hys60ukglv9pwzmqtys3x9gn8fh5l",
   MEXC: "core12lj6mhmhuvjwfwwxkzucqq9vq7hkp0gl5tnune",
   Bitrue: "core1g2c72hh78wma9fqlva9wu5a9hx5vq8aeznltds",
+  // Delisted TX/USDT 2026-08-21 10:00 UTC. Kept: this script reads history.
   Bitget: "core1yr8z44x2cxdaen0ha95qchqmugckxllwa7qcgx",
+  // Added 2026-09-30, first active 2026-09-28.
+  Ourbit: "core16yxk8guwrt6r8mx8pvk3n2dntlz9qm30qz0g0a",
 };
 
 const args = process.argv.slice(2);

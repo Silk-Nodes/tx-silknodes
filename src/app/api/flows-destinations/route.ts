@@ -134,7 +134,7 @@ async function handler(req: Request) {
             ) THEN 'staked'
             ELSE 'private'
           END AS category
-        FROM exchange_flows ef
+        FROM exchange_flows_listed ef
         WHERE ef.direction = 'outflow'
           ${sinceDate ? "AND ef.timestamp >= :sinceDate" : ""}
       )

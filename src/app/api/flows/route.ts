@@ -21,9 +21,18 @@
 import { NextResponse } from "next/server";
 import { withCache } from "@/lib/response-cache";
 import { Op, fn, col, literal } from "sequelize";
-import { ExchangeAddress, ExchangeFlow } from "@/lib/db/models";
+import { ExchangeAddress, ExchangeFlowListed } from "@/lib/db/models";
 
 const ROUTE_TAG = "flows";
+
+
+// A delisted venue shows only in windows that reach back before its
+// delisting, and always under a name that says so.
+function venueName(name: string, delistedAt: Date | string | null | undefined): string {
+  if (!delistedAt) return name;
+  const d = new Date(delistedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${name}, delisted ${d}`;
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -72,7 +81,7 @@ async function handler(req: Request) {
       ExchangeAddress.findAll({ raw: true, order: [["exchange_name", "ASC"]] }),
       // SUM by (exchange_address, direction). PG handles the GROUP BY in
       // one round trip — way cheaper than per-exchange queries.
-      ExchangeFlow.findAll({
+      ExchangeFlowListed.findAll({
         attributes: [
           "exchange_address",
           "direction",
@@ -94,6 +103,12 @@ async function handler(req: Request) {
       >,
     ]);
 
+    // A delisted venue stays in the list only when this window reaches back
+    // before its delisting, i.e. it has rows here. Its flows after that date
+    // are already excluded by the view.
+    const withRows = new Set(aggRows.map((a) => a.exchange_address));
+    const shownExchanges = exchanges.filter((e) => !e.delisted_at || withRows.has(e.address));
+
     // Pivot the agg rows into per-address totals.
     type Row = {
       inflow: number;
@@ -102,7 +117,7 @@ async function handler(req: Request) {
       latestAt: Date | null;
     };
     const byAddr = new Map<string, Row>();
-    for (const e of exchanges) {
+    for (const e of shownExchanges) {
       byAddr.set(e.address, {
         inflow: 0,
         outflow: 0,
@@ -126,19 +141,20 @@ async function handler(req: Request) {
     let totalIn = 0;
     let totalOut = 0;
     let totalTx = 0;
-    const perExchange = exchanges.map((e) => {
+    const perExchange = shownExchanges.map((e) => {
       const r = byAddr.get(e.address)!;
       totalIn += r.inflow;
       totalOut += r.outflow;
       totalTx += r.txCount;
       return {
-        name: e.exchange_name,
+        name: venueName(e.exchange_name, e.delisted_at),
         address: e.address,
         inflow: r.inflow,
         outflow: r.outflow,
         net: r.inflow - r.outflow,
         txCount: r.txCount,
         latestAt: r.latestAt?.toISOString() ?? null,
+        delistedAt: e.delisted_at ? new Date(e.delisted_at).toISOString() : null,
       };
     });
 
