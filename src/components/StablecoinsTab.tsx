@@ -73,6 +73,145 @@ const REFRESH_MS = 5 * 60_000;
 
 // Same pattern as the other hooks in src/hooks: fetch on mount, refresh on an
 // interval, keep the last good payload through a failed refresh.
+const STYLES = `
+        .ustx-flow { display: grid; grid-template-columns: minmax(0,1fr) 28px minmax(0,1fr) 28px minmax(0,1fr); align-items: start; gap: 8px; }
+        .ustx-node { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0; }
+        .ustx-token { width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+                      font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 6px; }
+        .ustx-token-usdc { border: 1.5px solid rgba(128,128,128,0.5); color: var(--text-dark); }
+        .ustx-token-brale { border: 1.5px dashed rgba(128,128,128,0.6); color: var(--text-dark); }
+        .ustx-token-ustx { background: var(--tx-neon); color: #101208; box-shadow: 0 0 0 5px color-mix(in srgb, var(--tx-neon) 20%, transparent); }
+        .ustx-node-title { font-weight: 700; font-size: 0.9rem; color: var(--text-dark); }
+        .ustx-node-sub { font-size: 0.76rem; color: var(--text-light); line-height: 1.35; }
+        .ustx-arrow { color: var(--text-light); align-self: start; margin-top: 20px; display: flex; justify-content: center; }
+        .ustx-rate { margin: 18px auto 0; padding: 8px 18px; border-radius: 999px; font-size: 0.9rem; font-weight: 700; text-align: center; width: fit-content;
+                     color: var(--text-dark); border: 1px solid color-mix(in srgb, var(--accent-olive) 70%, transparent);
+                     background: color-mix(in srgb, var(--accent-olive) 14%, transparent); }
+        .ustx-from { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 16px; }
+        .ustx-from-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-light); margin-right: 2px; }
+        .ustx-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(128,128,128,0.3); color: var(--text-dark); }
+        .ustx-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+                        margin-top: auto; padding-top: 18px; }
+        .ustx-status { font-size: 0.74rem; padding: 4px 10px; border-radius: 999px; background: rgba(128,128,128,0.12); color: var(--text-dark); }
+        .stc-link { color: var(--text-accent); font-size: 0.82rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .ustx-bars { display: grid; gap: 16px; }
+        .ustx-bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 0.86rem; margin-bottom: 6px; }
+        .ustx-bar { height: 14px; border-radius: 7px; background: rgba(128,128,128,0.10); overflow: hidden; }
+        .ustx-bar > span { display: block; height: 100%; background: var(--tx-neon); }
+        .ustx-bar-empty { background: transparent; border: 1px dashed rgba(128,128,128,0.5); }
+        .ustx-bar-note { font-size: 0.74rem; color: var(--text-light); margin-top: 5px; }
+        .ustx-eq { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 12px; min-height: 180px; }
+        .ustx-eq-side { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+        .ustx-eq-v { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1; font-weight: 600; }
+        .ustx-eq-k { font-size: 0.86rem; color: var(--text-light); }
+        .ustx-eq-sign { font-size: 2.4rem; color: var(--text-accent); font-weight: 700; }
+        .ustx-eq-note { text-align: center; font-size: 0.8rem; color: var(--text-light); margin: 0; }
+        .ustx-cadence { margin-top: 18px; }
+        .ustx-coverage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
+                         padding: 14px 16px; border-radius: 12px; background: rgba(128,128,128,0.07); margin-bottom: 18px; }
+        .ustx-coverage-v { font-size: 2.2rem; line-height: 1.05; margin-top: 2px; }
+        .ustx-coverage-note { font-size: 0.78rem; line-height: 1.5; color: var(--text-light); }
+        .ustx-ticks { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; align-items: end; height: 34px; }
+        .ustx-tick { height: 40%; border-radius: 2px; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
+        .ustx-tick-month { height: 100%; background: var(--tx-neon); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tx-neon) 25%, transparent); }
+        .ustx-cadence-legend { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 0.76rem; color: var(--text-light); }
+        .ustx-cadence-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .ustx-key { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
+        .ustx-key-month { background: var(--tx-neon); }
+        .ustx-diagram { width: 100%; height: auto; display: block; }
+        .ustx-narrow { display: none; }
+        @media (max-width: 640px) {
+          .ustx-diagram { display: none; }
+          .ustx-narrow { display: grid; }
+          .ustx-from.ustx-narrow { display: flex; }
+        }
+        @media (prefers-reduced-motion: reduce) { .ud-dot { display: none; } }
+        .ustx-ghost { position: absolute; inset: 16px 16px 0; display: flex; align-items: flex-end; gap: 6%; opacity: 0.9; }
+        .ustx-ghost span { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(to top, rgba(128,128,128,0.28), rgba(128,128,128,0.06)); }
+        .ustx-waiting-label { position: relative; display: grid; gap: 4px; justify-items: center; padding: 10px 16px; border-radius: 12px;
+                              background: var(--glass-bg); border: 1px solid rgba(128,128,128,0.25); }
+        .ustx-big { font-size: 1.5rem; margin: 4px 0 2px; }
+        .ustx-waiting { position: relative; overflow: hidden; display: grid; gap: 6px; place-content: center; text-align: center; min-height: 200px;
+                        border: 1px dashed rgba(128,128,128,0.45); border-radius: 12px; padding: 20px; }
+        .ustx-preview { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 12px;
+                        background: color-mix(in srgb, var(--accent-orange) 22%, transparent); color: var(--text-dark); }
+        .ustx-track { display: grid; gap: 14px; }
+        .ustx-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .ustx-largest { display: grid; gap: 4px; }
+        .ustx-largest-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; font-size: 0.84rem;
+                            padding: 6px 0; border-top: 1px solid rgba(128,128,128,0.16); }
+        @media (max-width: 520px) {
+          .ustx-kpis { grid-template-columns: minmax(0, 1fr); }
+          .ustx-flow { grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr); gap: 4px; }
+          .ustx-arrow svg { width: 18px; }
+        }
+        .stc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
+        .stc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .stc-kpi { padding: 18px 20px; min-width: 0; }
+        .stc-kpis > .shareable + .shareable { border-left: 1px solid rgba(128,128,128,0.18); }
+        .stc-kpi-value { font-size: 1.7rem; margin: 4px 0 2px; white-space: nowrap; }
+        .stc-panel { padding: 22px 24px; display: flex; flex-direction: column; min-width: 0; }
+        .stc-panel .section-head { padding-right: 40px; }
+        .stc-kpi .card-title { padding-right: 32px; }
+        .stc-sub { margin: 4px 0 14px; font-size: 0.84rem; line-height: 1.5; }
+        .stc-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .stc-row { display: grid; gap: 14px; margin-top: 14px; align-items: stretch; }
+        .stc-row-main { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+        .stc-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .stc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: auto; padding-top: 10px; font-size: 0.76rem; }
+        .stc-legend > span { display: flex; align-items: center; gap: 6px; }
+        .stc-tip { display: grid; gap: 3px; padding: 8px 10px; border-radius: 8px; font-size: 0.78rem;
+                   background: var(--paper, var(--glass-bg)); color: var(--text-dark);
+                   border: 1px solid rgba(128,128,128,0.3); box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
+        .stc-tip b { font-weight: 700; }
+        .stc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-olive); margin-right: 8px; flex-shrink: 0; }
+        .stc-watchrow { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem; align-items: center; }
+        .stc-ustx-status { font-size: 1.6rem; font-weight: 700; margin: 0 0 16px; }
+        .stc-ustx-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem;
+                         border-top: 1px solid rgba(128,128,128,0.2); padding-top: 10px; margin-top: 16px; }
+        .stc-placeholder { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px; align-items: center; margin: 4px 8px 0 0; font-size: 0.8rem; }
+        .stc-placeholder-bar { height: 20px; border-radius: 4px; border: 1px dashed rgba(128,128,128,0.5); }
+        .stc-holder { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 58px; gap: 10px; align-items: center;
+                      padding: 8px 0; border-top: 1px solid rgba(128,128,128,0.16); font-size: 0.84rem; }
+        .stc-addr { font-size: 0.8rem; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stc-addr:hover { text-decoration: underline; }
+        .stc-share { display: block; height: 3px; margin-top: 4px; border-radius: 2px; background: rgba(128,128,128,0.12); }
+        .stc-share > span { display: block; height: 100%; border-radius: 2px; background: var(--accent-olive); }
+        .stc-matrix { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+        .stc-matrix th { font-weight: 500; text-align: left; padding: 6px 8px; font-size: 0.76rem; }
+        .stc-matrix td { padding: 10px 8px; border-top: 1px solid rgba(128,128,128,0.18); }
+        .stc-defs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: auto 0 0; padding-top: 14px; font-size: 0.78rem; }
+        .stc-defs > div { display: flex; gap: 6px; }
+        .stc-defs dt { font-weight: 700; }
+        .stc-defs dd { margin: 0; }
+        .stc-chip { font-family: var(--font-mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
+                    color: var(--text-light); background: rgba(128,128,128,0.10); }
+        .stc-chip.on { color: var(--text-dark); background: color-mix(in srgb, var(--accent-olive) 28%, transparent); font-weight: 700; }
+        @media (max-width: 980px) {
+          .stc-row-main, .stc-grid-2 { grid-template-columns: minmax(0, 1fr); }
+          .stc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .stc-kpis > .shareable:nth-child(3) { border-left: none; }
+          .stc-kpis > .shareable:nth-child(n+3) { border-top: 1px solid rgba(128,128,128,0.18); }
+        }
+        @media (max-width: 520px) {
+          .stc-kpi { padding: 14px 12px; }
+          .stc-kpi-value { font-size: 1.2rem; }
+          .stc-panel { padding: 18px 14px; }
+          .stc-defs { grid-template-columns: minmax(0, 1fr); }
+        }
+      
+        .stc-skel-panel { min-height: var(--skel-h); }
+        .stc-skel-kpis { height: 206px; overflow: hidden; }
+        @media (max-width: 980px) { .stc-skel-panel { min-height: var(--skel-hm); } .stc-skel-kpis { height: 336px; } }
+        .stc-skel { border-radius: 6px; background: linear-gradient(90deg, rgba(128,128,128,0.10) 0%, rgba(128,128,128,0.20) 50%, rgba(128,128,128,0.10) 100%);
+                    background-size: 200% 100%; animation: skeleton-shimmer 1.4s linear infinite; }
+        .stc-skel-bars { flex: 1; display: flex; align-items: flex-end; gap: 3%; min-height: 150px; }
+        .stc-skel-bars > span { flex: 1; border-radius: 3px 3px 0 0; }
+        .stc-loading-note { font-size: 0.8rem; color: var(--text-dark); padding: 8px 12px; border-radius: 10px; margin-bottom: 12px;
+                            background: color-mix(in srgb, var(--accent-orange) 20%, transparent); }
+        @media (prefers-reduced-motion: reduce) { .stc-skel { animation: none; } }
+`;
+
 function useStablecoins() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -764,18 +903,82 @@ function SupplyHistory({ d }: { d: Payload }) {
 
 // ── page ─────────────────────────────────────────────────────────────────
 
+
+// Loading: the page's real layout with placeholders, so nothing moves when
+// the data lands (about 1.3s on production). Titles are fixed text and show
+// at once; numbers and charts arrive into boxes that are already there.
+const BAR_HEIGHTS = [34, 52, 28, 70, 46, 88, 40, 62, 30, 76, 54, 92, 44, 66];
+
+function SkelBars() {
+  return <div className="stc-skel-bars" aria-hidden="true">{BAR_HEIGHTS.map((h, i) => <span key={i} className="stc-skel" style={{ height: `${h}%` }} />)}</div>;
+}
+function SkelLines({ n, h = 14 }: { n: number; h?: number }) {
+  return (
+    <div style={{ display: "grid", gap: 12 }} aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => <span key={i} className="stc-skel" style={{ height: h, width: `${92 - (i % 3) * 14}%` }} />)}
+    </div>
+  );
+}
+// Heights are the loaded cards' on production (1400 and 393), so the page
+// does not jump when data lands.
+function SkelPanel({ title, children, h, m }: { title: string; children: React.ReactNode; h: number; m: number }) {
+  return (
+    <section className="panel stc-panel stc-skel-panel" style={{ ["--skel-h" as string]: `${h}px`, ["--skel-hm" as string]: `${m}px` } as React.CSSProperties}>
+      <div className="section-head" style={{ color: "var(--text-dark)" }}>{title}</div>
+      <span className="stc-skel" style={{ height: 12, width: "55%", margin: "8px 0 18px" }} aria-hidden="true" />
+      <div className="stc-body">{children}</div>
+    </section>
+  );
+}
+
+function StablecoinsSkeleton({ error }: { error: string | null }) {
+  const kpis = ["Dollars on chain", "USDC moved, 30d", "USDC transactions, 30d", "Wallets using USDC, 30d"];
+  return (
+    <div aria-busy="true">
+      <style>{STYLES}</style>
+      <div className="stc-head">
+        <div>
+          <h1 className="page-title" style={{ color: "var(--text-dark)" }}>Stablecoins on TX</h1>
+          <p className="section-sub" style={{ ...MUTED, marginTop: 4 }}>Every dollar on the chain, read live. Reading the chain…</p>
+        </div>
+        <FilmButton />
+      </div>
+      {error && <div className="stc-loading-note" role="status">Could not reach the chain ({error}). Retrying.</div>}
+      <div className="panel stc-kpis stc-skel-kpis">
+        {kpis.map((k) => (
+          <div key={k} className="shareable"><div className="stc-kpi">
+            <div className="card-title" style={CARD_TITLE}>{k}</div>
+            <span className="stc-skel" style={{ display: "block", height: 30, width: "60%", margin: "8px 0 6px" }} aria-hidden="true" />
+            <span className="stc-skel" style={{ display: "block", height: 10, width: "80%" }} aria-hidden="true" />
+            <span className="stc-skel" style={{ display: "block", height: 34, marginTop: 10 }} aria-hidden="true" />
+          </div></div>
+        ))}
+      </div>
+      <div className="stc-row stc-row-main">
+        <SkelPanel title="USDC activity" h={404} m={416}><SkelBars /></SkelPanel>
+        <SkelPanel title="USTX" h={404} m={283}><SkelLines n={5} /></SkelPanel>
+      </div>
+      <div className="stc-row stc-grid-2">
+        <SkelPanel title="How USDC becomes USTX" h={484} m={401}><SkelBars /></SkelPanel>
+        <SkelPanel title="Backed 1:1" h={484} m={317}><SkelLines n={4} h={18} /></SkelPanel>
+      </div>
+      <div className="stc-row"><SkelPanel title="USDC converted to USTX" h={318} m={331}><SkelBars /></SkelPanel></div>
+      <div className="stc-row stc-grid-2">
+        <SkelPanel title="Who holds the dollar" h={447} m={312}><SkelLines n={4} h={20} /></SkelPanel>
+        <SkelPanel title="USDC wallets by size" h={447} m={460}><SkelLines n={6} /></SkelPanel>
+      </div>
+      <div className="stc-row stc-grid-2">
+        <SkelPanel title="USDC" h={611} m={611}><SkelLines n={8} /></SkelPanel>
+        <SkelPanel title="SBC" h={611} m={611}><SkelLines n={8} /></SkelPanel>
+      </div>
+    </div>
+  );
+}
+
 export default function StablecoinsTab() {
   const { data: d, error } = useStablecoins();
 
-  if (!d) {
-    return (
-      <div className="panel" style={{ padding: 24 }}>
-        <p style={{ ...MUTED, margin: 0 }}>
-          {error ? `Could not reach the chain (${error}). Retrying.` : "Reading stablecoins from the chain."}
-        </p>
-      </div>
-    );
-  }
+  if (!d) return <StablecoinsSkeleton error={error} />;
 
   const main = d.coins.filter((c) => c.role !== "test");
   const tests = d.coins.filter((c) => c.role === "test");
@@ -789,133 +992,7 @@ export default function StablecoinsTab() {
 
   return (
     <div>
-      <style>{`
-        .ustx-flow { display: grid; grid-template-columns: minmax(0,1fr) 28px minmax(0,1fr) 28px minmax(0,1fr); align-items: start; gap: 8px; }
-        .ustx-node { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0; }
-        .ustx-token { width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-                      font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 6px; }
-        .ustx-token-usdc { border: 1.5px solid rgba(128,128,128,0.5); color: var(--text-dark); }
-        .ustx-token-brale { border: 1.5px dashed rgba(128,128,128,0.6); color: var(--text-dark); }
-        .ustx-token-ustx { background: var(--tx-neon); color: #101208; box-shadow: 0 0 0 5px color-mix(in srgb, var(--tx-neon) 20%, transparent); }
-        .ustx-node-title { font-weight: 700; font-size: 0.9rem; color: var(--text-dark); }
-        .ustx-node-sub { font-size: 0.76rem; color: var(--text-light); line-height: 1.35; }
-        .ustx-arrow { color: var(--text-light); align-self: start; margin-top: 20px; display: flex; justify-content: center; }
-        .ustx-rate { margin: 18px auto 0; padding: 8px 18px; border-radius: 999px; font-size: 0.9rem; font-weight: 700; text-align: center; width: fit-content;
-                     color: var(--text-dark); border: 1px solid color-mix(in srgb, var(--accent-olive) 70%, transparent);
-                     background: color-mix(in srgb, var(--accent-olive) 14%, transparent); }
-        .ustx-from { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 16px; }
-        .ustx-from-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-light); margin-right: 2px; }
-        .ustx-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(128,128,128,0.3); color: var(--text-dark); }
-        .ustx-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
-                        margin-top: auto; padding-top: 18px; }
-        .ustx-status { font-size: 0.74rem; padding: 4px 10px; border-radius: 999px; background: rgba(128,128,128,0.12); color: var(--text-dark); }
-        .stc-link { color: var(--text-accent); font-size: 0.82rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-        .ustx-bars { display: grid; gap: 16px; }
-        .ustx-bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 0.86rem; margin-bottom: 6px; }
-        .ustx-bar { height: 14px; border-radius: 7px; background: rgba(128,128,128,0.10); overflow: hidden; }
-        .ustx-bar > span { display: block; height: 100%; background: var(--tx-neon); }
-        .ustx-bar-empty { background: transparent; border: 1px dashed rgba(128,128,128,0.5); }
-        .ustx-bar-note { font-size: 0.74rem; color: var(--text-light); margin-top: 5px; }
-        .ustx-eq { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 12px; min-height: 180px; }
-        .ustx-eq-side { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-        .ustx-eq-v { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1; font-weight: 600; }
-        .ustx-eq-k { font-size: 0.86rem; color: var(--text-light); }
-        .ustx-eq-sign { font-size: 2.4rem; color: var(--text-accent); font-weight: 700; }
-        .ustx-eq-note { text-align: center; font-size: 0.8rem; color: var(--text-light); margin: 0; }
-        .ustx-cadence { margin-top: 18px; }
-        .ustx-coverage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
-                         padding: 14px 16px; border-radius: 12px; background: rgba(128,128,128,0.07); margin-bottom: 18px; }
-        .ustx-coverage-v { font-size: 2.2rem; line-height: 1.05; margin-top: 2px; }
-        .ustx-coverage-note { font-size: 0.78rem; line-height: 1.5; color: var(--text-light); }
-        .ustx-ticks { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; align-items: end; height: 34px; }
-        .ustx-tick { height: 40%; border-radius: 2px; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
-        .ustx-tick-month { height: 100%; background: var(--tx-neon); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tx-neon) 25%, transparent); }
-        .ustx-cadence-legend { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 0.76rem; color: var(--text-light); }
-        .ustx-cadence-legend span { display: inline-flex; align-items: center; gap: 6px; }
-        .ustx-key { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: color-mix(in srgb, var(--accent-olive) 55%, transparent); }
-        .ustx-key-month { background: var(--tx-neon); }
-        .ustx-diagram { width: 100%; height: auto; display: block; }
-        .ustx-narrow { display: none; }
-        @media (max-width: 640px) {
-          .ustx-diagram { display: none; }
-          .ustx-narrow { display: grid; }
-          .ustx-from.ustx-narrow { display: flex; }
-        }
-        @media (prefers-reduced-motion: reduce) { .ud-dot { display: none; } }
-        .ustx-ghost { position: absolute; inset: 16px 16px 0; display: flex; align-items: flex-end; gap: 6%; opacity: 0.9; }
-        .ustx-ghost span { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(to top, rgba(128,128,128,0.28), rgba(128,128,128,0.06)); }
-        .ustx-waiting-label { position: relative; display: grid; gap: 4px; justify-items: center; padding: 10px 16px; border-radius: 12px;
-                              background: var(--glass-bg); border: 1px solid rgba(128,128,128,0.25); }
-        .ustx-big { font-size: 1.5rem; margin: 4px 0 2px; }
-        .ustx-waiting { position: relative; overflow: hidden; display: grid; gap: 6px; place-content: center; text-align: center; min-height: 200px;
-                        border: 1px dashed rgba(128,128,128,0.45); border-radius: 12px; padding: 20px; }
-        .ustx-preview { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 12px;
-                        background: color-mix(in srgb, var(--accent-orange) 22%, transparent); color: var(--text-dark); }
-        .ustx-track { display: grid; gap: 14px; }
-        .ustx-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-        .ustx-largest { display: grid; gap: 4px; }
-        .ustx-largest-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; font-size: 0.84rem;
-                            padding: 6px 0; border-top: 1px solid rgba(128,128,128,0.16); }
-        @media (max-width: 520px) {
-          .ustx-kpis { grid-template-columns: minmax(0, 1fr); }
-          .ustx-flow { grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr); gap: 4px; }
-          .ustx-arrow svg { width: 18px; }
-        }
-        .stc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
-        .stc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        .stc-kpi { padding: 18px 20px; min-width: 0; }
-        .stc-kpis > .shareable + .shareable { border-left: 1px solid rgba(128,128,128,0.18); }
-        .stc-kpi-value { font-size: 1.7rem; margin: 4px 0 2px; white-space: nowrap; }
-        .stc-panel { padding: 22px 24px; display: flex; flex-direction: column; min-width: 0; }
-        .stc-panel .section-head { padding-right: 40px; }
-        .stc-kpi .card-title { padding-right: 32px; }
-        .stc-sub { margin: 4px 0 14px; font-size: 0.84rem; line-height: 1.5; }
-        .stc-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-        .stc-row { display: grid; gap: 14px; margin-top: 14px; align-items: stretch; }
-        .stc-row-main { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-        .stc-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-        .stc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: auto; padding-top: 10px; font-size: 0.76rem; }
-        .stc-legend > span { display: flex; align-items: center; gap: 6px; }
-        .stc-tip { display: grid; gap: 3px; padding: 8px 10px; border-radius: 8px; font-size: 0.78rem;
-                   background: var(--paper, var(--glass-bg)); color: var(--text-dark);
-                   border: 1px solid rgba(128,128,128,0.3); box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
-        .stc-tip b { font-weight: 700; }
-        .stc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-olive); margin-right: 8px; flex-shrink: 0; }
-        .stc-watchrow { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem; align-items: center; }
-        .stc-ustx-status { font-size: 1.6rem; font-weight: 700; margin: 0 0 16px; }
-        .stc-ustx-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem;
-                         border-top: 1px solid rgba(128,128,128,0.2); padding-top: 10px; margin-top: 16px; }
-        .stc-placeholder { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px; align-items: center; margin: 4px 8px 0 0; font-size: 0.8rem; }
-        .stc-placeholder-bar { height: 20px; border-radius: 4px; border: 1px dashed rgba(128,128,128,0.5); }
-        .stc-holder { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 58px; gap: 10px; align-items: center;
-                      padding: 8px 0; border-top: 1px solid rgba(128,128,128,0.16); font-size: 0.84rem; }
-        .stc-addr { font-size: 0.8rem; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stc-addr:hover { text-decoration: underline; }
-        .stc-share { display: block; height: 3px; margin-top: 4px; border-radius: 2px; background: rgba(128,128,128,0.12); }
-        .stc-share > span { display: block; height: 100%; border-radius: 2px; background: var(--accent-olive); }
-        .stc-matrix { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-        .stc-matrix th { font-weight: 500; text-align: left; padding: 6px 8px; font-size: 0.76rem; }
-        .stc-matrix td { padding: 10px 8px; border-top: 1px solid rgba(128,128,128,0.18); }
-        .stc-defs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: auto 0 0; padding-top: 14px; font-size: 0.78rem; }
-        .stc-defs > div { display: flex; gap: 6px; }
-        .stc-defs dt { font-weight: 700; }
-        .stc-defs dd { margin: 0; }
-        .stc-chip { font-family: var(--font-mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
-                    color: var(--text-light); background: rgba(128,128,128,0.10); }
-        .stc-chip.on { color: var(--text-dark); background: color-mix(in srgb, var(--accent-olive) 28%, transparent); font-weight: 700; }
-        @media (max-width: 980px) {
-          .stc-row-main, .stc-grid-2 { grid-template-columns: minmax(0, 1fr); }
-          .stc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .stc-kpis > .shareable:nth-child(3) { border-left: none; }
-          .stc-kpis > .shareable:nth-child(n+3) { border-top: 1px solid rgba(128,128,128,0.18); }
-        }
-        @media (max-width: 520px) {
-          .stc-kpi { padding: 14px 12px; }
-          .stc-kpi-value { font-size: 1.2rem; }
-          .stc-panel { padding: 18px 14px; }
-          .stc-defs { grid-template-columns: minmax(0, 1fr); }
-        }
-      `}</style>
+      <style>{STYLES}</style>
 
       <div className="stc-head">
         <div>
