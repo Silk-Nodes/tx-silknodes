@@ -30,6 +30,15 @@ import { sequelize } from "@/lib/db";
 
 const ROUTE_TAG = "flows-history";
 
+
+// A delisted venue shows only in windows that reach back before its
+// delisting, and always under a name that says so.
+function venueName(name: string, delistedAt: Date | string | null | undefined): string {
+  if (!delistedAt) return name;
+  const d = new Date(delistedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${name}, delisted ${d}`;
+}
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -66,7 +75,7 @@ async function handler(req: Request) {
         SELECT (timestamp at time zone 'UTC')::date AS day,
                direction,
                COALESCE(SUM(amount), 0) AS total
-        FROM exchange_flows
+        FROM exchange_flows_listed
         ${sinceDate ? "WHERE timestamp >= :sinceDate" : ""}
         GROUP BY day, direction
         ORDER BY day ASC
@@ -87,7 +96,7 @@ async function handler(req: Request) {
                exchange_address,
                direction,
                COALESCE(SUM(amount), 0) AS total
-        FROM exchange_flows
+        FROM exchange_flows_listed
         ${sinceDate ? "WHERE timestamp >= :sinceDate" : ""}
         GROUP BY day, exchange_address, direction
         ORDER BY day ASC
@@ -110,8 +119,13 @@ async function handler(req: Request) {
         },
       ),
       sequelize.query<{ address: string; exchange_name: string }>(
-        `SELECT address, exchange_name FROM exchange_addresses ORDER BY exchange_name ASC`,
-        { type: QueryTypes.SELECT },
+        // Delisted venues only when the window reaches back before their
+        // delisting (same rule as /api/flows).
+        `SELECT address, exchange_name, delisted_at FROM exchange_addresses
+          WHERE delisted_at IS NULL
+             OR (${sinceDate ? ":sinceDate::timestamptz < delisted_at" : "TRUE"})
+          ORDER BY exchange_name ASC`,
+        { type: QueryTypes.SELECT, replacements: sinceDate ? { sinceDate } : {} },
       ),
     ])) as unknown as [
       Array<{ day: Date | string; direction: "inflow" | "outflow"; total: string }>,
@@ -122,7 +136,7 @@ async function handler(req: Request) {
         total: string;
       }>,
       Array<{ date: Date | string; price_usd: string }>,
-      Array<{ address: string; exchange_name: string }>,
+      Array<{ address: string; exchange_name: string; delisted_at: Date | string | null }>,
     ];
 
     // Pivot rows -> one entry per day with both directions populated.
@@ -225,7 +239,7 @@ async function handler(req: Request) {
     // negative (green, releasing) without re-aggregating.
     const exchangeMeta = exchanges.map((e) => ({
       address: e.address,
-      name: e.exchange_name,
+      name: venueName(e.exchange_name, e.delisted_at),
     }));
     const heatmapByKey = new Map<string, { inflow: number; outflow: number }>();
     for (const r of perExchangeRows) {

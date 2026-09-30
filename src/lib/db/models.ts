@@ -238,6 +238,9 @@ export class ExchangeAddress extends Model<
   declare exchange_name: string;
   declare added_at: Date;
   declare notes: string | null;
+  // Set when the venue stops listing TX (migration 023). The row and its
+  // history stay; dashboard views read exchange_flows_listed instead.
+  declare delisted_at: Date | null;
 }
 ExchangeAddress.init(
   {
@@ -245,6 +248,7 @@ ExchangeAddress.init(
     exchange_name: { type: DataTypes.TEXT, allowNull: false },
     added_at: { type: DataTypes.DATE, allowNull: false },
     notes: { type: DataTypes.TEXT },
+    delisted_at: { type: DataTypes.DATE },
   },
   {
     sequelize,
@@ -287,6 +291,25 @@ ExchangeFlow.init(
     timestamps: false,
     underscored: true,
   },
+);
+
+// ─── exchange_flows_listed (view, migration 023) ─────────────────────────
+// exchange_flows minus a delisted venue's rows after its delisting. What
+// every dashboard read uses; the collector still writes exchange_flows.
+export class ExchangeFlowListed extends ExchangeFlow {}
+ExchangeFlowListed.init(
+  {
+    id: { type: DataTypes.BIGINT, primaryKey: true },
+    tx_hash: { type: DataTypes.TEXT, allowNull: false },
+    height: { type: DataTypes.BIGINT, allowNull: false },
+    timestamp: { type: DataTypes.DATE, allowNull: false },
+    exchange_address: { type: DataTypes.TEXT, allowNull: false },
+    direction: { type: DataTypes.TEXT, allowNull: false },
+    counterparty: { type: DataTypes.TEXT, allowNull: false },
+    amount: { type: DataTypes.DECIMAL, allowNull: false },
+    inserted_at: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize, tableName: "exchange_flows_listed", timestamps: false, underscored: true },
 );
 
 // ─── pse_score ───────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ import { QueryTypes } from "sequelize";
 import { sequelize } from "@/lib/db";
 import {
   ExchangeAddress,
-  ExchangeFlow,
+  ExchangeFlowListed,
   KnownEntity,
   TopDelegator,
 } from "@/lib/db/models";
@@ -98,7 +98,7 @@ export async function GET(req: Request) {
         SELECT exchange_address, direction,
                SUM(amount)::numeric AS total_amount,
                COUNT(*)::int        AS tx_count
-        FROM exchange_flows
+        FROM exchange_flows_listed
         WHERE counterparty = :address
           ${sinceDate ? "AND timestamp >= :sinceDate" : ""}
         GROUP BY exchange_address, direction
@@ -109,7 +109,7 @@ export async function GET(req: Request) {
         },
       ),
       // Recent 20 flows touching this counterparty
-      ExchangeFlow.findAll({
+      ExchangeFlowListed.findAll({
         where: {
           counterparty: address,
           ...(sinceDate ? { timestamp: { [Op.gte]: sinceDate } } : {}),

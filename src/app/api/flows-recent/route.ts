@@ -29,7 +29,7 @@ import { withCache } from "@/lib/response-cache";
 import { Op } from "sequelize";
 import {
   ExchangeAddress,
-  ExchangeFlow,
+  ExchangeFlowListed,
   KnownEntity,
   TopDelegator,
 } from "@/lib/db/models";
@@ -76,7 +76,7 @@ async function handler(req: Request) {
     // joins are done in JS afterwards because Sequelize's native joins
     // require associations and we'd rather not add them just for this.
     const [flowRows, exchangeRows] = await Promise.all([
-      ExchangeFlow.findAll({
+      ExchangeFlowListed.findAll({
         where: sinceDate ? { timestamp: { [Op.gte]: sinceDate } } : {},
         order: [["timestamp", "DESC"]],
         limit,
