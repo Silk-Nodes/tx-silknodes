@@ -5124,6 +5124,11 @@ input[type="range"]::-moz-range-thumb {
   transition: opacity 120ms ease, transform 120ms ease;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
+/* The bubble opens rightward and runs about 49px past its card. On the
+   last card that pushed the page 17px wider than the window at 1400, even
+   while hidden, so that one opens leftward. */
+.flow-card:last-child .flow-card-direction-tip-bubble { left: auto; right: 0; }
+
 .flow-card-direction-tip:hover .flow-card-direction-tip-bubble,
 .flow-card-direction-tip:focus-visible .flow-card-direction-tip-bubble,
 .flow-card-direction-tip:focus-within .flow-card-direction-tip-bubble {
