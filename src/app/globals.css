@@ -5007,6 +5007,17 @@ input[type="range"]::-moz-range-thumb {
   outline-offset: 2px;
 }
 
+/* A delisted venue: one slim line under the cards, not a sixth card. */
+.flows-delisted { margin-top: 10px; display: grid; gap: 6px; }
+.flows-delisted-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+  padding: 10px 16px; border-radius: 12px; font-size: 0.82rem;
+  border: 1px dashed rgba(128, 128, 128, 0.4); color: var(--text-dark);
+}
+.flows-delisted-name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.76rem; }
+.flows-delisted-muted { color: var(--text-light); }
+.flows-delisted-row > :last-child { margin-left: auto; }
+
 .flows-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

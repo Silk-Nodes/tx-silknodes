@@ -27,6 +27,9 @@ interface ExchangeFlowRow {
   net: number;
   txCount: number;
   latestAt: string | null;
+  // Set for a venue that stopped listing TX (migration 023). The API only
+  // returns it when the window reaches back before that date.
+  delistedAt?: string | null;
 }
 interface FlowsResponse {
   window: WindowKey;
@@ -255,11 +258,18 @@ export default function FlowsTab() {
   }, [windowKey]);
 
   // Sort exchanges by |net| descending so the biggest signal is on top.
+  // Active venues get cards; a delisted one gets a slim line under them. It
+  // still counts in the total, but it is history, not a venue to watch, and
+  // a sixth card would wrap onto a row of its own.
   const sortedExchanges = useMemo(
     () =>
       totals?.exchanges
-        ?.slice()
+        ?.filter((e) => !e.delistedAt)
         .sort((a, b) => Math.abs(b.net) - Math.abs(a.net)) ?? [],
+    [totals?.exchanges],
+  );
+  const delistedExchanges = useMemo(
+    () => totals?.exchanges?.filter((e) => e.delistedAt) ?? [],
     [totals?.exchanges],
   );
 
@@ -455,6 +465,22 @@ export default function FlowsTab() {
               />
             );
           })}
+        </div>
+      )}
+      {totals && delistedExchanges.length > 0 && (
+        <div className="flows-delisted">
+          {delistedExchanges.map((e) => (
+            <div key={e.address} className="flows-delisted-row">
+              <span className="flows-delisted-name">{e.name}</span>
+              <span className="mono">
+                {e.net >= 0 ? "+" : "\u2212"}{formatLargeNumber(Math.abs(e.net))} TX {e.net >= 0 ? "net in" : "net out"}
+              </span>
+              <span className="mono flows-delisted-muted">
+                {formatLargeNumber(e.inflow)} in, {formatLargeNumber(e.outflow)} out, {e.txCount.toLocaleString()} transfers
+              </span>
+              <span className="flows-delisted-muted">counted in the total above</span>
+            </div>
+          ))}
         </div>
       )}
 
