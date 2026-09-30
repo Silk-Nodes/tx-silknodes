@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toPng, toBlob } from "html-to-image";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -42,6 +42,13 @@ interface Props {
   // controls. Default top-right.
   cameraOffset?: { top?: number; right?: number };
 }
+
+// True inside the snapshot card. The image is a still, so anything that
+// only looks right while animating (the travelling dots on the stablecoins
+// flow diagram) checks this and stays out. A context rather than the
+// exporter's node filter, because the filter never sees inside an <svg>.
+const InSnapshot = createContext(false);
+export const useInSnapshot = () => useContext(InSnapshot);
 
 export default function Shareable({
   title, subtitle, caption, children, exportWidth = 720, framed = true, cameraOffset,
@@ -269,7 +276,7 @@ function ShareModal({
                 {subtitle && <div className="share-card-subheading">{subtitle}</div>}
               </div>
             )}
-            <div className="share-card-body">{children}</div>
+            <div className="share-card-body"><InSnapshot.Provider value={true}>{children}</InSnapshot.Provider></div>
             {framed && caption && <div className="share-card-caption">{caption}</div>}
             <div className="share-card-footer">
               <span className="share-card-brand-name">All in ONE</span>
