@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Silk Nodes TX Price Collector every minute
+Requires=silknodes-price.service
+
+[Timer]
+OnCalendar=*-*-* *:*:05 UTC
+AccuracySec=1s
+Unit=silknodes-price.service
+
+[Install]
+WantedBy=timers.target
