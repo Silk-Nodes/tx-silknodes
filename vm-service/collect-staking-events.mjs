@@ -118,11 +118,39 @@ const RPC_POOL = [
 let activeRpc = RPC_POOL[0];
 let lastRpcProbe = 0;
 const RPC_PROBE_MS = 10 * 60_000;
-// The heaviest query the collector runs. If a host cannot serve this, it
-// cannot serve the collector, whatever /status says.
-const RPC_PROBE_QUERY = encodeURIComponent(
-  `"message.action='/cosmos.staking.v1beta1.MsgDelegate'"`,
-);
+// The query the collector actually runs, bounded the same way. If a host
+// cannot serve this, it cannot serve the collector, whatever /status says.
+const RPC_PROBE_ACTION = "message.action='/cosmos.staking.v1beta1.MsgDelegate'";
+
+// Every tx_search carries a height floor.
+//
+// Until 2026-10-01 the searches asked for "the newest 100 matches" with no
+// lower bound. Each node then has to walk its whole index for the term, and
+// by late September that outgrew every timeout on every public node: measured
+// from the VM on 2026-10-01, the open MsgDelegate search did not answer
+// within 25s on ecostake, publicnode, cosmos.directory, full-node.coreum.dev,
+// rpc.mainnet-1.tx.org or the tx archive node, while the same search with
+// "AND tx.height>N" answered in 0.4 to 1.0s on all six. pickRpc then found
+// no usable host and staking events were lost from 2026-09-30 02:00 UTC.
+//
+// The first search per query looks back STARTUP_LOOKBACK_BLOCKS, which also
+// backfills any outage since the last run (events dedupe on tx hash). After
+// that each query starts SEARCH_OVERLAP_BLOCKS below the head it saw on its
+// last successful pass, so nothing falls between two polls.
+const BLOCKS_PER_HOUR = 4_900; // ~0.737s blocks, measured 2026-10-01
+const STARTUP_LOOKBACK_BLOCKS =
+  Number(process.env.STAKING_LOOKBACK_HOURS || 48) * BLOCKS_PER_HOUR;
+const SEARCH_OVERLAP_BLOCKS = 200;
+const SEARCH_PAGE = 100;
+const SEARCH_MAX_PAGES = 50;
+const searchFloor = new Map(); // label -> height the next search starts above
+
+async function chainHead(rpc) {
+  const d = await fetchWithRetry(`${rpc}/status`, 2, 10_000);
+  const h = Number(d?.result?.sync_info?.latest_block_height);
+  if (!(h > 0)) throw new Error("no height from /status");
+  return h;
+}
 // tx_search over a large index is slow even on a healthy node: publicnode
 // answers the per-validator query in ~12s. The old 15s ceiling was shared
 // with cheap /block reads and left almost no headroom.
@@ -981,8 +1009,10 @@ async function pickRpc(force = false) {
   if (!force && Date.now() - lastRpcProbe < RPC_PROBE_MS) return activeRpc;
   lastRpcProbe = Date.now();
   for (const host of RPC_POOL) {
-    const url = `${host}/tx_search?query=${RPC_PROBE_QUERY}&per_page=1&order_by="desc"`;
     try {
+      const head = await chainHead(host);
+      const probe = encodeURIComponent(`"${RPC_PROBE_ACTION} AND tx.height>${head - 20_000}"`);
+      const url = `${host}/tx_search?query=${probe}&per_page=1&order_by="desc"`;
       const res = await fetch(url, { signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
@@ -1011,13 +1041,27 @@ const SEARCH_FAILURE_ALARM = 3;
 // Shared core: hit tx_search with `query`, parse each returned tx via
 // `parser`, ingest novel staking events. Returns count of new events.
 async function pollSearch(query, parser, label) {
-  const q = encodeURIComponent(`"${query}"`);
   const rpc = await pickRpc();
-  const url = `${rpc}/tx_search?query=${q}&per_page=100&order_by="desc"`;
 
-  let data;
+  let txs = [];
+  let head;
   try {
-    data = await fetchWithRetry(url, 3, SEARCH_TIMEOUT_MS);
+    head = await chainHead(rpc);
+    const floor = searchFloor.has(label)
+      ? searchFloor.get(label)
+      : Math.max(0, head - STARTUP_LOOKBACK_BLOCKS);
+    const q = encodeURIComponent(`"${query} AND tx.height>${floor}"`);
+    for (let page = 1; page <= SEARCH_MAX_PAGES; page++) {
+      const url = `${rpc}/tx_search?query=${q}&per_page=${SEARCH_PAGE}&page=${page}&order_by="desc"`;
+      const d = await fetchWithRetry(url, 3, SEARCH_TIMEOUT_MS);
+      const batch = d?.result?.txs || [];
+      txs.push(...batch);
+      const total = Number(d?.result?.total_count || 0);
+      if (batch.length < SEARCH_PAGE || txs.length >= total) break;
+      if (page === SEARCH_MAX_PAGES) {
+        log("warn", `${label}: more than ${SEARCH_PAGE * SEARCH_MAX_PAGES} matches above ${floor}, oldest skipped`);
+      }
+    }
     searchFailures.delete(label);
   } catch (e) {
     const n = (searchFailures.get(label) || 0) + 1;
@@ -1037,7 +1081,9 @@ async function pollSearch(query, parser, label) {
     return 0;
   }
 
-  const txs = data?.result?.txs || [];
+  // Only after the whole window was read. A failed pass keeps the old floor,
+  // so the next pass covers the same blocks again.
+  searchFloor.set(label, Math.max(0, head - SEARCH_OVERLAP_BLOCKS));
   let newCount = 0;
 
   for (const tx of txs) {
