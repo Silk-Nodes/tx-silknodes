@@ -195,7 +195,12 @@ async function handler(req: Request) {
         const timer = setTimeout(() => ctrl.abort(), 8000);
         const res = await fetch(cgUrl, {
           signal: ctrl.signal,
-          headers: { accept: "application/json" },
+          headers: {
+            accept: "application/json",
+            // Same free-plan key as everything else; without it this call
+            // counted against the shared keyless limit for our IP.
+            ...(process.env.COINGECKO_API_KEY ? { "x-cg-demo-api-key": process.env.COINGECKO_API_KEY } : {}),
+          },
         });
         clearTimeout(timer);
         if (res.ok) {

@@ -145,7 +145,9 @@ export default function ValidatorList({
             fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
             fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
             fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
-            fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=tx&vs_currencies=usd"),
+            // The site's own price (exchange tickers), not CoinGecko from
+            // each visitor's browser, which is rate limited per IP.
+            fetchWithTimeout("/api/coin"),
           ]);
 
           const prov = provRes.status === "fulfilled" ? await provRes.value.json() : {};
@@ -169,7 +171,7 @@ export default function ValidatorList({
             communityTax,
             totalBonded,
             inflation: parseFloat(infl.inflation || "0"),
-            txPrice: price.tx?.usd || 0,
+            txPrice: price?.data?.market_data?.current_price?.usd || 0,
           });
         }
       } catch (err) {
