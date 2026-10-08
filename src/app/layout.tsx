@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { NO_FLASH_SCRIPT } from "@/lib/theme";
+import { Umami, UMAMI_ORIGIN } from "@/components/Umami";
 
 // Phase 2: app served from its own origin; no /tx-silknodes/ prefix.
 const basePath = "";
@@ -93,7 +94,7 @@ export default function RootLayout({
         {/* <meta name="msvalidate.01" content="YOUR_BING_CODE" /> */}
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-src https://restake.app; connect-src 'self' https://api.silknodes.io https://rpc.silknodes.io wss://rpc.silknodes.io https://rest-coreum.ecostake.com https://rpc-coreum.ecostake.com wss://rpc-coreum.ecostake.com https://coreum-rest.publicnode.com https://coreum-rpc.publicnode.com https://rest.cosmos.directory https://full-node.mainnet-1.coreum.dev:1317 https://full-node.mainnet-1.coreum.dev:26657 https://api.mainnet-1.tx.org https://archive.rest.mainnet-1.tx.org https://archive.rpc.mainnet-1.tx.org wss://archive.rpc.mainnet-1.tx.org https://hasura.mainnet-1.coreum.dev https://api.web3forms.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.clarity.ms; object-src 'none'; base-uri 'self';"
+          content={`default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.clarity.ms${UMAMI_ORIGIN ? ` ${UMAMI_ORIGIN}` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-src https://restake.app; connect-src 'self' https://api.silknodes.io https://rpc.silknodes.io wss://rpc.silknodes.io https://rest-coreum.ecostake.com https://rpc-coreum.ecostake.com wss://rpc-coreum.ecostake.com https://coreum-rest.publicnode.com https://coreum-rpc.publicnode.com https://rest.cosmos.directory https://full-node.mainnet-1.coreum.dev:1317 https://full-node.mainnet-1.coreum.dev:26657 https://api.mainnet-1.tx.org https://archive.rest.mainnet-1.tx.org https://archive.rpc.mainnet-1.tx.org wss://archive.rpc.mainnet-1.tx.org https://hasura.mainnet-1.coreum.dev https://api.web3forms.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.clarity.ms${UMAMI_ORIGIN ? ` ${UMAMI_ORIGIN}` : ""}; object-src 'none'; base-uri 'self';`}
         />
         <link rel="icon" href={`${basePath}/brand/app-icon-lime.svg`} type="image/svg+xml" />
         <link rel="icon" href={`${basePath}/brand/favicon-32.png`} type="image/png" sizes="32x32" />
@@ -201,7 +202,10 @@ export default function RootLayout({
         </Script>
         */}
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Umami />
+      </body>
     </html>
   );
 }
