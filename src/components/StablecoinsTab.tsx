@@ -60,13 +60,13 @@ interface Payload {
   usdc: { routes: number; total: number; canonical: number | null; canonicalShare: number | null; fragments: Fragment[] };
   history: { available: boolean; points: HistoryPoint[] };
   activity: Activity[] | null;
-  ustxFlows: IssuerFlows | null;
+  ustxFlows: SupplyFlows | null;
 }
-interface IssuerDay { day: string; issued: number; redeemed: number; wallets: number }
-interface IssuerFlows {
-  denom: string; issuer: string; since: string | null; days: IssuerDay[];
-  issued: number; redeemed: number; wallets: number; preview: boolean;
-  largest: { txhash: string; ts: string; wallet: string; amount: number }[];
+interface SupplyDay { day: string; minted: number; burned: number }
+interface SupplyFlows {
+  denom: string; since: string | null; startSupply: number; supplyNow: number;
+  minted: number; burned: number; days: SupplyDay[];
+  transfers: number; wallets: number; preview: boolean;
 }
 
 const REFRESH_MS = 5 * 60_000;
@@ -136,10 +136,8 @@ const STYLES = `
         .ustx-preview { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 12px;
                         background: color-mix(in srgb, var(--accent-orange) 22%, transparent); color: var(--text-dark); }
         .ustx-track { display: grid; gap: 14px; }
+        .ustx-foot-line { font-size: 0.78rem; color: var(--text-light); }
         .ustx-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-        .ustx-largest { display: grid; gap: 4px; }
-        .ustx-largest-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; font-size: 0.84rem;
-                            padding: 6px 0; border-top: 1px solid rgba(128,128,128,0.16); }
         @media (max-width: 520px) {
           .ustx-kpis { grid-template-columns: minmax(0, 1fr); }
           .ustx-flow { grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr); gap: 4px; }
@@ -382,13 +380,22 @@ function WatchRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// First hourly snapshot of USTX, which the collector writes the hour it
+// appears. Null before launch.
+function ustxSince(d: Payload): string | null {
+  const den = d.ustx?.issued ? d.ustx.denom : null;
+  if (!den) return null;
+  const first = d.history.points.filter((p) => p.denom === den).map((p) => p.takenAt).sort()[0];
+  return first ? dateOnly(first) : null;
+}
+
 function UstxMonitor({ d }: { d: Payload }) {
   const u = d.ustx;
   const issued = u?.issued ?? false;
   const headline = issued ? "Live on TX" : u?.testnetDenom ? "On testnet only" : "Not issued yet";
   const rec = d.recording;
   return (
-    <Panel title="USTX" sub="Brale's native stablecoin for TX, announced for October 2026." className="stc-ustx">
+    <Panel title="USTX" sub={ustxSince(d) ? `Brale's native stablecoin for TX, on mainnet since ${ustxSince(d)}.` : "Brale's native stablecoin for TX, announced for October 2026."} className="stc-ustx">
       <div className="stc-ustx-status" style={{ color: issued ? "var(--text-accent)" : "var(--text-dark)" }}>{headline}</div>
       <div style={{ display: "grid", gap: 8 }}>
         <WatchRow label="Brale mainnet issuer" value={u ? `checked ${ago(u.checkedAt)}` : "n/a"} />
@@ -518,7 +525,7 @@ function HowUstx() {
         {GET_USTX_URL ? (
           <a className="film-cta" href={GET_USTX_URL} target="_blank" rel="noopener noreferrer">Get USTX</a>
         ) : (
-          <span className="ustx-status mono">Conversion opens at launch</span>
+          <span className="ustx-status mono">Public conversion link not out yet</span>
         )}
         <a href={ANNOUNCEMENT} target="_blank" rel="noopener noreferrer" className="stc-link">tx&apos;s announcement</a>
       </div>
@@ -534,7 +541,7 @@ function UstxReserves({ d }: { d: Payload }) {
     <Panel title="Backed 1:1">
       <div className="ustx-eq">
         <div className="ustx-eq-side">
-          <span className="mono ustx-eq-v" style={{ color: "var(--text-dark)" }}>{num(supply, 0)}</span>
+          <span className="mono ustx-eq-v" style={{ color: "var(--text-dark)" }}>{num(supply, supply < 1000 ? 2 : 0)}</span>
           <span className="ustx-eq-k">USTX on tx</span>
         </div>
         <span className="ustx-eq-sign mono" aria-label="equals">=</span>
@@ -543,7 +550,7 @@ function UstxReserves({ d }: { d: Payload }) {
           <span className="ustx-eq-k">in reserve</span>
         </div>
       </div>
-      <p className="ustx-eq-note">Reserves are attested monthly by an independent firm. First report after launch.</p>
+      <p className="ustx-eq-note">Reserves are attested monthly by an independent firm. The first USTX report is still to come.</p>
       <div className="ustx-actions">
         <span />
         <a href={BRALE_SBC_PAGE} target="_blank" rel="noopener noreferrer" className="stc-link">Brale&apos;s reports</a>
@@ -555,14 +562,15 @@ function UstxReserves({ d }: { d: Payload }) {
 function UstxTracker({ d }: { d: Payload }) {
   const f = d.ustxFlows;
   const sym = f?.preview ? d.coins.find((c) => c.denom === f.denom)?.symbol ?? "preview" : "USTX";
-  const data = f?.days.map((x) => ({ ...x, redeemedNeg: -x.redeemed })) ?? [];
+  const data = f?.days.map((x) => ({ ...x, burnedNeg: -x.burned })) ?? [];
+  const holders = d.coins.find((c) => c.denom === f?.denom)?.holders ?? null;
   return (
     <Panel
       title="USDC converted to USTX"
-      sub={f ? `Issued from Brale's address to wallets, and sent back to redeem, daily${f.since ? ` since ${dateOnly(f.since)}` : ""}.` : "Every issuance from Brale's address lands here within the hour of the first mint."}
+      sub={f ? `${sym} minted and burned, read from hourly supply snapshots${f.since ? ` since ${dateOnly(f.since)}` : ""}.` : "Every mint shows here within the hour of the first one."}
     >
       {f?.preview && (
-        <div className="ustx-preview mono">Preview with {sym} data, same issuer. Local only.</div>
+        <div className="ustx-preview mono">Preview with {sym} data. Local only.</div>
       )}
       {!f ? (
         <div className="ustx-waiting">
@@ -577,48 +585,46 @@ function UstxTracker({ d }: { d: Payload }) {
       ) : (
         <div className="ustx-track">
           <div className="ustx-kpis">
-            <div><div className="card-title" style={CARD_TITLE}>Issued, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.issued, 0)}</div></div>
-            <div><div className="card-title" style={CARD_TITLE}>Sent back, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.redeemed, 0)}</div></div>
-            <div><div className="card-title" style={CARD_TITLE}>Wallets issued to</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{f.wallets.toLocaleString("en-US")}</div></div>
+            <div><div className="card-title" style={CARD_TITLE}>In circulation</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.supplyNow, f.supplyNow < 1000 ? 2 : 0)}</div></div>
+            <div><div className="card-title" style={CARD_TITLE}>Minted, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.minted, f.minted < 1000 ? 2 : 0)}</div></div>
+            <div><div className="card-title" style={CARD_TITLE}>Burned, 30d</div><div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(f.burned, f.burned < 1000 ? 2 : 0)}</div></div>
           </div>
-          <div style={{ height: 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} stackOffset="sign" margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.2)" />
-                <XAxis dataKey="day" tickFormatter={dayLabel} tick={AXIS} tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tickFormatter={(v) => usd(Math.abs(v as number))} tick={AXIS} tickLine={false} axisLine={false} width={52} />
-                <Tooltip
-                  cursor={{ fill: "rgba(128,128,128,0.08)" }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const x = payload[0].payload as IssuerDay;
-                    return (
-                      <TipBox>
-                        <strong>{dayLabel(x.day)}</strong>
-                        <span>issued <b className="mono">{num(x.issued)}</b> to <b className="mono">{x.wallets}</b> wallets</span>
-                        <span>sent back <b className="mono">{num(x.redeemed)}</b></span>
-                      </TipBox>
-                    );
-                  }}
-                />
-                <Bar dataKey="issued" stackId="f" fill={C.ibcIn} radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                <Bar dataKey="redeemedNeg" stackId="f" fill={C.ibcOut} radius={[0, 0, 3, 3]} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <Legend items={[["Issued to wallets", C.ibcIn], ["Sent back to Brale", C.ibcOut]]} />
-          {f.largest.length > 0 && (
-            <div className="ustx-largest">
-              <div className="card-title" style={CARD_TITLE}>Largest issuances</div>
-              {f.largest.map((l) => (
-                <div key={l.txhash + l.wallet} className="ustx-largest-row">
-                  <a href={`/passport/${l.wallet}`} className="mono stc-addr" style={{ color: "var(--text-dark)" }}>{short(l.wallet)}</a>
-                  <span className="mono" style={MUTED}>{dateOnly(l.ts)}</span>
-                  <span className="mono" style={{ color: "var(--text-dark)", textAlign: "right" }}>{num(l.amount)}</span>
-                </div>
-              ))}
+          {data.length > 0 ? (
+            <div style={{ height: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} stackOffset="sign" margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,0.2)" />
+                  <XAxis dataKey="day" tickFormatter={dayLabel} tick={AXIS} tickLine={false} axisLine={false} minTickGap={24} />
+                  <YAxis tickFormatter={(v) => usd(Math.abs(v as number))} tick={AXIS} tickLine={false} axisLine={false} width={52} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(128,128,128,0.08)" }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const x = payload[0].payload as SupplyDay;
+                      return (
+                        <TipBox>
+                          <strong>{dayLabel(x.day)}</strong>
+                          <span>minted <b className="mono">{num(x.minted)}</b></span>
+                          <span>burned <b className="mono">{num(x.burned)}</b></span>
+                        </TipBox>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="minted" stackId="f" fill={C.ibcIn} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="burnedNeg" stackId="f" fill={C.ibcOut} radius={[0, 0, 3, 3]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="ustx-waiting" style={{ minHeight: 120 }}>
+              <span className="mono" style={{ color: "var(--text-dark)" }}>No supply change in the window</span>
             </div>
           )}
+          <Legend items={[["Minted", C.ibcIn], ["Burned", C.ibcOut]]} />
+          <div className="ustx-foot-line mono">
+            {f.transfers.toLocaleString("en-US")} transfers between {f.wallets.toLocaleString("en-US")} wallets in 30 days
+            {holders != null ? `, ${holders.toLocaleString("en-US")} holding now` : ""}
+          </div>
         </div>
       )}
     </Panel>
@@ -985,7 +991,8 @@ export default function StablecoinsTab() {
   const usdc = main.find((c) => c.symbol === "USDC");
   const sbc = main.find((c) => c.symbol === "SBC");
   // All USDC routes, not only the canonical one, plus SBC.
-  const totalStable = d.usdc.total + (sbc?.supply ?? 0);
+  const ustxCoin = main.find((c) => c.symbol === "USTX");
+  const totalStable = d.usdc.total + (sbc?.supply ?? 0) + (ustxCoin?.supply ?? 0);
   const act = d.activity?.find((a) => a.denom === usdc?.denom) ?? null;
   const withHolders = main.filter((c) => c.topHolders.length > 0);
   const pending = "from the next collector run";
@@ -1005,7 +1012,7 @@ export default function StablecoinsTab() {
       </div>
 
       <div className="panel stc-kpis">
-        <Kpi label="Dollars on chain" value={usd(totalStable)} note="all USDC routes plus SBC" />
+        <Kpi label="Dollars on chain" value={usd(totalStable)} note={ustxCoin ? "all USDC routes, SBC and USTX" : "all USDC routes plus SBC"} />
         <Kpi
           label="USDC moved, 30d"
           value={act ? usd(act.volume) : "n/a"}
