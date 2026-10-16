@@ -22,7 +22,7 @@ import {
   liveFragments,
   recording,
   activity,
-  issuerFlows,
+  supplyFlows,
 } from "@/lib/stablecoins";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +76,7 @@ export async function GET(req: Request) {
   // data (SBC shares Brale's issuer); the page labels that as a preview.
   const preview = process.env.NODE_ENV !== "production" ? new URL(req.url).searchParams.get("previewFlows") : null;
   const flowsDenom = preview ?? (ustx?.issued ? ustx.denom : null);
-  const flows = flowsDenom ? await issuerFlows(flowsDenom) : null;
+  const flows = flowsDenom ? await supplyFlows(flowsDenom) : null;
 
   const usdcTotal = fragments.reduce((s, f) => s + f.amount, 0);
   const canonical = fragments.find((f) => f.denom === USDC_CANONICAL);

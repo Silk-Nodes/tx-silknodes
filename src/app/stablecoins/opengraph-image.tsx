@@ -27,16 +27,20 @@ export default async function Image() {
   // other 38 routes (66,814 against the page's 69.2K on 2026-09-25).
   const usdcAll = routes.reduce((s, r) => s + r.amount, 0);
   const sbc = coins.find((c) => c.symbol === "SBC")?.supply ?? 0;
-  const supply = usdcAll > 0 ? usdcAll + sbc : shown.reduce((s, c) => s + c.supply, 0);
+  const ustxSupply = coins.find((c) => c.symbol === "USTX")?.supply ?? 0;
+  const supply = usdcAll > 0 ? usdcAll + sbc + ustxSupply : shown.reduce((s, c) => s + c.supply, 0);
   const live = ustx?.issued === true;
+  const compact = shown.length > 2;
 
   return ogImage(
     ogFrame({
       eyebrow: "Stablecoins on TX",
       title: "Who holds the dollar",
-      titleSize: 64,
+      // A third coin (USTX, live 2026-10-08) needs the room: tighter rows
+      // keep the header clear of the eyebrow.
+      titleSize: compact ? 56 : 64,
       children: (
-        <div style={{ display: "flex", flexDirection: "column", marginTop: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: compact ? 12 : 18 }}>
           <div style={{ display: "flex", alignItems: "center" }}>
             <div
               style={{
@@ -62,14 +66,14 @@ export default async function Image() {
             const b = c.breakdown!;
             const parts = [b.top1, b.second, b.next8, b.rest];
             return (
-              <div key={c.denom} style={{ display: "flex", flexDirection: "column", marginTop: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 23, width: 1056 }}>
+              <div key={c.denom} style={{ display: "flex", flexDirection: "column", marginTop: compact ? 10 : 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: compact ? 21 : 23, width: 1056 }}>
                   <div style={{ display: "flex", fontWeight: 700 }}>{c.symbol}</div>
                   <div style={{ display: "flex", color: MUTED }}>
                     {`largest wallet ${(b.top1 * 100).toFixed(1)}% of ${c.holders?.toLocaleString("en-US") ?? "?"} holders`}
                   </div>
                 </div>
-                <div style={{ display: "flex", width: 1056, height: 18, borderRadius: 5, overflow: "hidden", marginTop: 7 }}>
+                <div style={{ display: "flex", width: 1056, height: compact ? 14 : 18, borderRadius: 5, overflow: "hidden", marginTop: compact ? 5 : 7 }}>
                   {parts.map((p, i) =>
                     p > 0 ? <div key={i} style={{ display: "flex", width: `${p * 100}%`, background: BANDS[i] }} /> : null,
                   )}

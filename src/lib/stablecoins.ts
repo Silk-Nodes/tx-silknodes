@@ -339,7 +339,15 @@ const FRAGMENTS_MS = 6 * 60 * 60_000;
 
 export function liveCoins(): Promise<CoinState[]> {
   return cached("stablecoins:coins", LIVE_MS, async () => {
-    const settled = await Promise.allSettled(TRACKED.map((c) => measureCoin(c)));
+    // USTX joins the list the moment it exists on mainnet. TRACKED is fixed
+    // in code, so before 2026-10-16 a live USTX (issued 2026-10-08) was
+    // missing from the totals, the holder bars and the backing card.
+    const ustx = await liveUstx();
+    const coins = [...TRACKED];
+    if (ustx?.issued && ustx.denom && !coins.some((c) => c.denom === ustx.denom)) {
+      coins.push({ denom: ustx.denom, symbol: "USTX", name: "USTX, by Brale", issuer: issuerOf(ustx.denom), role: "issued" });
+    }
+    const settled = await Promise.allSettled(coins.map((c) => measureCoin(c)));
     const ok = settled
       .filter((r): r is PromiseFulfilledResult<CoinState> => r.status === "fulfilled")
       .map((r) => r.value);
@@ -453,28 +461,7 @@ export async function activity(): Promise<Activity[] | null> {
   }
 }
 
-// ── issuer flows: USDC in, USTX out ──────────────────────────────────────
-//
-// Brale converts USDC sent from another chain into USTX on tx. On tx that
-// shows up as one thing only: USTX leaving Brale's issuer address for the
-// buyer's wallet. Redemptions are the reverse, USTX sent back to the issuer.
-// The source chain and the time from deposit to mint are not on tx, so they
-// are not shown. Legs from the mint module to the issuer are the mint itself
-// and are left out, so nothing is counted twice.
-
-export interface IssuerDay { day: string; issued: number; redeemed: number; wallets: number }
-export interface Issuance { txhash: string; ts: string; wallet: string; amount: number }
-export interface IssuerFlows {
-  denom: string;
-  issuer: string;
-  since: string | null;
-  days: IssuerDay[];
-  issued: number;
-  redeemed: number;
-  wallets: number;     // distinct wallets that received from the issuer
-  largest: Issuance[];
-}
-
+// Issuer address of a Smart Token denom, used for USTX and the wallet counts.
 /** Issuer address of a Smart Token denom (subunit-issuer). Null for IBC. */
 export function issuerOf(denom: string): string | null {
   if (denom.startsWith("ibc/")) return null;
@@ -482,50 +469,70 @@ export function issuerOf(denom: string): string | null {
   return i > 0 ? denom.slice(i + 1) : null;
 }
 
-export async function issuerFlows(denom: string, days = 30): Promise<IssuerFlows | null> {
-  const issuer = issuerOf(denom);
-  if (!issuer) return null;
+// ── supply flows: what was actually minted and burned ────────────────────
+//
+// Replaces reading issuance off transfers. USTX's first week on mainnet was
+// 1 USTX round trips: a wallet sends to Brale's address, Brale's address
+// sends to a hub wallet, the hub forwards it. Counting the issuer's sends as
+// "issued" and its receipts as "sent back" gave 32 and 32 against a supply
+// of 21.9. Supply is what the coin really did, so minted and burned come from
+// the hourly snapshots: a rise between two snapshots is minted, a fall is
+// burned. The supply already there at the first snapshot is not counted as
+// minted in the window.
+
+export interface SupplyDay { day: string; minted: number; burned: number }
+export interface SupplyFlows {
+  denom: string;
+  since: string | null;      // first snapshot
+  startSupply: number;       // supply at the first snapshot in the window
+  supplyNow: number;
+  minted: number;
+  burned: number;
+  days: SupplyDay[];
+  transfers: number;         // distinct transactions moving the coin, 30d
+  wallets: number;           // distinct addresses in them, issuer excluded
+}
+
+export async function supplyFlows(denom: string, days = 30): Promise<SupplyFlows | null> {
   try {
-    const r = { denom, issuer, days };
-    const daily = await sequelize.query<{ day: string; issued: string; redeemed: string; wallets: string }>(
-      `SELECT to_char(date_trunc('day', ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
-              COALESCE(SUM(amount) FILTER (WHERE sender = :issuer AND recipient <> :issuer), 0) AS issued,
-              COALESCE(SUM(amount) FILTER (WHERE recipient = :issuer AND sender <> :issuer), 0) AS redeemed,
-              COUNT(DISTINCT recipient) FILTER (WHERE sender = :issuer AND recipient <> :issuer) AS wallets
-         FROM stablecoin_transfers
-        WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
-          AND (sender = :issuer OR recipient = :issuer)
-        GROUP BY 1 ORDER BY 1`,
-      { replacements: r, type: QueryTypes.SELECT },
+    const snaps = await sequelize.query<{ taken_at: string; supply: string }>(
+      `SELECT taken_at, supply FROM stablecoin_snapshots
+        WHERE denom = :denom AND taken_at >= NOW() - (:days || ' days')::interval
+        ORDER BY taken_at`,
+      { replacements: { denom, days }, type: QueryTypes.SELECT },
     );
-    const [tot] = await sequelize.query<{ issued: string; redeemed: string; wallets: string; since: string | null }>(
-      `SELECT COALESCE(SUM(amount) FILTER (WHERE sender = :issuer AND recipient <> :issuer), 0) AS issued,
-              COALESCE(SUM(amount) FILTER (WHERE recipient = :issuer AND sender <> :issuer), 0) AS redeemed,
-              COUNT(DISTINCT recipient) FILTER (WHERE sender = :issuer AND recipient <> :issuer) AS wallets,
-              MIN(ts) AS since
-         FROM stablecoin_transfers
-        WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval`,
-      { replacements: r, type: QueryTypes.SELECT },
+    if (snaps.length === 0) return null;
+    const byDay = new Map<string, SupplyDay>();
+    let minted = 0, burned = 0;
+    for (let i = 1; i < snaps.length; i++) {
+      const delta = Number(snaps[i].supply) - Number(snaps[i - 1].supply);
+      if (delta === 0) continue;
+      const day = new Date(snaps[i].taken_at).toISOString().slice(0, 10);
+      const d = byDay.get(day) ?? { day, minted: 0, burned: 0 };
+      if (delta > 0) { d.minted += delta; minted += delta; } else { d.burned += -delta; burned += -delta; }
+      byDay.set(day, d);
+    }
+    const issuer = issuerOf(denom);
+    const [t] = await sequelize.query<{ txs: string; wallets: string }>(
+      `SELECT COUNT(DISTINCT txhash) AS txs,
+              (SELECT COUNT(*) FROM (
+                 SELECT sender AS a FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
+                 UNION SELECT recipient FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
+               ) w WHERE w.a IS DISTINCT FROM :issuer) AS wallets
+         FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval`,
+      { replacements: { denom, days, issuer }, type: QueryTypes.SELECT },
     );
-    const largest = await sequelize.query<{ txhash: string; ts: string; recipient: string; amount: string }>(
-      `SELECT txhash, ts, recipient, amount FROM stablecoin_transfers
-        WHERE denom = :denom AND sender = :issuer AND recipient <> :issuer
-          AND ts >= NOW() - (:days || ' days')::interval
-        ORDER BY amount DESC LIMIT 5`,
-      { replacements: r, type: QueryTypes.SELECT },
-    );
-    const n = (v: string | null | undefined) => Number(v ?? 0);
     return {
       denom,
-      issuer,
-      since: tot?.since ? new Date(tot.since).toISOString() : null,
-      days: daily.map((d) => ({ day: d.day, issued: n(d.issued), redeemed: n(d.redeemed), wallets: n(d.wallets) })),
-      issued: n(tot?.issued),
-      redeemed: n(tot?.redeemed),
-      wallets: n(tot?.wallets),
-      largest: largest.map((l) => ({ txhash: l.txhash, ts: new Date(l.ts).toISOString(), wallet: l.recipient, amount: n(l.amount) })),
+      since: new Date(snaps[0].taken_at).toISOString(),
+      startSupply: Number(snaps[0].supply),
+      supplyNow: Number(snaps[snaps.length - 1].supply),
+      minted, burned,
+      days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
+      transfers: Number(t?.txs ?? 0),
+      wallets: Number(t?.wallets ?? 0),
     };
   } catch {
-    return null; // no database, or migration 022 not run
+    return null; // no database, or migrations 021/022 not run
   }
 }
