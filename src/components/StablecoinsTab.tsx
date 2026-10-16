@@ -175,10 +175,25 @@ const STYLES = `
         .stc-addr:hover { text-decoration: underline; }
         .stc-share { display: block; height: 3px; margin-top: 4px; border-radius: 2px; background: rgba(128,128,128,0.12); }
         .stc-share > span { display: block; height: 100%; border-radius: 2px; background: var(--accent-olive); }
-        .stc-matrix { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+        .stc-supply-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 14px; }
+        .stc-supply-card { padding: 16px 18px 12px; border-radius: 12px; background: rgba(128,128,128,0.07); min-width: 0; }
+        .stc-supply-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+        .stc-supply-sym { font-weight: 700; font-size: 1rem; color: var(--text-dark); }
+        .stc-supply-now { font-size: 1.5rem; color: var(--text-dark); }
+        .stc-supply-sub { font-size: 0.76rem; color: var(--text-medium); margin: 4px 0 10px; }
+        .stc-supply-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-medium); margin-top: 6px; }
+        @media (max-width: 1180px) { .stc-supply-grid { grid-template-columns: minmax(0, 1fr); } }
+        .stc-holder-summary { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+                              padding: 14px 16px; border-radius: 12px; background: rgba(128,128,128,0.07); }
+        .stc-holders-row { grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+        @media (max-width: 1180px) { .stc-holders-row { grid-template-columns: minmax(0, 1fr); } }
+        /* The card is stretched to the routes chart beside it; the rows take
+           that height instead of leaving a gap above the definitions. */
+        .stc-matrix-wrap { flex: 1; overflow-x: auto; display: flex; }
+        .stc-matrix { width: 100%; height: 100%; border-collapse: collapse; font-size: 0.84rem; }
         .stc-matrix th { font-weight: 500; text-align: left; padding: 6px 8px; font-size: 0.76rem; }
         .stc-matrix td { padding: 10px 8px; border-top: 1px solid rgba(128,128,128,0.18); }
-        .stc-defs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: auto 0 0; padding-top: 14px; font-size: 0.78rem; }
+        .stc-defs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: 0; padding-top: 14px; font-size: 0.78rem; }
         .stc-defs > div { display: flex; gap: 6px; }
         .stc-defs dt { font-weight: 700; }
         .stc-defs dd { margin: 0; }
@@ -724,10 +739,12 @@ function HolderList({ c }: { c: Coin }) {
   const max = c.topHolders[0]?.share || 1;
   return (
     <Shareable title={`Largest ${c.symbol} holders`} subtitle="Stablecoins on TX" framed={false}>
-    <div className="panel" style={{ padding: 20 }}>
+    <div className="panel" style={{ padding: 20, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, paddingRight: 40 }}>
         <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-dark)" }}>{c.symbol}</div>
-        <div className="mono" style={{ ...MUTED, fontSize: "0.8rem" }}>top 10 of {c.holders?.toLocaleString("en-US") ?? "?"}</div>
+        <div className="mono" style={{ ...MUTED, fontSize: "0.8rem" }}>
+          {c.holders != null && c.holders <= 10 ? `all ${c.holders} holders` : `top 10 of ${c.holders?.toLocaleString("en-US") ?? "?"}`}
+        </div>
       </div>
       <ol style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
         {c.topHolders.map((h, i) => {
@@ -751,6 +768,27 @@ function HolderList({ c }: { c: Coin }) {
           );
         })}
       </ol>
+      {/* A short list (USTX had 6 holders at launch) leaves the card taller
+          than its rows, as it matches the 10-row cards beside it. The space
+          carries the coin's concentration instead of sitting empty. */}
+      {c.topHolders.length < 10 && c.topHolders.length >= 3 && (
+        <div className="stc-holder-summary">
+          <div>
+            <div className="card-title" style={CARD_TITLE}>Top 3 hold</div>
+            <div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>
+              {pct(c.topHolders.slice(0, 3).reduce((a, h) => a + h.share, 0))}
+            </div>
+          </div>
+          <div>
+            <div className="card-title" style={CARD_TITLE}>Wallets</div>
+            <div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{c.holders?.toLocaleString("en-US") ?? c.topHolders.length}</div>
+          </div>
+          <div>
+            <div className="card-title" style={CARD_TITLE}>Supply</div>
+            <div className="mono ustx-big" style={{ color: "var(--text-dark)" }}>{num(c.supply, c.supply < 1000 ? 2 : 0)}</div>
+          </div>
+        </div>
+      )}
     </div>
     </Shareable>
   );
@@ -816,7 +854,7 @@ function ControlsMatrix({ d }: { d: Payload }) {
   if (native.length === 0) return null;
   return (
     <Panel title="What the issuer can do" sub="Smart Token features, fixed at issuance. USDC's controls live on Noble.">
-      <div style={{ overflowX: "auto" }}>
+      <div className="stc-matrix-wrap">
         <table className="stc-matrix">
           <thead>
             <tr>
@@ -852,6 +890,67 @@ function ControlsMatrix({ d }: { d: Payload }) {
 
 // ── supply over time ─────────────────────────────────────────────────────
 
+// One card per coin: where supply stands, how far it moved since recording
+// began, and the holder count beside it. A coin whose supply never moved
+// says so instead of drawing a flat line as if it were a chart.
+function signed(v: number, dp: number) {
+  const r = Number(v.toFixed(dp));
+  return `${r > 0 ? "+" : r < 0 ? "\u2212" : ""}${Math.abs(r).toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
+}
+
+function SupplyCard({ c, pts }: { c: Coin; pts: HistoryPoint[] }) {
+  const data = pts.map((p) => ({ t: new Date(p.takenAt).getTime(), supply: p.supply, holders: p.holders }));
+  const first = data[0], last = data[data.length - 1];
+  const dp = last.supply < 1000 ? 2 : 0;
+  const delta = last.supply - first.supply;
+  const pctMove = first.supply > 0 ? delta / first.supply : null;
+  const flat = data.every((x) => x.supply === first.supply);
+  const hFirst = first.holders, hLast = last.holders;
+  const day = (t: number) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return (
+    <div className="stc-supply-card">
+      <div className="stc-supply-head">
+        <span className="stc-supply-sym">{c.symbol}</span>
+        <span className="mono stc-supply-now">{num(last.supply, dp)}</span>
+      </div>
+      <div className="stc-supply-sub mono">
+        {flat
+          ? `unchanged since ${day(first.t)}`
+          : `${signed(delta, dp)}${pctMove != null ? ` (${signed(pctMove * 100, 1)}%)` : ""} since ${day(first.t)}`}
+        {hLast != null && (
+          <span>
+            {" · "}{hLast.toLocaleString("en-US")} holders
+            {hFirst != null && hFirst !== hLast ? ` (${signed(hLast - hFirst, 0)})` : ""}
+          </span>
+        )}
+      </div>
+      <div style={{ height: 130, opacity: flat ? 0.55 : 1 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+            <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} hide />
+            <YAxis domain={flat ? [0, "auto"] : ["auto", "auto"]} hide />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const p = payload[0].payload as (typeof data)[number];
+                return (
+                  <TipBox>
+                    <strong>{new Date(p.t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC</strong>
+                    <span>supply <b className="mono">{num(p.supply, dp)}</b></span>
+                    <span>holders <b className="mono">{p.holders ?? "?"}</b></span>
+                  </TipBox>
+                );
+              }}
+            />
+            <Area dataKey="supply" type="stepAfter" stroke={C.chain} strokeWidth={1.5} fill={C.chain} fillOpacity={0.14} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="stc-supply-axis mono"><span>{day(first.t)}</span><span>{day(last.t)}</span></div>
+    </div>
+  );
+}
+
 function SupplyHistory({ d }: { d: Payload }) {
   const main = d.coins.filter((c) => c.role !== "test");
   const series = main
@@ -867,41 +966,9 @@ function SupplyHistory({ d }: { d: Payload }) {
     );
   }
   return (
-    <Panel title="Supply over time" sub={`Hourly, recorded since ${d.recording?.since ? dateOnly(d.recording.since) : "the first run"}.`}>
-      <div className="stc-grid-2">
-        {series.map(({ c, pts }) => {
-          const data = pts.map((p) => ({ t: new Date(p.takenAt).getTime(), supply: p.supply, holders: p.holders }));
-          return (
-            <div key={c.denom}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: 4 }}>
-                <span style={{ color: "var(--text-dark)", fontWeight: 700 }}>{c.symbol}</span>
-                <span className="mono" style={MUTED}>{num(data[data.length - 1].supply)}</span>
-              </div>
-              <div style={{ height: 120 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} hide />
-                    <YAxis domain={["auto", "auto"]} hide />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const p = payload[0].payload as (typeof data)[number];
-                        return (
-                          <TipBox>
-                            <strong>{new Date(p.t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC</strong>
-                            <span>supply <b className="mono">{num(p.supply)}</b></span>
-                            <span>holders <b className="mono">{p.holders ?? "?"}</b></span>
-                          </TipBox>
-                        );
-                      }}
-                    />
-                    <Area dataKey="supply" type="stepAfter" stroke={C.chain} strokeWidth={1.5} fill={C.chain} fillOpacity={0.14} isAnimationActive={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          );
-        })}
+    <Panel title="Supply over time" sub={`Hourly snapshots since ${d.recording?.since ? dateOnly(d.recording.since) : "the first run"}. The chain keeps no history, so this starts when we did.`}>
+      <div className="stc-supply-grid" style={{ ["--cols" as string]: series.length } as React.CSSProperties}>
+        {series.map(({ c, pts }) => <SupplyCard key={c.denom} c={c} pts={pts} />)}
       </div>
     </Panel>
   );
@@ -1060,7 +1127,9 @@ export default function StablecoinsTab() {
       </div>
 
       {withHolders.length > 0 && (
-        <div className="stc-row stc-grid-2">
+        // One column per coin, so a third list (USTX, live 2026-10-08) sits
+        // beside the other two instead of alone under them.
+        <div className="stc-row stc-holders-row" style={{ ["--cols" as string]: withHolders.length } as React.CSSProperties}>
           {withHolders.map((c) => <HolderList key={c.denom} c={c} />)}
         </div>
       )}
