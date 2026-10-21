@@ -90,6 +90,7 @@ const STYLES = `
         .ustx-from { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 16px; }
         .ustx-from-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-light); margin-right: 2px; }
         .ustx-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(128,128,128,0.3); color: var(--text-dark); }
+        .ustx-chip-later { border-style: dashed; color: var(--text-medium); }
         .ustx-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
                         margin-top: auto; padding-top: 18px; }
         .ustx-status { font-size: 0.74rem; padding: 4px 10px; border-radius: 999px; background: rgba(128,128,128,0.12); color: var(--text-dark); }
@@ -433,10 +434,14 @@ function UstxMonitor({ d }: { d: Payload }) {
 // From tx's announcement, 2026-09-28. Brale runs the conversion; this page
 // only reads the result on chain and links to their flow.
 const ANNOUNCEMENT = "https://x.com/txEcosystem/status/2104606576997024056";
-// Set when Brale publishes the conversion flow. Until then no button, so
-// nobody is sent to a page that does not exist yet.
+// Public minting opened 2026-10-20 in the tx wallet. Set this to the
+// conversion page once there is one public URL to send people to.
 const GET_USTX_URL: string | null = null;
-const SOURCE_CHAINS = ["Ethereum", "Base", "Solana", "Arbitrum", "Optimism", "Polygon", "Avalanche", "Celo"];
+// USDC routes Brale accepts at launch, then the ones announced for later.
+// Live first, so the diagram reads top down.
+const LIVE_CHAINS = ["Ethereum", "Base", "Polygon", "Solana"];
+const LATER_CHAINS = ["Arbitrum", "Optimism", "Avalanche", "Celo"];
+const SOURCE_CHAINS = [...LIVE_CHAINS, ...LATER_CHAINS];
 // Brale's reserve reports are monthly PDFs per coin, with no data feed.
 const BRALE_SBC_PAGE = "https://brale.xyz/stablecoins/SBC";
 
@@ -454,23 +459,23 @@ function FlowDiagram() {
   const fan = SOURCE_CHAINS.map((c, i) => {
     const y = top + i * gap;
     const x0 = chainX + chainW;
-    return { c, y, d: `M${x0},${y} C${x0 + 70},${y} ${usdc.x - R - 60},${cy} ${usdc.x - R},${cy}` };
+    return { c, y, later: i >= LIVE_CHAINS.length, d: `M${x0},${y} C${x0 + 70},${y} ${usdc.x - R - 60},${cy} ${usdc.x - R},${cy}` };
   });
   const mid = `M${usdc.x + R},${cy} L${brale.x - R},${cy}`;
   const end = `M${brale.x + R},${cy} L${ustx.x - R - 6},${cy}`;
   return (
     <svg className="ustx-diagram" viewBox={`0 0 ${W} ${H + 24}`} role="img"
-      aria-label="USDC from eight chains goes to Brale, which issues USTX to a tx wallet, one for one">
+      aria-label="USDC from four chains, with four more to come, goes to Brale, which issues USTX to a tx wallet, one for one">
       {fan.map((f, i) => (
         <g key={f.c}>
-          <path d={f.d} fill="none" stroke="rgba(128,128,128,0.35)" strokeWidth={1.3} />
-          {!still && (
+          <path d={f.d} fill="none" stroke={f.later ? "rgba(128,128,128,0.2)" : "rgba(128,128,128,0.35)"} strokeWidth={1.3} strokeDasharray={f.later ? "3 4" : undefined} />
+          {!still && !f.later && (
           <circle r="2.6" fill="var(--text-dark)" opacity={0.75} className="ud-dot">
             <animateMotion dur="3.2s" begin={`${(i * 0.37).toFixed(2)}s`} repeatCount="indefinite" path={f.d} />
           </circle>
           )}
-          <rect x={chainX} y={f.y - 10} width={chainW} height={20} rx={10} fill="var(--glass-bg)" stroke="rgba(128,128,128,0.35)" />
-          <text x={chainX + chainW / 2} y={f.y + 4} textAnchor="middle" fontSize={10.5} fill="var(--text-dark)">{f.c}</text>
+          <rect x={chainX} y={f.y - 10} width={chainW} height={20} rx={10} fill="var(--glass-bg)" stroke="rgba(128,128,128,0.35)" strokeDasharray={f.later ? "3 3" : undefined} />
+          <text x={chainX + chainW / 2} y={f.y + 4} textAnchor="middle" fontSize={10.5} fill={f.later ? "var(--text-medium)" : "var(--text-dark)"}>{f.c}</text>
         </g>
       ))}
       <path d={mid} fill="none" stroke="rgba(128,128,128,0.6)" strokeWidth={1.8} />
@@ -501,7 +506,7 @@ function FlowDiagram() {
       <text x={brale.x} y={cy + R + 24} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="var(--text-dark)">Brale issues</text>
       <text x={ustx.x} y={cy + R + 24} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="var(--text-dark)">In your tx wallet</text>
       <text x={(usdc.x + brale.x) / 2} y={cy - 12} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={11} fontWeight={700} fill="var(--text-accent)">1 : 1</text>
-      <text x={chainX} y={top - 20} fontSize={10.5} fill="var(--text-light)" letterSpacing="0.08em">8 SOURCE CHAINS</text>
+      <text x={chainX} y={top - 20} fontSize={10.5} fill="var(--text-light)" letterSpacing="0.08em">4 LIVE, 4 COMING</text>
     </svg>
   );
 }
@@ -534,13 +539,14 @@ function HowUstx() {
       <div className="ustx-rate mono">1 USDC = 1 USTX</div>
       <div className="ustx-from ustx-narrow">
         <span className="ustx-from-label">From</span>
-        {SOURCE_CHAINS.map((c) => <span key={c} className="ustx-chip">{c}</span>)}
+        {LIVE_CHAINS.map((c) => <span key={c} className="ustx-chip">{c}</span>)}
+        {LATER_CHAINS.map((c) => <span key={c} className="ustx-chip ustx-chip-later" title="Announced for a later phase">{c}</span>)}
       </div>
       <div className="ustx-actions">
         {GET_USTX_URL ? (
           <a className="film-cta" href={GET_USTX_URL} target="_blank" rel="noopener noreferrer">Get USTX</a>
         ) : (
-          <span className="ustx-status mono">Public conversion link not out yet</span>
+          <span className="ustx-status mono">Minting is live in the tx wallet</span>
         )}
         <a href={ANNOUNCEMENT} target="_blank" rel="noopener noreferrer" className="stc-link">tx&apos;s announcement</a>
       </div>
