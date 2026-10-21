@@ -65,7 +65,7 @@ interface Payload {
 interface SupplyDay { day: string; minted: number; burned: number }
 interface SupplyFlows {
   denom: string; since: string | null; startSupply: number; supplyNow: number;
-  minted: number; burned: number; days: SupplyDay[];
+  minted: number; burned: number; gap: number; days: SupplyDay[];
   transfers: number; wallets: number; preview: boolean;
 }
 
@@ -588,7 +588,7 @@ function UstxTracker({ d }: { d: Payload }) {
   return (
     <Panel
       title="USDC converted to USTX"
-      sub={f ? `${sym} minted and burned, read from hourly supply snapshots${f.since ? ` since ${dateOnly(f.since)}` : ""}.` : "Every mint shows here within the hour of the first one."}
+      sub={f ? `${sym} minted and burned, summed from every mint and burn transaction${f.since ? ` since ${dateOnly(f.since)}` : ""}.` : "Every mint shows here within the hour of the first one."}
     >
       {f?.preview && (
         <div className="ustx-preview mono">Preview with {sym} data. Local only.</div>
@@ -638,10 +638,15 @@ function UstxTracker({ d }: { d: Payload }) {
             </div>
           ) : (
             <div className="ustx-waiting" style={{ minHeight: 120 }}>
-              <span className="mono" style={{ color: "var(--text-dark)" }}>No supply change in the window</span>
+              <span className="mono" style={{ color: "var(--text-dark)" }}>No mints or burns in the window</span>
             </div>
           )}
           <Legend items={[["Minted", C.ibcIn], ["Burned", C.ibcOut]]} />
+          {Math.abs(f.gap) >= 0.01 && (
+            <div className="ustx-foot-line mono">
+              Supply is {num(Math.abs(f.gap))} {f.gap > 0 ? "above" : "below"} what the mint and burn records add up to. One of the two hourly reads is behind.
+            </div>
+          )}
           <div className="ustx-foot-line mono">
             {f.transfers.toLocaleString("en-US")} transfers between {f.wallets.toLocaleString("en-US")} wallets in 30 days
             {holders != null ? `, ${holders.toLocaleString("en-US")} holding now` : ""}

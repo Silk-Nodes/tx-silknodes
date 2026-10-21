@@ -471,14 +471,22 @@ export function issuerOf(denom: string): string | null {
 
 // ── supply flows: what was actually minted and burned ────────────────────
 //
-// Replaces reading issuance off transfers. USTX's first week on mainnet was
-// 1 USTX round trips: a wallet sends to Brale's address, Brale's address
-// sends to a hub wallet, the hub forwards it. Counting the issuer's sends as
-// "issued" and its receipts as "sent back" gave 32 and 32 against a supply
-// of 21.9. Supply is what the coin really did, so minted and burned come from
-// the hourly snapshots: a rise between two snapshots is minted, a fall is
-// burned. The supply already there at the first snapshot is not counted as
-// minted in the window.
+// Minted and burned are the asset module's own legs in stablecoin_transfers.
+// A MsgMint moves the coin from the module account to the recipient (the
+// chain logs it as a coinbase event with the module as minter), and a MsgBurn
+// moves it from the holder to the module first. Issuer sends are not
+// issuance: USTX's first week was 1 USTX round trips through Brale's address,
+// which read as 32 issued and 32 sent back against a supply of 21.9.
+//
+// Hourly supply snapshots were used here before and hid a mint and a burn
+// landing in the same hour: on 2026-10-21 they showed 1,144 minted and 6.90
+// burned while the chain had 1,262.61 and 51.10. Snapshots now only give
+// "in circulation" and the starting supply, and the two sources are
+// reconciled so a lagging transfer walk shows on the page.
+
+// Asset FT module account. Mints come from it, burns go to it, for every
+// Smart Token. A chain account, read off a USTX MsgMint's coinbase event.
+export const ASSET_MODULE = "core1mqaw387xfk0xuernjq9cfmmej2ucay80h4nc4h";
 
 export interface SupplyDay { day: string; minted: number; burned: number }
 export interface SupplyFlows {
@@ -486,11 +494,12 @@ export interface SupplyFlows {
   since: string | null;      // first snapshot
   startSupply: number;       // supply at the first snapshot in the window
   supplyNow: number;
-  minted: number;
-  burned: number;
+  minted: number;            // mint legs after the first snapshot
+  burned: number;            // burn legs after the first snapshot
+  gap: number;               // supplyNow minus (startSupply + minted - burned)
   days: SupplyDay[];
   transfers: number;         // distinct transactions moving the coin, 30d
-  wallets: number;           // distinct addresses in them, issuer excluded
+  wallets: number;           // distinct addresses in them, issuer and module excluded
 }
 
 export async function supplyFlows(denom: string, days = 30): Promise<SupplyFlows | null> {
@@ -502,33 +511,41 @@ export async function supplyFlows(denom: string, days = 30): Promise<SupplyFlows
       { replacements: { denom, days }, type: QueryTypes.SELECT },
     );
     if (snaps.length === 0) return null;
-    const byDay = new Map<string, SupplyDay>();
-    let minted = 0, burned = 0;
-    for (let i = 1; i < snaps.length; i++) {
-      const delta = Number(snaps[i].supply) - Number(snaps[i - 1].supply);
-      if (delta === 0) continue;
-      const day = new Date(snaps[i].taken_at).toISOString().slice(0, 10);
-      const d = byDay.get(day) ?? { day, minted: 0, burned: 0 };
-      if (delta > 0) { d.minted += delta; minted += delta; } else { d.burned += -delta; burned += -delta; }
-      byDay.set(day, d);
-    }
+    const since = new Date(snaps[0].taken_at).toISOString();
+    // After the first snapshot only, so supply already there is not minted.
+    const rows = await sequelize.query<{ day: string; minted: string | null; burned: string | null }>(
+      `SELECT to_char(date_trunc('day', ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+              SUM(amount) FILTER (WHERE sender = :module) AS minted,
+              SUM(amount) FILTER (WHERE recipient = :module) AS burned
+         FROM stablecoin_transfers
+        WHERE denom = :denom AND ts > :since AND (sender = :module OR recipient = :module)
+        GROUP BY 1 ORDER BY 1`,
+      { replacements: { denom, since, module: ASSET_MODULE }, type: QueryTypes.SELECT },
+    );
+    const byDay: SupplyDay[] = rows.map((r) => ({ day: r.day, minted: Number(r.minted ?? 0), burned: Number(r.burned ?? 0) }));
+    const minted = byDay.reduce((s, d) => s + d.minted, 0);
+    const burned = byDay.reduce((s, d) => s + d.burned, 0);
     const issuer = issuerOf(denom);
     const [t] = await sequelize.query<{ txs: string; wallets: string }>(
       `SELECT COUNT(DISTINCT txhash) AS txs,
               (SELECT COUNT(*) FROM (
                  SELECT sender AS a FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
                  UNION SELECT recipient FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval
-               ) w WHERE w.a IS DISTINCT FROM :issuer) AS wallets
+               ) w WHERE w.a IS DISTINCT FROM :issuer AND w.a <> :module) AS wallets
          FROM stablecoin_transfers WHERE denom = :denom AND ts >= NOW() - (:days || ' days')::interval`,
-      { replacements: { denom, days, issuer }, type: QueryTypes.SELECT },
+      { replacements: { denom, days, issuer, module: ASSET_MODULE }, type: QueryTypes.SELECT },
     );
+    const startSupply = Number(snaps[0].supply);
+    const supplyNow = Number(snaps[snaps.length - 1].supply);
     return {
       denom,
-      since: new Date(snaps[0].taken_at).toISOString(),
-      startSupply: Number(snaps[0].supply),
-      supplyNow: Number(snaps[snaps.length - 1].supply),
+      since,
+      startSupply,
+      supplyNow,
       minted, burned,
-      days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
+      // Rounded to the coin's 6 decimals so float noise does not read as a gap.
+      gap: Math.round((supplyNow - (startSupply + minted - burned)) * 1e6) / 1e6,
+      days: byDay,
       transfers: Number(t?.txs ?? 0),
       wallets: Number(t?.wallets ?? 0),
     };
