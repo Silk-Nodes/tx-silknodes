@@ -1,4 +1,4 @@
-import type { TokenData, StakingData, ValidatorInfo, NetworkStatus } from "./types";
+import type { TokenData, StakingData, ValidatorInfo, NetworkStatus, ValidatorSetEntry, ChainSnapshot } from "./types";
 import { SILK_LCD, SILK_RPC, COIN_DECIMALS, fetchWithTimeout } from "./chain-config";
 import { getPSEDistributionInfo, PSE_EXCLUDED_ADDRESSES, fetchOnChainExcludedAddresses } from "./pse-calculator";
 import { realAnnualIssuance } from "./chain-economics";
@@ -184,7 +184,7 @@ export async function fetchStakingData(): Promise<StakingData> {
       ? (issuedPerYear * (1 - communityTax) / bondedTokens) * 100
       : 0;
 
-    // Fetch excluded PSE stake (non-blocking — falls back to 0)
+    // Fetch excluded PSE stake (falls back to 0 on failure)
     const excludedPSEStake = await fetchExcludedPSEStake();
     const pseEligibleBonded = Math.max(0, Math.round(bondedTokens) - excludedPSEStake);
 
@@ -214,6 +214,54 @@ export async function fetchStakingData(): Promise<StakingData> {
       activeValidators: 0, annualProvisions: 0, communityTax: 0.05,
       excludedPSEStake: 0, pseEligibleBonded: 0,
     };
+  }
+}
+
+// === Validator set (the table) ===
+/**
+ * Every bonded validator, paginated. Throws on failure so callers can tell
+ * "no validators" from "could not ask".
+ */
+export async function fetchValidatorSet(): Promise<ValidatorSetEntry[]> {
+  const all: ValidatorSetEntry[] = [];
+  let key = "";
+  do {
+    const keyParam = key ? `&pagination.key=${encodeURIComponent(key)}` : "";
+    const res = await fetchWithTimeout(
+      `${SILK_LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100${keyParam}`,
+    );
+    const body = await res.json();
+    for (const v of body.validators || []) {
+      all.push({
+        operatorAddress: v.operator_address,
+        moniker: v.description?.moniker || "Unknown",
+        tokens: parseInt(v.tokens || "0") / 1e6,
+        commission: parseFloat(v.commission?.commission_rates?.rate || "0"),
+        identity: v.description?.identity || "",
+        website: v.description?.website || "",
+        details: v.description?.details || "",
+        status: v.status,
+      });
+    }
+    key = body.pagination?.next_key || "";
+  } while (key);
+  return all;
+}
+
+// === Chain snapshot (server cached) ===
+/**
+ * Staking data and the validator set from /api/chain-snapshot, which reads
+ * the chain once a minute for every visitor. Null when the route is down,
+ * so the caller falls back to reading the chain from the browser.
+ */
+export async function fetchChainSnapshot(): Promise<ChainSnapshot | null> {
+  try {
+    const res = await fetchWithTimeout("/api/chain-snapshot", undefined, 15_000);
+    const body = await res.json();
+    if (!(body?.stakingData?.bondedTokens > 0) || !body.validatorSet?.length) return null;
+    return body as ChainSnapshot;
+  } catch {
+    return null;
   }
 }
 

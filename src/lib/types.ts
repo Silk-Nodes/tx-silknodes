@@ -38,6 +38,26 @@ export interface ValidatorInfo {
   estimatedMonthlyIncomeUSD?: number;
 }
 
+/** One bonded validator as the validator table lists it. */
+export interface ValidatorSetEntry {
+  operatorAddress: string;
+  moniker: string;
+  tokens: number; // in TX
+  commission: number; // fraction, 0.05 = 5%
+  identity: string;
+  website: string;
+  details: string;
+  status: string;
+}
+
+/** What /api/chain-snapshot returns: the chain reads every page shares. */
+export interface ChainSnapshot {
+  stakingData: StakingData;
+  validators: ValidatorInfo[];
+  validatorSet: ValidatorSetEntry[];
+  at: string;
+}
+
 // === PSE (Proof of Support Emission) ===
 export interface PSEConfig {
   totalEmission: number; // 100 billion TX over 84 months
