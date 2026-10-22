@@ -553,3 +553,178 @@ export async function supplyFlows(denom: string, days = 30): Promise<SupplyFlows
     return null; // no database, or migrations 021/022 not run
   }
 }
+
+// ── issuer controls and actions (USTX) ──────────────────────────────────
+//
+// USTX is a Smart Token with an extension contract (ustx-extension, code 691,
+// owned by Brale's issuer). The contract can pause the coin, blacklist
+// addresses and record seizures, and it answers all of that to anyone who
+// asks. Read every five minutes; a failed read is null, never "0 blacklisted".
+
+export interface IssuerControls {
+  contract: string;
+  owner: string | null;
+  paused: boolean;
+  blacklisted: string[];
+  seizures: unknown[];
+  checkedAt: string;
+}
+
+function smartPath(contract: string, msg: object): string {
+  const b64 = Buffer.from(JSON.stringify(msg)).toString("base64");
+  return `/cosmwasm/wasm/v1/contract/${contract}/smart/${encodeURIComponent(b64)}`;
+}
+
+export function issuerControls(denom: string): Promise<IssuerControls | null> {
+  return cached(`stc:controls:${denom}`, 5 * 60_000, async () => {
+    const t = await json<{ token: { extension_cw_address?: string } }>(`/coreum/asset/ft/v1/tokens/${encodeURIComponent(denom)}`);
+    const contract = t.token.extension_cw_address;
+    if (!contract) throw new Error(`${denom} has no extension contract`);
+    const [config, owner, black, seized] = await Promise.all([
+      json<{ data: { paused?: boolean } }>(smartPath(contract, { config: {} })),
+      json<{ data: { owner?: string | null } }>(smartPath(contract, { ownership: {} })),
+      json<{ data: { addresses?: string[] } }>(smartPath(contract, { blacklist: {} })),
+      json<{ data: { seizures?: unknown[] } }>(smartPath(contract, { seizures: {} })),
+    ]);
+    // A missing field means the contract changed shape. Better to show
+    // "could not read" than to guess an empty list.
+    if (!Array.isArray(black.data?.addresses) || !Array.isArray(seized.data?.seizures) || typeof config.data?.paused !== "boolean") {
+      throw new Error("ustx-extension answered in an unexpected shape");
+    }
+    return {
+      contract,
+      owner: owner.data?.owner ?? null,
+      paused: config.data.paused,
+      blacklisted: black.data.addresses,
+      seizures: seized.data.seizures,
+      checkedAt: new Date().toISOString(),
+    };
+  }).catch((e) => {
+    console.warn(`[stablecoins] issuer controls for ${denom}: ${(e as Error).message}`);
+    return null;
+  });
+}
+
+// Every action the issuer signs: mints, burns, clawbacks, freezes, calls to
+// the extension contract, and the sends that hand new coins to wallets.
+//
+// Searched on public nodes that index transactions. Our own LCD does not: it
+// answers tx searches with 200 and zero results, which would read as "the
+// issuer has done nothing". Public third-party endpoints, tried in order.
+const TX_SEARCH_HOSTS = ["https://rest-coreum.ecostake.com", "https://rest.cosmos.directory/coreum"];
+// USTX was issued on 2026-10-08, after this height. Every tx search needs a
+// lower bound; open-ended searches time out on every node.
+const USTX_FLOOR_HEIGHT = 89_400_000;
+const ISSUER_TX_PAGES = 10;
+
+export type IssuerActionKind = "mint" | "burn" | "clawback" | "freeze" | "unfreeze" | "pause" | "unpause" | "contract" | "send";
+export interface IssuerAction {
+  kind: IssuerActionKind;
+  detail: string | null;   // contract call name, e.g. "blacklist"
+  amount: number | null;
+  account: string | null;  // who it touched, when there is one
+  height: number;
+  ts: string;
+  txhash: string;
+}
+export interface IssuerLog {
+  actions: IssuerAction[];          // newest first, sends left out
+  counts: Partial<Record<IssuerActionKind, number>>;
+  minted: number;
+  burned: number;
+  sentTo: number;                   // distinct wallets the issuer sent the coin to
+  scanned: number;                  // issuer transactions read
+  complete: boolean;                // false when the page cap was hit
+  checkedAt: string;
+}
+
+async function txSearch(query: string, page: number): Promise<{ txs: any[]; total: number }> {
+  let lastErr: unknown = new Error("no tx search host answered");
+  for (const host of TX_SEARCH_HOSTS) {
+    // SDK 0.50 tx search pages with page/limit; pagination.offset is ignored.
+    const q = new URLSearchParams({ query, page: String(page), limit: "100", order_by: "ORDER_BY_DESC" });
+    try {
+      const res = await fetch(`${host}/cosmos/tx/v1beta1/txs?${q}`, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status} from ${host}`); continue; }
+      const d = await res.json();
+      return { txs: d.tx_responses ?? [], total: Number(d.total ?? d.pagination?.total ?? 0) };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+const MSG_KIND: Record<string, IssuerActionKind> = {
+  MsgMint: "mint", MsgBurn: "burn", MsgClawback: "clawback",
+  MsgFreeze: "freeze", MsgSetFrozen: "freeze", MsgUnfreeze: "unfreeze",
+  MsgGloballyFreeze: "pause", MsgGloballyUnfreeze: "unpause",
+};
+
+export function issuerLog(denom: string): Promise<IssuerLog | null> {
+  const issuer = issuerOf(denom);
+  if (!issuer) return Promise.resolve(null);
+  return cached(`stc:issuerlog:${denom}`, 5 * 60_000, async () => {
+    const query = `message.sender='${issuer}' AND tx.height>${USTX_FLOOR_HEIGHT}`;
+    const all: any[] = [];
+    let total = Infinity;
+    for (let page = 1; page <= ISSUER_TX_PAGES && all.length < total; page++) {
+      const r = await txSearch(query, page);
+      total = r.total;
+      all.push(...r.txs);
+      if (r.txs.length < 100) break;
+    }
+    const t = await json<{ token: { extension_cw_address?: string } }>(`/coreum/asset/ft/v1/tokens/${encodeURIComponent(denom)}`);
+    const ext = t.token.extension_cw_address ?? null;
+
+    const actions: IssuerAction[] = [];
+    const counts: Partial<Record<IssuerActionKind, number>> = {};
+    const recipients = new Set<string>();
+    let minted = 0, burned = 0;
+    const seen = new Set<string>();
+    for (const tx of all) {
+      if (tx.code !== 0 || seen.has(tx.txhash)) continue;
+      seen.add(tx.txhash);
+      for (const m of tx.tx?.body?.messages ?? []) {
+        const type = String(m["@type"] ?? "").split(".").pop() ?? "";
+        const base = { height: Number(tx.height), ts: tx.timestamp, txhash: tx.txhash };
+        let a: IssuerAction | null = null;
+        if (MSG_KIND[type]) {
+          const coin = m.coin ?? m.amount;
+          const d = coin?.denom ?? m.denom;
+          if (d !== denom) continue;
+          const amount = coin?.amount != null ? Number(coin.amount) / 1e6 : null;
+          a = { ...base, kind: MSG_KIND[type], detail: null, amount, account: m.account ?? m.recipient ?? null };
+          if (a.kind === "mint" && amount) minted += amount;
+          if (a.kind === "burn" && amount) burned += amount;
+        } else if (type === "MsgExecuteContract" && ext && m.contract === ext) {
+          a = { ...base, kind: "contract", detail: Object.keys(m.msg ?? {})[0] ?? null, amount: null, account: null };
+        } else if (type === "MsgSend") {
+          for (const c of m.amount ?? []) {
+            if (c.denom === denom) {
+              recipients.add(m.to_address);
+              counts.send = (counts.send ?? 0) + 1;
+            }
+          }
+          continue;
+        }
+        if (!a) continue;
+        counts[a.kind] = (counts[a.kind] ?? 0) + 1;
+        actions.push(a);
+      }
+    }
+    actions.sort((x, y) => y.height - x.height);
+    return {
+      actions: actions.slice(0, 40),
+      counts,
+      minted, burned,
+      sentTo: recipients.size,
+      scanned: seen.size,
+      complete: all.length >= total,
+      checkedAt: new Date().toISOString(),
+    };
+  }).catch((e) => {
+    console.warn(`[stablecoins] issuer log for ${denom}: ${(e as Error).message}`);
+    return null;
+  });
+}

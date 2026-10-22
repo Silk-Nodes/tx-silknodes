@@ -61,6 +61,15 @@ interface Payload {
   history: { available: boolean; points: HistoryPoint[] };
   activity: Activity[] | null;
   ustxFlows: SupplyFlows | null;
+  ustxControls: IssuerControls | null;
+  ustxLog: IssuerLog | null;
+}
+interface IssuerControls { contract: string; owner: string | null; paused: boolean; blacklisted: string[]; seizures: unknown[]; checkedAt: string }
+type IssuerActionKind = "mint" | "burn" | "clawback" | "freeze" | "unfreeze" | "pause" | "unpause" | "contract" | "send";
+interface IssuerAction { kind: IssuerActionKind; detail: string | null; amount: number | null; account: string | null; height: number; ts: string; txhash: string }
+interface IssuerLog {
+  actions: IssuerAction[]; counts: Partial<Record<IssuerActionKind, number>>;
+  minted: number; burned: number; sentTo: number; scanned: number; complete: boolean; checkedAt: string;
 }
 interface SupplyDay { day: string; minted: number; burned: number }
 interface SupplyFlows {
@@ -138,6 +147,29 @@ const STYLES = `
                         background: color-mix(in srgb, var(--accent-orange) 22%, transparent); color: var(--text-dark); }
         .ustx-track { display: grid; gap: 14px; }
         .ustx-foot-line { font-size: 0.78rem; color: var(--text-light); }
+        .ctl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .ctl-tile { border: 1px solid rgba(128,128,128,0.2); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+        .ctl-tile-v { font-size: 1.35rem; margin-top: 4px; color: var(--text-dark); }
+        .ctl-tile-v.alert { color: var(--danger-text, var(--danger)); }
+        .ctl-tile-k { font-size: 0.76rem; color: var(--text-light); margin-top: 2px; line-height: 1.4; }
+        .ctl-list { margin: 10px 0 0; padding: 0; list-style: none; font-size: 0.78rem; }
+        .ctl-foot { margin-top: auto; padding-top: 12px; font-size: 0.78rem; color: var(--text-light); line-height: 1.6; overflow-wrap: anywhere; }
+        .log-sum { font-size: 0.8rem; color: var(--text-light); margin-bottom: 10px; }
+        .log-sum b { color: var(--text-dark); font-weight: 700; }
+        /* Basis 0: the list takes whatever height the controls panel beside it sets, and scrolls.
+           Rows fill that space, so neither panel shows an empty band. Stacked, it gets its own height. */
+        .log-box { flex: 1 1 0; min-height: 180px; overflow-y: auto; border-top: 1px solid rgba(128,128,128,0.18); }
+        @media (max-width: 980px) { .log-box { flex: none; height: 300px; } }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .log-table th { position: sticky; top: 0; z-index: 1; background: color-mix(in srgb, #fff 45%, var(--nav-solid-bg)); text-align: left; font-weight: 500; font-size: 0.74rem; color: var(--text-light); padding: 8px 8px; border-bottom: 1px solid rgba(128,128,128,0.18); }
+        /* Opaque, so rows scroll under a crisp edge. Light: the panel's 45% white over the page; dark: the panel colour itself. */
+        [data-theme="dark"] .log-table th { background: var(--nav-solid-bg); }
+        .log-table td { padding: 8px 8px; border-top: 1px solid rgba(128,128,128,0.12); color: var(--text-dark); white-space: nowrap; }
+        .log-table .num { text-align: right; }
+        .log-kind { display: inline-block; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+        .log-kind-mint { background: color-mix(in srgb, var(--brand-accent) 30%, transparent); }
+        .log-kind-burn { background: color-mix(in srgb, var(--danger) 26%, transparent); }
+        .log-kind-other { background: rgba(128,128,128,0.2); }
         .ustx-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
         @media (max-width: 520px) {
           .ustx-kpis { grid-template-columns: minmax(0, 1fr); }
@@ -657,6 +689,106 @@ function UstxTracker({ d }: { d: Payload }) {
   );
 }
 
+// ── issuer controls and actions ──────────────────────────────────────────
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+const amt = (v: number) => num(v, v < 1 ? 4 : 2);
+const ACTION_LABEL: Record<IssuerActionKind, string> = {
+  mint: "Mint", burn: "Burn", clawback: "Clawback", freeze: "Freeze", unfreeze: "Unfreeze",
+  pause: "Pause", unpause: "Unpause", contract: "Contract", send: "Send",
+};
+
+function UstxControls({ d }: { d: Payload }) {
+  const c = d.ustxControls;
+  const log = d.ustxLog;
+  const clawbacks = log ? log.counts.clawback ?? 0 : null;
+  const tiles: [string, string, string, boolean][] = c
+    ? [
+        ["Transfers", c.paused ? "Paused" : "Running", c.paused ? "the issuer has paused USTX" : "not paused by the issuer", c.paused],
+        ["Blacklisted", String(c.blacklisted.length), c.blacklisted.length === 1 ? "address blocked from moving USTX" : "addresses blocked from moving USTX", c.blacklisted.length > 0],
+        ["Seizures", String(c.seizures.length), "balances taken through the contract", c.seizures.length > 0],
+        ["Clawbacks", clawbacks == null ? "n/a" : String(clawbacks), "balances taken back by the token itself", Boolean(clawbacks)],
+      ]
+    : [];
+  return (
+    <Panel title="Issuer controls, live" sub="Brale's ustx-extension contract can pause USTX, blacklist addresses and seize balances. This is what it says right now.">
+      {!c ? (
+        <p className="mono" style={{ ...MUTED, margin: 0, fontSize: "0.82rem" }}>Could not read the extension contract on this load. Nothing here means zero.</p>
+      ) : (
+        <>
+          <div className="ctl-grid">
+            {tiles.map(([k, v, note, alert]) => (
+              <div key={k} className="ctl-tile">
+                <div className="card-title" style={CARD_TITLE}>{k}</div>
+                <div className={`mono ctl-tile-v ${alert ? "alert" : ""}`}>{v}</div>
+                <div className="ctl-tile-k">{note}</div>
+              </div>
+            ))}
+          </div>
+          {c.blacklisted.length > 0 && (
+            <ul className="ctl-list mono">
+              {c.blacklisted.slice(0, 8).map((a) => <li key={a} style={{ color: "var(--text-dark)" }}>{short(a)}</li>)}
+            </ul>
+          )}
+          <div className="ctl-foot mono">
+            Contract {short(c.contract)}, owned by {c.owner === d.watching.mainnetIssuer ? "the USTX issuer" : c.owner ? short(c.owner) : "nobody"}.
+            {" "}Read {ago(c.checkedAt)}.
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function IssuerActivity({ d }: { d: Payload }) {
+  const log = d.ustxLog;
+  const n = (k: IssuerActionKind) => log?.counts[k] ?? 0;
+  return (
+    <Panel title="Mints and burns" sub="Every mint and burn the USTX issuer has signed, newest first, read from the chain.">
+      {!log ? (
+        <p className="mono" style={{ ...MUTED, margin: 0, fontSize: "0.82rem" }}>Could not read the issuer&apos;s transactions on this load. Nothing here means zero.</p>
+      ) : (
+        <>
+          <div className="log-sum mono">
+            <b>{n("mint")}</b> mints, <b>{amt(log.minted)}</b> USTX · <b>{n("burn")}</b> burns, <b>{amt(log.burned)}</b> USTX · sent to <b>{log.sentTo}</b> wallets
+            {!log.complete && ", latest only"}
+          </div>
+          {log.actions.length === 0 ? (
+            <p className="mono" style={{ ...MUTED, margin: 0, fontSize: "0.82rem" }}>No mints or burns yet.</p>
+          ) : (
+            <div className="log-box">
+              <table className="log-table">
+                <thead>
+                  <tr><th>UTC</th><th>Action</th><th className="num">USTX</th><th className="num">Block</th></tr>
+                </thead>
+                <tbody>
+                  {log.actions.map((a) => (
+                    <tr key={`${a.txhash}-${a.kind}-${a.amount}`}>
+                      <td className="mono">{when(a.ts)}</td>
+                      <td>
+                        <span className={`log-kind ${a.kind === "mint" ? "log-kind-mint" : a.kind === "burn" ? "log-kind-burn" : "log-kind-other"}`}>
+                          {a.kind === "contract" && a.detail ? a.detail : ACTION_LABEL[a.kind]}
+                        </span>
+                      </td>
+                      <td className="mono num">{a.amount != null ? amt(a.amount) : ""}</td>
+                      <td className="mono num">
+                        <a className="stc-link" style={{ fontSize: "0.8rem" }} href={`https://www.mintscan.io/coreum/tx/${a.txhash}`} target="_blank" rel="noopener noreferrer">
+                          {a.height.toLocaleString("en-US")}
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
+
 function WhoHolds({ d }: { d: Payload }) {
   const rows = d.coins
     .filter((c) => c.role !== "test" && c.breakdown)
@@ -858,6 +990,7 @@ const FEATURES: [string, string, string][] = [
   ["whitelisting", "Allowlist", "cap what each wallet may hold"],
   ["clawback", "Clawback", "take a balance back"],
   ["ibc", "IBC", "let the coin leave over IBC"],
+  ["extension", "Extension", "run its own contract on every transfer"],
 ];
 
 function ControlsMatrix({ d }: { d: Payload }) {
@@ -1048,6 +1181,10 @@ function StablecoinsSkeleton({ error }: { error: string | null }) {
       </div>
       <div className="stc-row"><SkelPanel title="USDC converted to USTX" h={318} m={331}><SkelBars /></SkelPanel></div>
       <div className="stc-row stc-grid-2">
+        <SkelPanel title="Issuer controls, live" h={364} m={426}><SkelLines n={4} h={20} /></SkelPanel>
+        <SkelPanel title="Mints and burns" h={364} m={470}><SkelLines n={6} /></SkelPanel>
+      </div>
+      <div className="stc-row stc-grid-2">
         <SkelPanel title="Who holds the dollar" h={447} m={312}><SkelLines n={4} h={20} /></SkelPanel>
         <SkelPanel title="USDC wallets by size" h={447} m={460}><SkelLines n={6} /></SkelPanel>
       </div>
@@ -1131,6 +1268,13 @@ export default function StablecoinsTab() {
       <div className="stc-row">
         <UstxTracker d={d} />
       </div>
+
+      {d.ustx?.issued && (
+        <div className="stc-row stc-grid-2">
+          <UstxControls d={d} />
+          <IssuerActivity d={d} />
+        </div>
+      )}
 
       <div className="stc-row stc-grid-2">
         <WhoHolds d={d} />
