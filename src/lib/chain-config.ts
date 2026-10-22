@@ -167,8 +167,10 @@ export const LCD_POOL: string[] = Array.from(
     // coreum-api.polkachu.com removed 2026-09-25: no DNS record anywhere, and
     // it produced 16 ERR_NAME_NOT_RESOLVED errors on a single page load.
     // publicnode was already next in line, so nothing replaces it.
-    "https://coreum-rest.publicnode.com",
     "https://rest.cosmos.directory/coreum",
+    // Below cosmos.directory since 2026-10-22: it stopped answering
+    // blocks/latest entirely (8s timeouts from curl as well as browsers).
+    "https://coreum-rest.publicnode.com",
     ARCHIVE_REST,
     // Demoted 2026-08-21. This host answers 200 OK while sitting ~4,100
     // blocks (~51 min) behind tip, advancing at chain speed so it never
@@ -191,7 +193,37 @@ export const LCD_POOL: string[] = Array.from(
 /** How long a freshness verdict is reused before the host is re-checked. */
 const FRESHNESS_TTL_MS = 60_000;
 
-const freshness = new Map<string, { fresh: boolean; checkedAt: number }>();
+/**
+ * Probe timeout. Healthy hosts answer blocks/latest in well under a second;
+ * this used to be 5s, and since every read waited for the whole pool, one
+ * hung host (publicnode, 2026-10-22) put 5s in front of every page load.
+ */
+const FRESHNESS_TIMEOUT_MS = 2_000;
+
+/**
+ * Verdicts, and the probe still in flight. Storing the promise lets the ~9
+ * reads a page fires at load share one probe per host; caching only the
+ * finished verdict meant each of them started its own.
+ */
+const freshness = new Map<string, { fresh: Promise<boolean>; checkedAt: number; settled?: boolean }>();
+
+async function probeFreshness(host: string, timeoutMs: number): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${host}/cosmos/base/tendermint/v1beta1/blocks/latest`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return false;
+    const body = await res.json();
+    const t = Date.parse(body?.block?.header?.time ?? "");
+    return Number.isFinite(t) && Date.now() - t <= MAX_LAG_MS;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * True when the host's latest block is recent enough to trust.
@@ -199,30 +231,24 @@ const freshness = new Map<string, { fresh: boolean; checkedAt: number }>();
  * Failure to answer counts as not fresh: if we cannot establish that a host
  * is current, we must not prefer it over one we can.
  */
-export async function isLcdFresh(host: string, timeoutMs = 5_000): Promise<boolean> {
+export function isLcdFresh(host: string, timeoutMs = FRESHNESS_TIMEOUT_MS): Promise<boolean> {
   const cached = freshness.get(host);
   const now = Date.now();
   if (cached && now - cached.checkedAt < FRESHNESS_TTL_MS) return cached.fresh;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let fresh = false;
-  try {
-    const res = await fetch(`${host}/cosmos/base/tendermint/v1beta1/blocks/latest`, {
-      signal: controller.signal,
-    });
-    if (res.ok) {
-      const body = await res.json();
-      const t = Date.parse(body?.block?.header?.time ?? "");
-      fresh = Number.isFinite(t) && now - t <= MAX_LAG_MS;
-    }
-  } catch {
-    fresh = false;
-  } finally {
-    clearTimeout(timer);
-  }
-  freshness.set(host, { fresh, checkedAt: now });
-  return fresh;
+  const entry: { fresh: Promise<boolean>; checkedAt: number; settled?: boolean } = {
+    fresh: probeFreshness(host, timeoutMs),
+    checkedAt: now,
+  };
+  entry.fresh.then((v) => { entry.settled = true; return v; });
+  freshness.set(host, entry);
+  return entry.fresh;
+}
+
+/** A finished "behind tip" verdict, without waiting on a probe in flight. */
+async function knownStale(host: string): Promise<boolean> {
+  const e = freshness.get(host);
+  return Boolean(e?.settled && !(await e.fresh));
 }
 
 /**
@@ -231,14 +257,23 @@ export async function isLcdFresh(host: string, timeoutMs = 5_000): Promise<boole
  * Demoting instead of removing keeps the "never degrade to zeros" rule from
  * the validator-not-found incident: if every node is behind, we still answer
  * from the freshest available rather than throwing.
+ *
+ * Every host is probed in parallel, but the order is settled as soon as the
+ * highest ranked host proves fresh. Waiting for all of them made each read
+ * as slow as the slowest node in the pool. Hosts after the winner keep their
+ * rank, except ones already known to be behind, which still go last.
  */
 async function freshestFirst(hosts: string[]): Promise<string[]> {
-  const verdicts = await Promise.all(
-    hosts.map(async (h) => ({ host: h, fresh: await isLcdFresh(h) })),
-  );
-  return [...verdicts.filter((v) => v.fresh), ...verdicts.filter((v) => !v.fresh)].map(
-    (v) => v.host,
-  );
+  const probes = hosts.map((h) => isLcdFresh(h));
+  for (let i = 0; i < hosts.length; i++) {
+    if (await probes[i]) {
+      const rest = hosts.filter((_, j) => j !== i);
+      const stale = await Promise.all(rest.map(knownStale));
+      return [hosts[i], ...rest.filter((_, j) => !stale[j]), ...rest.filter((_, j) => stale[j])];
+    }
+  }
+  // Nobody is provably fresh: keep the configured order.
+  return hosts;
 }
 
 /**
