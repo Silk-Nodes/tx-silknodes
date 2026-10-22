@@ -66,6 +66,7 @@ import type { SEO_PAGES } from "@/lib/seo-content";
 type SeoPageKey = keyof typeof SEO_PAGES;
 import { useRWATokens } from "@/hooks/useRWATokens";
 import StablecoinsTab from "@/components/StablecoinsTab";
+import TestnetRadarTab from "@/components/TestnetRadarTab";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
 // ─── Helpers ───
@@ -86,7 +87,7 @@ function formatUSD(num: number): string {
 
 const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
-type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "stablecoins" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
+type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "stablecoins" | "radar" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
 
 // Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
 // Daily-relevance ordering: Today first, your-data and chain-wide signals next.
@@ -129,6 +130,7 @@ const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: 
   { id: "portfolio", label: "Portfolio", description: "Your wallets and delegations" },
   { id: "rwa", label: "RWA Explorer", description: "Tokenized assets on TX" },
   { id: "stablecoins", label: "Stablecoins", description: "Every dollar on TX, and USTX" },
+  { id: "radar", label: "Testnet Radar", description: "What is being built on testnet" },
   { id: "silknodes", label: "Silk Nodes", description: "About the validator" },
   { id: "feedback", label: "Feedback", description: "Share ideas with us" },
 ];
@@ -156,6 +158,7 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/calculator": "calculator",
   "/rwa": "rwa",
   "/stablecoins": "stablecoins",
+  "/radar": "radar",
   "/silknodes": "silknodes",
   "/portfolio": "portfolio",
   "/feedback": "feedback",
@@ -871,6 +874,7 @@ export default function HomePage() {
         )}
 
         {activeTab === "stablecoins" && <StablecoinsTab />}
+        {activeTab === "radar" && <TestnetRadarTab />}
 
         {activeTab === "silknodes" && (
           <SilkNodesTab networkStatus={networkStatus} stakingData={stakingData} validators={validators} setActiveTab={setActiveTab} wallet={wallet} setShowWalletModal={setShowWalletModal} />
