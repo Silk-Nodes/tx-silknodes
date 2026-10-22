@@ -184,7 +184,7 @@ function tabFromPathname(pathname: string | null): TabId {
 }
 
 export default function HomePage() {
-  const { tokenData, stakingData, networkStatus, validators, loading } = useTokenData();
+  const { tokenData, stakingData, networkStatus, validators, validatorSet, loading } = useTokenData();
   const {
     wallet, connect, disconnect, refresh, claimRewards, chainUnreachable,
     delegate, undelegate, redelegate, cancelUnbonding,
@@ -862,7 +862,7 @@ export default function HomePage() {
               onConnectPrompt={() => setShowWalletModal(true)}
             />
           ) : (
-            <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} />
+            <ValidatorsTab wallet={wallet} setActiveTab={setActiveTab} setShowWalletModal={setShowWalletModal} stakingData={stakingData} tokenData={tokenData} validatorSet={validatorSet} />
           )
         )}
 
@@ -2796,7 +2796,7 @@ function CalculatorTab({
    TAB: VALIDATORS
    ═══════════════════════════════════════════════════════ */
 
-function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal, stakingData, tokenData }: any) {
+function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal, stakingData, tokenData, validatorSet }: any) {
   return (
     <>
       <div className="section-head">
@@ -2810,6 +2810,7 @@ function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal, stakingData, 
         setShowWalletModal={setShowWalletModal}
         stakingData={stakingData}
         tokenData={tokenData}
+        validatorSet={validatorSet}
       />
     </>
   );

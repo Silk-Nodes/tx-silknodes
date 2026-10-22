@@ -31,6 +31,9 @@ interface FlowsResponse {
 export function useValidatorFlows(days = 30) {
   const [flows, setFlows] = useState<Record<string, ValidatorFlow>>({});
   const [loading, setLoading] = useState(true);
+  // True once a load has succeeded. Until then a validator missing from
+  // `flows` is unknown, not "no movement".
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,10 +47,10 @@ export function useValidatorFlows(days = 30) {
         const data = (await res.json()) as FlowsResponse;
         if (cancelled) return;
         setFlows(data.flows || {});
+        setLoaded(true);
       } catch {
-        // Leave whatever we already have on a transient blip. The column
-        // renders a dash for missing validators, so a failed load degrades
-        // to "no flow data" rather than breaking the table.
+        // Leave whatever we already have on a transient blip. Without a
+        // successful load the column stays blank rather than claiming 0.
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,5 +64,5 @@ export function useValidatorFlows(days = 30) {
     };
   }, [days]);
 
-  return { flows, loading };
+  return { flows, loading, loaded };
 }

@@ -8,18 +8,11 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
 import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
+import { fetchValidatorSet } from "@/lib/api";
+import type { ValidatorSetEntry } from "@/lib/types";
 import { useValidatorFlows } from "@/hooks/useValidatorFlows";
 
-interface ValidatorEntry {
-  operatorAddress: string;
-  moniker: string;
-  tokens: number;
-  commission: number;
-  identity: string;
-  website: string;
-  details: string;
-  status: string;
-}
+type ValidatorEntry = ValidatorSetEntry;
 
 interface ChainEconomics {
   annualProvisions: number;
@@ -67,126 +60,92 @@ const SILK_OPERATOR = "corevaloper1kepnaw38rymdvq5sstnnytdqqkpd0xxwc5eqjk";
 //
 // If either prop is omitted (e.g. the component is rendered on a
 // route where the parent didn't load them), the existing fallback
-// fetches still run so the table never breaks.
+// fetches still run so the table never breaks. Omitted means undefined:
+// null is "the parent is still loading it", and waits.
+//
+// validatorSet works the same way. The app shell passes the rows from
+// /api/chain-snapshot; only a caller that omits it makes the table read
+// the chain itself.
 export default function ValidatorList({
   wallet,
   setActiveTab,
   setShowWalletModal,
   stakingData,
   tokenData,
+  validatorSet,
 }: {
   wallet?: any;
   setActiveTab?: (tab: string) => void;
   setShowWalletModal?: (show: boolean) => void;
   stakingData?: { bondedTokens: number; communityTax: number; annualProvisions: number; inflationRaw: number } | null;
   tokenData?: { price: number } | null;
+  validatorSet?: ValidatorEntry[] | null;
 }) {
-  const [validators, setValidators] = useState<ValidatorEntry[]>([]);
-  const [economics, setEconomics] = useState<ChainEconomics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [ownValidators, setOwnValidators] = useState<ValidatorEntry[] | null>(null);
+  const [ownEconomics, setOwnEconomics] = useState<ChainEconomics | null>(null);
+  const validators = validatorSet !== undefined ? validatorSet ?? [] : ownValidators ?? [];
+  const loading = validatorSet !== undefined ? validatorSet === null : ownValidators === null;
+  // Canonical source path: the parent's stakingData + tokenData, so this
+  // table shows the SAME APR and bonded total as the rest of the app.
+  const economics = useMemo<ChainEconomics | null>(() => {
+    if (stakingData && tokenData) {
+      return {
+        annualProvisions: stakingData.annualProvisions,
+        communityTax: stakingData.communityTax,
+        totalBonded: stakingData.bondedTokens,
+        inflation: stakingData.inflationRaw,
+        txPrice: tokenData.price ?? 0,
+      };
+    }
+    return ownEconomics;
+  }, [stakingData, tokenData, ownEconomics]);
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   // 30-day stake flow per validator, loaded independently of the validator
   // set so the table paints immediately and the Flow column fills in after.
-  const { flows } = useValidatorFlows(FLOW_WINDOW_DAYS);
+  const { flows, loaded: flowsLoaded } = useValidatorFlows(FLOW_WINDOW_DAYS);
   const [search, setSearch] = useState("");
   const [commissionFilter, setCommissionFilter] = useState<string>("all");
 
+  // Only for callers that pass nothing. The old version re-ran on every
+  // stakingData/tokenData change, which re-read the whole validator set
+  // twice on load and again on every 60s refresh.
   useEffect(() => {
-    async function fetchAll() {
-      try {
-        const allVals: ValidatorEntry[] = [];
-        let paginationKey = "";
-        let hasMore = true;
-
-        while (hasMore) {
-          const keyParam = paginationKey
-            ? `&pagination.key=${encodeURIComponent(paginationKey)}`
-            : "";
-          const resp = await fetchWithTimeout(
-            `${LCD}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100${keyParam}`
-          );
-          const result = await resp.json();
-          const pg = (result.validators || []).map((v: any) => ({
-            operatorAddress: v.operator_address,
-            moniker: v.description?.moniker || "Unknown",
-            tokens: parseInt(v.tokens || "0") / 1e6,
-            commission: parseFloat(v.commission?.commission_rates?.rate || "0"),
-            identity: v.description?.identity || "",
-            website: v.description?.website || "",
-            details: v.description?.details || "",
-            status: v.status,
-          }));
-          allVals.push(...pg);
-          paginationKey = result.pagination?.next_key || "";
-          hasMore = !!paginationKey;
-        }
-
-        setValidators(allVals);
-
-        // Canonical source path: if the parent already loaded
-        // stakingData + tokenData, reuse those numbers verbatim and
-        // skip 5 redundant chain fetches. Guarantees this component
-        // displays the SAME APR / bonded total as the rest of the
-        // app, not an independent computation that could drift by a
-        // few seconds or hit a different LCD endpoint.
-        if (stakingData && tokenData) {
-          setEconomics({
-            annualProvisions: stakingData.annualProvisions,
-            communityTax: stakingData.communityTax,
-            totalBonded: stakingData.bondedTokens,
-            inflation: stakingData.inflationRaw,
-            txPrice: tokenData.price ?? 0,
-          });
-        } else {
-          // Fallback path for backwards compat / future callers that
-          // don't pass canonical sources. Same fetches as before.
-          const [provRes, distRes, poolRes, priceRes] = await Promise.allSettled([
-            fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
-            fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
-            fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
-            // The site's own price (exchange tickers), not CoinGecko from
-            // each visitor's browser, which is rate limited per IP.
-            fetchWithTimeout("/api/coin"),
-          ]);
-
-          const prov = provRes.status === "fulfilled" ? await provRes.value.json() : {};
-          const dist = distRes.status === "fulfilled" ? await distRes.value.json() : {};
-          const pool = poolRes.status === "fulfilled" ? await poolRes.value.json() : {};
-          const price = priceRes.status === "fulfilled" ? await priceRes.value.json() : {};
-
-          // Correct for the misconfigured blocks_per_year, same as the
-          // canonical path in lib/api.ts. Without this the fallback shows an
-          // APR ~2.7 points lower than the rest of the site.
-          const rawProvisions = parseFloat(prov.annual_provisions || "0") / 1e6;
-          const annualProvisions = await realAnnualIssuance(rawProvisions);
-          const communityTax = parseFloat(dist.params?.community_tax || "0.05");
-          const totalBonded = parseInt(pool.pool?.bonded_tokens || "0") / 1e6;
-
-          const inflRes = await fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/inflation`);
-          const infl = await inflRes.json();
-
-          setEconomics({
-            annualProvisions,
-            communityTax,
-            totalBonded,
-            inflation: parseFloat(infl.inflation || "0"),
-            txPrice: price?.data?.market_data?.current_price?.usd || 0,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch validators:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchAll();
-    // Re-run when canonical sources arrive so the table doesn't show
-    // its own (possibly slightly different) values for the second or
-    // two before stakingData lands. eslint-disable for the validator
-    // list itself which doesn't change.
+    if (validatorSet !== undefined) return;
+    fetchValidatorSet()
+      .then(setOwnValidators)
+      .catch((err) => { console.error("Failed to fetch validators:", err); setOwnValidators([]); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stakingData, tokenData]);
+  }, []);
+
+  useEffect(() => {
+    if (stakingData !== undefined || tokenData !== undefined) return;
+    (async () => {
+      const [provRes, distRes, poolRes, priceRes, inflRes] = await Promise.allSettled([
+        fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/annual_provisions`),
+        fetchWithTimeout(`${LCD}/cosmos/distribution/v1beta1/params`),
+        fetchWithTimeout(`${LCD}/cosmos/staking/v1beta1/pool`),
+        // The site's own price (exchange tickers), not CoinGecko from
+        // each visitor's browser, which is rate limited per IP.
+        fetchWithTimeout("/api/coin"),
+        fetchWithTimeout(`${LCD}/cosmos/mint/v1beta1/inflation`),
+      ]);
+      const json = async (r: PromiseSettledResult<Response>) => (r.status === "fulfilled" ? r.value.json() : {});
+      const [prov, dist, pool, price, infl] = await Promise.all([provRes, distRes, poolRes, priceRes, inflRes].map(json));
+      // Correct for the misconfigured blocks_per_year, same as the
+      // canonical path in lib/api.ts. Without this the fallback shows an
+      // APR ~2.7 points lower than the rest of the site.
+      const annualProvisions = await realAnnualIssuance(parseFloat(prov.annual_provisions || "0") / 1e6);
+      setOwnEconomics({
+        annualProvisions,
+        communityTax: parseFloat(dist.params?.community_tax || "0.05"),
+        totalBonded: parseInt(pool.pool?.bonded_tokens || "0") / 1e6,
+        inflation: parseFloat(infl.inflation || "0"),
+        txPrice: price?.data?.market_data?.current_price?.usd || 0,
+      });
+    })().catch((err) => console.error("Failed to fetch chain economics:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validatorsWithIncome = useMemo(() => {
     // netFlow rides along on each row so the generic `a[sortField]` sort
@@ -605,14 +564,15 @@ export default function ValidatorList({
                   <td>
                     {(() => {
                       const f = flows[v.operatorAddress];
-                      // No row means no staking events in the window. That is
-                      // genuinely "no movement", not missing data.
+                      // After a successful load, no row means no staking events
+                      // in the window: genuinely 0. Before one, it is unknown,
+                      // so the cell stays empty instead of claiming 0.
                       if (!f) {
-                        return (
+                        return flowsLoaded ? (
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", color: "var(--text-light)" }}>
-                            &ndash;
+                            0
                           </div>
-                        );
+                        ) : null;
                       }
                       const breakdown =
                         `Delegated in +${fmt(f.delegatedIn)} TX · ` +
