@@ -23,6 +23,8 @@ import {
   recording,
   activity,
   supplyFlows,
+  issuerControls,
+  issuerLog,
 } from "@/lib/stablecoins";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +78,9 @@ export async function GET(req: Request) {
   // data (SBC shares Brale's issuer); the page labels that as a preview.
   const preview = process.env.NODE_ENV !== "production" ? new URL(req.url).searchParams.get("previewFlows") : null;
   const flowsDenom = preview ?? (ustx?.issued ? ustx.denom : null);
-  const flows = flowsDenom ? await supplyFlows(flowsDenom) : null;
+  const [flows, controls, log] = flowsDenom
+    ? await Promise.all([supplyFlows(flowsDenom), issuerControls(flowsDenom), issuerLog(flowsDenom)])
+    : [null, null, null];
 
   const usdcTotal = fragments.reduce((s, f) => s + f.amount, 0);
   const canonical = fragments.find((f) => f.denom === USDC_CANONICAL);
@@ -98,6 +102,9 @@ export async function GET(req: Request) {
       history: hist,
       activity: act,
       ustxFlows: flows ? { ...flows, preview: Boolean(preview) } : null,
+      // Null means the read failed, not that nothing happened.
+      ustxControls: controls,
+      ustxLog: log,
     },
     { headers: { "cache-control": "no-store" } },
   );
