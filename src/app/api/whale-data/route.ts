@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { Op } from "sequelize";
 import { withCache } from "@/lib/response-cache";
+import { findSnapshotForWindow, windowLookbackDays, type WhaleWindow } from "@/lib/whale-moves";
 import {
   KnownEntity,
   TopDelegator,
@@ -157,9 +158,23 @@ async function handler(_req: Request) {
         labelType: h.label_type,
       });
     }
-    const snapshots = Array.from(byDate.entries())
+    const all = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, entries]) => ({ date, entries }));
+    // The page only ever compares against one snapshot per window, picked by
+    // findSnapshotForWindow. Sending all ~120 days of 500 whales was 6.8 MB
+    // (3.3 MB gzipped) on every analytics visit. Run the same picker here and
+    // send only those snapshots, plus the day either side of each, so a page
+    // left open across midnight still finds its match.
+    const WINDOWS: WhaleWindow[] = ["6h", "24h", "3d", "7d", "30d", "90d"];
+    const keep = new Set<number>();
+    for (const w of WINDOWS) {
+      const m = findSnapshotForWindow({ updatedAt: "", snapshots: all }, windowLookbackDays(w));
+      if (!m) continue;
+      const i = all.indexOf(m.snapshot);
+      for (const j of [i - 1, i, i + 1]) if (j >= 0 && j < all.length) keep.add(j);
+    }
+    const snapshots = all.filter((_, i) => keep.has(i));
     const whaleHistory = {
       updatedAt: new Date().toISOString(),
       snapshots,

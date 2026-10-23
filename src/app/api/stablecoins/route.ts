@@ -41,10 +41,27 @@ async function history(): Promise<{ points: HistoryPoint[]; available: boolean }
     const rows = await sequelize.query<{
       denom: string; taken_at: string; supply: string; holders: number | null; top1_share: string | null;
     }>(
-      `SELECT denom, taken_at, supply, holders, top1_share
-         FROM stablecoin_snapshots
-        WHERE taken_at >= NOW() - (:days || ' days')::interval
-        ORDER BY taken_at ASC`,
+      // Hourly for the last 48 hours, the day's last reading before that,
+      // and each coin's first snapshot so "since <first day>" stays exact.
+      // Every hourly point since September was 3,141 rows and 516 KB of the
+      // 529 KB response, which the browser parsed and charted on every visit
+      // for cards that are 130px tall.
+      `SELECT denom, taken_at, supply, holders, top1_share FROM (
+         (SELECT * FROM stablecoin_snapshots
+           WHERE taken_at >= NOW() - INTERVAL '48 hours')
+         UNION
+         (SELECT DISTINCT ON (denom, date_trunc('day', taken_at)) *
+            FROM stablecoin_snapshots
+           WHERE taken_at >= NOW() - (:days || ' days')::interval
+             AND taken_at < NOW() - INTERVAL '48 hours'
+           ORDER BY denom, date_trunc('day', taken_at), taken_at DESC)
+         UNION
+         (SELECT DISTINCT ON (denom) *
+            FROM stablecoin_snapshots
+           WHERE taken_at >= NOW() - (:days || ' days')::interval
+           ORDER BY denom, taken_at ASC)
+       ) h
+       ORDER BY taken_at ASC`,
       { replacements: { days: HISTORY_DAYS }, type: QueryTypes.SELECT },
     );
     return {
