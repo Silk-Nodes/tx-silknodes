@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import LoadingHints from "@/components/LoadingHints";
 import Shareable from "@/components/share/Shareable";
 import WalletPanel from "@/components/WalletPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
@@ -452,6 +453,7 @@ export default function PassportTab({
     return (
       <div className="psp">
         {searchBar}
+        <LoadingHints page="passport" ready={!loading} />
         {loading ? (
           <div className="psp-loading"><span className="psp-spinner" aria-hidden="true" /> Reading the chain for this wallet...</div>
         ) : (
@@ -509,6 +511,8 @@ export default function PassportTab({
   return (
     <div className="psp">
       {searchBar}
+      {/* Same position as in the loading branch, so it stays mounted and fades out. */}
+      <LoadingHints page="passport" ready={!loading} />
       {/* ── Hero (shareable) ── */}
       <Shareable title="TX Wallet Passport" subtitle={shortAddr(address)} caption="Holdings, staking, PSE and governance at a glance" exportWidth={760}>
         <div className="psp-hero">

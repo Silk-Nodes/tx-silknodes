@@ -66,6 +66,7 @@ import type { SEO_PAGES } from "@/lib/seo-content";
 type SeoPageKey = keyof typeof SEO_PAGES;
 import { useRWATokens } from "@/hooks/useRWATokens";
 import StablecoinsTab from "@/components/StablecoinsTab";
+import { TipsToggle } from "@/components/LoadingHints";
 import type { SmartToken } from "@/hooks/useRWATokens";
 
 // ─── Helpers ───
@@ -1033,6 +1034,7 @@ export default function HomePage() {
       <footer className="site-footer">
         <div className="footer-left">
           <span className="footer-built">Built by <a href="https://silknodes.io" target="_blank" rel="noopener noreferrer">Silk Nodes</a></span>
+          <TipsToggle />
         </div>
         <div className="footer-right">
           <span className="footer-public-good">A Public Good for the TX Community</span>

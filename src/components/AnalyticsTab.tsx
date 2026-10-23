@@ -11,6 +11,7 @@ import AnalyticsChart from "./analytics/AnalyticsChart";
 import PriceChart from "./analytics/PriceChart";
 import StakingFeed from "./analytics/StakingFeed";
 import SpikeChart from "./analytics/SpikeChart";
+import LoadingHints from "@/components/LoadingHints";
 
 export default function AnalyticsTab() {
   const [globalRange, setGlobalRange] = useState<TimeRange>("1Y");
@@ -94,6 +95,7 @@ export default function AnalyticsTab() {
 
   return (
     <div className="analytics-tab">
+      <LoadingHints page="analytics" ready={datasets.some((d) => d.fullData.length > 0)} />
       {/* ═══ STICKY TIME RANGE (appears on scroll) ═══ */}
       {isSticky && (
         <div className="sticky-pills-bar">

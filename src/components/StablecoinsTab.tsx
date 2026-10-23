@@ -25,6 +25,7 @@ import {
 } from "recharts";
 import Shareable, { useInSnapshot } from "@/components/share/Shareable";
 import { FilmButton } from "@/components/StablecoinsFilm";
+import LoadingHints from "@/components/LoadingHints";
 
 type CoinRole = "incumbent" | "issued" | "test";
 type HolderKind = "dex" | "contract" | "known" | "wallet";
@@ -1197,9 +1198,18 @@ function StablecoinsSkeleton({ error }: { error: string | null }) {
 }
 
 export default function StablecoinsTab() {
-  const { data: d, error } = useStablecoins();
+  const { data, error } = useStablecoins();
+  // One parent for both states, so the loading card stays mounted when the
+  // skeleton gives way to the page and can fade out instead of vanishing.
+  return (
+    <>
+      <LoadingHints page="stablecoins" ready={!!data} />
+      {data ? <StablecoinsView d={data} /> : <StablecoinsSkeleton error={error} />}
+    </>
+  );
+}
 
-  if (!d) return <StablecoinsSkeleton error={error} />;
+function StablecoinsView({ d }: { d: Payload }) {
 
   const main = d.coins.filter((c) => c.role !== "test");
   const tests = d.coins.filter((c) => c.role === "test");
