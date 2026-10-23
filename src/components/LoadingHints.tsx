@@ -3,7 +3,7 @@
 // The loading card for /stablecoins, /analytics, /passport, /governance and
 // /validators.
 //
-// Shown at most once a day per page, and only if the data takes longer than
+// Shown at most once per page per visit, and only if the data takes longer than
 // SHOW_AFTER_MS, so a fast load never shows it. The page's skeleton stays
 // visible, blurred, behind it.
 //
@@ -33,6 +33,11 @@ const DEMO_READY_MS = 3_000;
 const OFF_KEY = "tx-hints-off";
 const CHANGE_EVENT = "tx-hints-change";
 const UNDO_MS = 6_000;
+
+// Daily keys from the first version, no longer read.
+function dropOldKeys() {
+  try { for (const p of ["stablecoins", "analytics", "passport", "governance", "validators"]) localStorage.removeItem(`tx-hints-day-${p}`); } catch { /* storage blocked */ }
+}
 
 function setTipsOff(off: boolean) {
   try { if (off) localStorage.setItem(OFF_KEY, "1"); else localStorage.removeItem(OFF_KEY); } catch { /* storage blocked */ }
@@ -127,7 +132,21 @@ function order(hints: Hint[]): Hint[] {
   return [...hints].sort((a, b) => rank(a) - rank(b));
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+// A visit ends after 30 minutes away from the page, the usual analytics
+// definition. Closing the card keeps it away for the rest of the visit;
+// coming back later brings it back with a new tip. Once a day was too
+// quiet: most people saw a single tip and never another.
+const VISIT_GAP_MS = 30 * 60_000;
+const lastKey = (page: string) => `tx-hints-last-${page}`;
+function newVisit(page: string): boolean {
+  try {
+    const last = Number(localStorage.getItem(lastKey(page)) || 0);
+    return Date.now() - last > VISIT_GAP_MS;
+  } catch { return true; }
+}
+function touchVisit(page: string) {
+  try { localStorage.setItem(lastKey(page), String(Date.now())); } catch { /* storage blocked */ }
+}
 
 const Chevron = ({ dir }: { dir: "left" | "right" }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -158,11 +177,13 @@ export default function LoadingHints({ page, ready }: { page: HintPage; ready: b
   // (or demo).
   useEffect(() => {
     demo.current = process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).get("hints") === "demo";
-    let allowed = true;
-    try {
-      allowed = !tipsOff() && localStorage.getItem(`tx-hints-day-${page}`) !== today();
-    } catch { /* storage blocked: show it */ }
-    if (!allowed && !demo.current) { setState("done"); return; }
+    dropOldKeys();
+    // A visit starts when the card is shown. Coming back within 30 minutes
+    // extends it, so the card returns only after a real gap; a fast load that
+    // never showed the card does not start one.
+    const fresh = newVisit(page);
+    if (!fresh) touchVisit(page);
+    if ((tipsOff() || !fresh) && !demo.current) { setState("done"); return; }
 
     let alive = true;
     fetch(`/api/hints?page=${page}`)
@@ -171,8 +192,13 @@ export default function LoadingHints({ page, ready }: { page: HintPage; ready: b
       .catch(() => {});
     const t = window.setTimeout(() => {
       if (!alive) return;
-      setState((s) => (s === "idle" ? "open" : s));
-      try { localStorage.setItem(`tx-hints-day-${page}`, today()); } catch { /* storage blocked */ }
+      // Only a card that actually opens starts a visit. If the data won the
+      // race, state is already "done" and nothing is recorded.
+      setState((s) => {
+        if (s !== "idle") return s;
+        touchVisit(page);
+        return "open";
+      });
     }, demo.current ? 0 : SHOW_AFTER_MS);
     const d = demo.current ? window.setTimeout(() => alive && setIsReady(true), DEMO_READY_MS) : 0;
     return () => { alive = false; clearTimeout(t); clearTimeout(d); };
@@ -192,7 +218,7 @@ export default function LoadingHints({ page, ready }: { page: HintPage; ready: b
     return () => clearTimeout(t);
   }, [state]);
 
-  const close = () => setState((s) => (s === "open" ? "closing" : s));
+  const close = () => { touchVisit(page); setState((s) => (s === "open" ? "closing" : s)); };
   const hideTips = () => { setTipsOff(true); close(); setUndo(true); };
 
   useEffect(() => {
