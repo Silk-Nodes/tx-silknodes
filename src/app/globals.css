@@ -2560,6 +2560,20 @@ input[type="range"]::-moz-range-thumb {
 .footer-built {
   color: rgba(255, 255, 255, 0.6);
 }
+/* Only rendered while loading tips are hidden (LoadingHints TipsToggle). */
+.footer-tips {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-tips:hover { color: var(--tx-neon); }
+.footer-tips:focus-visible { outline: 2px solid var(--tx-neon); outline-offset: 2px; border-radius: 4px; }
 .footer-built a {
   color: var(--tx-neon);
   text-decoration: none;
