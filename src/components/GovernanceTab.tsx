@@ -13,6 +13,7 @@ import {
   type Proposal,
 } from "@/lib/governance";
 import { projectActiveVote } from "@/lib/governance-explainer";
+import LoadingHints from "@/components/LoadingHints";
 
 // Active-first landing. Active proposals are presented as big actionable
 // cards. History is collapsed behind a single link, since most visitors
@@ -57,9 +58,12 @@ export default function GovernanceTab() {
     total: proposals.length,
     passed: proposals.filter((p) => p.status === "passed").length,
     rejected: proposals.filter((p) => p.status === "rejected" || p.status === "failed").length,
-    avgQuorum: proposals.length === 0
-      ? 0
-      : proposals.reduce((sum, p) => sum + calcQuorumFraction(p.tally), 0) / proposals.length,
+    // Only proposals with a bonded snapshot have a turnout. Averaging the
+    // others in as 0% pulled the figure down (3 of 46 on 2026-10-23).
+    avgQuorum: (() => {
+      const known = proposals.filter((p) => p.tally.bondedSnapshot > 0);
+      return known.length === 0 ? 0 : known.reduce((sum, p) => sum + calcQuorumFraction(p.tally), 0) / known.length;
+    })(),
   }), [proposals]);
 
   const quorum = params?.quorum ?? 0.4;
@@ -68,6 +72,7 @@ export default function GovernanceTab() {
 
   return (
     <div className="governance-tab">
+      <LoadingHints page="governance" ready={!loading} />
       <header className="governance-header">
         <div>
           <h1 className="governance-title">Governance</h1>
@@ -95,7 +100,7 @@ export default function GovernanceTab() {
           <GovernanceHealthBar
             avgTurnout={chainStats.avgQuorum}
             quorumRequired={quorum}
-            proposalCount={proposals.length}
+            proposalCount={proposals.filter((p) => p.tally.bondedSnapshot > 0).length}
           />
         </section>
       </div>

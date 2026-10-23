@@ -16,9 +16,10 @@ import { chainSnapshot } from "@/lib/chain-snapshot";
 import { issuanceFactor } from "@/lib/chain-economics";
 import { fetchPSESchedule, PSE_CONFIG } from "@/lib/pse-calculator";
 import { liveCoins, liveFragments, issuerLog, issuerControls, activity } from "@/lib/stablecoins";
+import { GET as governanceRoute } from "@/app/api/governance/route";
 
-export type HintPage = "stablecoins" | "analytics" | "passport";
-export const HINT_PAGES: HintPage[] = ["stablecoins", "analytics", "passport"];
+export type HintPage = "stablecoins" | "analytics" | "passport" | "governance" | "validators";
+export const HINT_PAGES: HintPage[] = ["stablecoins", "analytics", "passport", "governance", "validators"];
 
 export interface Hint {
   id: string;            // stable, so a visitor is not shown the same hint twice
@@ -63,7 +64,7 @@ const votingProposals = () =>
   ).then((d) => (d.proposals ?? []).map((p) => ({ id: p.id, title: (p.title ?? "").trim(), end: p.voting_end_time })));
 
 const stakingParams = () =>
-  json<{ params: { unbonding_time: string; max_validators: number } }>("/cosmos/staking/v1beta1/params").then((d) => d.params);
+  json<{ params: { unbonding_time: string; max_validators: number; max_entries: number; min_commission_rate: string } }>("/cosmos/staking/v1beta1/params").then((d) => d.params);
 
 const slashingParams = () =>
   json<{ params: { signed_blocks_window: string; min_signed_per_window: string; downtime_jail_duration: string; slash_fraction_double_sign: string; slash_fraction_downtime: string } }>(
@@ -71,12 +72,12 @@ const slashingParams = () =>
   ).then((d) => d.params);
 
 const govParams = () =>
-  json<{ params: { min_deposit: { denom: string; amount: string }[]; voting_period: string; quorum: string; threshold: string; veto_threshold: string } }>(
+  json<{ params: { min_deposit: { denom: string; amount: string }[]; voting_period: string; quorum: string; threshold: string; veto_threshold: string; max_deposit_period: string; min_initial_deposit_ratio: string; burn_vote_quorum: boolean; burn_vote_veto: boolean } }>(
     "/cosmos/gov/v1/params/tallying",
   ).then((d) => d.params);
 
 const mintParams = () =>
-  json<{ params: { inflation_rate_change: string; inflation_max: string; goal_bonded: string; blocks_per_year: string } }>(
+  json<{ params: { inflation_rate_change: string; inflation_max: string; inflation_min: string; goal_bonded: string; blocks_per_year: string } }>(
     "/cosmos/mint/v1beta1/params",
   ).then((d) => d.params);
 
@@ -91,6 +92,15 @@ const jailedUnbonding = () =>
   json<{ validators: { description: { moniker: string }; tokens: string; jailed: boolean; unbonding_time: string }[] }>(
     "/cosmos/staking/v1beta1/validators?status=BOND_STATUS_UNBONDING&pagination.limit=100",
   ).then((d) => d.validators.filter((v) => v.jailed).map((v) => ({ moniker: v.description.moniker, tokens: Number(v.tokens) / 1e6, until: Date.parse(v.unbonding_time) })));
+
+// The governance page's own data, through its cached route, so a hint can
+// never disagree with the page it sits on.
+type GovProposal = { id: number; title: string; rawStatus: string; votingEndTime: string | null; tally: { yes: number; no: number; abstain: number; noWithVeto: number; totalVoted: number; bondedSnapshot: number } };
+async function governanceData(): Promise<GovProposal[]> {
+  const res = await governanceRoute(new Request("http://hints.local/api/governance"));
+  if (!res.ok) throw new Error(`governance HTTP ${res.status}`);
+  return ((await res.json()).proposals ?? []) as GovProposal[];
+}
 
 // ── our collectors ──────────────────────────────────────────────────────
 
@@ -158,10 +168,11 @@ async function priceWeek() {
 
 async function build(page: HintPage): Promise<Hint[]> {
   const stc = page === "stablecoins", ana = page === "analytics", psp = page === "passport";
+  const govPage = page === "governance", valPage = page === "validators";
   const none = Promise.resolve(null);
   const [
     gov, schedule, snap, sParams, slash, gParams, mint, supply, pool, jailed, factor,
-    xw, sw, wave, whales, price, coins, routes, act,
+    xw, sw, wave, whales, price, coins, routes, act, govData,
   ] = await Promise.all([
     within(votingProposals()), within(fetchPSESchedule()), within(chainSnapshot()), within(stakingParams()),
     within(slashingParams()), within(govParams()), within(mintParams()), within(totalSupply()),
@@ -169,6 +180,7 @@ async function build(page: HintPage): Promise<Hint[]> {
     ana ? within(exchangeWeek()) : none, ana ? within(stakingWeek()) : none, ana ? within(unbondingWave()) : none,
     ana ? within(whaleShare()) : none, ana ? within(priceWeek()) : none,
     stc ? within(liveCoins()) : none, stc ? within(liveFragments()) : none, stc ? within(activity()) : none,
+    govPage ? within(governanceData()) : none,
   ]);
   const ustx = coins?.find((c) => c.symbol === "USTX") ?? null;
   const [log, controls] = stc && ustx
@@ -234,14 +246,42 @@ async function build(page: HintPage): Promise<Hint[]> {
     }
   }
 
+  // v8 (proposals 46 and 47): in the block the last pre-pause PSE payout
+  // lands, inflation is set to 24% x bonded / supply with min = max, so it
+  // stops moving, and blocks_per_year becomes 42.3M. It reverts when PSE
+  // resumes. Before that block the old rule still raises it every block.
+  const pauseAhead = (() => {
+    if (!schedule) return null;
+    const now = Date.now() / 1000;
+    const future = schedule.filter((t) => t > now);
+    return future.length > 1 && (future[1] - future[0]) / 86_400 > 40 ? future[0] * 1000 : null;
+  })();
   if (s && mint && supply && factor) {
     const br = s.bondedTokens / supply;
-    const perYear = (1 - br / Number(mint.goal_bonded)) * Number(mint.inflation_rate_change) * factor.factor;
-    live.push({
-      id: "inflation", kind: "live",
-      title: `Inflation is ${s.inflation.toFixed(2)}% and rising`,
-      body: `The 100B TX set aside for PSE counts as supply, so only ${pct(br)} of it looks staked. The chain raises inflation every block toward its ${pct(Number(mint.goal_bonded), 0)} target, by about ${(perYear * 100).toFixed(2)} points a year right now, until the ${pct(Number(mint.inflation_max), 0)} cap.`,
-    });
+    const fixed = Number(mint.inflation_min) > 0 && mint.inflation_min === mint.inflation_max;
+    if (fixed) {
+      live.push({
+        id: `inflation-fixed-${mint.inflation_max}`, kind: "live",
+        title: `Inflation is fixed at ${s.inflation.toFixed(2)}% during the PSE pause`,
+        body: "It was set to target a 24% staking APY when the last payout before the pause landed, and stays there until PSE resumes. With issuance fixed, APR rises when stake leaves and falls when stake arrives.",
+      });
+    } else if (pauseAhead) {
+      const pauseInflation = 0.24 * br;
+      const pauseApr = (pauseInflation * supply * ((365.25 * 86_400) / factor.blockSeconds / 42_300_000) * (1 - s.communityTax)) / s.bondedTokens;
+      live.push({
+        id: `inflation-pause-${pauseAhead}`, kind: "live",
+        title: `Inflation goes from ${s.inflation.toFixed(2)}% to about ${(pauseInflation * 100).toFixed(2)}% on ${day(pauseAhead)}`,
+        body: `When the last PSE payout before the pause lands, the v8 upgrade fixes inflation to target a 24% staking APY and holds it there until PSE resumes. At today's stake that is about ${(pauseApr * 100).toFixed(1)}% APR before commission, up from ${s.apr.toFixed(1)}%.`,
+        cta: { label: "Compare validators", href: "/validators" },
+      });
+    } else {
+      const perYear = (1 - br / Number(mint.goal_bonded)) * Number(mint.inflation_rate_change) * factor.factor;
+      live.push({
+        id: "inflation", kind: "live",
+        title: `Inflation is ${s.inflation.toFixed(2)}% and rising`,
+        body: `The 100B TX set aside for PSE counts as supply, so only ${pct(br)} of it looks staked. The chain raises inflation every block toward its ${pct(Number(mint.goal_bonded), 0)} target, by about ${(perYear * 100).toFixed(2)} points a year right now, until the ${pct(Number(mint.inflation_max), 0)} cap.`,
+      });
+    }
   }
 
   if (s) {
@@ -327,6 +367,62 @@ async function build(page: HintPage): Promise<Hint[]> {
       id: "usdc-routes", kind: "learn",
       title: `USDC reaches TX by ${routes.length} routes`,
       body: "Each IBC path makes its own USDC token on TX, so two wallets can both hold USDC that is not interchangeable. Most of it came from Noble; the others are older paths that still hold a little.",
+    });
+  }
+
+  // ── governance page ──
+  if (govPage && govData && govData.length) {
+    const done = govData.filter((p) => p.rawStatus === "PROPOSAL_STATUS_PASSED" || p.rawStatus === "PROPOSAL_STATUS_REJECTED" || p.rawStatus === "PROPOSAL_STATUS_FAILED");
+    const passed = done.filter((p) => p.rawStatus === "PROPOSAL_STATUS_PASSED").length;
+    const withSnap = done.filter((p) => p.tally.bondedSnapshot > 0);
+    const turnout = (p: GovProposal) => p.tally.totalVoted / p.tally.bondedSnapshot;
+    if (withSnap.length && gParams) {
+      const avg = withSnap.reduce((a, p) => a + turnout(p), 0) / withSnap.length;
+      const best = withSnap.reduce((a, b) => (turnout(b) > turnout(a) ? b : a));
+      const low = withSnap.filter((p) => turnout(p) < Number(gParams.quorum)).length;
+      pageLearn.push({
+        id: `gov-record-${done.length}`, kind: "learn",
+        title: `${passed} of ${done.length} TX proposals have passed`,
+        body: `Average turnout is ${pct(avg, 0)} against a ${pct(Number(gParams.quorum), 0)} quorum${low ? `, and ${low} fell short of it` : ""}. The highest was proposal ${best.id} at ${pct(turnout(best), 0)}.`,
+      });
+    }
+    const last = [...done].sort((a, b) => b.id - a.id)[0];
+    if (last) {
+      const t = last.tally;
+      const nonAbstain = t.yes + t.no + t.noWithVeto;
+      pageLive.push({
+        id: `gov-last-${last.id}`, kind: "live",
+        title: `Proposal ${last.id} ${last.rawStatus === "PROPOSAL_STATUS_PASSED" ? "passed" : "did not pass"} with ${nonAbstain > 0 ? pct(t.yes / nonAbstain) : "no"} yes`,
+        body: `${last.title}.${t.bondedSnapshot > 0 ? ` ${pct(t.totalVoted / t.bondedSnapshot)} of staked TX voted.` : ""} Yes is counted against yes, no and veto; abstain only counts toward turnout.`,
+        cta: { label: "See the proposal", href: `/governance/${last.id}` },
+      });
+    }
+  }
+  if (govPage && gParams && (gParams.burn_vote_veto || gParams.burn_vote_quorum)) {
+    const dep = Number(gParams.min_deposit.find((d) => d.denom === "ucore")?.amount ?? 0) / 1e6;
+    const initial = Number(gParams.min_initial_deposit_ratio);
+    pageLearn.push({
+      id: "gov-burn", kind: "learn",
+      title: `A vetoed proposal loses its ${n0(dep)} TX deposit`,
+      body: `So does one that misses quorum. Whoever submits must put up ${pct(initial, 0)} of the deposit at once, and the rest has ${Math.round(secs(gParams.max_deposit_period) / 86_400)} days to arrive before voting can start.`,
+    });
+  }
+
+  // ── validators page ──
+  if (valPage && snap && sParams && s) {
+    const active = snap.validatorSet.filter((v) => v.status === "BOND_STATUS_BONDED");
+    const min = Number(sParams.min_commission_rate);
+    const atMin = active.filter((v) => Math.abs(v.commission - min) < 1e-9).length;
+    const maxC = Math.max(...active.map((v) => v.commission));
+    pageLearn.push({
+      id: `commission-${atMin}-${maxC}`, kind: "learn",
+      title: `${atMin} of ${active.length} active validators charge the ${pct(min, 0)} minimum`,
+      body: `The highest charges ${pct(maxC, 0)}. At today's ${s.apr.toFixed(2)}% APR, delegators get ${(s.apr * (1 - min)).toFixed(2)}% at the minimum and ${(s.apr * (1 - maxC)).toFixed(2)}% at ${pct(maxC, 0)}.`,
+    });
+    pageLearn.push({
+      id: "redelegation", kind: "learn",
+      title: "You can move stake to another validator instantly",
+      body: `A redelegation skips the ${unbondingDays ?? 7} day unbonding and keeps earning. Stake you just redelegated cannot be redelegated again until those days pass, and you can have at most ${sParams.max_entries} unbondings in flight with one validator.`,
     });
   }
 

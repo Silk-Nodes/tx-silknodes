@@ -9,6 +9,7 @@ import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
 import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
 import { fetchValidatorSet } from "@/lib/api";
+import LoadingHints from "@/components/LoadingHints";
 import type { ValidatorSetEntry } from "@/lib/types";
 import { useValidatorFlows } from "@/hooks/useValidatorFlows";
 
@@ -250,6 +251,7 @@ export default function ValidatorList({
 
   return (
     <div style={{ position: "relative", minHeight: loading ? 500 : undefined }}>
+      <LoadingHints page="validators" ready={!loading} />
       {/* Blurred overlay while loading */}
       {loading && (
         <>

@@ -1,6 +1,7 @@
 "use client";
 
-// The loading card for /stablecoins, /analytics and /passport.
+// The loading card for /stablecoins, /analytics, /passport, /governance and
+// /validators.
 //
 // Shown at most once a day per page, and only if the data takes longer than
 // SHOW_AFTER_MS, so a fast load never shows it. The page's skeleton stays
@@ -24,7 +25,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 
-type HintPage = "stablecoins" | "analytics" | "passport";
+type HintPage = "stablecoins" | "analytics" | "passport" | "governance" | "validators";
 interface Hint { id: string; kind: "live" | "learn"; title: string; body: string; cta?: { label: string; href: string } }
 
 const SHOW_AFTER_MS = 700;
@@ -253,7 +254,8 @@ export default function LoadingHints({ page, ready }: { page: HintPage; ready: b
               <p className="lh-body" style={{ margin: "8px 0 0" }}>{hint.body}</p>
             </div>
             <div className="lh-actions">
-              {hint.cta && (
+              {/* A link back to the page being loaded goes nowhere, so it is left out. */}
+              {hint.cta && hint.cta.href !== `/${page}` && (
                 <Link href={hint.cta.href} className="lh-cta" onClick={close}><span>{hint.cta.label}</span><Arrow /></Link>
               )}
               {hints.length > 1 && (
