@@ -1111,7 +1111,7 @@ function SupplyHistory({ d }: { d: Payload }) {
     );
   }
   return (
-    <Panel title="Supply over time" sub={`Hourly snapshots since ${d.recording?.since ? dateOnly(d.recording.since) : "the first run"}. The chain keeps no history, so this starts when we did.`}>
+    <Panel title="Supply over time" sub={`Recorded hourly since ${d.recording?.since ? dateOnly(d.recording.since) : "the first run"}, drawn daily with the last 48 hours in full. The chain keeps no history, so this starts when we did.`}>
       <div className="stc-supply-grid" style={{ ["--cols" as string]: series.length } as React.CSSProperties}>
         {series.map(({ c, pts }) => <SupplyCard key={c.denom} c={c} pts={pts} />)}
       </div>

@@ -247,17 +247,29 @@ export default function PassportTab({
     setData(null);
     setEnriching(true);
 
+    // Phase 2's requests go out now, alongside Phase 1, rather than after it.
+    // They need nothing from Phase 1, and waiting for it put them ~5.5s into
+    // the page load; their results are still applied after the core renders.
+    const enrichment = Promise.all([
+      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/address/pse-earned?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+
     // ── Phase 1: the reliable core, straight from the LCD. This renders the
     // hero, holdings, delegations and the PSE estimate right away, so the
     // page never sits on a spinner waiting for the (sometimes slow or
     // degraded) public indexer.
     try {
-      const [chain, score, pseNet, bondedTokens, monikers] = await Promise.all([
+      const [chain, score, pseNet, bondedTokens, monikers, excludedList] = await Promise.all([
         fetchAddressChainData(address),
         fetchOnChainPSEScore(address),
         fetch(`/api/pse-score`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetchBondedTokens(),
         fetchValidatorMonikers(),
+        fetchOnChainExcludedAddresses().catch(() => PSE_EXCLUDED_ADDRESSES),
       ]);
       if (epochRef.current !== epoch) return;
 
@@ -268,7 +280,6 @@ export default function PassportTab({
       // community PSE no matter what it stakes, so eligibility cannot be
       // decided from stake and score alone. The address-label chip already
       // said "PSE Excluded" while this card said "Eligible: Yes".
-      const excludedList = await fetchOnChainExcludedAddresses().catch(() => PSE_EXCLUDED_ADDRESSES);
       const excluded = excludedList.includes(address);
       const pse: PseStanding = {
         score,
@@ -300,16 +311,10 @@ export default function PassportTab({
     }
 
     // ── Phase 2: the indexer/DB-backed cards (activity, exchange flow,
-    // governance, referrals, PSE history). These stream in as they resolve;
-    // each is bounded server-side, so a bad indexer moment leaves those
-    // cards empty instead of freezing the whole passport.
-    Promise.all([
-      fetch(`/api/flows-address?address=${address}&window=all`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/address/governance?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/address/activity?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/address/referrals?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/address/pse-earned?address=${address}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([flowsRes, govRes, activityRes, refRes, pseEarnedRes]) => {
+    // governance, referrals, PSE history), requested above. Each is bounded
+    // server-side, so a bad indexer moment leaves those cards empty instead
+    // of freezing the whole passport.
+    enrichment.then(([flowsRes, govRes, activityRes, refRes, pseEarnedRes]) => {
       if (epochRef.current !== epoch) return;
       const flows: FlowsAddress | null = flowsRes && !flowsRes.error ? flowsRes : null;
       const gov: GovHistory | null = govRes && !govRes.error ? govRes : null;
