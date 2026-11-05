@@ -26,9 +26,12 @@ const STATIC_LABELS: Record<string, string> = {
 const UCORE_PER_TX = 1_000_000;
 const LIMIT = 60;
 
+// MsgExec is left out: REStake batches one per run, each delegating for many
+// wallets, so on an auto-compounding wallet the newest 60 rows were all
+// MsgExec, classify() dropped every one, and the card said "no activity".
 const MSG_QUERY = `query Q($addr: [String!]!) {
   message(
-    where: {involved_accounts_addresses: {_contains: $addr}},
+    where: {involved_accounts_addresses: {_contains: $addr}, type: {_neq: "/cosmos.authz.v1beta1.MsgExec"}},
     order_by: {height: desc},
     limit: ${LIMIT}
   ) { type height transaction_hash value }

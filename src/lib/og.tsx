@@ -14,6 +14,7 @@ import { ImageResponse } from "next/og";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactElement, ReactNode } from "react";
+import { HASURA_URL } from "@/lib/hasura";
 
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
@@ -172,7 +173,6 @@ export function ogImage(node: ReactElement): ImageResponse {
 }
 
 // ── Data fetch for the dynamic proposal card ──
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 export async function fetchProposalOg(id: number): Promise<{
   title: string;
   status: string;

@@ -19,7 +19,6 @@ import { bondedAt } from "@/lib/chain-history";
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 
 // The chain's own vote record, used to fill in what the indexer lost.
 //
@@ -34,6 +33,7 @@ const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 // settles). Options are already normalized to YES / NO / ABSTAIN /
 // NO_WITH_VETO, matching normalizeOption() below.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
+import { HASURA_URL } from "@/lib/hasura";
 
 const ROUTE_TAG = "governance/[id]";
 const UCORE_PER_TX = 1_000_000;

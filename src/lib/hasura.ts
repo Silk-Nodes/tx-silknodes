@@ -1,4 +1,4 @@
-// Shared client for the public Coreum indexer (Hasura).
+// Shared client for the public TX indexer (Hasura).
 //
 // The endpoint sits behind several backends whose metadata is not perfectly
 // in sync: an identical query intermittently comes back with a
@@ -12,7 +12,9 @@
 // a thrown error as "this slice is unavailable" and degrade, so a bad indexer
 // moment never freezes the page.
 
-export const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+// Moved from hasura.mainnet-1.coreum.dev with the TX rebrand; the old host
+// started answering 503 for every request on 2026-11-05.
+export const HASURA_URL = "https://hasura.mainnet-1.tx.org/v1/graphql";
 
 const ATTEMPT_TIMEOUT_MS = 4500; // abort a single hung request
 const TOTAL_DEADLINE_MS = 8000; // stop retrying after this, all-in
@@ -36,11 +38,16 @@ function isStaleReplicaError(e: unknown): boolean {
  * Integer literals with more than 15 digits are quoted before parsing, so
  * they arrive as exact strings. Anything shorter is left alone, since it
  * round-trips safely and callers expect numbers.
+ *
+ * Only a value after a real key is touched: the key's closing quote must
+ * not be escaped. IBC memos are JSON inside a JSON string
+ * (`\"timeout_timestamp\":1789736737969319400`), and quoting that number
+ * broke the string, so every wallet with a recent IBC swap failed to parse.
  */
 export function parseBigIntSafe(text: string): { data?: unknown; errors?: unknown } {
   const safe = text.replace(
-    /:\s*(-?\d{16,})(?=\s*[,}\]])/g,
-    (_m, digits) => `:"${digits}"`,
+    /(?<!\\)":\s*(-?\d{16,})(?=\s*[,}\]])/g,
+    (_m, digits) => `":"${digits}"`,
   );
   return JSON.parse(safe);
 }

@@ -24,6 +24,7 @@ import { getActiveValidatorSet } from "@/lib/validator-set";
 // See scripts/backfill-votes.mjs.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
 import { cached, cacheHeaders } from "@/lib/response-cache";
+import { HASURA_URL } from "@/lib/hasura";
 
 const ROUTE_TAG = "governance/[id]/overrides";
 
@@ -47,7 +48,6 @@ const MAX_ENRICHED = 400;
 export const dynamic = "force-dynamic";
 export const revalidate = 300; // 5 min - settled props don't move; cache wins.
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 // Ordered pool rather than a single host. This route degrades silently on
 // failure (fetchDelegations returns zeros so the page still renders), which
 // means an LCD outage showed every voter with 0 TX delegated as though that

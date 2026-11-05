@@ -14,6 +14,7 @@ import { sequelize } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { withCache } from "@/lib/response-cache";
 import { lcdGet } from "@/lib/chain-config";
+import { HASURA_URL } from "@/lib/hasura";
 
 const ROUTE_TAG = "governance";
 
@@ -24,7 +25,6 @@ const GOV_LCD = "https://rest-coreum.ecostake.com";
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // 1 min — governance state doesn't change often
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const UCORE_PER_TX = 1_000_000;
 
 interface HasuraProposal {

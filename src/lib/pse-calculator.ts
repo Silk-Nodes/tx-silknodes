@@ -1,4 +1,5 @@
 import type { PSEConfig } from "./types";
+import { HASURA_URL } from "./hasura";
 
 /**
  * PSE (Proof of Support Emission) Calculator
@@ -175,7 +176,7 @@ export async function fetchPSESchedule(): Promise<number[]> {
 
   scheduleFetchPromise = (async () => {
     try {
-      const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+      const res = await fetch(HASURA_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,7 +297,7 @@ export async function fetchLastPSEDistribution(): Promise<PSEDistributionAllocat
   // from this row and needs no block lookup.
   const nowUnix = Math.floor(Date.now() / 1000);
   try {
-    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+    const res = await fetch(HASURA_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -344,7 +345,7 @@ export async function fetchActualPSEReward(address: string): Promise<{
   cycleNumber: number;
 } | null> {
   try {
-    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+    const res = await fetch(HASURA_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
