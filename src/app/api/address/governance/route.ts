@@ -18,8 +18,8 @@ import { NextResponse } from "next/server";
 // same entity: the passport said "14 of 41" where the validator page said 43
 // proposals. Two numbers for one fact is worse than either being slightly off.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
+import { HASURA_URL } from "@/lib/hasura";
 
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 // Used only to backfill proposals the indexer never recorded.
 const GOV_LCD = "https://rest-coreum.ecostake.com";
 

@@ -19,10 +19,9 @@ import { NextResponse } from "next/server";
 import { Op } from "sequelize";
 import { DailyMetric } from "@/lib/db/models";
 import { withCache } from "@/lib/response-cache";
-import { parseBigIntSafe } from "@/lib/hasura";
+import { HASURA_URL, parseBigIntSafe } from "@/lib/hasura";
 
 const ROUTE_TAG = "pse-distributions";
-const HASURA_URL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 
 interface AllocationRow {
   scheduled_at: string | number;

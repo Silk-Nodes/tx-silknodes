@@ -40,7 +40,6 @@ const LCD_HOSTS = [
 // Kept so existing `${LCD}/path` template literals still resolve; every call
 // goes through getJSON, which retries the same path across the pool.
 const LCD = LCD_HOSTS[0];
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const UCORE = 1_000_000;
 const FLOW_DAYS = 30;
 const TOP_DELEGATORS = 25;
@@ -283,7 +282,7 @@ async function hasura<T>(query: string, variables?: Record<string, unknown>): Pr
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(HASURA, {
+    const res = await fetch(HASURA_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
@@ -322,6 +321,7 @@ async function hasura<T>(query: string, variables?: Record<string, unknown>): Pr
 // settled, and settled votes are immutable, so this is a snapshot rather than
 // a cache that can go stale. Regenerate with scripts/backfill-votes.mjs.
 import HISTORICAL_VOTES from "@/data/historical-votes.json";
+import { HASURA_URL } from "@/lib/hasura";
 
 function archivedVotes(voter: string): Map<number, string> {
   const found = new Map<number, string>();
