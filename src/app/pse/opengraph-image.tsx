@@ -10,7 +10,7 @@ export default function Image() {
     ogFrame({
       eyebrow: "Proof of Support Emission",
       title: "Check your PSE score",
-      subtitle: "Look up any wallet's PSE standing and estimate its monthly and annual rewards.",
+      subtitle: "Look up any wallet's PSE standing and estimate its next payout.",
     }),
   );
 }

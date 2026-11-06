@@ -32,6 +32,8 @@ import {
   detectCycleMismatch,
   layeredPSEEstimate,
   TGE_TIMESTAMP,
+  psePerMonth,
+  pseDateLabel,
 } from "@/lib/pse-calculator";
 import type { PSEDistributionAllocation } from "@/lib/pse-calculator";
 import ValidatorList from "@/components/ValidatorList";
@@ -84,8 +86,6 @@ function formatUSD(num: number): string {
   if (num >= 1e3) return `$${(num / 1e3).toFixed(1)}K`;
   return `$${num.toLocaleString()}`;
 }
-
-const TX_PER_SECOND = PSE_CONFIG.monthlyEmission / (30 * 24 * 3600);
 
 type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "stablecoins" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
 
@@ -347,14 +347,13 @@ export default function HomePage() {
   const pseInfo = useMemo(() => getPSEDistributionInfo(onChainSchedule ?? undefined), [onChainSchedule]);
   const targetMs = pseInfo.nextDistribution.getTime();
 
+  // Progress and rate follow the real gap between payouts (395 days across
+  // the pause), not a fixed month.
   const cycleProgress = useMemo(() => {
-    const now = new Date();
-    const prev = new Date(pseInfo.nextDistribution);
-    prev.setMonth(prev.getMonth() - 1);
-    const total = targetMs - prev.getTime();
-    const elapsed = now.getTime() - prev.getTime();
-    return Math.min(100, Math.max(0, (elapsed / total) * 100));
-  }, [targetMs, pseInfo.nextDistribution]);
+    const elapsed = Date.now() - pseInfo.prevDistribution.getTime();
+    return Math.min(100, Math.max(0, (elapsed / pseInfo.cycleMs) * 100));
+  }, [pseInfo]);
+  const txPerSecond = PSE_CONFIG.monthlyEmission / (pseInfo.cycleMs / 1000);
 
   useEffect(() => {
     const tick = () => {
@@ -368,12 +367,12 @@ export default function HomePage() {
           seconds: Math.floor((diff / 1000) % 60),
         });
       }
-      setDistributed(((now - startTime.current) / 1000) * TX_PER_SECOND);
+      setDistributed(((now - startTime.current) / 1000) * txPerSecond);
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [targetMs]);
+  }, [targetMs, txPerSecond]);
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -1111,7 +1110,8 @@ function OverviewTab({
   else if (pseInfo.currentCycle <= 24) insights.push("PSE in early phase,entry still captures significant advantage");
   else insights.push(`PSE at cycle ${pseInfo.currentCycle},${(100 - parseFloat(pseProgressPct)).toFixed(0)}% of rewards remaining`);
 
-  if (apr < 5) insights.push("Low base APR,real yields are driven by PSE rewards, not inflation");
+  if (pseInfo.paused) insights.push(`${apr.toFixed(1)}% base APR, no PSE payout until ${pseDateLabel(pseInfo.nextDistribution)}`);
+  else if (apr < 5) insights.push("Low base APR,real yields are driven by PSE rewards, not inflation");
   else insights.push(`${apr.toFixed(1)}% base APR + PSE rewards on top`);
 
   if (pseInfo.currentCycle <= 12) insights.push("Each new staker reduces your relative share of future PSE rewards");
@@ -1202,7 +1202,7 @@ function OverviewTab({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
             <span style={{ fontSize: "0.55rem", opacity: 0.3 }}>
               {pseProgressPct}% complete
-              <Tooltip text={`100B TX total emission over 84 months. Distribution just started, ~${(100 - rawPseProgress).toFixed(0)}% remaining`} position="bottom" />
+              <Tooltip text={`100B TX total emission in 84 payouts. Distribution just started, ~${(100 - rawPseProgress).toFixed(0)}% remaining`} position="bottom" />
             </span>
           </div>
         </div>
@@ -1230,10 +1230,10 @@ function OverviewTab({
           +{formatNumber(Math.round(distributed))} TX
         </span>
         <span style={{ fontSize: "0.72rem", opacity: 0.5 }}>
-          distributed since you opened this page
+          accrued to stakers since you opened this page
         </span>
         <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: "0.62rem", opacity: 0.3 }}>
-          ~{Math.round(TX_PER_SECOND)} TX/sec
+          ~{(PSE_CONFIG.monthlyEmission / (pseInfo.cycleMs / 1000)).toFixed(1)} TX/sec
         </span>
       </div>
 
@@ -1510,7 +1510,7 @@ function OverviewTab({
         <div className="panel col-7">
           <div className="flex-between mb-2">
             <span className="card-title">Supply &amp; Staking Trend</span>
-            <span className="status-pill">84 Month Projection</span>
+            <span className="status-pill">Projection to the last PSE payout</span>
           </div>
           <SupplyChart
             currentSupply={tokenData?.circulatingSupply}
@@ -1733,7 +1733,9 @@ function PSETab({
       });
 
       const monthlyTX = result.estimate;
-      const annualTX = monthlyTX * 12;
+      // The estimate is the next payout. Spread over the real cycle before
+      // annualising, or a 13 month cycle would read as 13x the yearly rate.
+      const annualTX = psePerMonth(monthlyTX, pseInfo.cycleDays) * 12;
 
       setPseLookup({
         loading: false,
@@ -1914,7 +1916,7 @@ function PSETab({
             background: "rgba(177,252,3,0.04)", borderRadius: 12, border: "1px solid rgba(177,252,3,0.08)",
           }}>
             <div style={{ fontSize: "0.62rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-              This Month&apos;s Estimated PSE Distribution
+              {pseInfo.paused ? `Estimated PSE on ${pseDateLabel(pseInfo.nextDistribution)}, so far` : "This Month\u0027s Estimated PSE Distribution"}
             </div>
             <div style={{
               fontSize: "2.4rem", fontWeight: 800, fontFamily: "var(--font-mono)",
@@ -1925,7 +1927,7 @@ function PSETab({
             </div>
             {pseLookup.sharePct !== null && (
               <div style={{ fontSize: "0.68rem", color: "var(--text-light)", marginTop: 4 }}>
-                Your share: {pseLookup.sharePct < 0.001 ? "<0.001" : pseLookup.sharePct.toFixed(4)}% of the monthly pool
+                Your share: {pseLookup.sharePct < 0.001 ? "<0.001" : pseLookup.sharePct.toFixed(4)}% of the {pseInfo.paused ? "next" : "monthly"} pool
               </div>
             )}
           </div>
@@ -2031,10 +2033,10 @@ function PSETab({
             </div>
             <div className="flex-between mb-3">
               <span className="text-xs text-light mono">Cycle {pseInfo.currentCycle} is {cycleProgress.toFixed(0)}% complete</span>
-              <span className="text-xs text-olive mono">~{(PSE_CONFIG.monthlyEmission / (30 * 24 * 3600)).toFixed(2)} TX/sec</span>
+              <span className="text-xs text-olive mono">~{(PSE_CONFIG.monthlyEmission / (pseInfo.cycleMs / 1000)).toFixed(2)} TX/sec</span>
             </div>
             <div className="text-xs text-light" style={{ marginBottom: 4 }}>
-              +{distributed.toFixed(1)} TX distributed since you opened this page
+              +{distributed.toFixed(1)} TX accrued to stakers since you opened this page
             </div>
           </div>
 
@@ -2068,7 +2070,7 @@ function PSETab({
           <div className="grid-2">
             <div className="accent-card card-olive" style={{ minHeight: 120 }}>
               <div className="card-content">
-                <span className="card-title" style={{ opacity: 0.8 }}>Monthly Distribution <Tooltip text="40% of total emission is shared among community stakers each month" /></span>
+                <span className="card-title" style={{ opacity: 0.8 }}>{pseInfo.paused ? "Next Distribution" : "Monthly Distribution"} <Tooltip text={pseInfo.paused ? `40% of each payout goes to community stakers. The next one lands ${pseDateLabel(pseInfo.nextDistribution)} and covers ${pseInfo.cycleDays} days of score.` : "40% of total emission is shared among community stakers each month"} /></span>
                 <div className="card-value" style={{ fontSize: "1.8rem" }}>
                   ~476M <span className="unit">TX</span>
                 </div>
@@ -2096,14 +2098,17 @@ function PSETab({
             <span className="card-title mb-3" style={{ display: "block" }}>What is PSE?</span>
 
             <div className="info-box mb-3">
-              <strong>100 billion TX</strong> distributed over <strong>84 months</strong> to everyone in the ecosystem.
+              <strong>100 billion TX</strong> distributed in <strong>84 payouts</strong> to everyone in the ecosystem.
               <span className="highlight-olive"> 40% goes to community stakers</span> like you , that&apos;s
-              ~476M TX every month, split proportionally by your <em>stake &times; duration</em> score.
+              ~476M TX a payout, split proportionally by your <em>stake &times; duration</em> score.
+              {pseInfo.paused && <> Payouts are paused after 6 Nov 2026; the next one is <strong>{pseDateLabel(pseInfo.nextDistribution)}</strong>.</>}
             </div>
 
             <div className="tip-box mb-3">
-              <strong>PSE is the primary yield , not base APR.</strong> Rewards auto-compound as new delegations.
-              Early participants receive significantly higher rewards per TX compared to later entrants.
+              {pseInfo.paused
+                ? <><strong>Base APR is the yield until {pseDateLabel(pseInfo.nextDistribution)}.</strong> Inflation is fixed during the pause. Your PSE score keeps building, and the whole {pseInfo.cycleDays} day cycle is paid in one payout.</>
+                : <><strong>PSE is the primary yield , not base APR.</strong> Rewards auto-compound as new delegations.
+              Early participants receive significantly higher rewards per TX compared to later entrants.</>}
             </div>
 
             {/* How PSE Works */}
@@ -2143,7 +2148,7 @@ function PSETab({
                 fontSize: "0.58rem", fontFamily: "var(--font-mono)", textAlign: "center",
                 color: "var(--tx-neon-light)", opacity: 0.8,
               }}>
-                Your reward = (your score / total network score) &times; monthly pool
+                Your reward = (your score / total network score) &times; pool
               </div>
 
               {/* Score Reset Warning */}
@@ -2152,10 +2157,10 @@ function PSETab({
                 background: "rgba(255,180,0,0.1)", border: "1px solid rgba(255,180,0,0.2)",
               }}>
                 <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#ffd54f", marginBottom: 4 }}>
-                  Scores Reset Every Month
+                  Scores Reset at Each Payout
                 </div>
                 <div style={{ fontSize: "0.55rem", opacity: 0.7, lineHeight: 1.5 }}>
-                  All PSE scores reset to zero after each distribution (6th of every month).
+                  All PSE scores reset to zero after each distribution. The current cycle runs to {pseDateLabel(pseInfo.nextDistribution)}.
                   Your reward depends only on your staking during that cycle. Stay staked for the full cycle to maximize your score.
                 </div>
               </div>
@@ -2227,10 +2232,12 @@ function CalculatorTab({
   const price = tokenData?.price ?? 0;
   const tp = parseFloat(targetPrice) || 0;
 
-  // Single month estimate using real network score
-  const monthlyPSE = stakedAmount > 0
+  // Next payout estimate using real network score. Spread over the real
+  // cycle for anything quoted per month.
+  const nextPSE = stakedAmount > 0
     ? estimatePSE(stakedAmount)
     : 0;
+  const monthlyPSE = psePerMonth(nextPSE, pseInfo.cycleDays);
   const userSharePct = pseEligibleBonded > 0 && stakedAmount > 0
     ? (stakedAmount / pseEligibleBonded * 100)
     : 0;
@@ -2289,7 +2296,7 @@ function CalculatorTab({
             Score = Staked Amount (uTX) &times; Duration (seconds)
           </div>
           <div style={{ fontSize: "0.58rem", opacity: 0.4, marginTop: 6 }}>
-            Where 1 TX = 1,000,000 uTX &middot; Pool = ~476,190,476 TX per month (40% community share)
+            Where 1 TX = 1,000,000 uTX &middot; Pool = ~476,190,476 TX a payout (40% community share)
           </div>
         </div>
 
@@ -2453,11 +2460,11 @@ function CalculatorTab({
                   background: "rgba(177,252,3,0.06)", border: "1px solid rgba(177,252,3,0.12)",
                 }}>
                   <div style={{ fontSize: "0.58rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                    Estimated Next PSE Distribution (Upper Bound)
+                    Estimated Next PSE Distribution (Upper Bound){pseInfo.paused ? `, ${pseDateLabel(pseInfo.nextDistribution)}` : ""}
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--accent-olive)" }}>
-                      ~{formatNumber(Math.round(monthlyPSE))}
+                      ~{formatNumber(Math.round(nextPSE))}
                     </span>
                     <span style={{ fontSize: "1rem", color: "var(--accent-olive)", opacity: 0.6 }}>TX</span>
                     {price > 0 && (
@@ -2524,7 +2531,7 @@ function CalculatorTab({
                           <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>{formatNumber(Math.round(monthlyBaseReward))}</span>
                         </div>
                         <div>
-                          <span style={{ opacity: 0.4 }}>+ PSE: </span>
+                          <span style={{ opacity: 0.4 }}>{pseInfo.paused ? "+ PSE accrued: " : "+ PSE: "}</span>
                           <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>~{formatNumber(Math.round(monthlyPSE))}</span>
                         </div>
                       </div>
@@ -2679,7 +2686,7 @@ function CalculatorTab({
                 background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
                 fontSize: "0.6rem", color: "var(--tx-neon-light)",
               }}>
-                If you start staking now, you&apos;ll accumulate ~{daysUntil} days of score before the next distribution on the 6th.
+                If you start staking now, you&apos;ll accumulate ~{daysUntil} days of score before the next distribution on {pseDateLabel(pseInfo.nextDistribution)}.
               </div>
             )}
           </div>
@@ -2689,7 +2696,7 @@ function CalculatorTab({
             <div className="accent-card card-orange" style={{ minHeight: 110 }}>
               <div className="blob-dark" style={{ width: 120, height: 120 }} />
               <div className="card-content">
-                <span className="card-title">Base APR <Tooltip text={apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
+                <span className="card-title">Base APR <Tooltip text={pseInfo.paused ? `Inflation is fixed during the PSE pause. PSE adds nothing until ${pseDateLabel(pseInfo.nextDistribution)}.` : apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
                 <div className="card-value" style={{ fontSize: "1.8rem" }}>
                   {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
                 </div>
@@ -2697,11 +2704,11 @@ function CalculatorTab({
             </div>
             <div className="accent-card card-olive" style={{ minHeight: 110 }}>
               <div className="card-content">
-                <span className="card-title" style={{ opacity: 0.8, fontSize: "0.62rem" }}>Monthly Pool</span>
+                <span className="card-title" style={{ opacity: 0.8, fontSize: "0.62rem" }}>{pseInfo.paused ? "Next Pool" : "Monthly Pool"}</span>
                 <div className="card-value" style={{ fontSize: "1.5rem" }}>
                   ~476M <span style={{ fontSize: "0.7rem" }}>TX</span>
                 </div>
-                <div style={{ fontSize: "0.5rem", opacity: 0.5 }}>community stakers share</div>
+                <div style={{ fontSize: "0.5rem", opacity: 0.5 }}>{pseInfo.paused ? `community share, ${pseDateLabel(pseInfo.nextDistribution)}` : "community stakers share"}</div>
               </div>
             </div>
           </div>
@@ -2711,13 +2718,15 @@ function CalculatorTab({
             <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>PSE Key Facts</div>
             <div style={{ fontSize: "0.62rem", lineHeight: 2, color: "var(--text-medium)" }}>
               {[
-                "100 billion TX distributed over 84 months (7 years)",
-                "40% goes to community stakers (~476M TX/month)",
-                "All scores reset after each monthly distribution",
+                "100 billion TX distributed in 84 payouts",
+                "40% goes to community stakers (~476M TX a payout)",
+                "All scores reset after each distribution",
                 "Score = Your Stake × Duration in seconds",
                 "Rewards auto-compound as new delegations",
                 "Must have active delegation at distribution time",
-                "Distribution happens on the 6th of every month",
+                pseInfo.paused
+                  ? `Paused after 6 Nov 2026, monthly again from ${pseDateLabel(pseInfo.nextDistribution)}`
+                  : "Distribution happens on the 6th of every month",
                 "7 day unbonding period for undelegation",
               ].map((fact, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>

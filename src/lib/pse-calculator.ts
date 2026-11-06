@@ -162,6 +162,31 @@ export function estimatePSERewardFullPeriod(
 }
 
 
+// The on-chain schedule as read on 6 Nov 2026: eight monthly payouts from
+// 6 Apr 2026, a pause, then 76 monthly payouts from 6 Dec 2027 to 6 Mar 2034.
+// Only used when the live schedule cannot be fetched.
+const FALLBACK_SCHEDULE: number[] = (() => {
+  const out: number[] = [];
+  for (let i = 0; i < 8; i++) out.push(Date.UTC(2026, 3 + i, 6, 12) / 1000);
+  for (let i = 0; i < 76; i++) out.push(Date.UTC(2027, 11 + i, 6, 12) / 1000);
+  return out;
+})();
+
+const AVG_MONTH_DAYS = 365.25 / 12;
+
+/** A next-payout estimate spread over the real cycle, as TX per average month.
+ * Equal to the payout itself in a normal one-month cycle; during the 395 day
+ * pause a payout covers about 13 months, so quoting it as monthly would
+ * overstate the monthly rate 13 times. */
+export function psePerMonth(nextPayoutTX: number, cycleDays: number): number {
+  return (nextPayoutTX * AVG_MONTH_DAYS) / Math.max(cycleDays, AVG_MONTH_DAYS);
+}
+
+/** "6 Dec 2027" */
+export function pseDateLabel(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 // Cached on-chain distribution schedule (fetched once, reused)
 let cachedSchedule: number[] | null = null;
 let scheduleFetchPromise: Promise<number[]> | null = null;
@@ -590,34 +615,27 @@ export function getPSEDistributionInfo(onChainSchedule?: number[]) {
       currentCycle = 84;
     }
   } else {
-    // Fallback: calculate based on 6th at 12:00 UTC each month
-    const DISTRIBUTION_DAY = 6;
-    nextDistribution = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      DISTRIBUTION_DAY,
-      12, 0, 0
-    ));
-    if (now >= nextDistribution) {
-      nextDistribution = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth() + 1,
-        DISTRIBUTION_DAY,
-        12, 0, 0
-      ));
-    }
-    // Months elapsed since TGE = completed cycles
-    const monthsSinceTGE =
-      (now.getUTCFullYear() - TGE_DATE.getUTCFullYear()) * 12 +
-      (now.getUTCMonth() - TGE_DATE.getUTCMonth());
-    // If we're past the 6th of this month, that cycle's distribution happened
-    const pastDistributionThisMonth = now.getUTCDate() >= DISTRIBUTION_DAY ||
-      (now.getUTCDate() === DISTRIBUTION_DAY && now.getUTCHours() >= 12);
-    completedCycles = Math.max(0, Math.min(pastDistributionThisMonth ? monthsSinceTGE : monthsSinceTGE - 1, 84));
-    // Edge: before first distribution (before Apr 6), completedCycles = 0
-    if (now < new Date("2026-04-06T12:00:00Z")) completedCycles = 0;
+    // Fallback when the schedule cannot be read: the on-chain schedule as of
+    // 6 Nov 2026 (v8, proposals 46/47), never "the 6th of next month", which
+    // would announce payouts during the pause.
+    const fallback = FALLBACK_SCHEDULE;
+    const nextTs = fallback.find((ts) => ts > nowUnix);
+    nextDistribution = new Date((nextTs ?? fallback[fallback.length - 1]) * 1000);
+    completedCycles = nextTs ? fallback.indexOf(nextTs) : 84;
     currentCycle = Math.min(completedCycles + 1, 84);
   }
+
+  // The payout before the next one, so cycle length, progress and per-second
+  // rates follow the real gap. Months are not a fixed length any more: the gap
+  // from 6 Nov 2026 to 6 Dec 2027 is 395 days.
+  const sched = onChainSchedule && onChainSchedule.length > 0 ? onChainSchedule : FALLBACK_SCHEDULE;
+  const nextSec = Math.floor(nextDistribution.getTime() / 1000);
+  const prevTs = [...sched].reverse().find((ts) => ts < nextSec) ?? null;
+  const prevDistribution = prevTs ? new Date(prevTs * 1000) : TGE_DATE;
+  const cycleMs = Math.max(1, nextDistribution.getTime() - prevDistribution.getTime());
+  const cycleDays = Math.round(cycleMs / 86_400_000);
+  // A gap longer than a normal month means payouts are paused.
+  const paused = cycleDays > 40;
 
   const progressPercent = Math.round((completedCycles / 84) * 100);
   const endDate = new Date(TGE_DATE);
@@ -626,6 +644,10 @@ export function getPSEDistributionInfo(onChainSchedule?: number[]) {
   return {
     tgeDate: TGE_DATE,
     nextDistribution,
+    prevDistribution,
+    cycleMs,
+    cycleDays,
+    paused,
     currentCycle,
     completedCycles,
     distributionNumber: currentCycle, // backward compat alias

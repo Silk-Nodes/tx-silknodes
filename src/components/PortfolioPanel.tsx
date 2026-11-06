@@ -34,6 +34,7 @@ import {
   type ValidatorMeta,
 } from "@/lib/passport";
 import { estimatePSEForAddresses } from "@/lib/pse-estimate";
+import { getPSEDistributionInfo, pseDateLabel } from "@/lib/pse-calculator";
 import {
   MAX_WALLETS,
   addWallet,
@@ -46,6 +47,10 @@ import {
   renameWallet,
   type SavedWallet,
 } from "@/lib/wallet-list";
+
+// The estimate is the next payout; during the pause that payout lands on
+// 6 Dec 2027 and covers 395 days, so it is not labelled monthly.
+const PSE_INFO = getPSEDistributionInfo();
 
 // Our own validator. The disclosure below quotes its live rank rather than a
 // written-down one, because a hardcoded position goes stale silently and a
@@ -581,17 +586,17 @@ export default function PortfolioPanel({
               tip="Your combined staked TX as a share of all bonded stake on the chain."
             />
             <Metric
-              label="PSE per month"
+              label={PSE_INFO.paused ? "Est. next PSE" : "PSE per month"}
               value={pse ? TX(pse.monthly) : "-"}
               tone={pse ? "earn" : "dim"}
               sub={pse
                 ? pse.source === "onchain_score" || pse.source === "last_dist_reference"
-                  ? "accrued so far this cycle"
-                  : "projected, if staked all cycle"
+                  ? PSE_INFO.paused ? `accrued so far, paid ${pseDateLabel(PSE_INFO.nextDistribution)}` : "accrued so far this cycle"
+                  : PSE_INFO.paused ? `projected for ${pseDateLabel(PSE_INFO.nextDistribution)}` : "projected, if staked all cycle"
                 : "score unavailable"}
               tip={
                 pse && (pse.source === "onchain_score" || pse.source === "last_dist_reference")
-                  ? `Your share of the monthly PSE pool from the score your wallets have actually accrued so far this cycle, currently ${pse.sharePct < 0.0001 ? "under 0.0001" : pse.sharePct.toFixed(4)}%. Score is stake multiplied by staking duration and resets at each distribution, so this grows through the cycle as long as you stay staked.`
+                  ? `Your share of the ${PSE_INFO.paused ? `PSE pool paid ${pseDateLabel(PSE_INFO.nextDistribution)}, which covers the ${PSE_INFO.cycleDays} day pause,` : "monthly PSE pool"} from the score your wallets have actually accrued so far this cycle, currently ${pse.sharePct < 0.0001 ? "under 0.0001" : pse.sharePct.toFixed(4)}%. Score is stake multiplied by staking duration and resets at each distribution, so this grows through the cycle as long as you stay staked.`
                   : "PSE scores reset at each distribution and restart when you redelegate, so your wallets have not accrued a full cycle yet. This is what the same stake would earn across a whole cycle, from your share of total bonded stake. Splitting stake across wallets changes nothing either way."
               }
             />

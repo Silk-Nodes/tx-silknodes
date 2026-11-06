@@ -5,7 +5,7 @@ import LoadingHints from "@/components/LoadingHints";
 import Shareable from "@/components/share/Shareable";
 import WalletPanel from "@/components/WalletPanel";
 import { addWallet, loadWallets } from "@/lib/wallet-list";
-import { fetchOnChainExcludedAddresses, PSE_EXCLUDED_ADDRESSES } from "@/lib/pse-calculator";
+import { fetchOnChainExcludedAddresses, PSE_EXCLUDED_ADDRESSES, getPSEDistributionInfo, psePerMonth, pseDateLabel } from "@/lib/pse-calculator";
 import ModuleAccountNotice from "@/components/ModuleAccountNotice";
 import { decode as bech32Decode, encode as bech32Encode } from "bech32";
 import { formatCompact, relativeTimeShort } from "@/lib/ui-format";
@@ -19,6 +19,10 @@ import {
   type AddressChainData,
   type Badge,
 } from "@/lib/passport";
+
+// The PSE schedule, so estimates follow the real cycle length (395 days across
+// the pause) and the labels switch back when monthly payouts resume.
+const PSE_INFO = getPSEDistributionInfo();
 
 interface FlowsAddress {
   label: string | null;
@@ -39,6 +43,9 @@ interface GovHistory {
 }
 interface PseStanding {
   score: string | null;
+  /** Estimated next payout, which covers the whole cycle to the next distribution. */
+  next: number;
+  /** The next payout spread over the real cycle; equals `next` in a one-month cycle. */
   monthly: number;
   annual: number;
   sharePct: number;
@@ -281,10 +288,14 @@ export default function PassportTab({
       // decided from stake and score alone. The address-label chip already
       // said "PSE Excluded" while this card said "Eligible: Yes".
       const excluded = excludedList.includes(address);
+      // est.monthly is the next payout. During the pause that payout covers
+      // 395 days, so per-month and yearly figures spread it over the cycle.
+      const monthly = psePerMonth(est.monthly, PSE_INFO.cycleDays);
       const pse: PseStanding = {
         score,
-        monthly: est.monthly,
-        annual: est.monthly * 12,
+        next: est.monthly,
+        monthly,
+        annual: monthly * 12,
         sharePct: est.sharePct,
         eligible: !!score && chain.stakedTX > 0 && !excluded,
         excluded,
@@ -566,7 +577,7 @@ export default function PassportTab({
             <Metric label="Staked" value={`${stakedPct.toFixed(0)}%`} sub={TX(chain.stakedTX)} />
             <Metric label="Validators" value={String(chain.validatorCount)} sub={topValidatorShare > 0 ? `top ${topValidatorShare.toFixed(0)}%` : undefined} />
             <Metric label="Proposals voted" value={String(gov?.summary.votedCount ?? 0)} sub={gov ? `of ${gov.summary.votableCount}` : undefined} />
-            <Metric label="Est. PSE / mo" value={pse && pse.eligible ? TX(pse.monthly) : pse?.excluded ? "Excluded" : "—"} sub={pse && pse.eligible ? usd(pse.monthly) ?? undefined : undefined} />
+            <Metric label={PSE_INFO.paused ? "Est. next PSE" : "Est. PSE / mo"} value={pse && pse.eligible ? TX(pse.next) : pse?.excluded ? "Excluded" : "—"} sub={pse && pse.eligible ? (PSE_INFO.paused ? pseDateLabel(PSE_INFO.nextDistribution) : usd(pse.next) ?? undefined) : undefined} />
           </div>
         </div>
       </Shareable>
@@ -621,7 +632,7 @@ export default function PassportTab({
                       ? <KV label="Eligible" value="Yes" tone="good" />
                       : <KV label="Eligible" value="Not staking" />}
                 {pse && pse.eligible && <>
-                  <KV label="Est. next" value={TX(pse.monthly)} sub={usd(pse.monthly)} />
+                  <KV label={PSE_INFO.paused ? `Est. ${pseDateLabel(PSE_INFO.nextDistribution)}` : "Est. next"} value={TX(pse.next)} sub={usd(pse.next)} />
                   {yieldIsMeaningful && <KV label="Monthly yield" value={`${monthlyYieldPct.toFixed(1)}%`} />}
                 </>}
               </div>
