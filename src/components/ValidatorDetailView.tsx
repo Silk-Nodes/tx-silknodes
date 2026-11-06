@@ -15,9 +15,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { getPSEDistributionInfo, pseDateLabel } from "@/lib/pse-calculator";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
 import Tooltip from "@/components/Tooltip";
 import { SILK_NODES_VALIDATOR } from "@/lib/chain-config";
+
+// Read from the schedule (live-fetched elsewhere; the built-in copy matches
+// the chain), so the label flips back on its own when payouts resume.
+const PSE_INFO = getPSEDistributionInfo();
 
 const FLOW_DAYS = 30;
 
@@ -468,7 +473,7 @@ export default function ValidatorDetailView({
             <StatRow
               label="Delegator APR"
               value={v.delegatorApr !== null ? `${v.delegatorApr.toFixed(2)}%` : "n/a"}
-              sub={bench.avgDelegatorApr !== null ? `+ PSE · avg ${bench.avgDelegatorApr.toFixed(2)}%` : "+ PSE on top"}
+              sub={`${PSE_INFO.paused ? `PSE paused until ${pseDateLabel(PSE_INFO.nextDistribution)}` : "+ PSE"}${bench.avgDelegatorApr !== null ? ` · avg ${bench.avgDelegatorApr.toFixed(2)}%` : PSE_INFO.paused ? "" : " on top"}`}
               color="var(--text-accent)"
             />
             <StatRow

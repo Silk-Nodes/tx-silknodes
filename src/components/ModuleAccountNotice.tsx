@@ -54,19 +54,19 @@ export default function ModuleAccountNotice({
             <div>
               <span className="mod-acct-key">Allocation</span>
               <span className="mod-acct-val mono">{formatCompact(s.totalTX)} TX</span>
-              <span className="mod-acct-note">over {s.monthsTotal} months</span>
+              <span className="mod-acct-note">over {s.monthsTotal} payouts</span>
             </div>
             <div>
               <span className="mod-acct-key">Released so far</span>
               <span className="mod-acct-val mono">{formatCompact(s.releasedTX)} TX</span>
               <span className="mod-acct-note">
-                {s.monthsReleased} of {s.monthsTotal} months
+                {s.monthsReleased} of {s.monthsTotal} payouts
               </span>
             </div>
             <div>
               <span className="mod-acct-key">Still to release</span>
               <span className="mod-acct-val mono">{formatCompact(balanceTX)} TX</span>
-              <span className="mod-acct-note">{fmtTX(s.perMonthTX)} per month</span>
+              <span className="mod-acct-note">{fmtTX(s.perMonthTX)} per payout</span>
             </div>
           </div>
           {/* The arithmetic in full, so the balance is not something a reader

@@ -47,28 +47,35 @@ const TOTAL_MONTHLY_PSE = 1_190_476_190; // 100B / 84
 export default function SupplyChart({ currentSupply, currentStakingRatio, currentInflation }: SupplyChartProps) {
   const chartData = useMemo(() => {
     const pseInfo = getPSEDistributionInfo();
-    const distributionsDone = Math.max(0, pseInfo.completedCycles);
-    const pseMonthsRemaining = Math.max(0, 84 - distributionsDone);
+    const payoutsLeft = Math.max(0, 84 - pseInfo.completedCycles);
+    // Payouts follow the on-chain schedule, not one per month from today:
+    // none from 6 Nov 2026 until 6 Dec 2027, then monthly to Mar 2034.
+    const MONTH_MS = (365.25 / 12) * 86_400_000;
+    const firstPayout = Math.max(1, Math.round((pseInfo.nextDistribution.getTime() - Date.now()) / MONTH_MS));
+    const horizon = payoutsLeft > 0 ? firstPayout + payoutsLeft - 1 : 0;
 
     let supply = currentSupply || 1_927_475_509;
+    let locked = payoutsLeft * TOTAL_MONTHLY_PSE;
     const startRatio = (currentStakingRatio || 40) / 100;
     const targetRatio = 0.67;
     const inflation = currentInflation || 0.000972;
 
     const data: { month: number; supply: number; staked: number }[] = [];
 
-    for (let m = 0; m <= pseMonthsRemaining; m++) {
-      const progress = pseMonthsRemaining > 0 ? m / pseMonthsRemaining : 0;
+    for (let m = 0; m <= horizon; m++) {
+      const progress = horizon > 0 ? m / horizon : 0;
       const ratio = startRatio + (targetRatio - startRatio) * progress;
       data.push({
         month: m,
         supply: Math.round(supply),
         staked: Math.round(supply * ratio),
       });
-      // Each month: PSE tokens enter circulation + inflation
-      if (m < pseMonthsRemaining) {
+      // Inflation is a rate on total supply, which still includes the TX
+      // locked for PSE, so it is applied to circulating plus locked.
+      supply += (inflation * (supply + locked)) / 12;
+      if (m + 1 >= firstPayout && locked > 0) {
         supply += TOTAL_MONTHLY_PSE;
-        supply += (inflation * supply) / 12;
+        locked -= TOTAL_MONTHLY_PSE;
       }
     }
 

@@ -26,6 +26,8 @@ interface Distribution {
   poolUsd: number | null;
 }
 
+const ALLOCATED_TX = 476_190_476;
+
 const fmtDate = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -57,6 +59,14 @@ export default function PseDistributionPrices() {
   if (failed) return null;
 
   const latest = rows && rows.length > 0 ? rows[rows.length - 1] : null;
+  // Pool is what stakers were actually paid. Cycle 8 (6 Nov 2026) paid
+  // 452.64M; the other 23.55M of the 476.19M allocation went to the community
+  // pool (bank balance up by exactly that in the payout block). A short cycle
+  // is named rather than hidden behind "the same every cycle".
+  const short = (rows ?? []).filter((d) => d.poolTX < ALLOCATED_TX - 1);
+  const sub = short.length === 0
+    ? "Every cycle distributes the same 476,190,476 TX, so the dollar value moves with price alone"
+    : `Each cycle allocates 476,190,476 TX to stakers. ${short.map((d) => `Cycle ${d.cycle} paid ${formatCompact(d.poolTX)}, the other ${formatCompact(ALLOCATED_TX - d.poolTX)} went to the community pool`).join(". ")}.`;
 
   return (
     <div className="psp-card psp-card-wide pdp-card">
@@ -65,13 +75,10 @@ export default function PseDistributionPrices() {
           Distributions and TX price
           <Tooltip
             position="bottom"
-            text="What each PSE distribution was worth on the day it landed. The pool is fixed at 476,190,476 TX per cycle, so the dollar value moves only with the TX price. Change compares each distribution to the one before it."
+            text="What each PSE distribution was worth on the day it landed. Pool is the TX actually paid to stakers out of the 476,190,476 TX allocated per cycle. Change compares the TX price with the distribution before it."
           />
         </div>
-        <span className="pdp-sub">
-          Every cycle distributes the same 476,190,476 TX, so the dollar value moves
-          with price alone
-        </span>
+        <span className="pdp-sub">{sub}</span>
       </div>
 
       {!rows ? (
@@ -88,7 +95,7 @@ export default function PseDistributionPrices() {
           <Shareable
             title="PSE distributions and TX price"
             subtitle={latest ? `${rows.length} cycles to ${fmtDate(latest.date)}` : undefined}
-            caption="Every cycle distributes the same 476,190,476 TX, so the dollar value moves with price alone."
+            caption={`${sub}.`.replace(/\.\.$/, ".")}
             // The wrapper starts at the table, so the default top: 12px put the
             // camera on top of the first row's pool value. Lifted into the card
             // header, which has ~745px of clear space to the right of the
@@ -101,7 +108,7 @@ export default function PseDistributionPrices() {
                 <tr>
                   <th>Cycle</th>
                   <th>Date</th>
-                  <th className="pdp-num">Pool</th>
+                  <th className="pdp-num">Paid to stakers</th>
                   <th className="pdp-num">TX price</th>
                   <th className="pdp-num">Change</th>
                   <th className="pdp-num">Pool value</th>

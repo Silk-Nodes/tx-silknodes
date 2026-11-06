@@ -6,12 +6,17 @@ const BASE_PATH = "";
 import { realAnnualIssuance } from "@/lib/chain-economics";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { getPSEDistributionInfo } from "@/lib/pse-calculator";
 import Tooltip from "@/components/Tooltip";
 import { SILK_LCD, fetchWithTimeout } from "@/lib/chain-config";
 import { fetchValidatorSet } from "@/lib/api";
 import LoadingHints from "@/components/LoadingHints";
 import type { ValidatorSetEntry } from "@/lib/types";
 import { useValidatorFlows } from "@/hooks/useValidatorFlows";
+
+// Read from the schedule (live-fetched elsewhere; the built-in copy matches
+// the chain), so the label flips back on its own when payouts resume.
+const PSE_INFO = getPSEDistributionInfo();
 
 type ValidatorEntry = ValidatorSetEntry;
 
@@ -553,7 +558,7 @@ export default function ValidatorList({
                     }}>
                       {v.delegatorApr.toFixed(2)}%
                     </div>
-                    <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginTop: 1 }}>+ PSE</div>
+                    <div style={{ fontSize: "0.55rem", color: "var(--text-light)", marginTop: 1 }}>{PSE_INFO.paused ? "PSE paused" : "+ PSE"}</div>
                   </td>
                   <td>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", fontWeight: 500 }}>
