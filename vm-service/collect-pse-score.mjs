@@ -37,13 +37,24 @@ const DB_WRITES_ENABLED = !!process.env.PGUSER;
 const JSON_WRITES_ENABLED = process.env.JSON_WRITES === "true";
 
 const API = "https://api.silknodes.io/coreum";
-const GRAPHQL = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
 const PAGE_LIMIT = 500;
 const CONCURRENCY = 20;
 
+// Every read is pinned to one block, so the total is a sum of scores that
+// all existed at the same moment. Unpinned, the 12:00 run on 6 Nov 2026 read
+// for 13 minutes across the PSE payout: wallets read in the first minute
+// still carried a month of score, the rest had just been reset, and the total
+// came out ~20x too large. Our node serves recent heights; the public ones
+// do not, which is why API stays on it.
+let HEIGHT = null;
+
+// A payout resets every score over ~60 blocks. Never snapshot inside it.
+const PAYOUT_GUARD_SECONDS = 300;
+
 async function fetchWithRetry(url, options = {}, attempt = 1) {
   try {
-    const res = await fetch(url, options);
+    const headers = HEIGHT ? { ...(options.headers ?? {}), "x-cosmos-block-height": String(HEIGHT) } : options.headers;
+    const res = await fetch(url, { ...options, headers, signal: AbortSignal.timeout(15000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -150,31 +161,18 @@ async function sumNetworkScore(delegators) {
   await pMap(
     delegators,
     async (addr) => {
+      // Straight from the chain at the pinned height. The GraphQL indexer this
+      // used first (hasura.mainnet-1.coreum.dev) went dark on 5 Nov 2026, and
+      // three failed attempts per wallet stretched each run to 13 minutes.
       try {
-        const data = await fetchWithRetry(GRAPHQL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `{ action_pse_score(address: "${addr}") { score } }`,
-          }),
-        });
-        const score = BigInt(data?.data?.action_pse_score?.score ?? "0");
+        const data = await fetchWithRetry(`${API}/tx/pse/v1/score/${addr}`);
+        const score = BigInt(data?.score ?? "0");
         if (score > 0n) {
           networkTotal += score;
           withScore++;
         }
       } catch {
-        // Fallback: try REST endpoint
-        try {
-          const data = await fetchWithRetry(`${API}/tx/pse/v1/score/${addr}`);
-          const score = BigInt(data?.score ?? "0");
-          if (score > 0n) {
-            networkTotal += score;
-            withScore++;
-          }
-        } catch {
-          errors++;
-        }
+        errors++;
       }
       done++;
       if (done % 200 === 0 || done === delegators.length) {
@@ -188,6 +186,19 @@ async function sumNetworkScore(delegators) {
 
   console.log();
   return { networkTotal, withScore, errors };
+}
+
+// The timer fires at 12:00 UTC, the same second payouts are scheduled. If a
+// payout is within the guard window either side, wait until it is over.
+async function waitOutPayout() {
+  const data = await fetchWithRetry(`${API}/tx/pse/v1/scheduled_distributions`).catch(() => null);
+  const list = Object.values(data ?? {}).find(Array.isArray) ?? [];
+  const now = Date.now() / 1000;
+  const near = list.map((d) => Number(d.timestamp)).find((ts) => Math.abs(now - ts) < PAYOUT_GUARD_SECONDS);
+  if (!near) return;
+  const waitMs = (near + PAYOUT_GUARD_SECONDS - now) * 1000;
+  console.log(`PSE payout at ${new Date(near * 1000).toISOString()}, waiting ${Math.round(waitMs / 1000)}s`);
+  await new Promise((r) => setTimeout(r, waitMs));
 }
 
 async function main() {
@@ -205,6 +216,13 @@ async function main() {
 
   const start = Date.now();
 
+  await waitOutPayout();
+  const latest = await fetchWithRetry(`${API}/cosmos/base/tendermint/v1beta1/blocks/latest`);
+  // Two blocks back, so every node behind the endpoint already has it.
+  HEIGHT = Number(latest?.block?.header?.height) - 2;
+  if (!Number.isFinite(HEIGHT) || HEIGHT <= 0) throw new Error("could not read the latest height");
+  console.log(`Pinned to block ${HEIGHT}`);
+
   const excludedSet = await fetchExcludedAddresses();
   const validators = await fetchAllValidators();
   const delegators = await fetchAllDelegators(validators, excludedSet);
@@ -215,6 +233,7 @@ async function main() {
     eligibleDelegators: delegators.length,
     delegatorsWithScore: withScore,
     fetchErrors: errors,
+    height: HEIGHT,
     updatedAt: new Date().toISOString(),
     updatedAtTimestamp: Math.floor(Date.now() / 1000),
   };
