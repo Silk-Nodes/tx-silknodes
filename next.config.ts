@@ -132,7 +132,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             // Deliberately NOT locking down script-src. Next.js injects inline
             // bootstrap scripts, so 'self' alone would break the app and the
-            // correct fix (per-request nonces) needs middleware changes worth
+            // correct fix (per-request nonces) needs proxy changes worth
             // doing separately rather than bundled into a hardening pass.
             //
             // What IS locked down here are the directives that carry real risk
