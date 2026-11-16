@@ -325,7 +325,7 @@ async function fetchCompletedPseCycles() {
   // The chain removes past distributions from the schedule once
   // executed, so completed = 84 - remaining.
   try {
-    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+    const res = await fetch("https://hasura.mainnet-1.tx.org/v1/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

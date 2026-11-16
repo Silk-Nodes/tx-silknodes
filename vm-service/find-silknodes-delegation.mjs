@@ -11,7 +11,7 @@
 
 import { writeFileSync } from "node:fs";
 
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 const LCD = "https://full-node.mainnet-1.coreum.dev:1317";
 const DECIMALS = 6;
 const TARGET_MIN_TX = 1_000_000; // flag delegations ≥ 1M TX

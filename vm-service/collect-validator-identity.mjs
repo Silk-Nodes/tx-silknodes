@@ -88,7 +88,7 @@ async function keybaseAvatar(identity) {
  */
 async function fetchAddressMap() {
   try {
-    const res = await fetch("https://hasura.mainnet-1.coreum.dev/v1/graphql", {
+    const res = await fetch("https://hasura.mainnet-1.tx.org/v1/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

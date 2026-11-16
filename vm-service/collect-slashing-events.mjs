@@ -115,7 +115,7 @@ async function fetchTombstoned() {
 // would make every tombstone and every slash invisible rather than wrong,
 // the worst kind of failure. The LCD does not expose the bech32 consensus
 // address, so Hasura owns this join (same source the validator API uses).
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 async function fetchConsensusMap() {
   const map = new Map();
   try {
