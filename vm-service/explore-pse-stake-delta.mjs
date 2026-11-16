@@ -26,7 +26,7 @@
 
 import { writeFileSync } from "node:fs";
 
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 const DECIMALS = 6;
 const ucoreToTX = (s) => Number(BigInt(s)) / 10 ** DECIMALS;
 const CONCURRENCY = 8;

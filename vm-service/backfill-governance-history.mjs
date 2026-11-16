@@ -26,7 +26,7 @@
 
 import { query, closePool } from "./db.mjs";
 
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 const DRY = process.argv.includes("--dry-run");
 
 const log = (lvl, ...m) => console.log(`[${new Date().toISOString()}] [${lvl.toUpperCase()}]`, ...m);

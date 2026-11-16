@@ -40,7 +40,7 @@ const bech32Lib = bech32Pkg.bech32 ?? bech32Pkg;
 import { query, closePool } from "./db.mjs";
 
 const LCD = process.env.COREUM_LCD || "https://full-node.mainnet-1.coreum.dev:1317";
-const HASURA = "https://hasura.mainnet-1.coreum.dev/v1/graphql";
+const HASURA = "https://hasura.mainnet-1.tx.org/v1/graphql";
 const DECIMALS = 6;
 const ucoreToTX = (s) => Number(BigInt(s)) / 10 ** DECIMALS;
 // Per-validator extras are 2 calls each. 6 at a time keeps a 56-validator
