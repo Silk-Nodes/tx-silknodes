@@ -51,16 +51,31 @@ function log(level, ...rest) {
   console.log(`[${ts()}] [${level.toUpperCase()}]`, ...rest);
 }
 
-async function gql(queryStr) {
-  const res = await fetch(HASURA, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: queryStr }),
-  });
-  const data = await res.json();
-  if (data.errors) throw new Error(JSON.stringify(data.errors));
-  return data.data;
+// Retries with backoff. A rate limit or an HTML error page used to throw on
+// the first try, and pmap below turns a throw into a dropped wallet: the
+// cycle 8 run on 16 Nov kept 63 of its top 100 and still wrote a snapshot.
+async function gql(queryStr, attempt = 1) {
+  try {
+    const res = await fetch(HASURA, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: queryStr }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`hasura HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.errors) throw new Error(JSON.stringify(data.errors));
+    return data.data;
+  } catch (e) {
+    if (attempt >= 5) throw e;
+    await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+    return gql(queryStr, attempt + 1);
+  }
 }
+
+// A cohort with more failed wallets than this is not a measurement of the
+// cohort, so it is not written. Better no row than a confident wrong one.
+const MAX_FAILED_SHARE = 0.02;
 
 async function fetchCurrentHeight() {
   const data = await gql(`{ block(order_by: {height: desc}, limit: 1) { height timestamp } }`);
@@ -205,6 +220,13 @@ async function buildSnapshot(cycle, topN, measuredAtHeight, validatorSelfBonds) 
   });
 
   const valid = enriched.filter((r) => !r.__error);
+  const failed = enriched.length - valid.length;
+  if (failed > enriched.length * MAX_FAILED_SHARE) {
+    const sample = enriched.find((r) => r.__error)?.__error;
+    throw new Error(
+      `cycle ${cycle.cycleNumber} top ${topN}: ${failed} of ${enriched.length} wallets failed to read, not writing (${sample})`,
+    );
+  }
   const ex = valid.filter((r) => !r.isValidatorSelfBond);
 
   const totalReceived = valid.reduce((s, r) => s + r.amountTX, 0);
