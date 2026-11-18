@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { TokenData, StakingData, NetworkStatus, ValidatorInfo, WalletState } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
 import { useNextPSECycle, pad } from "@/hooks/useNextPSECycle";
+import { useClientClock } from "@/hooks/useClientClock";
 import { formatTxAmount } from "@/lib/governance";
 import SignalsGrid from "./today/SignalsGrid";
 import HappeningFeed from "./today/HappeningFeed";
@@ -28,6 +29,7 @@ export default function TodayTab({
 }: Props) {
   const { proposals } = useGovernance();
   const cycle = useNextPSECycle();
+  const clockReady = useClientClock();
 
   const td = {
     price: tokenData?.price ?? 0,
@@ -74,7 +76,10 @@ export default function TodayTab({
         <h1 className="today-hero-eyebrow">
           {isConnected ? "Welcome back" : "TX Network today"}
         </h1>
-        <div className="today-hero-date">{formatDate(new Date())}</div>
+        {/* The prerendered page carries the build day, not today. A
+            non-breaking space holds the line until the client clock is
+            readable, see useClientClock. */}
+        <div className="today-hero-date">{clockReady ? formatDate(new Date()) : "\u00a0"}</div>
       </header>
 
       {/* ─── Top row: cycle countdown + connect wallet side by side ──── */}

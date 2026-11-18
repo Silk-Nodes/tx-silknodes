@@ -17,6 +17,7 @@ function trackEvent(action: string, params?: Record<string, any>) {
 import { fetchWithTimeout } from "@/lib/chain-config";
 import { useTokenData } from "@/hooks/useTokenData";
 import { useWallet } from "@/hooks/useWallet";
+import { useClientClock } from "@/hooks/useClientClock";
 import {
   getPSEDistributionInfo,
   fetchPSESchedule,
@@ -348,11 +349,14 @@ export default function HomePage() {
   const targetMs = pseInfo.nextDistribution.getTime();
 
   // Progress and rate follow the real gap between payouts (395 days across
-  // the pause), not a fixed month.
+  // the pause), not a fixed month. null until the client clock is readable,
+  // see useClientClock.
+  const clockReady = useClientClock();
   const cycleProgress = useMemo(() => {
+    if (!clockReady) return null;
     const elapsed = Date.now() - pseInfo.prevDistribution.getTime();
     return Math.min(100, Math.max(0, (elapsed / pseInfo.cycleMs) * 100));
-  }, [pseInfo]);
+  }, [pseInfo, clockReady]);
   const txPerSecond = PSE_CONFIG.monthlyEmission / (pseInfo.cycleMs / 1000);
 
   useEffect(() => {
@@ -1211,10 +1215,10 @@ function OverviewTab({
         <div style={{ marginTop: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
             <span style={{ fontSize: "0.58rem", opacity: 0.35 }}>Cycle {pseInfo.currentCycle} distribution progress</span>
-            <span style={{ fontSize: "0.55rem", opacity: 0.3, fontFamily: "var(--font-mono)" }}>{cycleProgress.toFixed(0)}%</span>
+            <span style={{ fontSize: "0.55rem", opacity: 0.3, fontFamily: "var(--font-mono)" }}>{cycleProgress === null ? "..." : cycleProgress.toFixed(0)}%</span>
           </div>
           <div className="progress-track" style={{ background: "rgba(255,255,255,0.06)", height: 4 }}>
-            <div className="progress-fill" style={{ width: `${cycleProgress}%`, height: 4 }} />
+            <div className="progress-fill" style={{ width: `${cycleProgress ?? 0}%`, height: 4 }} />
           </div>
         </div>
       </div>
@@ -2029,10 +2033,10 @@ function PSETab({
             </div>
 
             <div className="progress-track mb-2">
-              <div className="progress-fill" style={{ width: `${cycleProgress}%` }} />
+              <div className="progress-fill" style={{ width: `${cycleProgress ?? 0}%` }} />
             </div>
             <div className="flex-between mb-3">
-              <span className="text-xs text-light mono">Cycle {pseInfo.currentCycle} is {cycleProgress.toFixed(0)}% complete</span>
+              <span className="text-xs text-light mono">Cycle {pseInfo.currentCycle} is {cycleProgress === null ? "..." : cycleProgress.toFixed(0)}% complete</span>
               <span className="text-xs text-olive mono">~{(PSE_CONFIG.monthlyEmission / (pseInfo.cycleMs / 1000)).toFixed(2)} TX/sec</span>
             </div>
             <div className="text-xs text-light" style={{ marginBottom: 4 }}>
@@ -2250,13 +2254,12 @@ function CalculatorTab({
   // Score rate: how fast user's score grows per second (in TX units)
   const scorePerSecond = stakedAmount > 0 ? stakedAmount : 0;
 
-  // Days until next distribution
-  const now = new Date();
-  const daysUntil = Math.max(0, Math.ceil((pseInfo.nextDistribution.getTime() - now.getTime()) / 86400000));
-
-  // Score accumulated if staking from now until next distribution
-  const secondsUntil = Math.max(0, (pseInfo.nextDistribution.getTime() - now.getTime()) / 1000);
-  const projectedScore = stakedAmount * secondsUntil;
+  // Days until next distribution. null until the client clock is readable,
+  // see useClientClock.
+  const clockReady = useClientClock();
+  const daysUntil = clockReady
+    ? Math.max(0, Math.ceil((pseInfo.nextDistribution.getTime() - Date.now()) / 86400000))
+    : null;
 
   return (
     <>
@@ -2676,7 +2679,7 @@ function CalculatorTab({
               <div>
                 <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Days Until Distribution</div>
                 <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
-                  {daysUntil} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>days</span>
+                  {daysUntil ?? "..."} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>days</span>
                 </div>
               </div>
             </div>
@@ -2686,7 +2689,7 @@ function CalculatorTab({
                 background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
                 fontSize: "0.6rem", color: "var(--tx-neon-light)",
               }}>
-                If you start staking now, you&apos;ll accumulate ~{daysUntil} days of score before the next distribution on {pseDateLabel(pseInfo.nextDistribution)}.
+                If you start staking now, you&apos;ll accumulate ~{daysUntil ?? "..."} days of score before the next distribution on {pseDateLabel(pseInfo.nextDistribution)}.
               </div>
             )}
           </div>
