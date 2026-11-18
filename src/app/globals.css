@@ -800,29 +800,23 @@ html {
   color: var(--text-dark);
 }
 
-.theme-switcher.is-light .theme-switcher-icon.is-left {
+/* The lit icon and the thumb position follow <html data-theme>, the same
+   attribute the page colours follow, not a class from React state. The
+   no-flash script sets that attribute before first paint, so the switch
+   already looks right in the server HTML, before hydration. */
+.theme-switcher-icon.is-left {
   color: var(--tx-dark-green);
-}
-.theme-switcher.is-dark .theme-switcher-icon.is-right {
-  color: var(--tx-dark-green);
-}
-[data-theme="dark"] .theme-switcher-icon {
-  color: rgba(255, 255, 255, 0.75);
-}
-[data-theme="dark"] .theme-switcher.is-dark .theme-switcher-icon.is-right {
-  color: var(--tx-dark-green);
-}
-
-.theme-switcher.is-light .theme-switcher-icon.is-left {
   opacity: 1;
 }
-.theme-switcher.is-light .theme-switcher-icon.is-right {
+.theme-switcher-icon.is-right {
   opacity: 0.4;
 }
-.theme-switcher.is-dark .theme-switcher-icon.is-left {
+[data-theme="dark"] .theme-switcher-icon.is-left {
+  color: rgba(255, 255, 255, 0.75);
   opacity: 0.4;
 }
-.theme-switcher.is-dark .theme-switcher-icon.is-right {
+[data-theme="dark"] .theme-switcher-icon.is-right {
+  color: var(--tx-dark-green);
   opacity: 1;
 }
 
@@ -835,23 +829,16 @@ html {
   border-radius: 50%;
   background: var(--tx-neon);
   box-shadow: 0 0 0 1px var(--tx-dark-green);
-  /* No transition by default so the thumb snaps into place on mount and on
-     every nav remount (tab switch). The .is-animatable class is added one
-     frame after mount to enable the slide for genuine user toggles. */
-  transition: none;
+  /* Slides only when data-theme changes, which is a real toggle. On load and
+     on every nav remount (tab switch) the element is created already in its
+     final position, and a new element has nothing to transition from. */
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   z-index: 0;
 }
 
-.theme-switcher.is-animatable .theme-switcher-thumb {
-  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.theme-switcher.is-dark .theme-switcher-thumb {
-  left: 32px;
-}
-
 [data-theme="dark"] .theme-switcher-thumb {
+  left: 32px;
   box-shadow: 0 0 0 1px rgba(177, 252, 3, 0.4);
 }
 
