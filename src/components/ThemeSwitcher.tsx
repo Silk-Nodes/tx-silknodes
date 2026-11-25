@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { STORAGE_KEY } from "@/lib/theme";
 
@@ -16,23 +15,11 @@ export default function ThemeSwitcher() {
   const [theme, setTheme] = useTheme();
   const isDark = theme === "dark";
 
-  // The nav (and this switcher) remounts on every tab navigation. useTheme
-  // starts at the default then corrects to the stored theme in an effect,
-  // which would slide the thumb on each remount. Gate the slide transition
-  // on until after the post-mount theme sync has painted, so neither the
-  // first load nor a tab switch animates. A real user toggle happens after
-  // this and still slides.
-  const [animatable, setAnimatable] = useState(false);
-  useEffect(() => {
-    // Enable the slide a beat after mount. By then the initial render (which
-    // already reads the real theme via useTheme's lazy init) and any
-    // first-load hydration correction have painted, so neither animates. A
-    // timeout (not rAF) is used deliberately: rAF is paused in backgrounded
-    // tabs, which would leave the toggle non-animating until the tab is
-    // focused. The exact delay isn't critical; a user can't toggle this fast.
-    const id = setTimeout(() => setAnimatable(true), 80);
-    return () => clearTimeout(id);
-  }, []);
+  // Only the aria state and the labels come from React. Where the thumb sits
+  // and which icon is lit follow <html data-theme> in globals.css, the same
+  // attribute the page colours follow. The no-flash script in layout.tsx sets
+  // it before first paint, so the switch already looks right in the server
+  // HTML, before hydration, and nothing moves on load or on a nav remount.
 
   const matchSystem = () => {
     const prefersDark =
@@ -56,7 +43,7 @@ export default function ThemeSwitcher() {
         aria-checked={isDark}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         title={isDark ? "Dark mode" : "Light mode"}
-        className={`theme-switcher ${isDark ? "is-dark" : "is-light"}${animatable ? " is-animatable" : ""}`}
+        className="theme-switcher"
         onClick={() => setTheme(isDark ? "light" : "dark")}
       >
         <span className="theme-switcher-icon is-left" aria-hidden="true">
