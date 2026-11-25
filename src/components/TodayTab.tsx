@@ -10,6 +10,9 @@ import { useClientClock } from "@/hooks/useClientClock";
 import { formatTxAmount } from "@/lib/governance";
 import SignalsGrid from "./today/SignalsGrid";
 import HappeningFeed from "./today/HappeningFeed";
+import AmountInput from "./AmountInput";
+import { useUstxVault } from "./UstxVault";
+import { amountOf } from "@/lib/earn-math";
 
 interface Props {
   tokenData: TokenData | null;
@@ -30,6 +33,14 @@ export default function TodayTab({
   const { proposals } = useGovernance();
   const cycle = useNextPSECycle();
   const clockReady = useClientClock();
+  // The countdown is the headline only while a payout is near. During a
+  // pause (the gap to the next payout is longer than a normal month) and
+  // with more than 30 days still to go, the Earn card takes its place.
+  // Read from the schedule, so the countdown comes
+  // back by itself for the last 30 days.
+  const prevPayout = cycle && cycle.cycleNumber >= 2 ? cycle.schedule[cycle.cycleNumber - 2] : null;
+  const psePaused = !!cycle && prevPayout !== null && cycle.nextTimestamp - prevPayout > 40 * 86_400;
+  const showCountdown = !!cycle && !(psePaused && cycle.secondsLeft > 30 * 86_400);
 
   const td = {
     price: tokenData?.price ?? 0,
@@ -61,6 +72,7 @@ export default function TodayTab({
       label: "APR",
       value: apr > 0 ? `${apr.toFixed(1)}%` : "-",
       sub: "Annualised staking yield",
+      href: "/earn",
     },
     {
       label: "Bonded",
@@ -84,7 +96,10 @@ export default function TodayTab({
 
       {/* ─── Top row: cycle countdown + connect wallet side by side ──── */}
       <div className="today-top-grid">
-        {cycle && (
+        {!showCountdown && (
+          <EarnCard apr={apr} />
+        )}
+        {showCountdown && cycle && (
           <section className="today-cycle-card">
             <div className="today-cycle-eyebrow">
               <span>Cycle {cycle.cycleNumber} of {cycle.totalCycles}</span>
@@ -116,7 +131,7 @@ export default function TodayTab({
               Next distribution{" "}
               <strong>
                 {new Date(cycle.nextTimestamp * 1000).toLocaleString("en-US", {
-                  weekday: "short", month: "short", day: "numeric",
+                  weekday: "short", month: "short", day: "numeric", year: "numeric",
                   hour: "2-digit", minute: "2-digit", hour12: false,
                 })}
               </strong>
@@ -139,7 +154,7 @@ export default function TodayTab({
               Welcome back
             </div>
             <div className="today-connect-stack-sub">
-              Your position and PSE score are loaded below.
+              Your position is loaded below.
             </div>
           </section>
         )}
@@ -147,18 +162,25 @@ export default function TodayTab({
 
       {/* ─── Hero stats row ──────────────────────────────────────────── */}
       <section className="today-stats">
-        {heroStats.map((s) => (
-          <div key={s.label} className="today-stat">
-            <div className="today-stat-label">{s.label}</div>
-            <div className="today-stat-value">{s.value}</div>
-            {s.delta && (
-              <div className={`today-stat-delta ${s.delta.tone === "warn" ? "warn" : "ok"}`}>
-                {s.delta.text}
-              </div>
-            )}
-            {s.sub && <div className="today-stat-sub">{s.sub}</div>}
-          </div>
-        ))}
+        {heroStats.map((s) => {
+          const body = (
+            <>
+              <div className="today-stat-label">{s.label}</div>
+              <div className="today-stat-value">{s.value}</div>
+              {s.delta && (
+                <div className={`today-stat-delta ${s.delta.tone === "warn" ? "warn" : "ok"}`}>
+                  {s.delta.text}
+                </div>
+              )}
+              {s.sub && <div className="today-stat-sub">{s.sub}</div>}
+            </>
+          );
+          return s.href ? (
+            <Link key={s.label} href={s.href} className="today-stat" style={{ textDecoration: "none" }} aria-label={`${s.label} ${s.value}, open the Earn page`}>{body}</Link>
+          ) : (
+            <div key={s.label} className="today-stat">{body}</div>
+          );
+        })}
       </section>
 
       {/* Supporting stats inline */}
@@ -240,9 +262,15 @@ export default function TodayTab({
               <button type="button" className="today-cta-primary" onClick={() => setActiveTab("portfolio")}>
                 Manage delegations
               </button>
-              <button type="button" className="today-cta-secondary" onClick={() => setActiveTab("pse")}>
-                Check PSE score
-              </button>
+{psePaused ? (
+                <button type="button" className="today-cta-secondary" onClick={() => setActiveTab("calculator")}>
+                  Estimate rewards
+                </button>
+              ) : (
+                <button type="button" className="today-cta-secondary" onClick={() => setActiveTab("pse")}>
+                  Check PSE score
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -255,12 +283,51 @@ export default function TodayTab({
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
+// Top-left card while PSE is paused: the two rates a holder can earn today,
+// and an amount field that opens /earn with the amount filled in. PSE is
+// not mentioned on it: the pause is stated on the PSE page and in Tools.
+function EarnCard({ apr }: { apr: number }) {
+  const router = useRouter();
+  const { vault } = useUstxVault();
+  const [amount, setAmount] = useState("10000");
+  const topRate = vault ? Math.max(...vault.terms.map((t) => t.boostedPct)) : null;
+  const go = () => router.push(amountOf(amount) > 0 ? `/earn?amount=${amount}` : "/earn");
+  const big: React.CSSProperties = { fontSize: "2.6rem", fontWeight: 300, lineHeight: 1, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" };
+  const cap: React.CSSProperties = { fontSize: "0.8rem", color: "var(--text-medium)", marginTop: 6 };
+  return (
+    <section className="today-cycle-card" style={{ justifyContent: "space-between", gap: 18 }}>
+      <div className="today-cycle-eyebrow"><span>Earn on TX</span></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Link href="/earn" style={{ textDecoration: "none", minWidth: 0 }}>
+          <div style={{ ...big, color: "var(--text-accent)" }}>{apr > 0 ? `${apr.toFixed(1)}%` : "..."}</div>
+          <div style={cap}>Staking APR, before commission</div>
+        </Link>
+        <Link href="/earn?view=vault" style={{ textDecoration: "none", minWidth: 0 }}>
+          <div style={{ ...big, color: "var(--text-dark)" }}>{topRate !== null ? `${topRate.toFixed(1)}%` : "..."}</div>
+          <div style={cap}>Top USTX vault rate, a year</div>
+        </Link>
+      </div>
+      <form
+        onSubmit={(e) => { e.preventDefault(); go(); }}
+        style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}
+      >
+        <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+          <AmountInput value={amount} onChange={setAmount} unit="TX" ariaLabel="Amount of TX to stake" height={46} fontSize="1.05rem" />
+        </div>
+        <div style={{ display: "flex" }}>
+          <button type="submit" className="today-cta-primary" style={{ whiteSpace: "nowrap" }}>See what it earns</button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 // Entry-point card shown when no wallet is connected. Three pathways
 // of equal visibility:
 //   1. Paste any address → deep-link to /pse?address=core1... where the
 //      PSE tab auto-fetches the score on mount (handled in page.tsx).
 //   2. Connect Keplr/Cosmostation → existing flow via onConnectWallet.
-//   3. Open the staking calculator → /calculator route.
+//   3. Open the Earn page (staking calculator and USTX vault) at /earn.
 // Address validation is intentionally permissive ("core1" prefix +
 // length floor). Stricter validation happens server-side on the lookup.
 function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) {
@@ -289,7 +356,7 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
     <section className="today-entry-card">
       <div className="today-entry-eyebrow">Check any wallet</div>
       <div className="today-entry-headline" id="today-entry-headline">
-        See holdings, staking, PSE, and governance in one view
+        See holdings, staking and governance in one view
       </div>
       <form className="today-entry-form" onSubmit={handleSubmit}>
         <input
@@ -328,8 +395,8 @@ function AddressEntryCard({ onConnectWallet }: { onConnectWallet: () => void }) 
         >
           Connect wallet
         </button>
-        <Link href="/calculator" className="today-entry-alt">
-          Open calculator
+        <Link href="/earn" className="today-entry-alt">
+          Estimate rewards
         </Link>
       </div>
     </section>

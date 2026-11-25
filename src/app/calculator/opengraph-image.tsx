@@ -10,7 +10,7 @@ export default function Image() {
     ogFrame({
       eyebrow: "Staking calculator",
       title: "Estimate your TX rewards",
-      subtitle: "Model staking returns and PSE rewards for any stake size and time horizon.",
+      subtitle: "Staking rewards after your validator's commission, for any stake size.",
     }),
   );
 }

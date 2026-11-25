@@ -228,13 +228,22 @@ async function build(page: HintPage): Promise<Hint[]> {
     if (future.length) {
       const next = future[0] * 1000;
       const after = future[1] ? future[1] * 1000 : null;
+      const prev = done > 0 ? schedule[done - 1] * 1000 : null;
       const paused = after !== null && (after - next) / 86_400_000 > 40;
+      // Inside the gap itself the long wait is behind the last payout, not
+      // after the next one. Without this the card said "Next PSE payout 6 Dec,
+      // PSE pays every month" in November 2026, a year early.
+      const inPause = prev !== null && (next - prev) / 86_400_000 > 40;
       live.push({
         id: `pse-next-${future[0]}`, kind: "live",
-        title: paused ? `Next PSE payout ${day(next)}, then none until ${dayYear(after!)}` : `Next PSE payout ${day(next)}`,
-        body: paused
-          ? "The schedule on chain pauses payouts after this one. Your PSE score keeps building while you stay staked, and is paid when payouts resume."
-          : "PSE pays stakers every month on the on-chain schedule, by score: stake held over time.",
+        title: inPause
+          ? `PSE is paused until ${dayYear(next)}`
+          : paused ? `Next PSE payout ${day(next)}, then none until ${dayYear(after!)}` : `Next PSE payout ${day(next)}`,
+        body: inPause
+          ? `The last payout was ${dayYear(prev!)}. Payouts resume on ${dayYear(next)} and run monthly from there. Your PSE score keeps building while you stay staked.`
+          : paused
+            ? "The schedule on chain pauses payouts after this one. Your PSE score keeps building while you stay staked, and is paid when payouts resume."
+            : "PSE pays stakers every month on the on-chain schedule, by score: stake held over time.",
         cta: { label: "Open PSE", href: "/pse" },
       });
       learn.push({

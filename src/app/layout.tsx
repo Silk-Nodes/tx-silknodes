@@ -19,7 +19,8 @@ export const metadata: Metadata = {
     "The all-in-one dashboard for the TX chain: staking, PSE rewards, validators, exchange flows, and governance. Built by Silk Nodes.",
   keywords: [
     "TX", "TX token", "TX staking", "TX blockchain", "Coreum", "Coreum staking",
-    "PSE", "Proof of Support Emission", "PSE calculator", "PSE rewards", "PSE score",
+    "PSE", "Proof of Support Emission", "PSE rewards", "PSE score",
+    "USTX", "USTX vault", "USTX staking",
     "Silk Nodes", "Silk Nodes validator",
     "staking dashboard", "staking calculator", "staking rewards",
     "validator explorer", "delegation", "redelegate", "undelegate",
@@ -149,7 +150,8 @@ export default function RootLayout({
               featureList: [
                 "TX token staking with Keplr and Leap wallet",
                 "Live PSE (Proof of Support Emission) score lookup",
-                "PSE rewards calculator and simulator",
+                "Staking rewards calculator, after validator commission",
+                "USTX vault terms and live state",
                 "Validator explorer with commission and voting power comparison",
                 "Delegate, undelegate, and redelegate TX tokens",
                 "Auto-compound staking rewards via Restake integration",

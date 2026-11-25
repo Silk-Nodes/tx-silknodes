@@ -41,9 +41,8 @@ import ValidatorList from "@/components/ValidatorList";
 import AnalyticsTab from "@/components/AnalyticsTab";
 import FlowsTab from "@/components/FlowsTab";
 import FeedbackTab from "@/components/FeedbackTab";
-import WhatsNewBanner from "@/components/WhatsNewBanner";
 import NewTag, { isNew } from "@/components/NewTag";
-import { StablecoinsFilmPopup } from "@/components/StablecoinsFilm";
+import { FilmPopup, FilmButton, EARN_FILM } from "@/components/StablecoinsFilm";
 import GovernanceTab from "@/components/GovernanceTab";
 import PassportTab from "@/components/PassportTab";
 import PortfolioPanel from "@/components/PortfolioPanel";
@@ -61,6 +60,9 @@ import PseDistributionPrices from "@/components/pse/PseDistributionPrices";
 import ProposalDetailView from "@/components/governance/ProposalDetailView";
 import { usePathname, useRouter } from "next/navigation";
 import SupplyChart from "@/components/SupplyChart";
+import StakingCalculator from "@/components/StakingCalculator";
+import { useQueryParam, pushQueryParam } from "@/hooks/useQueryParam";
+import UstxVault, { useUstxVault } from "@/components/UstxVault";
 import Tooltip from "@/components/Tooltip";
 import ExcludedAddressesPanel from "@/components/ExcludedAddressesPanel";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
@@ -90,11 +92,17 @@ function formatUSD(num: number): string {
 
 type TabId = "today" | "overview" | "analytics" | "flows" | "pse" | "calculator" | "validators" | "rwa" | "stablecoins" | "silknodes" | "portfolio" | "feedback" | "governance" | "passport";
 
+// While PSE payouts are paused (6 Nov 2026 to 6 Dec 2027) staking APR is the
+// yield, so the calculator takes PSE's place in the main row and PSE moves to
+// Tools. Read from the schedule, so the swap reverses itself when payouts
+// resume rather than waiting for someone to remember.
+const PSE_PAUSE = getPSEDistributionInfo();
+
 // Primary nav: 5 items always visible (+ Tools dropdown rendered separately).
 // Daily-relevance ordering: Today first, your-data and chain-wide signals next.
 const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
   { id: "today", label: "Today" },
-  { id: "pse", label: "PSE" },
+  PSE_PAUSE.paused ? { id: "calculator", label: "Earn" } : { id: "pse", label: "PSE" },
   { id: "governance", label: "Governance" },
   { id: "analytics", label: "Analytics" },
   { id: "flows", label: "Flows" },
@@ -107,6 +115,10 @@ const PRIMARY_TABS: { id: TabId; label: string; walletOnly?: boolean }[] = [
 // room, it stays in Tools and the Tools button wears the tag instead. All of
 // that is CSS (see .nav-tab-featured). After `until` it is a normal Tools
 // entry again.
+// The Earn tab wears a NEW tag until this date, the same day its film stops
+// opening on /today.
+const EARN_NEW_UNTIL = EARN_FILM.until;
+
 const FEATURED = { id: "stablecoins" as TabId, label: "Stablecoins", until: "2026-10-31T23:59:59Z" };
 
 // Phones show four links and a More button. These primaries move into the
@@ -123,7 +135,9 @@ const PHONE_MORE_DESC: Partial<Record<TabId, string>> = {
 // the most-used Tools item (delegators picking who to stake with).
 const TOOLS_TABS: { id: TabId; label: string; description: string; walletOnly?: boolean }[] = [
   { id: "validators", label: "Validators", description: "Browse, compare, delegate" },
-  { id: "calculator", label: "Calculator", description: "Estimate staking rewards" },
+  PSE_PAUSE.paused
+    ? { id: "pse", label: "PSE", description: `Paused until ${pseDateLabel(PSE_PAUSE.nextDistribution)}` }
+    : { id: "calculator", label: "Earn", description: "Staking rewards and the USTX vault" },
   // Not walletOnly any more. The page now leads with the saved-wallet
   // tracker, which reads public chain data and is the only view that works
   // for cold and hardware wallets. Hiding the whole page until someone
@@ -155,6 +169,9 @@ const PATHNAME_TO_TAB: Record<string, TabId> = {
   "/flows": "flows",
   "/passport": "passport",
   "/validators": "validators",
+  // /earn is listed first so the nav links there; /calculator stays a working
+  // address for links already shared and for ?validator= from validator pages.
+  "/earn": "calculator",
   "/calculator": "calculator",
   "/rwa": "rwa",
   "/stablecoins": "stablecoins",
@@ -207,6 +224,10 @@ export default function HomePage() {
   // page (we adjust scrollLeft directly rather than scrollIntoView).
   const navTabsRef = useRef<HTMLDivElement>(null);
   const featuredLive = isNew(FEATURED.until);
+  // Pages are prerendered at build, so a date check during render would
+  // hydrate against the deploy day. The tag waits for the client clock.
+  const navClock = useClientClock();
+  const earnNew = navClock && isNew(EARN_NEW_UNTIL);
   const featuredNew = featuredLive;
   useEffect(() => {
     const center = () => {
@@ -510,7 +531,6 @@ export default function HomePage() {
   }, [showBrandPopover]);
   return (
     <div className="app-shell">
-      <WhatsNewBanner onOpenFeedback={() => setActiveTab("feedback")} />
       {/* ════════ TOP NAV ════════ */}
       <nav className="top-nav">
         <div className="brand" onClick={handleBrandClick} style={{ cursor: "pointer", position: "relative" }}>
@@ -568,6 +588,7 @@ export default function HomePage() {
                   onClick={() => trackEvent("tab_switch", { tab_name: tab.id })}
                 >
                   {tab.label}
+                  {tab.id === "calculator" && tab.label === "Earn" && earnNew && <NewTag />}
                 </Link>
                 {tab.id === "today" && featuredLive && (
                   <Link
@@ -772,7 +793,7 @@ export default function HomePage() {
         )}
         {activeTab === "today" && proposalIdFromUrl === null && (
           // Waits for the cookie banner so the two never stack.
-          <StablecoinsFilmPopup ready={cookieConsent !== null} />
+          <FilmPopup film={EARN_FILM} ready={cookieConsent !== null} />
         )}
         {activeTab === "today" && (
           <TodayTab
@@ -839,19 +860,10 @@ export default function HomePage() {
 
         {activeTab === "calculator" && (
           <CalculatorTab
-            stakeInput={stakeInput}
-            setStakeInput={setStakeInput}
-            targetPrice={targetPrice}
-            setTargetPrice={setTargetPrice}
-            stakedAmount={stakedAmount}
             apr={apr}
-            nextPSEReward={nextPSEReward}
-            wallet={wallet}
             tokenData={tokenData}
             stakingData={stakingData}
-            setActiveTab={setActiveTab}
-            pseInfo={pseInfo}
-            estimatePSE={estimatePSEWithNetworkScore}
+            validatorSet={validatorSet}
           />
         )}
 
@@ -1561,7 +1573,7 @@ function OverviewTab({
                 className="btn-olive"
                 style={{ padding: "10px 12px", fontSize: "0.72rem", textAlign: "left", borderRadius: 10 }}
               >
-                PSE Calculator & Guide
+                Staking calculator
               </button>
               <button
                 onClick={() => setActiveTab("pse")}
@@ -2202,7 +2214,7 @@ function PSETab({
           onClick={() => setActiveTab("calculator")}
           style={{ flex: 1, padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer" }}
         >
-          PSE Calculator & Guide: Understand How Your Rewards Work
+          Staking calculator: rewards after commission
         </button>
       </div>
 
@@ -2224,591 +2236,88 @@ function PSETab({
    ═══════════════════════════════════════════════════════ */
 
 
-function CalculatorTab({
-  stakeInput, setStakeInput,
-  targetPrice, setTargetPrice,
-  stakedAmount, apr, nextPSEReward, wallet,
-  tokenData, stakingData, setActiveTab, pseInfo, estimatePSE,
-}: any) {
-  const bondedTokens = stakingData?.bondedTokens ?? 0;
-  const excludedPSEStake = stakingData?.excludedPSEStake ?? 0;
-  const pseEligibleBonded = stakingData?.pseEligibleBonded ?? bondedTokens;
+function CalculatorTab({ apr, tokenData, stakingData, validatorSet }: any) {
   const price = tokenData?.price ?? 0;
-  const tp = parseFloat(targetPrice) || 0;
-
-  // Next payout estimate using real network score. Spread over the real
-  // cycle for anything quoted per month.
-  const nextPSE = stakedAmount > 0
-    ? estimatePSE(stakedAmount)
-    : 0;
-  const monthlyPSE = psePerMonth(nextPSE, pseInfo.cycleDays);
-  const userSharePct = pseEligibleBonded > 0 && stakedAmount > 0
-    ? (stakedAmount / pseEligibleBonded * 100)
-    : 0;
-
-  // Base staking reward (monthly)
-  const monthlyBaseReward = stakedAmount > 0 && apr > 0
-    ? stakedAmount * (apr / 100) / 12
-    : 0;
-
-  // Score rate: how fast user's score grows per second (in TX units)
-  const scorePerSecond = stakedAmount > 0 ? stakedAmount : 0;
-
-  // Days until next distribution. null until the client clock is readable,
-  // see useClientClock.
-  const clockReady = useClientClock();
-  const daysUntil = clockReady
-    ? Math.max(0, Math.ceil((pseInfo.nextDistribution.getTime() - Date.now()) / 86400000))
-    : null;
-
+  const { vault, error } = useUstxVault();
+  // The view lives in the address (?view=vault), so each half can be linked
+  // to, survives a refresh, and the back button undoes a switch.
+  type View = "stake" | "vault";
+  const view: View = useQueryParam("view") === "vault" ? "vault" : "stake";
+  const show = (id: View, focus = false) => {
+    if (id !== view) pushQueryParam("view", id === "vault" ? "vault" : null);
+    if (focus) document.getElementById(`earn-tab-${id}`)?.focus();
+  };
+  const topRate = vault ? Math.max(...vault.terms.map((t) => t.boostedPct)) : null;
+  // `note` is the one thing that separates the two: how you get out.
+  const options: { id: View; title: string; sub: string; note: string }[] = [
+    { id: "stake", title: "Stake TX", sub: apr > 0 ? `${apr.toFixed(2)}% APR` : "...", note: "Unstake in 7 days" },
+    {
+      id: "vault", title: "USTX vault",
+      sub: topRate !== null ? `Up to ${topRate.toFixed(2)}% a year` : error ? "Not readable now" : "...",
+      note: vault ? `Lock ${vault.terms[0].days} to ${vault.terms[vault.terms.length - 1].days} days` : "Locked for a fixed term",
+    },
+  ];
   return (
     <>
       <div className="section-head">
-        <h1 className="page-title">PSE Calculator & Guide</h1>
-        <span className="section-sub">Understand how PSE works and estimate your next distribution</span>
+        <h1 className="page-title">Earn</h1>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: "8px 16px", minWidth: 0 }}>
+          <span className="section-sub">Stake TX or lock USTX. Every rate is read from the chain</span>
+          <FilmButton film={EARN_FILM} />
+        </span>
       </div>
 
-      {/* ── Section 1: How PSE Works (Educational) ── */}
-      <div style={{
-        padding: "20px 22px", borderRadius: 14, marginBottom: 16,
-        background: "var(--tx-dark-green)", color: "#fff",
-      }}>
-        <div style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: 14, color: "var(--tx-neon)" }}>
-          How PSE Works (from the TX Whitepaper)
-        </div>
-
-        {/* The Formula */}
-        <div style={{
-          padding: "14px 16px", borderRadius: 10, marginBottom: 14,
-          background: "rgba(177,252,3,0.06)", border: "1px solid rgba(177,252,3,0.15)",
-          textAlign: "center",
-        }}>
-          <div style={{ fontSize: "0.6rem", opacity: 0.5, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            The PSE Distribution Formula
-          </div>
-          <div style={{
-            fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)",
-            color: "var(--tx-neon)", lineHeight: 1.6,
-          }}>
-            Your Reward = (Your Score / Total Scores) &times; Pool
-          </div>
-          <div style={{
-            fontSize: "0.72rem", fontFamily: "var(--font-mono)", marginTop: 8,
-            color: "rgba(177,252,3,0.7)",
-          }}>
-            Score = Staked Amount (uTX) &times; Duration (seconds)
-          </div>
-          <div style={{ fontSize: "0.58rem", opacity: 0.4, marginTop: 6 }}>
-            Where 1 TX = 1,000,000 uTX &middot; Pool = ~476,190,476 TX a payout (40% community share)
-          </div>
-        </div>
-
-        {/* Visual Steps */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6,
-          fontSize: "0.62rem", textAlign: "center", marginBottom: 14,
-        }}>
-          {[
-            { label: "Stake TX", sub: "Delegate to a validator" },
-            { label: "Build Score", sub: "Score grows every second" },
-            { label: "Distribution Day", sub: "6th of each month" },
-            { label: "Get Rewards", sub: "Based on your share" },
-            { label: "Scores Reset", sub: "New cycle begins" },
-          ].map((step, i) => (
-            <div key={i} style={{
-              padding: "10px 6px", borderRadius: 8,
-              background: i === 4 ? "rgba(255,180,0,0.1)" : "rgba(177,252,3,0.05)",
-              border: i === 4 ? "1px solid rgba(255,180,0,0.2)" : "1px solid rgba(177,252,3,0.08)",
-            }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: "50%", margin: "0 auto 4px",
-                background: i === 4 ? "rgba(255,180,0,0.15)" : "rgba(177,252,3,0.15)",
-                border: i === 4 ? "1px solid rgba(255,180,0,0.3)" : "1px solid rgba(177,252,3,0.3)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "0.6rem", fontWeight: 700, color: i === 4 ? "#ffd54f" : "var(--tx-neon)",
-              }}>{i + 1}</div>
-              <div style={{ fontWeight: 600, color: i === 4 ? "#ffd54f" : "var(--tx-neon-light)", fontSize: "0.62rem" }}>{step.label}</div>
-              <div style={{ opacity: 0.45, fontSize: "0.52rem", marginTop: 2 }}>{step.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Critical: Score Reset */}
-        <div style={{
-          padding: "12px 16px", borderRadius: 10,
-          background: "rgba(255,180,0,0.08)", border: "1px solid rgba(255,180,0,0.2)",
-        }}>
-          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#ffd54f", marginBottom: 6 }}>
-            Scores Reset After Every Distribution
-          </div>
-          <div style={{ fontSize: "0.65rem", lineHeight: 1.6, opacity: 0.85 }}>
-            On the 6th of each month, all PSE scores reset to zero and a new cycle begins.
-            This means your reward each month depends only on your staking activity during that specific cycle,
-            not your historical staking. Staying staked for the full 30 day cycle maximizes your score.
-            If you unstake mid-cycle, you lose the remaining days of score accumulation.
-          </div>
-        </div>
+      <div role="tablist" aria-label="Ways to earn" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+        {options.map((o, i) => {
+          const on = view === o.id;
+          const other = options[(i + 1) % options.length].id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="tab"
+              id={`earn-tab-${o.id}`}
+              aria-selected={on}
+              aria-controls={`earn-panel-${o.id}`}
+              tabIndex={on ? 0 : -1}
+              onClick={() => show(o.id)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); show(other, true); }
+                else if (e.key === "Home") { e.preventDefault(); show(options[0].id, true); }
+                else if (e.key === "End") { e.preventDefault(); show(options[options.length - 1].id, true); }
+              }}
+              style={{
+                textAlign: "left", padding: "14px 16px", borderRadius: 14, cursor: "pointer", minWidth: 0,
+                background: on ? "rgba(177,252,3,0.07)" : "var(--glass-bg)",
+                border: `1px solid ${on ? "var(--text-accent)" : "var(--glass-border)"}`,
+              }}
+            >
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text-dark)", whiteSpace: "nowrap" }}>{o.title}</div>
+              <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
+                <span style={{ fontSize: "0.72rem", fontFamily: "var(--font-mono)", whiteSpace: "nowrap", color: on ? "var(--text-accent)" : "var(--text-medium)", fontWeight: on ? 700 : 400 }}>{o.sub}</span>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-medium)", whiteSpace: "nowrap" }}>{o.note}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid-12">
-        {/* Left: Estimator */}
-        <div className="col-7" style={{ display: "flex", flexDirection: "column" }}>
-          <div className="panel" style={{ flex: 1 }}>
-            <div style={{ fontSize: "0.78rem", fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              PSE Estimator
-              <span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--text-light)" }}>
-                Single month upper bound estimate
-              </span>
-            </div>
-
-            {/* Stake Amount Input */}
-            <label className="input-label">How much TX would you like to delegate?</label>
-            <div className="input-group mb-2">
-              <input
-                type="text"
-                value={stakeInput}
-                onChange={(e: any) => setStakeInput(e.target.value)}
-                placeholder="Enter amount, e.g. 10000, 50000, 100000"
-              />
-              <span className="field-addon">TX</span>
-              {wallet.connected && wallet.stakedAmount > 0 && (
-                <button className="input-pill" onClick={() => setStakeInput(wallet.stakedAmount.toString())}>
-                  Use My Staked Amount
-                </button>
-              )}
-            </div>
-
-            {/* Presets */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-              {[1000, 5000, 10000, 50000, 100000].map((amt) => (
-                <button
-                  key={amt}
-                  onClick={() => setStakeInput(amt.toString())}
-                  style={{
-                    padding: "4px 10px", borderRadius: 20, fontSize: "0.7rem", fontFamily: "var(--font-mono)",
-                    border: stakedAmount === amt ? "1px solid var(--tx-neon)" : "1px solid rgba(0,0,0,0.08)",
-                    background: stakedAmount === amt ? "var(--tx-dark-green)" : "rgba(255,255,255,0.3)",
-                    color: stakedAmount === amt ? "var(--tx-neon)" : "var(--text-medium)",
-                    cursor: "pointer", fontWeight: 500, transition: "all 0.15s",
-                  }}
-                >
-                  {formatNumber(amt)}
-                </button>
-              ))}
-            </div>
-            <div style={{ fontSize: "0.6rem", opacity: 0.35, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-              {formatNumber(bondedTokens)} TX bonded on network ({stakingData?.stakingRatio?.toFixed(0) ?? "..."}%)
-              {excludedPSEStake > 0 && <span> &middot; {formatNumber(excludedPSEStake)} TX excluded from PSE</span>}
-            </div>
-            <input
-              type="range"
-              min="1000"
-              max="1000000"
-              step="1000"
-              value={stakedAmount || 0}
-              onChange={(e: any) => setStakeInput(e.target.value)}
-            />
-
-            {/* Target Price Input */}
-            <div style={{ marginTop: 12 }}>
-              <label className="input-label">Target TX Price <Tooltip text={`Current price: $${price > 0 ? price.toFixed(4) : "..."}`} position="bottom" /></label>
-              <div className="input-group mb-2">
-                <span className="field-addon">$</span>
-                <input
-                  type="text"
-                  value={targetPrice}
-                  onChange={(e: any) => setTargetPrice(e.target.value)}
-                  placeholder={price > 0 ? price.toFixed(4) : "0.05"}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[0.05, 0.10, 0.25, 0.50, 1.00].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setTargetPrice(p.toString())}
-                    style={{
-                      padding: "3px 8px", borderRadius: 16, fontSize: "0.65rem", fontFamily: "var(--font-mono)",
-                      border: tp === p ? "1px solid var(--tx-neon)" : "1px solid rgba(0,0,0,0.08)",
-                      background: tp === p ? "var(--tx-dark-green)" : "rgba(255,255,255,0.3)",
-                      color: tp === p ? "var(--tx-neon)" : "var(--text-medium)",
-                      cursor: "pointer", fontWeight: 500, transition: "all 0.15s",
-                    }}
-                  >
-                    ${p.toFixed(2)}
-                  </button>
-                ))}
-                {price > 0 && (
-                  <button
-                    onClick={() => setTargetPrice(price.toFixed(4))}
-                    style={{
-                      padding: "3px 8px", borderRadius: 16, fontSize: "0.65rem",
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      background: "rgba(255,255,255,0.3)",
-                      color: "var(--text-medium)",
-                      cursor: "pointer", fontWeight: 500,
-                    }}
-                  >
-                    Current (${price.toFixed(4)})
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Results */}
-            {stakedAmount > 0 && (
-              <>
-                {/* Main Result Card */}
-                <div style={{
-                  marginTop: 16, padding: "16px 18px", borderRadius: 12,
-                  background: "rgba(177,252,3,0.06)", border: "1px solid rgba(177,252,3,0.12)",
-                }}>
-                  <div style={{ fontSize: "0.58rem", color: "var(--text-light)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                    Estimated Next PSE Distribution (Upper Bound){pseInfo.paused ? `, ${pseDateLabel(pseInfo.nextDistribution)}` : ""}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--accent-olive)" }}>
-                      ~{formatNumber(Math.round(nextPSE))}
-                    </span>
-                    <span style={{ fontSize: "1rem", color: "var(--accent-olive)", opacity: 0.6 }}>TX</span>
-                    {price > 0 && (
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-light)" }}>
-                        (~{formatUSD(monthlyPSE * price)})
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{
-                    marginTop: 12, padding: "8px 12px", borderRadius: 8,
-                    background: "rgba(255,180,0,0.06)", border: "1px solid rgba(255,180,0,0.12)",
-                    fontSize: "0.6rem", lineHeight: 1.5, color: "var(--text-medium)",
-                  }}>
-                    This is the <strong>upper bound</strong> assuming you stake for the entire 30 day cycle
-                    and all other stakers have equal duration. Real rewards are typically lower because
-                    the total network score (all stakers combined) is unknown. For your actual position,
-                    check your <strong>real on-chain score</strong> in the PSE tab.
-                  </div>
-                </div>
-
-                {/* Your Bag After 1 Month */}
-                {(() => {
-                  const totalBagAfterMonth = stakedAmount + monthlyBaseReward + monthlyPSE;
-                  const usePrice = tp > 0 ? tp : price;
-                  return (
-                    <div style={{
-                      marginTop: 12, padding: "14px 16px", borderRadius: 12,
-                      background: "var(--tx-dark-green)", color: "#fff",
-                    }}>
-                      <div style={{ fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.5, marginBottom: 8 }}>
-                        Your Bag After 1 Month (Upper Bound)
-                      </div>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <div>
-                          <span style={{ fontSize: "1.6rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>
-                            {formatNumber(Math.round(totalBagAfterMonth))}
-                          </span>
-                          <span style={{ fontSize: "0.8rem", color: "var(--tx-neon)", opacity: 0.6, marginLeft: 4 }}>TX</span>
-                        </div>
-                        {usePrice > 0 && (
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: "1.1rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>
-                              {formatUSD(totalBagAfterMonth * usePrice)}
-                            </div>
-                            <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>
-                              at ${usePrice.toFixed(tp >= 1 ? 2 : 4)} per TX
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Breakdown row */}
-                      <div style={{
-                        marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(177,252,3,0.1)",
-                        display: "flex", gap: 16, fontSize: "0.6rem",
-                      }}>
-                        <div>
-                          <span style={{ opacity: 0.4 }}>Initial stake: </span>
-                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>{formatNumber(stakedAmount)}</span>
-                        </div>
-                        <div>
-                          <span style={{ opacity: 0.4 }}>+ Base: </span>
-                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon-light)" }}>{formatNumber(Math.round(monthlyBaseReward))}</span>
-                        </div>
-                        <div>
-                          <span style={{ opacity: 0.4 }}>{pseInfo.paused ? "+ PSE accrued: " : "+ PSE: "}</span>
-                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--tx-neon)" }}>~{formatNumber(Math.round(monthlyPSE))}</span>
-                        </div>
-                      </div>
-
-                      {/* Price comparison: current vs target */}
-                      {tp > 0 && price > 0 && tp !== price && (
-                        <div style={{
-                          marginTop: 8, display: "flex", gap: 12, fontSize: "0.58rem",
-                        }}>
-                          <div style={{
-                            padding: "4px 10px", borderRadius: 6,
-                            background: "rgba(255,255,255,0.06)",
-                          }}>
-                            <span style={{ opacity: 0.4 }}>At current (${price.toFixed(4)}): </span>
-                            <span style={{ fontFamily: "var(--font-mono)" }}>{formatUSD(totalBagAfterMonth * price)}</span>
-                          </div>
-                          <div style={{
-                            padding: "4px 10px", borderRadius: 6,
-                            background: "rgba(177,252,3,0.1)", border: "1px solid rgba(177,252,3,0.15)",
-                          }}>
-                            <span style={{ opacity: 0.5, color: "var(--tx-neon-light)" }}>At target (${tp.toFixed(tp >= 1 ? 2 : 4)}): </span>
-                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--tx-neon)" }}>{formatUSD(totalBagAfterMonth * tp)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Breakdown Cards */}
-                <div className="responsive-grid-3" style={{ gap: 10, marginTop: 12 }}>
-                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Your Pool Share</div>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-olive)" }}>
-                      {userSharePct < 0.001 ? "<0.001" : userSharePct.toFixed(4)}%
-                    </div>
-                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
-                      of PSE eligible bonded
-                    </div>
-                  </div>
-                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Base Staking Reward</div>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>
-                      ~{formatNumber(Math.round(monthlyBaseReward))} TX
-                    </div>
-                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
-                      {apr > 0 ? `${apr.toFixed(2)}% APR` : "..."} per month
-                    </div>
-                  </div>
-                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                    <div style={{ fontSize: "0.52rem", color: "var(--text-light)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Score Growth Rate</div>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-dark)" }}>
-                      {formatNumber(scorePerSecond)}
-                    </div>
-                    <div style={{ fontSize: "0.5rem", color: "var(--text-light)", marginTop: 2 }}>
-                      TX&middot;seconds added per second
-                    </div>
-                  </div>
-                </div>
-
-                {/* The Math Breakdown */}
-                <div style={{
-                  marginTop: 12, padding: "14px 16px", borderRadius: 10,
-                  background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.06)",
-                }}>
-                  <div style={{ fontSize: "0.68rem", fontWeight: 600, marginBottom: 10 }}>The Math (Your Estimate)</div>
-                  <div style={{ fontSize: "0.62rem", lineHeight: 1.8, fontFamily: "var(--font-mono)", color: "var(--text-medium)" }}>
-                    <div>Your stake: <strong>{formatNumber(stakedAmount)} TX</strong></div>
-                    <div>Full cycle duration: <strong>30 days = 2,592,000 seconds</strong></div>
-                    <div>Your max score: <strong>{formatNumber(stakedAmount)} &times; 2,592,000 = {formatNumber(Math.round(stakedAmount * 2592000))}</strong></div>
-                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed rgba(0,0,0,0.08)" }}>
-                      PSE eligible bonded: <strong>{formatNumber(Math.round(pseEligibleBonded))} TX</strong>
-                    </div>
-                    <div>Est. total network score: <strong>{formatNumber(Math.round(pseEligibleBonded))} &times; 2,592,000</strong> (if all stakers stake full cycle)</div>
-                    <div>Your share: <strong>{formatNumber(stakedAmount)} / {formatNumber(Math.round(pseEligibleBonded))} = {userSharePct.toFixed(6)}%</strong></div>
-                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed rgba(0,0,0,0.08)" }}>
-                      Monthly community pool: <strong>~476,190,476 TX</strong>
-                    </div>
-                    <div style={{ color: "var(--accent-olive)", fontWeight: 700 }}>
-                      Your estimated reward: <strong>{userSharePct.toFixed(6)}% &times; 476,190,476 = ~{formatNumber(Math.round(monthlyPSE))} TX</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Why This Is An Upper Bound */}
-                <div style={{
-                  marginTop: 12, padding: "12px 14px", borderRadius: 10,
-                  background: "rgba(100,100,255,0.04)", border: "1px solid rgba(100,100,255,0.1)",
-                }}>
-                  <div style={{ fontSize: "0.65rem", fontWeight: 600, marginBottom: 6, color: "#6666cc" }}>
-                    Why is this an upper bound?
-                  </div>
-                  <div style={{ fontSize: "0.6rem", lineHeight: 1.6, color: "var(--text-medium)" }}>
-                    This estimate assumes all stakers have <strong>equal staking duration</strong> (full 30 days),
-                    which makes duration cancel out and simplifies to a pure stake ratio. In reality:
-                  </div>
-                  <ul style={{ fontSize: "0.6rem", lineHeight: 1.8, color: "var(--text-medium)", paddingLeft: 16, margin: "6px 0 0" }}>
-                    <li>Different stakers have different durations (some joined mid cycle)</li>
-                    <li>Large stakers who stake for the full cycle accumulate disproportionately higher scores</li>
-                    <li>The actual total score (sum of all stakers&apos; scores) is only known on chain</li>
-                    <li>Your real reward depends on your score relative to everyone else&apos;s</li>
-                  </ul>
-                </div>
-              </>
-            )}
-
-            {!stakedAmount && (
-              <div style={{
-                marginTop: 16, padding: "20px", borderRadius: 12,
-                background: "rgba(0,0,0,0.02)", border: "1px dashed rgba(0,0,0,0.1)",
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: "1.5rem", marginBottom: 8, opacity: 0.3 }}>~</div>
-                <div style={{ fontSize: "0.78rem", color: "var(--text-medium)", fontWeight: 500 }}>
-                  Enter a stake amount above to see your estimated PSE distribution
-                </div>
-                <div style={{ fontSize: "0.62rem", color: "var(--text-light)", marginTop: 4 }}>
-                  Or connect your wallet to use your current staked amount
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Key Facts + CTA */}
-        <div className="col-5" style={{ display: "flex", flexDirection: "column" }}>
-          {/* Distribution Info Card */}
-          <div style={{
-            padding: "14px 16px", borderRadius: 12, marginBottom: 12,
-            background: "var(--tx-dark-green)", color: "#fff",
-          }}>
-            <div style={{ fontSize: "0.65rem", opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>
-              Current Distribution Cycle
-            </div>
-            <div className="responsive-grid-2" style={{ gap: 8 }}>
-              <div>
-                <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Cycle</div>
-                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
-                  #{pseInfo.currentCycle} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>of 84</span>
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.55rem", opacity: 0.4 }}>Days Until Distribution</div>
-                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--tx-neon)", fontFamily: "var(--font-mono)" }}>
-                  {daysUntil ?? "..."} <span style={{ fontSize: "0.6rem", opacity: 0.5, fontWeight: 400 }}>days</span>
-                </div>
-              </div>
-            </div>
-            {stakedAmount > 0 && (
-              <div style={{
-                marginTop: 10, padding: "8px 10px", borderRadius: 8,
-                background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.12)",
-                fontSize: "0.6rem", color: "var(--tx-neon-light)",
-              }}>
-                If you start staking now, you&apos;ll accumulate ~{daysUntil ?? "..."} days of score before the next distribution on {pseDateLabel(pseInfo.nextDistribution)}.
-              </div>
-            )}
-          </div>
-
-          {/* APR + PSE Summary */}
-          <div className="grid-2" style={{ marginBottom: 12 }}>
-            <div className="accent-card card-orange" style={{ minHeight: 110 }}>
-              <div className="blob-dark" style={{ width: 120, height: 120 }} />
-              <div className="card-content">
-                <span className="card-title">Base APR <Tooltip text={pseInfo.paused ? `Inflation is fixed during the PSE pause. PSE adds nothing until ${pseDateLabel(pseInfo.nextDistribution)}.` : apr < 1 ? "Negligible, nearly 100% of returns come from PSE" : "PSE rewards are added on top of base APR"} /></span>
-                <div className="card-value" style={{ fontSize: "1.8rem" }}>
-                  {apr > 0 ? `${apr.toFixed(2)}%` : "..."}
-                </div>
-              </div>
-            </div>
-            <div className="accent-card card-olive" style={{ minHeight: 110 }}>
-              <div className="card-content">
-                <span className="card-title" style={{ opacity: 0.8, fontSize: "0.62rem" }}>{pseInfo.paused ? "Next Pool" : "Monthly Pool"}</span>
-                <div className="card-value" style={{ fontSize: "1.5rem" }}>
-                  ~476M <span style={{ fontSize: "0.7rem" }}>TX</span>
-                </div>
-                <div style={{ fontSize: "0.5rem", opacity: 0.5 }}>{pseInfo.paused ? `community share, ${pseDateLabel(pseInfo.nextDistribution)}` : "community stakers share"}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* PSE Key Facts */}
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>PSE Key Facts</div>
-            <div style={{ fontSize: "0.62rem", lineHeight: 2, color: "var(--text-medium)" }}>
-              {[
-                "100 billion TX distributed in 84 payouts",
-                "40% goes to community stakers (~476M TX a payout)",
-                "All scores reset after each distribution",
-                "Score = Your Stake × Duration in seconds",
-                "Rewards auto-compound as new delegations",
-                "Must have active delegation at distribution time",
-                pseInfo.paused
-                  ? `Paused after 6 Nov 2026, monthly again from ${pseDateLabel(pseInfo.nextDistribution)}`
-                  : "Distribution happens on the 6th of every month",
-                "7 day unbonding period for undelegation",
-              ].map((fact, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{
-                    width: 4, height: 4, borderRadius: "50%", flexShrink: 0, marginTop: 6,
-                    background: "var(--accent-olive)",
-                  }} />
-                  <span>{fact}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Allocation */}
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 10 }}>PSE Allocation Breakdown</div>
-            <div className="allocation-grid">
-              {Object.entries(PSE_ALLOCATION).map(([key, value]) => (
-                <div key={key} className={`allocation-item${key === "community" ? " community-highlight" : ""}`}
-                  style={key === "community" ? {
-                    background: "rgba(177,252,3,0.08)", border: "1px solid rgba(177,252,3,0.15)",
-                    borderRadius: 6, padding: "4px 8px",
-                  } : undefined}
-                >
-                  <span className="label">
-                    {key.replace(/([A-Z])/g, " $1")}
-                    {key === "community" && <span style={{ fontSize: "0.55rem", color: "var(--tx-neon-dark, var(--accent-olive))", marginLeft: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>← YOU</span>}
-                  </span>
-                  <span className={`value ${key === "community" ? "highlight" : ""}`}
-                    style={key === "community" ? { fontWeight: 700, color: "var(--accent-olive)" } : undefined}
-                  >
-                    {((value as number) * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CTA: Check real score */}
-          <button
-            className="btn-olive"
-            onClick={() => setActiveTab("pse")}
-            style={{ width: "100%", padding: "12px 20px", fontSize: "0.78rem", borderRadius: 10, cursor: "pointer", marginBottom: 12 }}
-          >
-            Check Your Real On-Chain PSE Score
-          </button>
-
-          {/* Disclaimer */}
-          <div style={{
-            padding: "12px 14px", borderRadius: 10,
-            background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)",
-            fontSize: "0.58rem", lineHeight: 1.6, color: "var(--text-light)",
-          }}>
-            <strong style={{ color: "var(--text-medium)" }}>Disclaimer:</strong> This calculator provides
-            theoretical upper bound estimates based on simplified assumptions. It is NOT a prediction of actual
-            rewards. Only the on-chain PSE module determines real distributions. The total network score
-            (sum of all stakers&apos; scores) is unknown to this calculator and significantly affects results.
-            For your real PSE position, use the score lookup in the PSE tab. This is not financial advice.
-            <div style={{ marginTop: 6 }}>
-              Source:{" "}
-              <a href="https://tx.org" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-olive)", textDecoration: "none" }}>
-                TX Whitepaper v1.10 (MiCA)
-              </a>
-            </div>
-          </div>
-        </div>
+      {/* Both stay mounted, so an amount typed in one is still there after a
+          look at the other. */}
+      <div role="tabpanel" id="earn-panel-stake" aria-labelledby="earn-tab-stake" hidden={view !== "stake"}>
+        <StakingCalculator
+          validators={validatorSet}
+          baseApr={apr}
+          price={price}
+          dilutionPct={stakingData?.annualProvisions && tokenData?.circulatingSupply ? (stakingData.annualProvisions / tokenData.circulatingSupply) * 100 : null}
+        />
+      </div>
+      <div role="tabpanel" id="earn-panel-vault" aria-labelledby="earn-tab-vault" hidden={view !== "vault"}>
+        <UstxVault vault={vault} error={error} />
       </div>
     </>
   );
 }
-
-/* ═══════════════════════════════════════════════════════
-   TAB: PORTFOLIO (wallet-connected staking management)
-   ═══════════════════════════════════════════════════════ */
-
-
-/* ═══════════════════════════════════════════════════════
-   TAB: VALIDATORS
-   ═══════════════════════════════════════════════════════ */
 
 function ValidatorsTab({ wallet, setActiveTab, setShowWalletModal, stakingData, tokenData, validatorSet }: any) {
   return (

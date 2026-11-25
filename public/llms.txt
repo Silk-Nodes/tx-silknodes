@@ -1,17 +1,17 @@
-# ALL in ONE TX — Staking Dashboard
+# ALL in ONE TX: analytics dashboard for the TX chain
 
 > Built by Silk Nodes for the TX (Coreum) community.
 
 ## What is ALL in ONE TX?
-ALL in ONE TX is a free, open-source staking dashboard for the TX token on Coreum blockchain. It provides real-time on-chain data, staking tools, and validator insights in one unified interface.
+ALL in ONE TX is a free analytics dashboard for the TX chain (formerly Coreum). It shows on-chain data for staking, validators, governance, exchange flows and stablecoins, read from TX mainnet.
 
 ## Key Features
 - **Staking**: Delegate, undelegate, and redelegate TX tokens via Keplr or Leap wallet
 - **PSE Score Lookup**: Check any address's Proof of Support Emission score and rewards
-- **Staking Calculator**: Simulate staking rewards with compounding and PSE projections
+- **Earn**: Staking rewards after a validator's commission, with optional daily restaking, and the USTX vault's lock terms and live state, at https://tx.silknodes.io/earn
 - **Validator Explorer**: Compare all active validators by commission, uptime, and voting power
 - **RWA Explorer**: Track tokenized real-world assets (smart tokens) issued on Coreum
-- **Auto-Compound**: Enable auto-compounding via Restake integration (11.6% APR → 13.39% APY)
+- **Auto-Compound**: Enable auto-compounding via Restake integration
 - **Portfolio Management**: View balances, delegations, pending rewards, and unbonding
 
 ## About Silk Nodes
@@ -23,13 +23,11 @@ Silk Nodes is a professional blockchain validator with:
 - Daily snapshots for node operators
 
 ## Links
-- Dashboard: https://tx.silknodes.io/tx-silknodes/
+- Dashboard: https://tx.silknodes.io
 - Silk Nodes: https://silknodes.io
 - X (Twitter): https://x.com/silk_nodes
 - GitHub: https://github.com/Silk-Nodes/tx-silknodes
 
 ## Technical
-- Built with Next.js, deployed on GitHub Pages
-- Static export, no server required
-- All data fetched live from Coreum mainnet LCD endpoints
-- Open source: MIT license
+- Built with Next.js
+- Data is read from TX mainnet nodes and from an indexer; rates on the Earn page are read from the chain at request time

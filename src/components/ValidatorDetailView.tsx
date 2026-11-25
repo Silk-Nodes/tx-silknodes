@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getPSEDistributionInfo, pseDateLabel } from "@/lib/pse-calculator";
+import { ValidatorRewardBox } from "@/components/StakingCalculator";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
 import Tooltip from "@/components/Tooltip";
 import { SILK_NODES_VALIDATOR } from "@/lib/chain-config";
@@ -497,6 +498,8 @@ export default function ValidatorDetailView({
               sub={flow30d.net > 0 ? "gaining" : flow30d.net < 0 ? "losing" : "flat"}
               color={flow30d.net > 0 ? "var(--text-accent)" : flow30d.net < 0 ? "var(--danger)" : undefined}
             />
+
+            <ValidatorRewardBox operatorAddress={v.operatorAddress} delegatorApr={v.delegatorApr} />
 
             {v.website && (
               <div style={{ marginTop: 12 }}>

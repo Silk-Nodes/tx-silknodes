@@ -43,6 +43,10 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # Plain node:test over the arithmetic behind /earn. No framework.
+      - name: Test
+        run: npm test
+
       # DEV_API_PROXY is deliberately blanked. next.config.ts bakes rewrites at
       # BUILD time, so a plain build picks it up from the environment and
       # silently proxies API routes to production. That has bitten local

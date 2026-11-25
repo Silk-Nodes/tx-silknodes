@@ -23,6 +23,10 @@
   --tx-dark-green: #0F1B07;
 
   --accent-yellow: #EBF450;
+  /* Staking calculator: commission and restaking, readable as lines and
+     labels on each theme (accent-yellow is too pale on cream). */
+  --calc-commission: #C96A2A;
+  --calc-restake: #6E5C00;
   --accent-orange: #FFB078;
   /* Orange as TEXT. --accent-orange is tuned for fills and dots and reaches
      only 1.4:1 on the light pill, so it cannot carry type. Per-theme token
@@ -136,6 +140,8 @@
   --tx-dark-green: #0F1B07;
 
   --accent-yellow: #EBF450;
+  --calc-commission: #FFB078;
+  --calc-restake: #EBF450;
   --accent-orange: #FFB078;
   --warn-text: #FFB078;
   --accent-lime: #B1FC03;
@@ -13040,6 +13046,120 @@ input[type="range"]::-moz-range-thumb {
   flex: 1 1 auto;
   min-width: 0;
 }
+/* The staking calculator's result: the wrapper passes the panel's spare
+   height down to the chart, so the chart is what stretches to match the
+   inputs column and never a gap. */
+.calc-share,
+.calc-share > .shareable {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* ── Earn page components ──────────────────────────────────────────── */
+
+/* Validator picker button: the same box as the amount field above it. */
+.earn-picker {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-dark);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+.earn-picker:hover,
+.earn-picker[aria-expanded="true"] { border-color: var(--text-accent); }
+.earn-picker:disabled { opacity: 0.5; cursor: default; }
+.earn-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.earn-picker-rate { flex: none; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-medium); white-space: nowrap; }
+
+/* Its list. Rendered into <body> and placed in page coordinates, because
+   .panel clips overflow. Opaque, since it floats over other content. */
+.earn-pop {
+  position: absolute;
+  z-index: 200;
+  padding: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 27, 7, 0.16);
+  animation: nav-tools-in 0.15s ease;
+}
+[data-theme="dark"] .earn-pop { background: #131a0e; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+.earn-pop-search {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  margin-bottom: 6px;
+  /* 16px on purpose: iOS zooms the whole page when a smaller field takes focus. */
+  font-size: 16px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-dark);
+}
+.earn-pop-search::placeholder { color: var(--text-light); opacity: 1; }
+.earn-pop-list { position: relative; max-height: 264px; overflow-y: auto; overscroll-behavior: contain; }
+.earn-pop-empty { padding: 14px 10px; font-size: 0.76rem; color: var(--text-medium); }
+.earn-opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 86px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  color: var(--text-dark);
+}
+.earn-opt[data-active="true"] { background: var(--accent-olive-light); }
+.earn-opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.earn-opt[aria-selected="true"] .earn-opt-name { font-weight: 700; color: var(--text-accent); }
+.earn-opt-rate,
+.earn-opt-detail { font-family: var(--font-mono); font-size: 0.7rem; text-align: right; white-space: nowrap; }
+.earn-opt-rate { color: var(--text-medium); }
+
+/* On and off switch, for "restake rewards daily". The thumb flips colour
+   with the theme because the track does: dark olive on light, neon on dark. */
+.earn-switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--text-light);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.earn-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-light);
+  transition: transform 0.15s, background 0.15s;
+}
+.earn-switch[aria-checked="true"] { background: var(--text-accent); border-color: var(--text-accent); }
+.earn-switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
+[data-theme="dark"] .earn-switch[aria-checked="true"]::after { background: var(--tx-dark-green); }
+@media (prefers-reduced-motion: reduce) {
+  .earn-switch, .earn-switch::after { transition: none; }
+  .earn-pop { animation: none; }
+}
+
 .shareable-camera {
   position: absolute;
   top: 12px;

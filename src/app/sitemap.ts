@@ -16,6 +16,7 @@ const ROUTES: [string, number, MetadataRoute.Sitemap[number]["changeFrequency"]]
   ["/flows", 0.8, "hourly"],
   ["/passport", 0.8, "weekly"],
   ["/validators", 0.8, "daily"],
+  ["/earn", 0.8, "daily"],
   ["/calculator", 0.7, "monthly"],
   ["/rwa", 0.6, "weekly"],
   ["/portfolio", 0.6, "weekly"],
