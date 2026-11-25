@@ -201,21 +201,33 @@ export async function fetchPSESchedule(): Promise<number[]> {
 
   scheduleFetchPromise = (async () => {
     try {
-      const res = await fetch(HASURA_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `{ action_pse_scheduled_distributions { scheduled_distributions { timestamp } } }`,
-        }),
-      });
-      const data = await res.json();
-      const distributions = data?.data?.action_pse_scheduled_distributions?.scheduled_distributions ?? [];
-      const timestamps = distributions.map((d: { timestamp: number }) => d.timestamp).sort((a: number, b: number) => a - b);
-      if (timestamps.length > 0) {
-        cachedSchedule = timestamps;
+      let timestamps: number[];
+      if (typeof window !== "undefined") {
+        // In the browser, ask our own server. A visitor's network may not
+        // reach the indexer (seen 2026-11-25), and the request had no
+        // timeout, so the countdown never appeared for them.
+        const res = await fetch("/api/pse-schedule", { signal: AbortSignal.timeout(8_000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        timestamps = ((await res.json())?.schedule ?? []) as number[];
+      } else {
+        const res = await fetch(HASURA_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `{ action_pse_scheduled_distributions { scheduled_distributions { timestamp } } }`,
+          }),
+          signal: AbortSignal.timeout(8_000),
+        });
+        const data = await res.json();
+        const distributions = data?.data?.action_pse_scheduled_distributions?.scheduled_distributions ?? [];
+        timestamps = distributions.map((d: { timestamp: number }) => d.timestamp).sort((a: number, b: number) => a - b);
       }
+      if (timestamps.length > 0) cachedSchedule = timestamps;
+      // A failed read is not remembered, so the next caller tries again.
+      else scheduleFetchPromise = null;
       return timestamps;
     } catch {
+      scheduleFetchPromise = null;
       return [];
     }
   })();

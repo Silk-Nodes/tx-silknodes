@@ -25,16 +25,16 @@ function calculateCirculatingSupply(totalOnChainSupply: number): number {
   return totalOnChainSupply - pseRemaining;
 }
 
-// Official TX chain data API for circulating supply
-const TX_CHAIN_API = "https://api.mainnet-1.tx.org/api/chain-data/v1";
-
 // === Token Price & Market Data (CoinGecko + official TX API + on-chain supply) ===
 export async function fetchTokenData(): Promise<TokenData> {
   try {
-    const [cgRes, supplyRes, txCircRes] = await Promise.allSettled([
+    // The official circulating supply arrives inside /api/coin, read by our
+    // server. The browser used to ask tx.org for it directly, and a visitor
+    // whose network could not reach tx.org waited out a 10 second timeout
+    // with the whole page on "Syncing" (2026-11-25).
+    const [cgRes, supplyRes] = await Promise.allSettled([
       fetchWithTimeout("/api/coin"),
       fetchWithTimeout(`${SILK_LCD}/cosmos/bank/v1beta1/supply/by_denom?denom=ucore`),
-      fetchWithTimeout(`${TX_CHAIN_API}/circulating-supply`),
     ]);
 
     const cgData = cgRes.status === "fulfilled" && cgRes.value.ok ? (await cgRes.value.json())?.data : null;
@@ -49,16 +49,11 @@ export async function fetchTokenData(): Promise<TokenData> {
       ? toDisplay(supplyData.amount.amount)
       : (cgData?.market_data?.total_supply ?? 0);
 
-    // Circulating supply priority: 1) Official TX API, 2) CoinGecko, 3) calculated
-    const txCirculating = txCircRes.status === "fulfilled"
-      ? parseFloat(await txCircRes.value.text())
-      : 0;
-    const cgCirculating = cgData?.market_data?.circulating_supply ?? 0;
-    const circulatingSupply = txCirculating > 0
-      ? txCirculating
-      : cgCirculating > 0
-        ? cgCirculating
-        : calculateCirculatingSupply(totalOnChain);
+    // Circulating supply: the figure /api/coin carries (the official TX API
+    // read on the server, or CoinGecko's on the fallback path), else
+    // calculated from on-chain supply.
+    const served = Number(cgData?.market_data?.circulating_supply) || 0;
+    const circulatingSupply = served > 0 ? served : calculateCirculatingSupply(totalOnChain);
 
     // Use CoinGecko market cap directly to match what users see
     const cgMarketCap = cgData?.market_data?.market_cap?.usd ?? 0;
