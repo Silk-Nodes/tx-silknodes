@@ -27,6 +27,41 @@ const CG_URL =
   "https://api.coingecko.com/api/v3/coins/tx?localization=false&tickers=false&community_data=false&developer_data=false";
 const CG_KEY = process.env.COINGECKO_API_KEY || "";
 
+// Official circulating supply, from the TX chain data API (a public
+// third-party endpoint). Read here so no browser depends on reaching tx.org.
+// Ten minutes fresh; on a failed read the last good figure is served, and
+// with none the field is left out and callers calculate it from the chain.
+const TX_CIRCULATING_URL = "https://api.mainnet-1.tx.org/api/chain-data/v1/circulating-supply";
+let lastCirculating: number | null = null;
+// After a failed read, wait a minute before trying again. Without this every
+// price request would sit through the timeout while tx.org is down.
+const RETRY_MS = 60_000;
+let failedAt = 0;
+
+async function circulating(): Promise<number | null> {
+  if (Date.now() - failedAt < RETRY_MS) return lastCirculating;
+  try {
+    lastCirculating = await cached("coin:tx:circulating", 10 * 60_000, async () => {
+      const res = await fetch(TX_CIRCULATING_URL, { signal: AbortSignal.timeout(4_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const n = parseFloat(await res.text());
+      if (!(n > 0)) throw new Error("no figure in the answer");
+      return n;
+    });
+  } catch (e) {
+    failedAt = Date.now();
+    console.warn(`[api/coin] circulating supply read failed: ${(e as Error).message}`);
+  }
+  return lastCirculating;
+}
+
+type Payload = { data: { market_data: Record<string, unknown> } };
+/** Adds the official circulating supply, replacing an aggregator's if present. */
+async function withCirculating<T extends Payload>(p: T): Promise<T> {
+  const n = await circulating();
+  return n ? { ...p, data: { ...p.data, market_data: { ...p.data.market_data, circulating_supply: n } } } : p;
+}
+
 type Tick = { taken_at: string; price_usd: string; open_24h: string | null; volume_usd: string | null; venues_used: number };
 
 async function latestTick(): Promise<Tick | null> {
@@ -76,15 +111,15 @@ function coingecko() {
 export async function GET() {
   const tick = await latestTick();
   const fresh = tick && Date.now() - new Date(tick.taken_at).getTime() < FRESH_MS;
-  if (tick && fresh) return NextResponse.json(fromTick(tick, false), { headers: cacheHeaders(30) });
+  if (tick && fresh) return NextResponse.json(await withCirculating(fromTick(tick, false)), { headers: cacheHeaders(30) });
 
   try {
     if (tick) console.warn(`[api/coin] newest price tick is ${tick.taken_at}; is silknodes-price.timer running? using CoinGecko`);
-    return NextResponse.json(await coingecko(), { headers: cacheHeaders(60) });
+    return NextResponse.json(await withCirculating(await coingecko()), { headers: cacheHeaders(60) });
   } catch (e) {
     console.warn(`[api/coin] CoinGecko fallback failed: ${(e as Error).message}`);
     // An old exchange price, marked stale, beats no price at all.
-    if (tick) return NextResponse.json(fromTick(tick, true), { headers: cacheHeaders(30) });
+    if (tick) return NextResponse.json(await withCirculating(fromTick(tick, true)), { headers: cacheHeaders(30) });
     return NextResponse.json({ error: "price unavailable" }, { status: 503 });
   }
 }
