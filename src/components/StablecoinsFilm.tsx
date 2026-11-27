@@ -39,7 +39,7 @@ export const STABLECOINS_FILM: Film = {
   cardTitle: "New: Stablecoins",
 };
 
-// Figures in this film were read from the chain on 2026-11-18 and are dated
+// Figures in this film were read from the chain on 2026-11-27 and are dated
 // on screen. Source: the EarnFilm composition and cap-earn.mjs.
 export const EARN_FILM: Film = {
   src: "/media/earn-film.mp4",
