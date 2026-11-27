@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Calculator",
   description:
-    "Model your TX staking returns and PSE rewards for any stake size.",
+    "TX staking rewards after your validator's commission, for any stake size.",
+  // The same page as /earn, kept for links already shared.
+  alternates: { canonical: "/earn" },
   openGraph: { title: "Estimate your TX rewards" },
 };
 

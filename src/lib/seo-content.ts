@@ -1,7 +1,7 @@
 // Per-page SEO content: a keyword-natural intro + a short FAQ for each main
 // page. Rendered visibly (server-side, so crawlers and non-JS/agentic bots
 // read it) by <SeoSection>, which also emits matching FAQPage + BreadcrumbList
-// JSON-LD. Keep the copy honest and genuinely useful — it exists for readers
+// JSON-LD. Keep the copy honest and genuinely useful. It exists for readers
 // first, search engines second. Not keyword stuffing.
 
 export interface SeoFaq {
@@ -83,14 +83,16 @@ export const SEO_PAGES: Record<string, SeoPage> = {
     ],
   },
   calculator: {
-    path: "/calculator",
-    heading: "TX staking rewards calculator",
+    path: "/earn",
+    heading: "Earn on TX: staking rewards and the USTX vault",
     intro: [
-      "Estimate your TX staking rewards and PSE earnings before you delegate. Enter a stake amount to see projected returns based on the live network APR and PSE emission, so you can plan your delegation.",
+      "Two ways to earn on TX, both read from the chain. Stake TX with a validator and see your rewards after that validator's commission. Or lock USTX in the vault for 30, 60 or 90 days and earn a dollar yield that is paid in TX.",
     ],
     faqs: [
-      { q: "How much can I earn staking TX?", a: "It depends on the live staking APR, the amount you delegate, and your validator's commission. Enter your figures on this page for a current, on-chain estimate." },
-      { q: "Does PSE change my staking returns?", a: "Yes. PSE adds community-staker emissions on top of ordinary staking rewards. The calculator factors both into the estimate." },
+      { q: "How much can I earn staking TX?", a: "It depends on the live staking APR, the amount you delegate and your validator's commission. Enter an amount, pick a validator and the page shows rewards after commission." },
+      { q: "Does PSE change my staking returns?", a: "Not right now. PSE payouts are paused from 6 November 2026 until 6 December 2027, so the staking APR is the whole return until then." },
+      { q: "What is the USTX vault?", a: "A contract on TX that locks USTX for 30, 60 or 90 days. Longer locks earn a higher rate, and wallets TX has verified earn more than unverified ones. Rewards are paid in TX when the lock ends." },
+      { q: "Where do the vault numbers come from?", a: "From the vault contract itself: its terms, the USTX locked, the open positions, the rewards earned so far and the TX it holds to pay them." },
     ],
   },
   passport: {
